@@ -1,0 +1,89 @@
+<div class="dialog" (keydown.escape)="ui.closeOverlay()">
+  <header>
+    <app-icon name="merge" [size]="18" />
+    <div class="title">
+      <h2>Resolve conflict</h2>
+      <div class="path">{{ path() }}</div>
+    </div>
+    <span class="spacer"></span>
+    <button class="icon-btn" (click)="ui.closeOverlay()" title="Close"><app-icon name="x" [size]="18" /></button>
+  </header>
+
+  @if (error()) {
+    <div class="empty error">{{ error() }}</div>
+  } @else if (data(); as d) {
+    <div class="toolbar">
+      <span>{{ conflicts().length }} conflict{{ conflicts().length === 1 ? '' : 's' }}
+        @if (conflicts().length) { · {{ unresolved() }} unresolved }</span>
+      <span class="spacer"></span>
+      @if (conflicts().length) {
+        <button class="btn small" (click)="chooseAll('ours')">All ours</button>
+        <button class="btn small" (click)="chooseAll('theirs')">All theirs</button>
+      }
+      <button class="btn small" (click)="takeFile('ours')" [disabled]="saving()" [title]="d.oursLabel">Use our file</button>
+      <button class="btn small" (click)="takeFile('theirs')" [disabled]="saving()" [title]="d.theirsLabel">Use their file</button>
+    </div>
+
+    @if (!conflicts().length) {
+      <div class="info">
+        @if (d.working === null) {
+          The file was deleted on one side. Keep one side, or mark it as resolved to keep the current state.
+        } @else {
+          No conflict markers found (binary file, or the markers were already removed).
+          Edit the result below if needed, then mark the file as resolved.
+        }
+        <div class="info-buttons">
+          <button class="btn" (click)="markResolved()" [disabled]="saving()">Mark as resolved</button>
+        </div>
+      </div>
+    } @else {
+      <div class="chunks">
+        @for (c of conflicts(); track $index; let i = $index) {
+          <div class="chunk" [class.done]="choices()[i] !== null">
+            <div class="chunk-head">
+              <strong>Conflict {{ i + 1 }}</strong>
+              <span class="spacer"></span>
+              <div class="segmented">
+                <button [class.active]="choices()[i] === 'ours'" (click)="choose(i, 'ours')">Ours</button>
+                <button [class.active]="choices()[i] === 'theirs'" (click)="choose(i, 'theirs')">Theirs</button>
+                <button [class.active]="choices()[i] === 'ours-theirs'" (click)="choose(i, 'ours-theirs')">Ours + theirs</button>
+                <button [class.active]="choices()[i] === 'theirs-ours'" (click)="choose(i, 'theirs-ours')">Theirs + ours</button>
+              </div>
+            </div>
+            @if (contexts()[i].length) {
+              <pre class="context">{{ lines(contexts()[i]) }}</pre>
+            }
+            <div class="sides">
+              <div class="side ours" [class.picked]="choices()[i]?.includes('ours')">
+                <div class="label">{{ d.oursLabel }}</div>
+                <pre>{{ lines(c.ours) || '(empty)' }}</pre>
+              </div>
+              <div class="side theirs" [class.picked]="choices()[i]?.includes('theirs')">
+                <div class="label">{{ d.theirsLabel }}</div>
+                <pre>{{ lines(c.theirs) || '(empty)' }}</pre>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="result">
+      <div class="result-head">
+        <strong>Result</strong>
+        @if (edited()) { <span class="muted">· edited by hand</span> }
+        @if (hasMarkers()) { <span class="warn">· contains conflict markers</span> }
+      </div>
+      <textarea spellcheck="false" [value]="result()" (input)="edit($any($event.target).value)"></textarea>
+    </div>
+
+    <footer>
+      <span class="muted">Saving writes the result to the file and stages it.</span>
+      <span class="spacer"></span>
+      <button class="btn" (click)="ui.closeOverlay()">Cancel</button>
+      <button class="btn primary" (click)="save()" [disabled]="saving() || d.working === null">Save & mark resolved</button>
+    </footer>
+  } @else {
+    <div class="empty">Loading…</div>
+  }
+</div>

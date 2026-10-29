@@ -1,0 +1,74 @@
+<div class="left" [style.width.px]="leftWidth()">
+  <div class="lists">
+    @if (conflicts().length) {
+      <section>
+        <header class="conflict-header">
+          <app-icon name="alert" [size]="13" />
+          <span>Conflicts ({{ conflicts().length }})</span>
+        </header>
+        <app-file-list [files]="conflicts()" [selected]="isSelected('conflicts')"
+          (pick)="pick('conflicts', $event)" (activate)="activate('conflicts', $event)"
+          (menu)="menu('conflicts', $event)" actionIcon="edit" actionTitle="Resolve…"
+          (action)="openConflict($event.path)" />
+      </section>
+    }
+    <section class="grow">
+      <header>
+        <span>Unstaged ({{ unstaged().length }})</span>
+        <span class="spacer"></span>
+        @if (unstaged().length) {
+          <button class="btn small ghost" (click)="discardAll()" title="Discard all unstaged changes">Discard all</button>
+          <button class="btn small" (click)="stageAll()">Stage all</button>
+        }
+      </header>
+      <app-file-list class="scroll" [files]="unstaged()" [selected]="isSelected('unstaged')"
+        (pick)="pick('unstaged', $event)" (activate)="activate('unstaged', $event)"
+        (menu)="menu('unstaged', $event)" actionIcon="plus" actionTitle="Stage"
+        (action)="stage([$event.path])" emptyText="No unstaged changes" />
+    </section>
+    <section class="grow">
+      <header>
+        <span>Staged ({{ staged().length }})</span>
+        <span class="spacer"></span>
+        @if (staged().length) {
+          <button class="btn small" (click)="unstageAll()">Unstage all</button>
+        }
+      </header>
+      <app-file-list class="scroll" [files]="staged()" [selected]="isSelected('staged')"
+        (pick)="pick('staged', $event)" (activate)="activate('staged', $event)"
+        (menu)="menu('staged', $event)" actionIcon="minus" actionTitle="Unstage"
+        (action)="unstage([$event.path])" emptyText="Nothing staged yet" />
+    </section>
+  </div>
+  <app-commit-box [repo]="repo()" />
+</div>
+<app-splitter axis="x" [(size)]="leftWidth" [min]="260" [max]="900" [defaultSize]="380"
+  storageKey="gitcraft-changes-width" />
+<div class="right">
+  @if (focus()?.area === 'conflicts' && focusedFile(); as file) {
+    <div class="conflict-panel">
+      <app-icon name="alert" [size]="32" />
+      <h3>{{ file.path }} has conflicts</h3>
+      <p>Resolve the conflicting sections, then the file is marked as resolved.</p>
+      <div class="buttons">
+        <button class="btn primary" (click)="openConflict(file.path)">Open merge tool</button>
+        <button class="btn" (click)="resolve(file.path, 'ours')">Use ours</button>
+        <button class="btn" (click)="resolve(file.path, 'theirs')">Use theirs</button>
+        <button class="btn" (click)="resolve(file.path, null)">Mark as resolved</button>
+      </div>
+    </div>
+  } @else {
+    <app-diff-view class="diff" [diff]="diff()" [loading]="diffLoading()" [stageMode]="stageMode()"
+      [allowPartial]="allowPartial()" [note]="partialNote()" (hunkAction)="hunk($event)"
+      [emptyText]="repo().changeCount() ? 'Select a file to see its changes' : 'Working tree is clean'">
+      @if (focusedFile(); as file) {
+        @if (focus()?.area === 'unstaged') {
+          <button class="btn small ghost danger-text" (click)="discard([file.path])">Discard file</button>
+          <button class="btn small" (click)="stage([file.path])">Stage file</button>
+        } @else {
+          <button class="btn small" (click)="unstage([file.path])">Unstage file</button>
+        }
+      }
+    </app-diff-view>
+  }
+</div>

@@ -1,0 +1,97 @@
+{
+  "name": "gitcraft-desktop",
+  "productName": "GitCraft",
+  "version": "0.1.0",
+  "description": "Open-source, cross-platform Git GUI",
+  "license": "MIT",
+  "author": {
+    "name": "Jürgen Könnemann",
+    "email": "maintainers@gitcraft.invalid"
+  },
+  "homepage": "https://example.com/gitcraft",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "build:server": "node scripts/build-server.mjs",
+    "dist": "node scripts/build-server.mjs && electron-builder --publish never",
+    "dist:dir": "node scripts/build-server.mjs && electron-builder --dir --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
+  },
+  "allowScripts": {
+    "electron-winstaller": false
+  },
+  "build": {
+    "appId": "io.github.gitcraft.desktop",
+    "productName": "GitCraft",
+    "copyright": "Copyright © 2026 Jürgen Könnemann",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/gitcraft-server",
+        "to": "server",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "executableName": "gitcraft",
+      "icon": "build/icon.png",
+      "synopsis": "Open-source Git GUI",
+      "maintainer": "Jürgen Könnemann <maintainers@gitcraft.invalid>",
+      "syncDesktopName": true
+    },
+    "deb": {
+      "depends": [
+        "git",
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  },
+  "desktopName": "gitcraft.desktop"
+}

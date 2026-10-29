@@ -1,0 +1,162 @@
+@let r = repo();
+<nav class="nav">
+  <button class="nav-item" [class.active]="r.view() === 'changes'" (click)="r.view.set('changes')">
+    <app-icon name="edit" [size]="14" />
+    <span>Local Changes</span>
+    @if (r.changeCount()) {
+      <span class="count">{{ r.changeCount() }}</span>
+    }
+  </button>
+  <button class="nav-item" [class.active]="r.view() === 'history'" (click)="r.view.set('history')">
+    <app-icon name="history" [size]="14" />
+    <span>All Commits</span>
+  </button>
+</nav>
+
+<div class="filter">
+  <input type="search" placeholder="Filter branches & tags" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+</div>
+
+<div class="sections">
+  <!-- Branches -->
+  <div class="section-header" (click)="toggle('section:branches')">
+    <app-icon [name]="isCollapsed('section:branches') ? 'chevron-right' : 'chevron-down'" [size]="12" />
+    <span>Branches</span>
+    <span class="spacer"></span>
+    <button class="icon-btn" title="New branch" (click)="$event.stopPropagation(); actions.newBranch(r)">
+      <app-icon name="plus" [size]="13" />
+    </button>
+  </div>
+  @if (!isCollapsed('section:branches')) {
+    @for (row of branchRows(); track row.key) {
+      @if (row.folder) {
+        <div class="item folder" [style.padding-left.px]="indent(row.depth)" (click)="toggle(row.key)">
+          <app-icon [name]="isCollapsed(row.key) ? 'chevron-right' : 'chevron-down'" [size]="12" />
+          <app-icon name="folder" [size]="13" />
+          <span class="label">{{ row.label }}</span>
+        </div>
+      } @else {
+        @let b = row.item!;
+        <div class="item" [class.current]="b.current" [class.selected]="r.selectedSha() === b.sha && r.view() === 'history'"
+          [style.padding-left.px]="indent(row.depth)" [title]="b.name + (b.upstream ? ' → ' + b.upstream : '')"
+          (click)="showCommit(b.sha)" (dblclick)="checkoutBranch(b)" (contextmenu)="actions.branchMenu($event, r, b)">
+          <app-icon [name]="b.current ? 'check' : 'branch'" [size]="13" />
+          <span class="label">{{ row.label }}</span>
+          @if (b.upstreamGone) {
+            <span class="gone" title="Upstream branch was deleted">gone</span>
+          }
+          @if (b.ahead) {
+            <span class="ab" title="Commits to push">↑{{ b.ahead }}</span>
+          }
+          @if (b.behind) {
+            <span class="ab" title="Commits to pull">↓{{ b.behind }}</span>
+          }
+        </div>
+      }
+    } @empty {
+      <div class="none">No branches</div>
+    }
+  }
+
+  <!-- Remotes -->
+  <div class="section-header" (click)="toggle('section:remotes')">
+    <app-icon [name]="isCollapsed('section:remotes') ? 'chevron-right' : 'chevron-down'" [size]="12" />
+    <span>Remotes</span>
+    <span class="spacer"></span>
+    <button class="icon-btn" title="Add remote" (click)="$event.stopPropagation(); actions.addRemote(r)">
+      <app-icon name="plus" [size]="13" />
+    </button>
+  </div>
+  @if (!isCollapsed('section:remotes')) {
+    @for (entry of remotes(); track entry.remote.name) {
+      @let key = 'remote:' + entry.remote.name;
+      <div class="item folder" [style.padding-left.px]="indent(0)" [title]="entry.remote.fetchUrl"
+        (click)="toggle(key)" (contextmenu)="actions.remoteMenu($event, r, entry.remote)">
+        <app-icon [name]="isCollapsed(key) ? 'chevron-right' : 'chevron-down'" [size]="12" />
+        <app-icon name="cloud" [size]="13" />
+        <span class="label">{{ entry.remote.name }}</span>
+      </div>
+      @if (!isCollapsed(key)) {
+        @for (row of entry.rows; track row.key) {
+          @if (row.folder) {
+            <div class="item folder" [style.padding-left.px]="indent(row.depth + 1)" (click)="toggle(row.key)">
+              <app-icon [name]="isCollapsed(row.key) ? 'chevron-right' : 'chevron-down'" [size]="12" />
+              <app-icon name="folder" [size]="13" />
+              <span class="label">{{ row.label }}</span>
+            </div>
+          } @else {
+            @let b = row.item!;
+            <div class="item" [style.padding-left.px]="indent(row.depth + 1)" [title]="b.name"
+              [class.selected]="r.selectedSha() === b.sha && r.view() === 'history'"
+              (click)="showCommit(b.sha)" (dblclick)="checkoutRemote(b)"
+              (contextmenu)="actions.remoteBranchMenu($event, r, b)">
+              <app-icon name="branch" [size]="13" />
+              <span class="label">{{ row.label }}</span>
+            </div>
+          }
+        }
+      }
+    } @empty {
+      <div class="none">No remotes</div>
+    }
+  }
+
+  <!-- Tags -->
+  <div class="section-header" (click)="toggle('section:tags')">
+    <app-icon [name]="isCollapsed('section:tags') ? 'chevron-right' : 'chevron-down'" [size]="12" />
+    <span>Tags</span>
+    <span class="badge-count">{{ tags().length }}</span>
+  </div>
+  @if (!isCollapsed('section:tags')) {
+    @for (tag of tags(); track tag.name) {
+      <div class="item" [style.padding-left.px]="indent(0)" [title]="tagTitle(tag)"
+        [class.selected]="r.selectedSha() === tag.sha && r.view() === 'history'"
+        (click)="showCommit(tag.sha)" (contextmenu)="actions.tagMenu($event, r, tag)">
+        <app-icon name="tag" [size]="13" />
+        <span class="label">{{ tag.name }}</span>
+      </div>
+    } @empty {
+      <div class="none">No tags</div>
+    }
+  }
+
+  <!-- Stashes -->
+  <div class="section-header" (click)="toggle('section:stashes')">
+    <app-icon [name]="isCollapsed('section:stashes') ? 'chevron-right' : 'chevron-down'" [size]="12" />
+    <span>Stashes</span>
+    <span class="badge-count">{{ stashes().length }}</span>
+  </div>
+  @if (!isCollapsed('section:stashes')) {
+    @for (stash of stashes(); track stash.name) {
+      <div class="item" [style.padding-left.px]="indent(0)" [title]="stash.name + ': ' + stash.message"
+        [class.selected]="r.view() === 'stash' && r.selectedStash() === stash.name"
+        (click)="openStash(stash)" (contextmenu)="actions.stashMenu($event, r, stash)">
+        <app-icon name="stash" [size]="13" />
+        <span class="label">{{ stash.message }}</span>
+      </div>
+    } @empty {
+      <div class="none">No stashes</div>
+    }
+  }
+
+  <!-- Submodules -->
+  @if (submodules().length) {
+    <div class="section-header" (click)="toggle('section:submodules')">
+      <app-icon [name]="isCollapsed('section:submodules') ? 'chevron-right' : 'chevron-down'" [size]="12" />
+      <span>Submodules</span>
+      <span class="badge-count">{{ submodules().length }}</span>
+    </div>
+    @if (!isCollapsed('section:submodules')) {
+      @for (module of submodules(); track module.path) {
+        <div class="item" [style.padding-left.px]="indent(0)" [title]="module.path + ' (' + module.state + '), double-click to open'"
+          (dblclick)="openSubmodule(module)" (contextmenu)="submoduleMenu($event, module)">
+          <app-icon name="box" [size]="13" />
+          <span class="label">{{ module.path }}</span>
+          @if (module.state !== 'ok') {
+            <span class="ab">{{ module.state }}</span>
+          }
+        </div>
+      }
+    }
+  }
+</div>

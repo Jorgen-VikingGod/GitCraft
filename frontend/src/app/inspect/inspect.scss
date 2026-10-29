@@ -1,0 +1,185 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  display: grid;
+  place-items: center;
+  background: var(--backdrop);
+  padding: 16px;
+}
+
+.dialog {
+  width: min(1300px, 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  h2 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .path {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.list {
+  width: 340px;
+  flex: none;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+  outline: none;
+}
+
+.item {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  &:hover {
+    background: var(--hover);
+  }
+  &.selected {
+    background: var(--selection);
+    color: var(--selection-text);
+    .meta,
+    .rename {
+      color: inherit;
+      opacity: 0.85;
+    }
+  }
+  .subject {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .meta,
+  .rename {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  code {
+    font-family: var(--mono);
+  }
+}
+
+.right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diff {
+  flex: 1;
+  min-height: 0;
+}
+
+.blame {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg);
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--mono);
+    font-size: var(--code-size);
+    line-height: 20px;
+  }
+  tr.first td {
+    border-top: 1px solid var(--border);
+  }
+  tr.hover .gutter {
+    background: var(--hover);
+  }
+  td {
+    padding: 0;
+    vertical-align: top;
+  }
+  .gutter {
+    width: 330px;
+    max-width: 330px;
+    padding: 0 8px;
+    border-left: 4px solid transparent;
+    background: var(--panel);
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .g {
+    display: flex;
+    gap: 8px;
+    width: 314px;
+    overflow: hidden;
+  }
+  .g-sha {
+    font-family: var(--mono);
+    color: var(--accent);
+  }
+  .g-author {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .no {
+    width: 1%;
+    padding: 0 10px;
+    text-align: right;
+    color: var(--text-faint);
+    user-select: none;
+  }
+  .code {
+    white-space: pre-wrap;
+    word-break: break-all;
+    padding-right: 12px;
+    tab-size: 4;
+  }
+}
+
+.status {
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  &.error {
+    color: var(--danger);
+  }
+}

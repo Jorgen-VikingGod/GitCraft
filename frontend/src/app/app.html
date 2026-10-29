@@ -1,0 +1,69 @@
+@if (api.unauthorized() || !api.token) {
+  <div class="locked">
+    <h1>GitCraft</h1>
+    <p>This page needs a valid session token.</p>
+    <p>Open the link printed by the <code>gitcraft</code> command, which looks like
+      <code>http://127.0.0.1:7420/?token=…</code></p>
+  </div>
+} @else {
+  <app-tab-bar />
+  @if (repo(); as r) {
+    <app-toolbar [repo]="r" />
+    <app-operation-banner [repo]="r" />
+    <div class="main">
+      <app-sidebar class="sidebar" [repo]="r" [style.width.px]="sidebarWidth()" />
+      <app-splitter axis="x" [(size)]="sidebarWidth" [min]="180" [max]="500" [defaultSize]="250"
+        storageKey="gitcraft-sidebar-width" />
+      <div class="content">
+        @if (r.error() && !r.status()) {
+          <div class="repo-error">
+            <h3>Cannot read this repository</h3>
+            <p>{{ r.error() }}</p>
+            <button class="btn" (click)="r.refreshAll()">Retry</button>
+          </div>
+        } @else {
+          @switch (r.view()) {
+            @case ('changes') { <app-changes-view [repo]="r" /> }
+            @case ('stash') {
+              @if (r.selectedStash(); as stash) { <app-stash-view [repo]="r" [name]="stash" /> }
+            }
+            @default { <app-history-view [repo]="r" /> }
+          }
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="main welcome">
+      <p>No repository open.</p>
+      <button class="btn primary" (click)="ui.open({ kind: 'open' })">Open a repository</button>
+    </div>
+  }
+  <app-status-bar />
+
+  @switch (ui.overlay()?.kind) {
+    @case ('open') { <app-open-repo /> }
+    @case ('settings') { <app-settings-dialog /> }
+  }
+  @if (overlay('rebase'); as o) {
+    <app-rebase-dialog [repo]="o.repo" [base]="o.base" />
+  }
+  @if (overlay('conflict'); as o) {
+    <app-conflict-resolver [repo]="o.repo" [path]="o.path" />
+  }
+  @if (overlay('file-history'); as o) {
+    @for (key of [o.path]; track key) {
+      <app-file-history [repo]="o.repo" [path]="o.path" />
+    }
+  }
+  @if (overlay('reflog'); as o) {
+    <app-reflog-view [repo]="o.repo" />
+  }
+  @if (overlay('blame'); as o) {
+    @for (key of [o.path + '@' + o.rev]; track key) {
+      <app-blame-view [repo]="o.repo" [path]="o.path" [rev]="o.rev" />
+    }
+  }
+  <app-form-dialog />
+  <app-context-menu />
+  <app-toasts />
+}
