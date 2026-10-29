@@ -4,6 +4,10 @@ An open-source, cross-platform graphical Git client.
 It runs on Linux, macOS and Windows: a small Python ([Litestar](https://litestar.dev/)) server drives your
 installed `git`, and the Angular UI runs in your browser on `127.0.0.1`.
 
+| Light | Dark |
+| --- | --- |
+| ![GitCraft in light mode: commit graph with the commit context menu and its "Reset main to here" submenu open](docs/screenshots/gitcraft-light.png) | ![GitCraft in dark mode: commit graph with the commit context menu and its "Edit commit" submenu open](docs/screenshots/gitcraft-dark.png) |
+
 ## Features
 
 - **Commit graph**: virtual-scrolled history of all branches with lane graph, branch/tag/remote badges,
