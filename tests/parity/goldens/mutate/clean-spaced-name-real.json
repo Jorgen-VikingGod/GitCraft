@@ -1,0 +1,63 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "dryRun": false
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/clean"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "files": [
+      "new-latin1.txt",
+      "spaced.txt"
+     ],
+     "message": "Removing new-latin1.txt\nRemoving untracked spaced.txt",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "encodings",
+ "state": {
+  "head": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+  "index": [
+   "100644 7fbf4d847b191141d80f30c8ab03d2ad4cd543a9 0\tcrlf.txt",
+   "100644 0b5692abb4aa9b550b9d80a9652cd16a7643a2f2 0\tctl.txt",
+   "100644 014b594e0562d38fb063951d5aff7ecdf46c154c 0\tlatin1.txt",
+   "100644 59555e68d5fd76a5202bbe434e1ea7275940e496 0\tmixed.txt",
+   "100644 b77b4eb1d946f923f61785536da9ca5af6909f06 0\tspaces in name.txt",
+   "100644 b68025345d5301abad4d9ec9166f455243a0d746 0\tsub-ject.txt",
+   "100644 d937cf33e4c4ee37f80fda367682bb9d8cf48620 0\tunicode-ÄÖÜ-日本語.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main b7c97718eba05e9b44320d9842b4fb66dc63b575"
+  ],
+  "stashes": [],
+  "status": [
+   " M crlf.txt",
+   " M latin1.txt",
+   " M unicode-ÄÖÜ-日本語.txt",
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "crlf.txt": "bb5855d88bc430d5",
+   "ctl.txt": "878e55543cba9898",
+   "latin1.txt": "578a5055ef0d9d4b",
+   "mixed.txt": "1de1dc557c5b230b",
+   "spaces in name.txt": "09834d488008f5f1",
+   "sub-ject.txt": "c865f6c5ab8d1b0b",
+   "unicode-ÄÖÜ-日本語.txt": "03857abc3772e637"
+  }
+ }
+}

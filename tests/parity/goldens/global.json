@@ -1,0 +1,258 @@
+[
+ {
+  "request": {
+   "method": "GET",
+   "path": "/health"
+  },
+  "response": {
+   "body": {
+    "status": "ok",
+    "version": "0.1.0"
+   },
+   "status": 200,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "path": "/health",
+   "token": null
+  },
+  "response": {
+   "body": {
+    "detail": "Missing or invalid GitCraft session token",
+    "status_code": 401
+   },
+   "status": 401,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "path": "/health",
+   "token": "wrong"
+  },
+  "response": {
+   "body": {
+    "detail": "Missing or invalid GitCraft session token",
+    "status_code": 401
+   },
+   "status": 401,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "params": {
+    "repo": "<ROOT>/never-opened"
+   },
+   "path": "/status"
+  },
+  "response": {
+   "body": {
+    "detail": "Repository has not been opened in GitCraft",
+    "status_code": 403
+   },
+   "status": 403,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "path": "/status",
+   "status_only": true
+  },
+  "response": {
+   "body": {
+    "error": "400: Missing required query parameter 'repo' for path /api/status",
+    "status_code": 400
+   },
+   "status": 400,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "params": {
+    "path": "<ROOT>/fs"
+   },
+   "path": "/fs"
+  },
+  "response": {
+   "body": {
+    "dirs": [
+     {
+      "isRepo": false,
+      "name": "plain",
+      "path": "<ROOT>/fs/plain"
+     }
+    ],
+    "home": "<HOME>",
+    "isRepo": false,
+    "parent": "<ROOT>",
+    "path": "<ROOT>/fs",
+    "roots": [
+     "/"
+    ]
+   },
+   "status": 200,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "params": {
+    "hidden": true,
+    "path": "<ROOT>/fs"
+   },
+   "path": "/fs"
+  },
+  "response": {
+   "body": {
+    "dirs": [
+     {
+      "isRepo": false,
+      "name": ".hidden",
+      "path": "<ROOT>/fs/.hidden"
+     },
+     {
+      "isRepo": false,
+      "name": "plain",
+      "path": "<ROOT>/fs/plain"
+     }
+    ],
+    "home": "<HOME>",
+    "isRepo": false,
+    "parent": "<ROOT>",
+    "path": "<ROOT>/fs",
+    "roots": [
+     "/"
+    ]
+   },
+   "status": 200,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "params": {
+    "path": "<ROOT>/fs/missing"
+   },
+   "path": "/fs"
+  },
+  "response": {
+   "body": {
+    "error": "400: Not a folder: <ROOT>/fs/missing",
+    "status_code": 400
+   },
+   "status": 400,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "method": "GET",
+   "params": {
+    "path": "<ROOT>/fs/a-file.txt"
+   },
+   "path": "/fs"
+  },
+  "response": {
+   "body": {
+    "error": "400: Not a folder: <ROOT>/fs/a-file.txt",
+    "status_code": 400
+   },
+   "status": 400,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "body": {
+    "path": "<ROOT>/fs"
+   },
+   "method": "POST",
+   "path": "/repos/open"
+  },
+  "response": {
+   "body": {
+    "error": "400: Not a git repository: <ROOT>/fs",
+    "status_code": 400
+   },
+   "status": 400,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "body": {
+    "path": "<ROOT>/fs/missing"
+   },
+   "method": "POST",
+   "path": "/repos/open"
+  },
+  "response": {
+   "body": {
+    "error": "400: Folder does not exist: <ROOT>/fs/missing",
+    "status_code": 400
+   },
+   "status": 400,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "body": {},
+   "method": "POST",
+   "path": "/repos/open",
+   "status_only": true
+  },
+  "response": {
+   "body": {
+    "error": "400: Validation failed for POST /api/repos/open",
+    "status_code": 400
+   },
+   "status": 400,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "body": {
+    "path": "<ROOT>/fs/created"
+   },
+   "method": "POST",
+   "path": "/repos/init"
+  },
+  "response": {
+   "body": {
+    "lastOpened": "<TIME>",
+    "name": "created",
+    "path": "<ROOT>/fs/created"
+   },
+   "status": 201,
+   "type": "application/json"
+  }
+ },
+ {
+  "request": {
+   "body": {
+    "path": "<ROOT>/fs/created"
+   },
+   "method": "POST",
+   "path": "/repos/forget"
+  },
+  "response": {
+   "body": null,
+   "status": 201,
+   "type": "application/json"
+  }
+ }
+]

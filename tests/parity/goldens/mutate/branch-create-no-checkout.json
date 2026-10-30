@@ -1,0 +1,55 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "checkout": false,
+     "name": "created",
+     "start": "HEAD~1"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/branch"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "linear",
+ "state": {
+  "head": "cfae3a95df4676c4131d493b32dce90cfa08e926",
+  "index": [
+   "100644 e9af83d5fe03fcff740cc8c3b506cfb99c915e0e 0\t.committemplate",
+   "100644 f384549cbeb481e437091320de6d1f2e15e11b4a 0\ta.txt",
+   "100644 94a6a9ec47313a6b5513fe49b65c0167f8e63329 0\tdir/b.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/created 595fe91471b2fbf6ccd9425d299e06cb0318ea32",
+   "refs/heads/feature/one 4140ee722cddbe582be660adcb3e692769e8af95",
+   "refs/heads/feature/two fd9fbff40db387af435fd626bab63b4498d12e02",
+   "refs/heads/main cfae3a95df4676c4131d493b32dce90cfa08e926",
+   "refs/tags/v1-light fd9fbff40db387af435fd626bab63b4498d12e02",
+   "refs/tags/v2-annotated f50c718cb27205e5c06cd1660470310d17566f2b"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   ".committemplate": "8ae7872dd61f1d30",
+   "a.txt": "c45d3a272228cc54",
+   "dir/b.txt": "008ad5c57d720a71"
+  }
+ }
+}

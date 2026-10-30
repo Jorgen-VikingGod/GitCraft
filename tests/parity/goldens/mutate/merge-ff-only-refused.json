@@ -1,0 +1,48 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "mode": "ff-only",
+     "ref": "topic"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/merge"
+   },
+   "response": {
+    "body": {
+     "command": "git merge --no-edit --ff-only topic",
+     "error": "hint: Diverging branches can't be fast-forwarded, you need to either:\nhint:\nhint: \tgit merge --no-ff\nhint:\nhint: or:\nhint:\nhint: \tgit rebase\nhint:\nhint: Disable this message with \"git config set advice.diverging false\"\nfatal: Not possible to fast-forward, aborting.",
+     "status_code": 400
+    },
+    "status": 400,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "conflict_ready",
+ "state": {
+  "head": "4f5762eeb5afff950553519cc17bdd91d02079aa",
+  "index": [
+   "100644 81532b1a85204c33becebe31e89afda76f527052 0\tadd.txt",
+   "100644 560f80fb0e1c02e629d2e52387cffe509d553435 0\tc.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main 4f5762eeb5afff950553519cc17bdd91d02079aa",
+   "refs/heads/topic 3bd79088be49fba13ec9b51007284262eef536b9"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "add.txt": "843f940e8e58a579",
+   "c.txt": "df8cd6d6fdb3ff0b"
+  }
+ }
+}

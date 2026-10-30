@@ -1,0 +1,59 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "base": "c575aec607f25f9e733edbbcb7cf59426788698c",
+     "steps": [
+      {
+       "action": "explode",
+       "sha": "e99108bbb1bf09814c414e3a961e0c3139dfb673"
+      }
+     ]
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/interactive"
+   },
+   "response": {
+    "body": {
+     "error": "Unknown rebase action explode",
+     "status_code": 400
+    },
+    "status": 400,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "rebase_ready",
+ "state": {
+  "head": "e99108bbb1bf09814c414e3a961e0c3139dfb673",
+  "index": [
+   "100644 df967b96a579e45a18b8251732d16804b2e56a55 0\tbase.txt",
+   "100644 d00491fd7e5bb6fa28c517a0bb32b8b506539d4d 0\tf1.txt",
+   "100644 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f 0\tf2.txt",
+   "100644 00750edc07d6415dcc07ae0351e9397b0222b7ba 0\tf3.txt",
+   "100644 b8626c4cff2849624fb67f87cd0ad72b163671ad 0\tf4.txt",
+   "100644 7ed6ff82de6bcc2a78243fc9c54d3ef5ac14da69 0\tf5.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main e99108bbb1bf09814c414e3a961e0c3139dfb673"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "base.txt": "f34848ca92665c34",
+   "f1.txt": "4355a46b19d348dc",
+   "f2.txt": "53c234e5e8472b6a",
+   "f3.txt": "1121cfccd5913f0a",
+   "f4.txt": "7de1555df0c27003",
+   "f5.txt": "f0b5c2c2211c8d67"
+  }
+ }
+}

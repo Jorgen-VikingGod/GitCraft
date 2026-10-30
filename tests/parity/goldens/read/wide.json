@@ -1,0 +1,7155 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/status"
+   },
+   "response": {
+    "body": {
+     "branch": {
+      "ahead": 0,
+      "behind": 0,
+      "detached": false,
+      "head": "main",
+      "oid": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "upstream": null
+     },
+     "conflicts": [],
+     "operation": null,
+     "staged": [],
+     "unstaged": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/refs"
+   },
+   "response": {
+    "body": {
+     "head": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+     "local": [
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane00",
+       "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane01",
+       "sha": "df1dc8bfb236e8f6fd372ab5668c4d9880f94f89",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane02",
+       "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane03",
+       "sha": "aba2b9bc7f9c8c619c0435ebb3434c22a0ea0952",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane04",
+       "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane05",
+       "sha": "faf7df370ee8975c1debe60191e3c74f2bb59c73",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane06",
+       "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane07",
+       "sha": "cdaa9620bd1eebcbff4f3c763294710184483daa",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane08",
+       "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane09",
+       "sha": "8686c190acd2c20808a4936d040ff3328822ee04",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane10",
+       "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "lane11",
+       "sha": "6d01558afc45a2b5247c0c06959f5da6a7b57f4c",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": true,
+       "name": "main",
+       "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+       "upstream": null,
+       "upstreamGone": false
+      }
+     ],
+     "remote": [],
+     "remotes": [],
+     "stashes": [],
+     "submodules": [],
+     "tags": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+        "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+       "subject": "merge lane 10",
+       "time": 1700005700
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 1,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          1,
+          1
+         ],
+         [
+          1,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "8e10331ea9838ee0f66b122d40b001e368162a89"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane10"
+        }
+       ],
+       "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+       "subject": "lane 10 second",
+       "time": 1700004800
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 1,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          1,
+          1
+         ],
+         [
+          1,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+       "subject": "lane 10 first",
+       "time": 1700004620
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          2,
+          2,
+          2
+         ]
+        ],
+        "width": 3
+       },
+       "parents": [
+        "f33c0331da86fa72b4245f6611317e982b0bf78f",
+        "e201583242e6eab7db3b4869f571e888e214673d"
+       ],
+       "refs": [],
+       "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+       "subject": "merge lane 8",
+       "time": 1700005640
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 2,
+        "color": 2,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          1,
+          2
+         ],
+         [
+          2,
+          2,
+          2,
+          2
+         ]
+        ],
+        "width": 3
+       },
+       "parents": [
+        "427b082b75154c34e8368249e239b9d7b86f64fa"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane08"
+        }
+       ],
+       "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+       "subject": "lane 8 second",
+       "time": 1700003960
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 2,
+        "color": 2,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          1,
+          2
+         ],
+         [
+          2,
+          2,
+          2,
+          2
+         ]
+        ],
+        "width": 3
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+       "subject": "lane 8 first",
+       "time": 1700003780
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          3,
+          2,
+          3
+         ]
+        ],
+        "width": 4
+       },
+       "parents": [
+        "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+        "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+       ],
+       "refs": [],
+       "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+       "subject": "merge lane 6",
+       "time": 1700005580
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 3,
+        "color": 3,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          1,
+          3
+         ],
+         [
+          3,
+          3,
+          2,
+          3
+         ]
+        ],
+        "width": 4
+       },
+       "parents": [
+        "6033ff434427af9880ee547efad4b27216006073"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane06"
+        }
+       ],
+       "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+       "subject": "lane 6 second",
+       "time": 1700003120
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 3,
+        "color": 3,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          1,
+          3
+         ],
+         [
+          3,
+          3,
+          2,
+          3
+         ]
+        ],
+        "width": 4
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "6033ff434427af9880ee547efad4b27216006073",
+       "subject": "lane 6 first",
+       "time": 1700002940
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          4,
+          2,
+          4
+         ]
+        ],
+        "width": 5
+       },
+       "parents": [
+        "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+        "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+       ],
+       "refs": [],
+       "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+       "subject": "merge lane 4",
+       "time": 1700005520
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 4,
+        "color": 4,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          1,
+          4
+         ],
+         [
+          4,
+          4,
+          2,
+          4
+         ]
+        ],
+        "width": 5
+       },
+       "parents": [
+        "307ad93aa62f738e2879ffd3896345801e391341"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane04"
+        }
+       ],
+       "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+       "subject": "lane 4 second",
+       "time": 1700002280
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 4,
+        "color": 4,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          1,
+          4
+         ],
+         [
+          4,
+          4,
+          2,
+          4
+         ]
+        ],
+        "width": 5
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+       "subject": "lane 4 first",
+       "time": 1700002100
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          5,
+          2,
+          5
+         ]
+        ],
+        "width": 6
+       },
+       "parents": [
+        "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+        "d73d9f4abe26b633c357c2486747a215ba03339b"
+       ],
+       "refs": [],
+       "sha": "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+       "subject": "merge lane 2",
+       "time": 1700005460
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 5,
+        "color": 5,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          1,
+          5
+         ],
+         [
+          5,
+          5,
+          2,
+          5
+         ]
+        ],
+        "width": 6
+       },
+       "parents": [
+        "41b48ebfac3deef91e316c7c482647e579863baa"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane02"
+        }
+       ],
+       "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+       "subject": "lane 2 second",
+       "time": 1700001440
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 5,
+        "color": 5,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          1,
+          5
+         ],
+         [
+          5,
+          5,
+          2,
+          5
+         ]
+        ],
+        "width": 6
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "41b48ebfac3deef91e316c7c482647e579863baa",
+       "subject": "lane 2 first",
+       "time": 1700001260
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          6,
+          2,
+          6
+         ]
+        ],
+        "width": 7
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3",
+        "f5080f3b8f92d40827251b538699f38193e0a86d"
+       ],
+       "refs": [],
+       "sha": "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+       "subject": "merge lane 0",
+       "time": 1700005400
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 6,
+        "color": 6,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          1,
+          6
+         ],
+         [
+          6,
+          6,
+          2,
+          6
+         ]
+        ],
+        "width": 7
+       },
+       "parents": [
+        "85697584f92e5aafa06d2781d0f278453eefb2f1"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane00"
+        }
+       ],
+       "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+       "subject": "lane 0 second",
+       "time": 1700000600
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 6,
+        "color": 6,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          1,
+          6
+         ],
+         [
+          6,
+          6,
+          2,
+          6
+         ]
+        ],
+        "width": 7
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "85697584f92e5aafa06d2781d0f278453eefb2f1",
+       "subject": "lane 0 first",
+       "time": 1700000420
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 7,
+        "color": 7,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          2,
+          7
+         ]
+        ],
+        "width": 8
+       },
+       "parents": [
+        "06bcd7fbb503919cf5822e8f1f7ee585d1b78eb2"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane11"
+        }
+       ],
+       "sha": "6d01558afc45a2b5247c0c06959f5da6a7b57f4c",
+       "subject": "lane 11 second",
+       "time": 1700005220
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 7,
+        "color": 7,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          1,
+          7
+         ],
+         [
+          7,
+          7,
+          2,
+          7
+         ]
+        ],
+        "width": 8
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "06bcd7fbb503919cf5822e8f1f7ee585d1b78eb2",
+       "subject": "lane 11 first",
+       "time": 1700005040
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 8,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          2,
+          0
+         ]
+        ],
+        "width": 9
+       },
+       "parents": [
+        "26894fd5396fe34867f3d575db7ba0d953a560a9"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane09"
+        }
+       ],
+       "sha": "8686c190acd2c20808a4936d040ff3328822ee04",
+       "subject": "lane 9 second",
+       "time": 1700004380
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 8,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          1,
+          0
+         ],
+         [
+          8,
+          8,
+          2,
+          0
+         ]
+        ],
+        "width": 9
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "26894fd5396fe34867f3d575db7ba0d953a560a9",
+       "subject": "lane 9 first",
+       "time": 1700004200
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 9,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          2,
+          1
+         ]
+        ],
+        "width": 10
+       },
+       "parents": [
+        "3be25907c8c9d777f4d3b6d970c44da4487ca1e1"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane07"
+        }
+       ],
+       "sha": "cdaa9620bd1eebcbff4f3c763294710184483daa",
+       "subject": "lane 7 second",
+       "time": 1700003540
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 9,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          1,
+          1
+         ],
+         [
+          9,
+          9,
+          2,
+          1
+         ]
+        ],
+        "width": 10
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "3be25907c8c9d777f4d3b6d970c44da4487ca1e1",
+       "subject": "lane 7 first",
+       "time": 1700003360
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 10,
+        "color": 2,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          0,
+          1
+         ],
+         [
+          10,
+          10,
+          2,
+          2
+         ]
+        ],
+        "width": 11
+       },
+       "parents": [
+        "8f5779d41442036677f9fed8ec63f0924b4c530d"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane05"
+        }
+       ],
+       "sha": "faf7df370ee8975c1debe60191e3c74f2bb59c73",
+       "subject": "lane 5 second",
+       "time": 1700002700
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 10,
+        "color": 2,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          0,
+          1
+         ],
+         [
+          10,
+          10,
+          1,
+          2
+         ],
+         [
+          10,
+          10,
+          2,
+          2
+         ]
+        ],
+        "width": 11
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "8f5779d41442036677f9fed8ec63f0924b4c530d",
+       "subject": "lane 5 first",
+       "time": 1700002520
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 11,
+        "color": 3,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          0,
+          1
+         ],
+         [
+          10,
+          10,
+          0,
+          2
+         ],
+         [
+          11,
+          11,
+          2,
+          3
+         ]
+        ],
+        "width": 12
+       },
+       "parents": [
+        "59ede001efe977f086c15e219ecdfdb17472a853"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane03"
+        }
+       ],
+       "sha": "aba2b9bc7f9c8c619c0435ebb3434c22a0ea0952",
+       "subject": "lane 3 second",
+       "time": 1700001860
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 11,
+        "color": 3,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          0,
+          1
+         ],
+         [
+          10,
+          10,
+          0,
+          2
+         ],
+         [
+          11,
+          11,
+          1,
+          3
+         ],
+         [
+          11,
+          11,
+          2,
+          3
+         ]
+        ],
+        "width": 12
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "59ede001efe977f086c15e219ecdfdb17472a853",
+       "subject": "lane 3 first",
+       "time": 1700001680
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 12,
+        "color": 4,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          0,
+          1
+         ],
+         [
+          10,
+          10,
+          0,
+          2
+         ],
+         [
+          11,
+          11,
+          0,
+          3
+         ],
+         [
+          12,
+          12,
+          2,
+          4
+         ]
+        ],
+        "width": 13
+       },
+       "parents": [
+        "79f703f1558b92e9af243c5aae374105c1e5761c"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane01"
+        }
+       ],
+       "sha": "df1dc8bfb236e8f6fd372ab5668c4d9880f94f89",
+       "subject": "lane 1 second",
+       "time": 1700001020
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 12,
+        "color": 4,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          0,
+          6
+         ],
+         [
+          7,
+          7,
+          0,
+          7
+         ],
+         [
+          8,
+          8,
+          0,
+          0
+         ],
+         [
+          9,
+          9,
+          0,
+          1
+         ],
+         [
+          10,
+          10,
+          0,
+          2
+         ],
+         [
+          11,
+          11,
+          0,
+          3
+         ],
+         [
+          12,
+          12,
+          1,
+          4
+         ],
+         [
+          12,
+          12,
+          2,
+          4
+         ]
+        ],
+        "width": 13
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "79f703f1558b92e9af243c5aae374105c1e5761c",
+       "subject": "lane 1 first",
+       "time": 1700000840
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          0,
+          1,
+          1
+         ],
+         [
+          2,
+          0,
+          1,
+          2
+         ],
+         [
+          3,
+          0,
+          1,
+          3
+         ],
+         [
+          4,
+          0,
+          1,
+          4
+         ],
+         [
+          5,
+          0,
+          1,
+          5
+         ],
+         [
+          6,
+          0,
+          1,
+          6
+         ],
+         [
+          7,
+          0,
+          1,
+          7
+         ],
+         [
+          8,
+          0,
+          1,
+          0
+         ],
+         [
+          9,
+          0,
+          1,
+          1
+         ],
+         [
+          10,
+          0,
+          1,
+          2
+         ],
+         [
+          11,
+          0,
+          1,
+          3
+         ],
+         [
+          12,
+          0,
+          1,
+          4
+         ]
+        ],
+        "width": 13
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "554221d38309e87fa099493b452465f081fda9a3",
+       "subject": "root",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "all": "false",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+        "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+       "subject": "merge lane 10",
+       "time": 1700005700
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 1,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          1,
+          1
+         ],
+         [
+          1,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "8e10331ea9838ee0f66b122d40b001e368162a89"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane10"
+        }
+       ],
+       "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+       "subject": "lane 10 second",
+       "time": 1700004800
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 1,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          1,
+          1
+         ],
+         [
+          1,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+       "subject": "lane 10 first",
+       "time": 1700004620
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          2,
+          2,
+          2
+         ]
+        ],
+        "width": 3
+       },
+       "parents": [
+        "f33c0331da86fa72b4245f6611317e982b0bf78f",
+        "e201583242e6eab7db3b4869f571e888e214673d"
+       ],
+       "refs": [],
+       "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+       "subject": "merge lane 8",
+       "time": 1700005640
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 2,
+        "color": 2,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          1,
+          2
+         ],
+         [
+          2,
+          2,
+          2,
+          2
+         ]
+        ],
+        "width": 3
+       },
+       "parents": [
+        "427b082b75154c34e8368249e239b9d7b86f64fa"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane08"
+        }
+       ],
+       "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+       "subject": "lane 8 second",
+       "time": 1700003960
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 2,
+        "color": 2,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          1,
+          2
+         ],
+         [
+          2,
+          2,
+          2,
+          2
+         ]
+        ],
+        "width": 3
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+       "subject": "lane 8 first",
+       "time": 1700003780
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          3,
+          2,
+          3
+         ]
+        ],
+        "width": 4
+       },
+       "parents": [
+        "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+        "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+       ],
+       "refs": [],
+       "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+       "subject": "merge lane 6",
+       "time": 1700005580
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 3,
+        "color": 3,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          1,
+          3
+         ],
+         [
+          3,
+          3,
+          2,
+          3
+         ]
+        ],
+        "width": 4
+       },
+       "parents": [
+        "6033ff434427af9880ee547efad4b27216006073"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane06"
+        }
+       ],
+       "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+       "subject": "lane 6 second",
+       "time": 1700003120
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 3,
+        "color": 3,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          1,
+          3
+         ],
+         [
+          3,
+          3,
+          2,
+          3
+         ]
+        ],
+        "width": 4
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "6033ff434427af9880ee547efad4b27216006073",
+       "subject": "lane 6 first",
+       "time": 1700002940
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          4,
+          2,
+          4
+         ]
+        ],
+        "width": 5
+       },
+       "parents": [
+        "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+        "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+       ],
+       "refs": [],
+       "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+       "subject": "merge lane 4",
+       "time": 1700005520
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 4,
+        "color": 4,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          1,
+          4
+         ],
+         [
+          4,
+          4,
+          2,
+          4
+         ]
+        ],
+        "width": 5
+       },
+       "parents": [
+        "307ad93aa62f738e2879ffd3896345801e391341"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane04"
+        }
+       ],
+       "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+       "subject": "lane 4 second",
+       "time": 1700002280
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 4,
+        "color": 4,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          1,
+          4
+         ],
+         [
+          4,
+          4,
+          2,
+          4
+         ]
+        ],
+        "width": 5
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+       "subject": "lane 4 first",
+       "time": 1700002100
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          5,
+          2,
+          5
+         ]
+        ],
+        "width": 6
+       },
+       "parents": [
+        "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+        "d73d9f4abe26b633c357c2486747a215ba03339b"
+       ],
+       "refs": [],
+       "sha": "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+       "subject": "merge lane 2",
+       "time": 1700005460
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 5,
+        "color": 5,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          1,
+          5
+         ],
+         [
+          5,
+          5,
+          2,
+          5
+         ]
+        ],
+        "width": 6
+       },
+       "parents": [
+        "41b48ebfac3deef91e316c7c482647e579863baa"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane02"
+        }
+       ],
+       "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+       "subject": "lane 2 second",
+       "time": 1700001440
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 5,
+        "color": 5,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          1,
+          5
+         ],
+         [
+          5,
+          5,
+          2,
+          5
+         ]
+        ],
+        "width": 6
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "41b48ebfac3deef91e316c7c482647e579863baa",
+       "subject": "lane 2 first",
+       "time": 1700001260
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          6,
+          2,
+          6
+         ]
+        ],
+        "width": 7
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3",
+        "f5080f3b8f92d40827251b538699f38193e0a86d"
+       ],
+       "refs": [],
+       "sha": "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+       "subject": "merge lane 0",
+       "time": 1700005400
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 6,
+        "color": 6,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          1,
+          6
+         ],
+         [
+          6,
+          6,
+          2,
+          6
+         ]
+        ],
+        "width": 7
+       },
+       "parents": [
+        "85697584f92e5aafa06d2781d0f278453eefb2f1"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane00"
+        }
+       ],
+       "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+       "subject": "lane 0 second",
+       "time": 1700000600
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 6,
+        "color": 6,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          0,
+          1
+         ],
+         [
+          2,
+          2,
+          0,
+          2
+         ],
+         [
+          3,
+          3,
+          0,
+          3
+         ],
+         [
+          4,
+          4,
+          0,
+          4
+         ],
+         [
+          5,
+          5,
+          0,
+          5
+         ],
+         [
+          6,
+          6,
+          1,
+          6
+         ],
+         [
+          6,
+          6,
+          2,
+          6
+         ]
+        ],
+        "width": 7
+       },
+       "parents": [
+        "554221d38309e87fa099493b452465f081fda9a3"
+       ],
+       "refs": [],
+       "sha": "85697584f92e5aafa06d2781d0f278453eefb2f1",
+       "subject": "lane 0 first",
+       "time": 1700000420
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          0,
+          1,
+          1
+         ],
+         [
+          2,
+          0,
+          1,
+          2
+         ],
+         [
+          3,
+          0,
+          1,
+          3
+         ],
+         [
+          4,
+          0,
+          1,
+          4
+         ],
+         [
+          5,
+          0,
+          1,
+          5
+         ],
+         [
+          6,
+          0,
+          1,
+          6
+         ]
+        ],
+        "width": 7
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "554221d38309e87fa099493b452465f081fda9a3",
+       "subject": "root",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+        "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+       "subject": "merge lane 10",
+       "time": 1700005700
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 1,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          1,
+          1
+         ],
+         [
+          1,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "8e10331ea9838ee0f66b122d40b001e368162a89"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "lane10"
+        }
+       ],
+       "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+       "subject": "lane 10 second",
+       "time": 1700004800
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 1,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ],
+         [
+          0,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+        "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+       "subject": "merge lane 10",
+       "time": 1700005700
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/head-message"
+   },
+   "response": {
+    "body": {
+     "message": "merge lane 10"
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/template"
+   },
+   "response": {
+    "body": {
+     "template": ""
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "85697584f92e5aafa06d2781d0f278453eefb2f1",
+      "subject": "lane 0 first",
+      "time": 1700000420
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "85697584f92e5aafa06d2781d0f278453eefb2f1"
+      ],
+      "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+      "subject": "lane 0 second",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "41b48ebfac3deef91e316c7c482647e579863baa",
+      "subject": "lane 2 first",
+      "time": 1700001260
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "41b48ebfac3deef91e316c7c482647e579863baa"
+      ],
+      "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+      "subject": "lane 2 second",
+      "time": 1700001440
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+      "subject": "lane 4 first",
+      "time": 1700002100
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "307ad93aa62f738e2879ffd3896345801e391341"
+      ],
+      "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+      "subject": "lane 4 second",
+      "time": 1700002280
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "6033ff434427af9880ee547efad4b27216006073",
+      "subject": "lane 6 first",
+      "time": 1700002940
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6033ff434427af9880ee547efad4b27216006073"
+      ],
+      "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+      "subject": "lane 6 second",
+      "time": 1700003120
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+      "subject": "lane 8 first",
+      "time": 1700003780
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "427b082b75154c34e8368249e239b9d7b86f64fa"
+      ],
+      "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+      "subject": "lane 8 second",
+      "time": 1700003960
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+      "subject": "lane 10 first",
+      "time": 1700004620
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "8e10331ea9838ee0f66b122d40b001e368162a89"
+      ],
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "subject": "lane 10 second",
+      "time": 1700004800
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "merge lane10: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "subject": "merge lane 10",
+      "time": 1700005700
+     },
+     {
+      "action": "merge lane08: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+      "subject": "merge lane 8",
+      "time": 1700005640
+     },
+     {
+      "action": "merge lane06: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+      "subject": "merge lane 6",
+      "time": 1700005580
+     },
+     {
+      "action": "merge lane04: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+      "subject": "merge lane 4",
+      "time": 1700005520
+     },
+     {
+      "action": "merge lane02: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+      "subject": "merge lane 2",
+      "time": 1700005460
+     },
+     {
+      "action": "merge lane00: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{5}",
+      "sha": "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+      "subject": "merge lane 0",
+      "time": 1700005400
+     },
+     {
+      "action": "checkout: moving from lane11 to main",
+      "author": "Parity User",
+      "selector": "HEAD@{6}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 11 second",
+      "author": "Parity User",
+      "selector": "HEAD@{7}",
+      "sha": "6d01558afc45a2b5247c0c06959f5da6a7b57f4c",
+      "subject": "lane 11 second",
+      "time": 1700005220
+     },
+     {
+      "action": "commit: lane 11 first",
+      "author": "Parity User",
+      "selector": "HEAD@{8}",
+      "sha": "06bcd7fbb503919cf5822e8f1f7ee585d1b78eb2",
+      "subject": "lane 11 first",
+      "time": 1700005040
+     },
+     {
+      "action": "checkout: moving from lane10 to lane11",
+      "author": "Parity User",
+      "selector": "HEAD@{9}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 10 second",
+      "author": "Parity User",
+      "selector": "HEAD@{10}",
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "subject": "lane 10 second",
+      "time": 1700004800
+     },
+     {
+      "action": "commit: lane 10 first",
+      "author": "Parity User",
+      "selector": "HEAD@{11}",
+      "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+      "subject": "lane 10 first",
+      "time": 1700004620
+     },
+     {
+      "action": "checkout: moving from lane09 to lane10",
+      "author": "Parity User",
+      "selector": "HEAD@{12}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 9 second",
+      "author": "Parity User",
+      "selector": "HEAD@{13}",
+      "sha": "8686c190acd2c20808a4936d040ff3328822ee04",
+      "subject": "lane 9 second",
+      "time": 1700004380
+     },
+     {
+      "action": "commit: lane 9 first",
+      "author": "Parity User",
+      "selector": "HEAD@{14}",
+      "sha": "26894fd5396fe34867f3d575db7ba0d953a560a9",
+      "subject": "lane 9 first",
+      "time": 1700004200
+     },
+     {
+      "action": "checkout: moving from lane08 to lane09",
+      "author": "Parity User",
+      "selector": "HEAD@{15}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 8 second",
+      "author": "Parity User",
+      "selector": "HEAD@{16}",
+      "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+      "subject": "lane 8 second",
+      "time": 1700003960
+     },
+     {
+      "action": "commit: lane 8 first",
+      "author": "Parity User",
+      "selector": "HEAD@{17}",
+      "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+      "subject": "lane 8 first",
+      "time": 1700003780
+     },
+     {
+      "action": "checkout: moving from lane07 to lane08",
+      "author": "Parity User",
+      "selector": "HEAD@{18}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 7 second",
+      "author": "Parity User",
+      "selector": "HEAD@{19}",
+      "sha": "cdaa9620bd1eebcbff4f3c763294710184483daa",
+      "subject": "lane 7 second",
+      "time": 1700003540
+     },
+     {
+      "action": "commit: lane 7 first",
+      "author": "Parity User",
+      "selector": "HEAD@{20}",
+      "sha": "3be25907c8c9d777f4d3b6d970c44da4487ca1e1",
+      "subject": "lane 7 first",
+      "time": 1700003360
+     },
+     {
+      "action": "checkout: moving from lane06 to lane07",
+      "author": "Parity User",
+      "selector": "HEAD@{21}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 6 second",
+      "author": "Parity User",
+      "selector": "HEAD@{22}",
+      "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+      "subject": "lane 6 second",
+      "time": 1700003120
+     },
+     {
+      "action": "commit: lane 6 first",
+      "author": "Parity User",
+      "selector": "HEAD@{23}",
+      "sha": "6033ff434427af9880ee547efad4b27216006073",
+      "subject": "lane 6 first",
+      "time": 1700002940
+     },
+     {
+      "action": "checkout: moving from lane05 to lane06",
+      "author": "Parity User",
+      "selector": "HEAD@{24}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 5 second",
+      "author": "Parity User",
+      "selector": "HEAD@{25}",
+      "sha": "faf7df370ee8975c1debe60191e3c74f2bb59c73",
+      "subject": "lane 5 second",
+      "time": 1700002700
+     },
+     {
+      "action": "commit: lane 5 first",
+      "author": "Parity User",
+      "selector": "HEAD@{26}",
+      "sha": "8f5779d41442036677f9fed8ec63f0924b4c530d",
+      "subject": "lane 5 first",
+      "time": 1700002520
+     },
+     {
+      "action": "checkout: moving from lane04 to lane05",
+      "author": "Parity User",
+      "selector": "HEAD@{27}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 4 second",
+      "author": "Parity User",
+      "selector": "HEAD@{28}",
+      "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+      "subject": "lane 4 second",
+      "time": 1700002280
+     },
+     {
+      "action": "commit: lane 4 first",
+      "author": "Parity User",
+      "selector": "HEAD@{29}",
+      "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+      "subject": "lane 4 first",
+      "time": 1700002100
+     },
+     {
+      "action": "checkout: moving from lane03 to lane04",
+      "author": "Parity User",
+      "selector": "HEAD@{30}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 3 second",
+      "author": "Parity User",
+      "selector": "HEAD@{31}",
+      "sha": "aba2b9bc7f9c8c619c0435ebb3434c22a0ea0952",
+      "subject": "lane 3 second",
+      "time": 1700001860
+     },
+     {
+      "action": "commit: lane 3 first",
+      "author": "Parity User",
+      "selector": "HEAD@{32}",
+      "sha": "59ede001efe977f086c15e219ecdfdb17472a853",
+      "subject": "lane 3 first",
+      "time": 1700001680
+     },
+     {
+      "action": "checkout: moving from lane02 to lane03",
+      "author": "Parity User",
+      "selector": "HEAD@{33}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 2 second",
+      "author": "Parity User",
+      "selector": "HEAD@{34}",
+      "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+      "subject": "lane 2 second",
+      "time": 1700001440
+     },
+     {
+      "action": "commit: lane 2 first",
+      "author": "Parity User",
+      "selector": "HEAD@{35}",
+      "sha": "41b48ebfac3deef91e316c7c482647e579863baa",
+      "subject": "lane 2 first",
+      "time": 1700001260
+     },
+     {
+      "action": "checkout: moving from lane01 to lane02",
+      "author": "Parity User",
+      "selector": "HEAD@{36}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 1 second",
+      "author": "Parity User",
+      "selector": "HEAD@{37}",
+      "sha": "df1dc8bfb236e8f6fd372ab5668c4d9880f94f89",
+      "subject": "lane 1 second",
+      "time": 1700001020
+     },
+     {
+      "action": "commit: lane 1 first",
+      "author": "Parity User",
+      "selector": "HEAD@{38}",
+      "sha": "79f703f1558b92e9af243c5aae374105c1e5761c",
+      "subject": "lane 1 first",
+      "time": 1700000840
+     },
+     {
+      "action": "checkout: moving from lane00 to lane01",
+      "author": "Parity User",
+      "selector": "HEAD@{39}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit: lane 0 second",
+      "author": "Parity User",
+      "selector": "HEAD@{40}",
+      "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+      "subject": "lane 0 second",
+      "time": 1700000600
+     },
+     {
+      "action": "commit: lane 0 first",
+      "author": "Parity User",
+      "selector": "HEAD@{41}",
+      "sha": "85697584f92e5aafa06d2781d0f278453eefb2f1",
+      "subject": "lane 0 first",
+      "time": 1700000420
+     },
+     {
+      "action": "checkout: moving from main to lane00",
+      "author": "Parity User",
+      "selector": "HEAD@{42}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     },
+     {
+      "action": "commit (initial): root",
+      "author": "Parity User",
+      "selector": "HEAD@{43}",
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "merge lane10: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "subject": "merge lane 10",
+      "time": 1700005700
+     },
+     {
+      "action": "merge lane08: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+      "subject": "merge lane 8",
+      "time": 1700005640
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "e",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+       "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "subject": "merge lane 10",
+      "time": 1700005700
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f33c0331da86fa72b4245f6611317e982b0bf78f",
+       "e201583242e6eab7db3b4869f571e888e214673d"
+      ],
+      "refs": [],
+      "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+      "subject": "merge lane 8",
+      "time": 1700005640
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+       "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+      ],
+      "refs": [],
+      "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+      "subject": "merge lane 6",
+      "time": 1700005580
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+       "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+      ],
+      "refs": [],
+      "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+      "subject": "merge lane 4",
+      "time": 1700005520
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+       "d73d9f4abe26b633c357c2486747a215ba03339b"
+      ],
+      "refs": [],
+      "sha": "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+      "subject": "merge lane 2",
+      "time": 1700005460
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3",
+       "f5080f3b8f92d40827251b538699f38193e0a86d"
+      ],
+      "refs": [],
+      "sha": "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+      "subject": "merge lane 0",
+      "time": 1700005400
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "06bcd7fbb503919cf5822e8f1f7ee585d1b78eb2"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane11"
+       }
+      ],
+      "sha": "6d01558afc45a2b5247c0c06959f5da6a7b57f4c",
+      "subject": "lane 11 second",
+      "time": 1700005220
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "06bcd7fbb503919cf5822e8f1f7ee585d1b78eb2",
+      "subject": "lane 11 first",
+      "time": 1700005040
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "8e10331ea9838ee0f66b122d40b001e368162a89"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane10"
+       }
+      ],
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "subject": "lane 10 second",
+      "time": 1700004800
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+      "subject": "lane 10 first",
+      "time": 1700004620
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "26894fd5396fe34867f3d575db7ba0d953a560a9"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane09"
+       }
+      ],
+      "sha": "8686c190acd2c20808a4936d040ff3328822ee04",
+      "subject": "lane 9 second",
+      "time": 1700004380
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "26894fd5396fe34867f3d575db7ba0d953a560a9",
+      "subject": "lane 9 first",
+      "time": 1700004200
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "427b082b75154c34e8368249e239b9d7b86f64fa"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane08"
+       }
+      ],
+      "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+      "subject": "lane 8 second",
+      "time": 1700003960
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+      "subject": "lane 8 first",
+      "time": 1700003780
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "3be25907c8c9d777f4d3b6d970c44da4487ca1e1"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane07"
+       }
+      ],
+      "sha": "cdaa9620bd1eebcbff4f3c763294710184483daa",
+      "subject": "lane 7 second",
+      "time": 1700003540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "3be25907c8c9d777f4d3b6d970c44da4487ca1e1",
+      "subject": "lane 7 first",
+      "time": 1700003360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6033ff434427af9880ee547efad4b27216006073"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane06"
+       }
+      ],
+      "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+      "subject": "lane 6 second",
+      "time": 1700003120
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "6033ff434427af9880ee547efad4b27216006073",
+      "subject": "lane 6 first",
+      "time": 1700002940
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "8f5779d41442036677f9fed8ec63f0924b4c530d"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane05"
+       }
+      ],
+      "sha": "faf7df370ee8975c1debe60191e3c74f2bb59c73",
+      "subject": "lane 5 second",
+      "time": 1700002700
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "8f5779d41442036677f9fed8ec63f0924b4c530d",
+      "subject": "lane 5 first",
+      "time": 1700002520
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "307ad93aa62f738e2879ffd3896345801e391341"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane04"
+       }
+      ],
+      "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+      "subject": "lane 4 second",
+      "time": 1700002280
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+      "subject": "lane 4 first",
+      "time": 1700002100
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "59ede001efe977f086c15e219ecdfdb17472a853"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane03"
+       }
+      ],
+      "sha": "aba2b9bc7f9c8c619c0435ebb3434c22a0ea0952",
+      "subject": "lane 3 second",
+      "time": 1700001860
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "59ede001efe977f086c15e219ecdfdb17472a853",
+      "subject": "lane 3 first",
+      "time": 1700001680
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "41b48ebfac3deef91e316c7c482647e579863baa"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane02"
+       }
+      ],
+      "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+      "subject": "lane 2 second",
+      "time": 1700001440
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "41b48ebfac3deef91e316c7c482647e579863baa",
+      "subject": "lane 2 first",
+      "time": 1700001260
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "79f703f1558b92e9af243c5aae374105c1e5761c"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane01"
+       }
+      ],
+      "sha": "df1dc8bfb236e8f6fd372ab5668c4d9880f94f89",
+      "subject": "lane 1 second",
+      "time": 1700001020
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "79f703f1558b92e9af243c5aae374105c1e5761c",
+      "subject": "lane 1 first",
+      "time": 1700000840
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "85697584f92e5aafa06d2781d0f278453eefb2f1"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane00"
+       }
+      ],
+      "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+      "subject": "lane 0 second",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "85697584f92e5aafa06d2781d0f278453eefb2f1",
+      "subject": "lane 0 first",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "author",
+     "q": "Parity",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+       "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "subject": "merge lane 10",
+      "time": 1700005700
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f33c0331da86fa72b4245f6611317e982b0bf78f",
+       "e201583242e6eab7db3b4869f571e888e214673d"
+      ],
+      "refs": [],
+      "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+      "subject": "merge lane 8",
+      "time": 1700005640
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+       "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+      ],
+      "refs": [],
+      "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+      "subject": "merge lane 6",
+      "time": 1700005580
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+       "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+      ],
+      "refs": [],
+      "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+      "subject": "merge lane 4",
+      "time": 1700005520
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+       "d73d9f4abe26b633c357c2486747a215ba03339b"
+      ],
+      "refs": [],
+      "sha": "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+      "subject": "merge lane 2",
+      "time": 1700005460
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3",
+       "f5080f3b8f92d40827251b538699f38193e0a86d"
+      ],
+      "refs": [],
+      "sha": "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+      "subject": "merge lane 0",
+      "time": 1700005400
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "06bcd7fbb503919cf5822e8f1f7ee585d1b78eb2"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane11"
+       }
+      ],
+      "sha": "6d01558afc45a2b5247c0c06959f5da6a7b57f4c",
+      "subject": "lane 11 second",
+      "time": 1700005220
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "06bcd7fbb503919cf5822e8f1f7ee585d1b78eb2",
+      "subject": "lane 11 first",
+      "time": 1700005040
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "8e10331ea9838ee0f66b122d40b001e368162a89"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane10"
+       }
+      ],
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "subject": "lane 10 second",
+      "time": 1700004800
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+      "subject": "lane 10 first",
+      "time": 1700004620
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "26894fd5396fe34867f3d575db7ba0d953a560a9"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane09"
+       }
+      ],
+      "sha": "8686c190acd2c20808a4936d040ff3328822ee04",
+      "subject": "lane 9 second",
+      "time": 1700004380
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "26894fd5396fe34867f3d575db7ba0d953a560a9",
+      "subject": "lane 9 first",
+      "time": 1700004200
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "427b082b75154c34e8368249e239b9d7b86f64fa"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane08"
+       }
+      ],
+      "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+      "subject": "lane 8 second",
+      "time": 1700003960
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+      "subject": "lane 8 first",
+      "time": 1700003780
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "3be25907c8c9d777f4d3b6d970c44da4487ca1e1"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane07"
+       }
+      ],
+      "sha": "cdaa9620bd1eebcbff4f3c763294710184483daa",
+      "subject": "lane 7 second",
+      "time": 1700003540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "3be25907c8c9d777f4d3b6d970c44da4487ca1e1",
+      "subject": "lane 7 first",
+      "time": 1700003360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6033ff434427af9880ee547efad4b27216006073"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane06"
+       }
+      ],
+      "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+      "subject": "lane 6 second",
+      "time": 1700003120
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "6033ff434427af9880ee547efad4b27216006073",
+      "subject": "lane 6 first",
+      "time": 1700002940
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "8f5779d41442036677f9fed8ec63f0924b4c530d"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane05"
+       }
+      ],
+      "sha": "faf7df370ee8975c1debe60191e3c74f2bb59c73",
+      "subject": "lane 5 second",
+      "time": 1700002700
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "8f5779d41442036677f9fed8ec63f0924b4c530d",
+      "subject": "lane 5 first",
+      "time": 1700002520
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "307ad93aa62f738e2879ffd3896345801e391341"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane04"
+       }
+      ],
+      "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+      "subject": "lane 4 second",
+      "time": 1700002280
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+      "subject": "lane 4 first",
+      "time": 1700002100
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "59ede001efe977f086c15e219ecdfdb17472a853"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane03"
+       }
+      ],
+      "sha": "aba2b9bc7f9c8c619c0435ebb3434c22a0ea0952",
+      "subject": "lane 3 second",
+      "time": 1700001860
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "59ede001efe977f086c15e219ecdfdb17472a853",
+      "subject": "lane 3 first",
+      "time": 1700001680
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "41b48ebfac3deef91e316c7c482647e579863baa"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane02"
+       }
+      ],
+      "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+      "subject": "lane 2 second",
+      "time": 1700001440
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "41b48ebfac3deef91e316c7c482647e579863baa",
+      "subject": "lane 2 first",
+      "time": 1700001260
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "79f703f1558b92e9af243c5aae374105c1e5761c"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane01"
+       }
+      ],
+      "sha": "df1dc8bfb236e8f6fd372ab5668c4d9880f94f89",
+      "subject": "lane 1 second",
+      "time": 1700001020
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "79f703f1558b92e9af243c5aae374105c1e5761c",
+      "subject": "lane 1 first",
+      "time": 1700000840
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "85697584f92e5aafa06d2781d0f278453eefb2f1"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane00"
+       }
+      ],
+      "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+      "subject": "lane 0 second",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "85697584f92e5aafa06d2781d0f278453eefb2f1",
+      "subject": "lane 0 first",
+      "time": 1700000420
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [],
+      "sha": "554221d38309e87fa099493b452465f081fda9a3",
+      "subject": "root",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "content",
+     "q": "line",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "nothing-matches-this",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700005700,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane10.txt",
+       "status": "A"
+      }
+     ],
+     "message": "merge lane 10",
+     "parents": [
+      "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+      "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+     ],
+     "refs": [
+      {
+       "current": true,
+       "kind": "local",
+       "name": "main"
+      }
+     ],
+     "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+     "subject": "merge lane 10",
+     "time": 1700005700
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane10.txt b/lane10.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane10.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane10.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane10.txt b/lane10.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane10.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane10.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700004800,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane10.txt",
+       "status": "M"
+      }
+     ],
+     "message": "lane 10 second",
+     "parents": [
+      "8e10331ea9838ee0f66b122d40b001e368162a89"
+     ],
+     "refs": [
+      {
+       "current": false,
+       "kind": "local",
+       "name": "lane10"
+      }
+     ],
+     "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+     "subject": "lane 10 second",
+     "time": 1700004800
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane10.txt b/lane10.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane10.txt",
+      "+++ b/lane10.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane10.txt",
+     "oldPath": "lane10.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane10.txt b/lane10.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane10.txt",
+      "+++ b/lane10.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane10.txt",
+     "oldPath": "lane10.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "8e10331ea9838ee0f66b122d40b001e368162a89"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700004620,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane10.txt",
+       "status": "A"
+      }
+     ],
+     "message": "lane 10 first",
+     "parents": [
+      "554221d38309e87fa099493b452465f081fda9a3"
+     ],
+     "refs": [],
+     "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+     "subject": "lane 10 first",
+     "time": 1700004620
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "8e10331ea9838ee0f66b122d40b001e368162a89"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane10.txt b/lane10.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane10.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane10.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "8e10331ea9838ee0f66b122d40b001e368162a89"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane10.txt b/lane10.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane10.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane10.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700005640,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane08.txt",
+       "status": "A"
+      }
+     ],
+     "message": "merge lane 8",
+     "parents": [
+      "f33c0331da86fa72b4245f6611317e982b0bf78f",
+      "e201583242e6eab7db3b4869f571e888e214673d"
+     ],
+     "refs": [],
+     "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+     "subject": "merge lane 8",
+     "time": 1700005640
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane08.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane08.txt b/lane08.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane08.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane08.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane08.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane08.txt b/lane08.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane08.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane08.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "e201583242e6eab7db3b4869f571e888e214673d"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700003960,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane08.txt",
+       "status": "M"
+      }
+     ],
+     "message": "lane 8 second",
+     "parents": [
+      "427b082b75154c34e8368249e239b9d7b86f64fa"
+     ],
+     "refs": [
+      {
+       "current": false,
+       "kind": "local",
+       "name": "lane08"
+      }
+     ],
+     "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+     "subject": "lane 8 second",
+     "time": 1700003960
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane08.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "e201583242e6eab7db3b4869f571e888e214673d"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane08.txt b/lane08.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane08.txt",
+      "+++ b/lane08.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane08.txt",
+     "oldPath": "lane08.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane08.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "e201583242e6eab7db3b4869f571e888e214673d"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane08.txt b/lane08.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane08.txt",
+      "+++ b/lane08.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane08.txt",
+     "oldPath": "lane08.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "427b082b75154c34e8368249e239b9d7b86f64fa"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700003780,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane08.txt",
+       "status": "A"
+      }
+     ],
+     "message": "lane 8 first",
+     "parents": [
+      "554221d38309e87fa099493b452465f081fda9a3"
+     ],
+     "refs": [],
+     "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+     "subject": "lane 8 first",
+     "time": 1700003780
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane08.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "427b082b75154c34e8368249e239b9d7b86f64fa"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane08.txt b/lane08.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane08.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane08.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane08.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "427b082b75154c34e8368249e239b9d7b86f64fa"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane08.txt b/lane08.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane08.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane08.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700005580,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane06.txt",
+       "status": "A"
+      }
+     ],
+     "message": "merge lane 6",
+     "parents": [
+      "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+      "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+     ],
+     "refs": [],
+     "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+     "subject": "merge lane 6",
+     "time": 1700005580
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane06.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane06.txt b/lane06.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane06.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane06.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane06.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane06.txt b/lane06.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane06.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane06.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700003120,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane06.txt",
+       "status": "M"
+      }
+     ],
+     "message": "lane 6 second",
+     "parents": [
+      "6033ff434427af9880ee547efad4b27216006073"
+     ],
+     "refs": [
+      {
+       "current": false,
+       "kind": "local",
+       "name": "lane06"
+      }
+     ],
+     "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+     "subject": "lane 6 second",
+     "time": 1700003120
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane06.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane06.txt b/lane06.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane06.txt",
+      "+++ b/lane06.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane06.txt",
+     "oldPath": "lane06.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane06.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane06.txt b/lane06.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane06.txt",
+      "+++ b/lane06.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane06.txt",
+     "oldPath": "lane06.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "6033ff434427af9880ee547efad4b27216006073"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700002940,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane06.txt",
+       "status": "A"
+      }
+     ],
+     "message": "lane 6 first",
+     "parents": [
+      "554221d38309e87fa099493b452465f081fda9a3"
+     ],
+     "refs": [],
+     "sha": "6033ff434427af9880ee547efad4b27216006073",
+     "subject": "lane 6 first",
+     "time": 1700002940
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane06.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "6033ff434427af9880ee547efad4b27216006073"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane06.txt b/lane06.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane06.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane06.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane06.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "6033ff434427af9880ee547efad4b27216006073"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane06.txt b/lane06.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane06.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane06.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700005520,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane04.txt",
+       "status": "A"
+      }
+     ],
+     "message": "merge lane 4",
+     "parents": [
+      "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+      "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+     ],
+     "refs": [],
+     "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+     "subject": "merge lane 4",
+     "time": 1700005520
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane04.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane04.txt b/lane04.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane04.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane04.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane04.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane04.txt b/lane04.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane04.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane04.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700002280,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane04.txt",
+       "status": "M"
+      }
+     ],
+     "message": "lane 4 second",
+     "parents": [
+      "307ad93aa62f738e2879ffd3896345801e391341"
+     ],
+     "refs": [
+      {
+       "current": false,
+       "kind": "local",
+       "name": "lane04"
+      }
+     ],
+     "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+     "subject": "lane 4 second",
+     "time": 1700002280
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane04.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane04.txt b/lane04.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane04.txt",
+      "+++ b/lane04.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane04.txt",
+     "oldPath": "lane04.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane04.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane04.txt b/lane04.txt",
+      "index 587be6b..975fbec 100644",
+      "--- a/lane04.txt",
+      "+++ b/lane04.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "x"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "lane04.txt",
+     "oldPath": "lane04.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "307ad93aa62f738e2879ffd3896345801e391341"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700002100,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane04.txt",
+       "status": "A"
+      }
+     ],
+     "message": "lane 4 first",
+     "parents": [
+      "554221d38309e87fa099493b452465f081fda9a3"
+     ],
+     "refs": [],
+     "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+     "subject": "lane 4 first",
+     "time": 1700002100
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane04.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "307ad93aa62f738e2879ffd3896345801e391341"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane04.txt b/lane04.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane04.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane04.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "lane04.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "307ad93aa62f738e2879ffd3896345801e391341"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane04.txt b/lane04.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/lane04.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane04.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "sha",
+     "q": "2b0c814",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+       "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "subject": "merge lane 10",
+      "time": 1700005700
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "merg",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+       "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "subject": "merge lane 10",
+      "time": 1700005700
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f33c0331da86fa72b4245f6611317e982b0bf78f",
+       "e201583242e6eab7db3b4869f571e888e214673d"
+      ],
+      "refs": [],
+      "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+      "subject": "merge lane 8",
+      "time": 1700005640
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+       "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633"
+      ],
+      "refs": [],
+      "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+      "subject": "merge lane 6",
+      "time": 1700005580
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+       "131d3aaeb94a7f5ea4721edbeeee5259126a65f8"
+      ],
+      "refs": [],
+      "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+      "subject": "merge lane 4",
+      "time": 1700005520
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+       "d73d9f4abe26b633c357c2486747a215ba03339b"
+      ],
+      "refs": [],
+      "sha": "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+      "subject": "merge lane 2",
+      "time": 1700005460
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3",
+       "f5080f3b8f92d40827251b538699f38193e0a86d"
+      ],
+      "refs": [],
+      "sha": "ce1cc7fc91bc5e8b191f9d846036abc4230ea8ec",
+      "subject": "merge lane 0",
+      "time": 1700005400
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d"
+    },
+    "path": "/patch"
+   },
+   "response": {
+    "body": "From 94bd0d02c005ea82e8d65a0c89c9bb224f6444a2 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 23:33:20 +0000\nSubject: [PATCH] lane 10 second\n\n---\n lane10.txt | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\ndiff --git a/lane10.txt b/lane10.txt\nindex 587be6b..975fbec 100644\n--- a/lane10.txt\n+++ b/lane10.txt\n@@ -1 +1 @@\n-x\n+y\n-- \n2.55.0\n\n",
+    "status": 200,
+    "type": "text/x-patch"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "554221d38309e87fa099493b452465f081fda9a3",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "85697584f92e5aafa06d2781d0f278453eefb2f1",
+      "subject": "lane 0 first",
+      "time": 1700000420
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "85697584f92e5aafa06d2781d0f278453eefb2f1"
+      ],
+      "sha": "f5080f3b8f92d40827251b538699f38193e0a86d",
+      "subject": "lane 0 second",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "41b48ebfac3deef91e316c7c482647e579863baa",
+      "subject": "lane 2 first",
+      "time": 1700001260
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "41b48ebfac3deef91e316c7c482647e579863baa"
+      ],
+      "sha": "d73d9f4abe26b633c357c2486747a215ba03339b",
+      "subject": "lane 2 second",
+      "time": 1700001440
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "307ad93aa62f738e2879ffd3896345801e391341",
+      "subject": "lane 4 first",
+      "time": 1700002100
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "307ad93aa62f738e2879ffd3896345801e391341"
+      ],
+      "sha": "131d3aaeb94a7f5ea4721edbeeee5259126a65f8",
+      "subject": "lane 4 second",
+      "time": 1700002280
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "6033ff434427af9880ee547efad4b27216006073",
+      "subject": "lane 6 first",
+      "time": 1700002940
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6033ff434427af9880ee547efad4b27216006073"
+      ],
+      "sha": "814c58bc47c2f5a35a4352e3ce8bf51c3aab5633",
+      "subject": "lane 6 second",
+      "time": 1700003120
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "427b082b75154c34e8368249e239b9d7b86f64fa",
+      "subject": "lane 8 first",
+      "time": 1700003780
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "427b082b75154c34e8368249e239b9d7b86f64fa"
+      ],
+      "sha": "e201583242e6eab7db3b4869f571e888e214673d",
+      "subject": "lane 8 second",
+      "time": 1700003960
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+      "subject": "lane 10 first",
+      "time": 1700004620
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "8e10331ea9838ee0f66b122d40b001e368162a89"
+      ],
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "subject": "lane 10 second",
+      "time": 1700004800
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "554221d38309e87fa099493b452465f081fda9a3",
+     "repo": "<ROOT>/repo",
+     "target": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d"
+    },
+    "path": "/compare"
+   },
+   "response": {
+    "body": {
+     "baseOnly": 0,
+     "files": [
+      {
+       "origPath": null,
+       "path": "lane00.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "lane02.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "lane04.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "lane06.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "lane08.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "lane10.txt",
+       "status": "A"
+      }
+     ],
+     "targetOnly": 18
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 5,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "merge lane10: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d",
+      "subject": "merge lane 10",
+      "time": 1700005700
+     },
+     {
+      "action": "merge lane08: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "ced2ac01a9f732f84829cc2803c1f66c6c5ac6bb",
+      "subject": "merge lane 8",
+      "time": 1700005640
+     },
+     {
+      "action": "merge lane06: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "f33c0331da86fa72b4245f6611317e982b0bf78f",
+      "subject": "merge lane 6",
+      "time": 1700005580
+     },
+     {
+      "action": "merge lane04: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "1eb16142da5f6064fc8e6ecd1a4af45469f836b9",
+      "subject": "merge lane 4",
+      "time": 1700005520
+     },
+     {
+      "action": "merge lane02: Merge made by the 'ort' strategy.",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "6a6e93560bc0d8f40f3df77e7b58ea14eb8e7271",
+      "subject": "merge lane 2",
+      "time": 1700005460
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "554221d38309e87fa099493b452465f081fda9a3",
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "target": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/lane10.txt b/lane10.txt",
+      "new file mode 100644",
+      "index 0000000..975fbec",
+      "--- /dev/null",
+      "+++ b/lane10.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "lane10.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "lane10.txt",
+       "status": "M"
+      },
+      "parents": [
+       "8e10331ea9838ee0f66b122d40b001e368162a89"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "lane10"
+       }
+      ],
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "subject": "lane 10 second",
+      "time": 1700004800
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "lane10.txt",
+       "status": "A"
+      },
+      "parents": [
+       "554221d38309e87fa099493b452465f081fda9a3"
+      ],
+      "refs": [],
+      "sha": "8e10331ea9838ee0f66b122d40b001e368162a89",
+      "subject": "lane 10 first",
+      "time": 1700004620
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "summary": "lane 10 second",
+      "text": "y",
+      "time": 1700004800
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "lane10.txt",
+     "repo": "<ROOT>/repo",
+     "rev": "2b0c81419618c3a68e10cf4ab5d184267e45eb5d"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "94bd0d02c005ea82e8d65a0c89c9bb224f6444a2",
+      "summary": "lane 10 second",
+      "text": "y",
+      "time": 1700004800
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "wide"
+}

@@ -1,0 +1,55 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "path": "c.txt",
+     "side": "theirs"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/conflict/resolve"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "merge_conflict",
+ "state": {
+  "head": "4f5762eeb5afff950553519cc17bdd91d02079aa",
+  "index": [
+   "100644 81532b1a85204c33becebe31e89afda76f527052 2\tadd.txt",
+   "100644 632b45c2c3f520b23e1f824341c818bf194241b1 3\tadd.txt",
+   "100644 10fa89dcfcbd73e9e5efb4a003ba4457889d7093 0\tc.txt",
+   "100644 528557ab3a4211d06fc2e5f8b49f14c1b0a4eac9 1\tdel.txt",
+   "100644 53ed5daf791ce6fe988b5d714b328d4f24a6e6ea 3\tdel.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main 4f5762eeb5afff950553519cc17bdd91d02079aa",
+   "refs/heads/topic 3bd79088be49fba13ec9b51007284262eef536b9"
+  ],
+  "stashes": [],
+  "status": [
+   "AA add.txt",
+   "M  c.txt",
+   "DU del.txt",
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "add.txt": "6406819037d5fa0f",
+   "c.txt": "35550af5d6677ab1",
+   "del.txt": "2cea0f4d37ee861f"
+  }
+ }
+}

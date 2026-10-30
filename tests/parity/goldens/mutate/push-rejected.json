@@ -1,0 +1,53 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "branch": "main",
+     "remote": "origin"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/push"
+   },
+   "response": {
+    "body": {
+     "command": "git push --progress origin refs/heads/main:refs/heads/main",
+     "error": "To ../origin.git\n ! [rejected]        main -> main (fetch first)\nerror: failed to push some refs to '../origin.git'\nhint: Updates were rejected because the remote contains work that you do not\nhint: have locally. This is usually caused by another repository pushing to\nhint: the same ref. If you want to integrate the remote changes, use\nhint: 'git pull' before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details.",
+     "status_code": 400
+    },
+    "status": 400,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "remotes",
+ "state": {
+  "head": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+  "index": [
+   "100644 fa2da6e55caa540725b55c04d13f1e42b4c725ce 0\ta.txt",
+   "100644 61780798228d17af2d34fce4cfbdf35556832472 0\tb.txt",
+   "100644 b19a1e93bec1317dc6097229e12afaffbfa74dc2 0\tlocal-only.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/doomed 6ea90592a8408ad2e9288925de536576d4e37e1e",
+   "refs/heads/main fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+   "refs/remotes/origin/doomed 6ea90592a8408ad2e9288925de536576d4e37e1e",
+   "refs/remotes/origin/main 6147edac27e13ae22fbd860a319c694adf863d08",
+   "refs/tags/shared-tag 6147edac27e13ae22fbd860a319c694adf863d08"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "a.txt": "e71d970d34a50031",
+   "b.txt": "0263829989b6fd95",
+   "local-only.txt": "13102ad5e68a577a"
+  }
+ }
+}

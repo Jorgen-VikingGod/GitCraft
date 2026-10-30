@@ -1,0 +1,62 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {},
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/stage/all"
+   },
+   "response": {
+    "body": null,
+    "status": 201,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "body": {
+     "message": "from worktree"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "[wt-branch 8ed5ea7] from worktree\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "worktree",
+ "state": {
+  "head": "8ed5ea771eb216ac85d542d7729543d7b502a932",
+  "index": [
+   "100644 6e5aa7ceca195942768e6e0997c3a0271b07fffc 0\tw.txt",
+   "100644 f232135d2a8e209870a78c853bc81e8bd1b14c9e 0\tw2.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main f0280ed94317211560295768cc2a411506b90143",
+   "refs/heads/wt-branch 8ed5ea771eb216ac85d542d7729543d7b502a932"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/wt-branch",
+  "worktree": {
+   "w.txt": "abe9c2071f1d073a",
+   "w2.txt": "37079e81fb393509"
+  }
+ }
+}

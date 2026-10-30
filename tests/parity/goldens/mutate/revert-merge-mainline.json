@@ -1,0 +1,54 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "mainline": 1,
+     "sha": "90d72238b6b84a6c5410686b2a825a98b228670a"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/revert"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "[main 334bd31] Revert \"octopus\"\n Date: Sun Nov 26 12:00:00 2023 +0000\n 3 files changed, 3 deletions(-)\n delete mode 100644 right.txt\n delete mode 100644 side.txt\n delete mode 100644 third.txt",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "merges",
+ "state": {
+  "head": "334bd31a680460f0ed7591f228c413f53d9a8b99",
+  "index": [
+   "100644 df967b96a579e45a18b8251732d16804b2e56a55 0\tbase.txt",
+   "100644 45cf141ba67d59203f02a54f03162f3fcef57830 0\tleft.txt",
+   "100644 ba2906d0666cf726c7eaadd2cd3db615dedfdf3a 0\tmain.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/island c8fdedf7517c34a1bd174a8eadf2c6da2482aebb",
+   "refs/heads/left 5a36023396d4720df62a453a0ae9e0af80607a85",
+   "refs/heads/main 334bd31a680460f0ed7591f228c413f53d9a8b99",
+   "refs/heads/right 78617668f2db5ebb0fc03ad52dc9a73a1658dbc2",
+   "refs/heads/side 7720db734a60d6ec9a136ceeb834642cfccec1d6",
+   "refs/heads/third a0a19bedb8e2908a5af3dee21f04eac0e0c286b5"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "base.txt": "f34848ca92665c34",
+   "left.txt": "14156f2c20b45bf6",
+   "main.txt": "6403203dd5a0867e"
+  }
+ }
+}

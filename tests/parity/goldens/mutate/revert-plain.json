@@ -1,0 +1,44 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "sha": "7518b24575dcf17826fde20a55420312bb1ba1c4"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/revert"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "[main c13e996] Revert \"three\"\n Date: Sun Nov 26 12:00:00 2023 +0000\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "revert_ready",
+ "state": {
+  "head": "c13e996866381d4901b86abf207e5c7c013abe98",
+  "index": [
+   "100644 f719efd430d52bcfc8566a43b2eb655688d38871 0\tr.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main c13e996866381d4901b86abf207e5c7c013abe98"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "r.txt": "27dd8ed44a83ff94"
+  }
+ }
+}

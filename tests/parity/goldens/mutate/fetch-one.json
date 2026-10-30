@@ -1,0 +1,46 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "remote": "origin"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/fetch"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "remote_conflict",
+ "state": {
+  "head": "7710afbdf57b389b73ce9136f6e7576d5de2e3b9",
+  "index": [
+   "100644 656c7e4ad19d2c2ab1bc7161d2705b335d557e43 0\ta.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main 7710afbdf57b389b73ce9136f6e7576d5de2e3b9",
+   "refs/remotes/origin/HEAD 6c2032e7c2038c96b554b3263d6c3931c7a018fe",
+   "refs/remotes/origin/main 6c2032e7c2038c96b554b3263d6c3931c7a018fe"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "a.txt": "42b2421fb36877d9"
+  }
+ }
+}

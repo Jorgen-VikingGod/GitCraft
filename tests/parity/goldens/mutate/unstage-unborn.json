@@ -1,0 +1,42 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "paths": [
+      "staged.txt"
+     ]
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/unstage"
+   },
+   "response": {
+    "body": null,
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "unborn_dirty",
+ "state": {
+  "head": "HEAD",
+  "index": [
+   ""
+  ],
+  "refs": [],
+  "stashes": [],
+  "status": [
+   "?? new.txt",
+   "?? staged.txt",
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "new.txt": "02db0d2659c9d48b",
+   "staged.txt": "dc94a1f7f537d41e"
+  }
+ }
+}

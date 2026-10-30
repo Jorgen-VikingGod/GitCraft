@@ -1,0 +1,50 @@
+{
+ "commits": "100000",
+ "startupMs": 3.1509530017501675,
+ "idleMb": 5.0546875,
+ "loadedMb": 92.92578125,
+ "requests": [
+  {
+   "name": "log, 2000 commits",
+   "apiMs": 303.3703730034176,
+   "gitMs": 290.9168930054875,
+   "bodyKb": 626
+  },
+  {
+   "name": "log, 20000 commits",
+   "apiMs": 410.36664000421297,
+   "gitMs": 310.4765650059562,
+   "bodyKb": 6261
+  },
+  {
+   "name": "log, 100000 commits",
+   "apiMs": 965.7216300038272,
+   "gitMs": 387.4601930001518,
+   "bodyKb": 31297
+  },
+  {
+   "name": "status",
+   "apiMs": 28.780633998394478,
+   "gitMs": 6.496535999758635,
+   "bodyKb": 0
+  },
+  {
+   "name": "refs",
+   "apiMs": 101.67523099516984,
+   "gitMs": 4.109948997211177,
+   "bodyKb": 0
+  },
+  {
+   "name": "diff, 15000 changed lines",
+   "apiMs": 54.353135004930664,
+   "gitMs": 15.927512002235744,
+   "bodyKb": 1172
+  },
+  {
+   "name": "blame, big file",
+   "apiMs": 46.75600799964741,
+   "gitMs": 14.258360999519937,
+   "bodyKb": 2761
+  }
+ ]
+}

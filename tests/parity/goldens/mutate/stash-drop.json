@@ -1,0 +1,50 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "name": "stash@{0}"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/stash/drop"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "Dropped stash@{0} (9e18bfae84311ec09b5e59ea91536e724510f68c)",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "stashes",
+ "state": {
+  "head": "f3a55d2886672753d072b47272f597eb7b8268c4",
+  "index": [
+   "100644 fa2da6e55caa540725b55c04d13f1e42b4c725ce 0\ts.txt",
+   "100644 718f4d2ff533cf8ead8d3556cf43912bd245fbc4 0\tt.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/main f3a55d2886672753d072b47272f597eb7b8268c4",
+   "refs/stash 6934eb2fda071dbc5968fc6130689d28cad1a278"
+  ],
+  "stashes": [
+   "6934eb2fda071dbc5968fc6130689d28cad1a278 On main: first stash"
+  ],
+  "status": [
+   " M s.txt",
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "s.txt": "718bfc9d2c8818a9",
+   "t.txt": "fe8edeeb98cc6d3b"
+  }
+ }
+}

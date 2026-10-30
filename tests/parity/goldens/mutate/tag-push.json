@@ -1,0 +1,75 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "body": {
+     "name": "fresh"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/tag"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "body": {
+     "name": "fresh",
+     "remote": "origin"
+    },
+    "method": "POST",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/tag/push"
+   },
+   "response": {
+    "body": {
+     "conflicts": false,
+     "message": "Enumerating objects: 4, done.\nCounting objects:  25% (1/4)\rCounting objects:  50% (2/4)\rCounting objects:  75% (3/4)\rCounting objects: 100% (4/4)\rCounting objects: 100% (4/4), done.\nDelta compression using up to 20 threads\nCompressing objects:  50% (1/2)\rCompressing objects: 100% (2/2)\rCompressing objects: 100% (2/2), done.\nWriting objects:  33% (1/3)\rWriting objects:  66% (2/3)\rWriting objects: 100% (3/3)\rWriting objects: 100% (3/3), 306 bytes | 306.00 KiB/s, done.\nTotal 3 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)\nTo ../origin.git\n * [new tag]         fresh -> fresh",
+     "ok": true
+    },
+    "status": 201,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "remotes",
+ "state": {
+  "head": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+  "index": [
+   "100644 fa2da6e55caa540725b55c04d13f1e42b4c725ce 0\ta.txt",
+   "100644 61780798228d17af2d34fce4cfbdf35556832472 0\tb.txt",
+   "100644 b19a1e93bec1317dc6097229e12afaffbfa74dc2 0\tlocal-only.txt",
+   ""
+  ],
+  "refs": [
+   "refs/heads/doomed 6ea90592a8408ad2e9288925de536576d4e37e1e",
+   "refs/heads/main fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+   "refs/remotes/origin/doomed 6ea90592a8408ad2e9288925de536576d4e37e1e",
+   "refs/remotes/origin/main 6147edac27e13ae22fbd860a319c694adf863d08",
+   "refs/tags/fresh fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+   "refs/tags/shared-tag 6147edac27e13ae22fbd860a319c694adf863d08"
+  ],
+  "stashes": [],
+  "status": [
+   ""
+  ],
+  "symbolicHead": "refs/heads/main",
+  "worktree": {
+   "a.txt": "e71d970d34a50031",
+   "b.txt": "0263829989b6fd95",
+   "local-only.txt": "13102ad5e68a577a"
+  }
+ }
+}
