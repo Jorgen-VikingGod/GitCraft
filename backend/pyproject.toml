@@ -15,9 +15,13 @@ dependencies = [
     "platformdirs>=4.0",
 ]
 
-[project.optional-dependencies]
+# Development dependencies, managed by uv (https://docs.astral.sh/uv/concepts/projects/dependencies/#dependency-groups).
+[dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "httpx>=0.27"]
 bundle = ["pyinstaller>=6.16"]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [project.scripts]
 gitcraft = "gitcraft.app:main"

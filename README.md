@@ -35,8 +35,20 @@ installed `git`, and the Angular UI runs in your browser on `127.0.0.1`.
 ## Requirements
 
 - `git` 2.30 or newer on `PATH`
-- Python 3.10+
+- [uv](https://docs.astral.sh/uv/), the Python package and project manager. It installs a suitable
+  Python (3.10+) by itself if none is present.
 - Node.js 20+ (only to build the frontend)
+
+### Installing uv
+
+See the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/) for all options.
+In short:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh                        # Linux and macOS
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"   # Windows
+brew install uv                                                        # Homebrew
+```
 
 ## Install & run
 
@@ -46,14 +58,25 @@ cd frontend
 npm ci
 npm run build
 
-# 2. Install the server
+# 2. Install the server (creates backend/.venv from uv.lock)
 cd ../backend
-python3 -m venv .venv
-.venv/bin/pip install .          # Windows: .venv\Scripts\pip install .
+uv sync
 
 # 3. Start (opens your browser)
-.venv/bin/gitcraft               # or: .venv/bin/gitcraft path/to/repo
+uv run gitcraft                  # or: uv run gitcraft path/to/repo
 ```
+
+`uv run` keeps the environment in sync with `pyproject.toml` and `uv.lock` before it starts a command,
+so there is no virtualenv to activate. Useful commands (see the
+[uv project guide](https://docs.astral.sh/uv/guides/projects/)):
+
+| Command (in `backend/`) | What it does |
+| --- | --- |
+| `uv sync` | Create or update `.venv` with the app and the `dev` group (pytest…) |
+| `uv sync --no-dev` | Only the runtime dependencies |
+| `uv run <cmd>` | Run a command inside the environment, e.g. `uv run pytest` |
+| `uv add <pkg>` / `uv add --dev <pkg>` | Add a runtime / development dependency (updates `uv.lock`) |
+| `uv lock --upgrade` | Upgrade all locked versions |
 
 Options: `--port 7420`, `--host 127.0.0.1`, `--no-browser`. The command prints a URL containing a
 session token; open that URL (it is opened automatically unless `--no-browser` is given).
@@ -71,7 +94,7 @@ a native menu, folder picker and "Show in file manager". The server exits togeth
 ```bash
 cd desktop
 npm ci
-npm start [path/to/repo]   # development: uses backend/.venv and the built frontend
+npm start [path/to/repo]   # development: uses backend/.venv (run `uv sync` first) and the built frontend
 npm run dist               # builds UI + server bundle + installers into desktop/release/
 ```
 
@@ -83,7 +106,8 @@ npm run dist               # builds UI + server bundle + installers into desktop
 | macOS | `.dmg`, `.zip` |
 | Windows | NSIS installer `.exe` |
 
-Installers must be built on their own OS (PyInstaller cannot cross-compile); the GitHub Actions
+`npm run dist` calls `uv sync --group bundle` and `uv run --group bundle pyinstaller`, so uv has to
+be installed for packaging as well. Installers must be built on their own OS (PyInstaller cannot cross-compile); the GitHub Actions
 workflow `.github/workflows/desktop.yml` tests and builds all three. The builds are unsigned; add
 code-signing certificates (electron-builder `CSC_LINK` / `CSC_KEY_PASSWORD`, Apple notarization) for
 public releases. `git` must be installed on the user's machine (the `.deb` depends on it).
@@ -91,20 +115,20 @@ public releases. `git` must be installed on the user's machine (the `.deb` depen
 ## Development
 
 ```bash
-cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+cd backend && uv sync
 cd ../frontend && npm ci
 cd .. && scripts/dev.sh          # backend on :7420 with reload, UI on :4200
 # open http://localhost:4200/?token=dev
 ```
 
 On Windows run the two parts by hand:
-`set GITCRAFT_TOKEN=dev && .venv\Scripts\uvicorn gitcraft.app:dev_app --factory --reload --port 7420`
+`set GITCRAFT_TOKEN=dev && uv run uvicorn gitcraft.app:dev_app --factory --reload --port 7420`
 in `backend/`, and `npx ng serve` in `frontend/`.
 
 Tests:
 
 ```bash
-cd backend && .venv/bin/pytest          # git operations against throwaway repositories
+cd backend && uv run pytest            # git operations against throwaway repositories
 cd frontend && npx ng test --watch=false
 ```
 

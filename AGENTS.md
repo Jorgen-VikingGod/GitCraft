@@ -39,29 +39,35 @@ Electron shell (desktop/) starts a PyInstaller-frozen copy of the server and sho
 
 ## Setup
 
-Requirements: git, Python 3.10+, and Node 20+ (CI uses Node 22 and Python 3.13).
+Requirements: git, [uv](https://docs.astral.sh/uv/) (provides Python 3.10+), and Node 20+
+(CI uses Node 22 and Python 3.13).
 
 ```bash
-cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev,bundle]'
+cd backend && uv sync            # .venv with the app (editable) + `dev` group; add `--group bundle` for PyInstaller
 cd ../frontend && npm ci
 cd ../desktop && npm ci          # only for the Electron app
 ```
 
-Keep the backend installed **editable** (`-e`). A non-editable install copies a stale `static/` into
-site-packages, and the server then serves an old UI.
+- The Python side is a uv project: dependencies in `backend/pyproject.toml`, dev tools in
+  `[dependency-groups]` (`dev` is the default, `bundle` = PyInstaller), versions pinned in
+  `backend/uv.lock` (commit it). Add packages with `uv add` / `uv add --dev`, never with pip.
+- Run Python tools with `uv run …` from `backend/`. Don't use `pip install` into `.venv`.
+- uv installs the project **editable**, which matters: a non-editable install copies a stale `static/`
+  into site-packages, and the server then serves an old UI. The Electron dev mode runs
+  `backend/.venv/bin/python` directly, so `uv sync` must have been run once.
 
 ## Run
 
 ```bash
 scripts/dev.sh                                  # backend :7420 (reload) + ng serve :4200 → http://localhost:4200/?token=dev
-cd frontend && npm run build && cd ../backend && .venv/bin/gitcraft [repo]   # production-like, opens browser
+cd frontend && npm run build && cd ../backend && uv run gitcraft [repo]   # production-like, opens browser
 cd desktop && npm start [repo]                  # Electron dev (needs a built frontend)
 ```
 
 ## Test and build (run before finishing a change)
 
 ```bash
-cd backend && .venv/bin/pytest -q               # must stay green
+cd backend && uv run pytest -q                 # must stay green
 cd frontend && npx ng test --watch=false        # Vitest
 cd frontend && npx ng build                     # strict TS + strictTemplates; fix warnings too
 cd desktop && npm run dist                      # UI + frozen server + installers for the current OS

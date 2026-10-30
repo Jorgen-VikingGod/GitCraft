@@ -7,12 +7,12 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 export GITCRAFT_TOKEN="${GITCRAFT_TOKEN:-dev}"
 
-if [ ! -x "$root/backend/.venv/bin/uvicorn" ]; then
-  echo "Backend virtualenv missing. Run: cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'" >&2
+if ! command -v uv >/dev/null; then
+  echo "uv is required: https://docs.astral.sh/uv/getting-started/installation/" >&2
   exit 1
 fi
 
-(cd "$root/backend" && exec .venv/bin/uvicorn gitcraft.app:dev_app --factory --reload \
+(cd "$root/backend" && exec uv run uvicorn gitcraft.app:dev_app --factory --reload \
   --host 127.0.0.1 --port 7420) &
 backend=$!
 trap 'kill "$backend" 2>/dev/null' EXIT

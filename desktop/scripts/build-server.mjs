@@ -23,16 +23,14 @@ function run(command, args, cwd) {
 if (!existsSync(join(frontend, 'node_modules'))) run('npm', ['ci'], frontend);
 run('npm', ['run', 'build'], frontend);
 
-// 2. Python environment with the bundling extra
-const venvPython = isWin ? join(backend, '.venv', 'Scripts', 'python.exe') : join(backend, '.venv', 'bin', 'python');
-if (!existsSync(venvPython)) run(isWin ? 'python' : 'python3', ['-m', 'venv', '.venv'], backend);
-// Editable install: keeps the development environment pointing at the source tree.
-run(venvPython, ['-m', 'pip', 'install', '--quiet', '-e', '.[dev,bundle]'], backend);
+// 2. Python environment (backend/.venv, managed by uv) with the bundling group.
+// uv installs the project editable, so the environment keeps pointing at the source tree.
+run('uv', ['sync', '--group', 'bundle'], backend);
 
 // 3. Freeze the server
 run(
-  venvPython,
-  ['-m', 'PyInstaller', '--noconfirm', '--distpath', 'dist', '--workpath', 'build', join('packaging', 'gitcraft-server.spec')],
+  'uv',
+  ['run', '--group', 'bundle', 'pyinstaller', '--noconfirm', '--distpath', 'dist', '--workpath', 'build', join('packaging', 'gitcraft-server.spec')],
   backend,
 );
 console.log(`\nServer bundle ready: ${join(backend, 'dist', 'gitcraft-server')}`);
