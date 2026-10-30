@@ -1,5 +1,6 @@
 //! Application state, messages and the update loop.
 
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -14,7 +15,6 @@ use gitcraft_core::{Error, ops, queries, repos};
 use iced::futures::{SinkExt, Stream};
 use iced::widget::{Id, operation, scrollable, text_editor};
 use iced::{Element, Point, Size, Subscription, Task, Theme, keyboard, theme, window};
-use native_theme_iced::styles;
 
 use crate::actions::{Action, MenuRequest};
 use crate::command::Command;
@@ -80,7 +80,8 @@ pub struct DiffPane {
     pub offset: f32,
     pub viewport: Size,
     pub scroll: Id,
-    pub longest: usize,
+    /// Row tops for a width and row count: see the diff view.
+    pub layout: RefCell<(f32, usize, Vec<f32>)>,
     pub selection: BTreeSet<(usize, usize)>,
     pub anchor: Option<(usize, usize)>,
 }
@@ -96,7 +97,7 @@ impl Default for DiffPane {
             offset: 0.0,
             viewport: Size::new(800.0, 400.0),
             scroll: Id::unique(),
-            longest: 0,
+            layout: RefCell::new((-1.0, 0, Vec::new())),
             selection: BTreeSet::new(),
             anchor: None,
         }
@@ -108,6 +109,7 @@ impl DiffPane {
         self.token += 1;
         self.diff = None;
         self.rows.clear();
+        self.layout.get_mut().0 = -1.0;
         self.highlights = None;
         self.loading = false;
         self.selection.clear();
@@ -116,15 +118,10 @@ impl DiffPane {
 
     pub fn rebuild_rows(&mut self, split: bool) {
         self.rows.clear();
-        self.longest = 0;
+        self.layout.get_mut().0 = -1.0;
         let Some(diff) = &self.diff else { return };
         for (index, hunk) in diff.hunks.iter().enumerate() {
             self.rows.push(DiffRow::Hunk(index));
-            self.longest = hunk
-                .lines
-                .iter()
-                .map(|line| line.text.chars().count())
-                .fold(self.longest, usize::max);
             if split {
                 let tags: Vec<char> = hunk.lines.iter().map(|line| line.t).collect();
                 self.rows.extend(
@@ -234,6 +231,8 @@ pub struct RepoTab {
     pub log_limit: usize,
     pub loading: bool,
     pub all_branches: bool,
+    /// The most lanes any commit needs; the graph column is this wide for every row.
+    pub graph_lanes: u32,
     pub selected: Option<String>,
     pub detail: Option<CommitDetail>,
     pub detail_error: Option<String>,
@@ -275,6 +274,7 @@ impl RepoTab {
             log_limit,
             loading: true,
             all_branches: true,
+            graph_lanes: 1,
             selected: None,
             detail: None,
             detail_error: None,
@@ -660,10 +660,10 @@ pub enum Message {
 }
 
 impl App {
-    pub fn boot(repo: Option<String>) -> (Self, Task<Message>) {
+    pub fn boot(repo: Option<String>, look: Look) -> (Self, Task<Message>) {
         let store = RepoStore::open();
         let settings = Settings::load(&store.dir());
-        let mut app = Self::new(Look::for_setting(&settings.theme), store, settings);
+        let mut app = Self::new(look, store, settings);
         if let Err(problem) = gitcraft_core::runner::check_git() {
             app.toast(ToastKind::Error, problem, None);
         }
@@ -724,8 +724,11 @@ impl App {
         self.look.theme.clone()
     }
 
-    pub fn style(&self, theme: &Theme) -> theme::Style {
-        styles::application(&self.look.resolved)(theme)
+    pub fn style(&self, _theme: &Theme) -> theme::Style {
+        theme::Style {
+            background_color: self.look.c.bg,
+            text_color: self.look.c.text,
+        }
     }
 
     pub fn scale(&self) -> f32 {
@@ -1761,6 +1764,11 @@ impl App {
         let Some(tab) = self.tab_mut(path) else {
             return Task::none();
         };
+        tab.graph_lanes = commits
+            .iter()
+            .filter_map(|commit| commit.graph.as_ref().map(|graph| graph.width))
+            .max()
+            .unwrap_or(1);
         tab.commits = commits;
         tab.has_more = has_more;
         tab.loading = false;

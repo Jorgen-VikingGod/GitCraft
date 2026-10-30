@@ -22,13 +22,20 @@ pub fn run() -> iced::Result {
     }
     environment::prepare();
     let saved = settings::Settings::load(&gitcraft_core::store::config_dir());
-    iced::application(move || App::boot(repo.clone()), App::update, App::view)
-        .title(App::title)
-        .theme(App::theme)
-        .style(App::style)
-        .subscription(App::subscription)
-        .scale_factor(App::scale)
-        .exit_on_close_request(false)
-        .window_size(iced::Size::new(saved.window_width, saved.window_height))
-        .run()
+    let look = theme::Look::for_setting(&saved.theme);
+    let font = look.font;
+    iced::application(
+        move || App::boot(repo.clone(), look.clone()),
+        App::update,
+        App::view,
+    )
+    .title(App::title)
+    .theme(App::theme)
+    .style(App::style)
+    .subscription(App::subscription)
+    .scale_factor(App::scale)
+    .default_font(font)
+    .exit_on_close_request(false)
+    .window_size(iced::Size::new(saved.window_width, saved.window_height))
+    .run()
 }

@@ -5,10 +5,12 @@ mod details;
 mod diff;
 mod graph_cell;
 mod history;
+mod icon;
 mod overlays;
 mod popups;
 mod shell;
 mod sidebar;
+mod style;
 mod widgets;
 
 use iced::widget::{column, container, row, stack};

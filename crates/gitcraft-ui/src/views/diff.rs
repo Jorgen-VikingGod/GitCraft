@@ -1,24 +1,26 @@
-//! A virtualised diff, unified or side by side, with line and hunk staging.
+//! A virtualised diff, unified or side by side, with wrapped lines and line and hunk staging.
 
 use gitcraft_core::model::{DiffLine, FileDiff};
-use iced::widget::text::{Span, Wrapping};
+use iced::widget::text::{LineHeight, Span, Wrapping};
 use iced::widget::{column, container, mouse_area, rich_text, row, scrollable, space, text};
-use iced::{Background, Center, Color, Element, Font, Length, Theme, never};
-use native_theme_iced::{selection_background, styles};
+use iced::{Center, Color, Element, Length, Right, never};
 
-use super::widgets::{btn, danger, hline, muted, placeholder, primary, single, spacer, toggle};
+use super::icon::icon;
+use super::style;
+use super::widgets::{
+    btn, danger_text, hline, muted_text, placeholder, primary, segmented, single, spacer,
+};
 use crate::app::{App, DIFF_ROW_HEIGHT, DiffPane, DiffRow, Message, PaneKey};
 use crate::logic::plural;
-use crate::theme::Look;
+use crate::theme::{CODE_SIZE, Look};
 
-const CODE_SIZE: f32 = 13.0;
-const CHAR_WIDTH: f32 = 7.9;
 const NUMBER_WIDTH: f32 = 46.0;
 const SIGN_WIDTH: f32 = 14.0;
+const SPLIT_BAR: f32 = 3.0;
+const TEXT_MARGIN: f32 = 12.0;
 const OVERSCAN: usize = 6;
-const HUNK_HEIGHT: f32 = DIFF_ROW_HEIGHT + 8.0;
-/// Space for the fixed columns of a unified row, and a margin.
-const GUTTER: f32 = NUMBER_WIDTH * 2.0 + SIGN_WIDTH + 40.0;
+const HUNK_HEIGHT: f32 = 33.0;
+const TAB_WIDTH: usize = 4;
 
 fn stats(diff: &FileDiff) -> (usize, usize) {
     let lines = diff.hunks.iter().flat_map(|hunk| &hunk.lines);
@@ -29,37 +31,107 @@ fn stats(diff: &FileDiff) -> (usize, usize) {
     })
 }
 
+/// Columns a line takes up: tabs are wider, and so are East Asian characters.
+fn columns(line: &str) -> usize {
+    line.chars()
+        .map(|c| match c {
+            '\t' => TAB_WIDTH,
+            '\u{2e80}'..='\u{9fff}'
+            | '\u{ac00}'..='\u{d7a3}'
+            | '\u{f900}'..='\u{faff}'
+            | '\u{ff00}'..='\u{ffef}' => 2,
+            _ => 1,
+        })
+        .sum()
+}
+
+fn wrapped_lines(line: &DiffLine, per_line: usize) -> usize {
+    columns(&line.text).div_ceil(per_line.max(1)).max(1)
+}
+
+fn unified_columns(width: f32, char_width: f32) -> usize {
+    ((width - NUMBER_WIDTH * 2.0 - SIGN_WIDTH - TEXT_MARGIN) / char_width).max(8.0) as usize
+}
+
+fn split_columns(width: f32, char_width: f32) -> usize {
+    ((width / 2.0 - NUMBER_WIDTH - SPLIT_BAR - TEXT_MARGIN) / char_width).max(8.0) as usize
+}
+
+fn row_height(diff: &FileDiff, row: &DiffRow, unified: usize, split: usize) -> f32 {
+    let lines = |hunk: usize, index: usize, per_line: usize| {
+        wrapped_lines(&diff.hunks[hunk].lines[index], per_line)
+    };
+    match *row {
+        DiffRow::Hunk(_) => HUNK_HEIGHT,
+        DiffRow::Line(hunk, index) => lines(hunk, index, unified) as f32 * DIFF_ROW_HEIGHT,
+        DiffRow::Split(hunk, left, right) => {
+            let side = |index: Option<usize>| index.map_or(1, |index| lines(hunk, index, split));
+            side(left).max(side(right)) as f32 * DIFF_ROW_HEIGHT
+        }
+    }
+}
+
+/// Where each row starts, plus the total at the end. Lines wrap, so this depends on the
+/// width; it's kept until the width or the rows change, as it covers the whole diff.
+fn with_tops<R>(
+    pane: &DiffPane,
+    width: f32,
+    char_width: f32,
+    use_tops: impl FnOnce(&[f32]) -> R,
+) -> R {
+    let mut cache = pane.layout.borrow_mut();
+    if cache.0 != width || cache.1 != pane.rows.len() {
+        cache.2.clear();
+        let mut top = 0.0;
+        if let Some(diff) = &pane.diff {
+            let (unified, split) = (
+                unified_columns(width, char_width),
+                split_columns(width, char_width),
+            );
+            for row in &pane.rows {
+                cache.2.push(top);
+                top += row_height(diff, row, unified, split);
+            }
+        }
+        cache.2.push(top);
+        cache.0 = width;
+        cache.1 = pane.rows.len();
+    }
+    use_tops(&cache.2)
+}
+
+/// The first row to draw for a scroll position.
+fn first_visible(tops: &[f32], offset: f32) -> usize {
+    tops.partition_point(|top| *top <= offset).saturating_sub(1)
+}
+
 fn line_background(look: &Look, tag: char, selected: bool) -> Option<Color> {
+    let c = &look.c;
     if selected {
-        return Some(Color {
-            a: 0.45,
-            ..selection_background(&look.resolved)
-        });
+        return Some(c.diff_selected);
     }
     match tag {
-        '+' => Some(Color {
-            a: 0.16,
-            ..look.palette.added
-        }),
-        '-' => Some(Color {
-            a: 0.16,
-            ..look.palette.removed
-        }),
+        '+' => Some(c.diff_add_bg),
+        '-' => Some(c.diff_del_bg),
         _ => None,
     }
 }
 
 /// The text of a line, in colour when highlighting has finished.
 fn code<'a>(
+    look: &Look,
     pane: &'a DiffPane,
     hunk: usize,
     index: usize,
     line: &'a DiffLine,
 ) -> Element<'a, Message> {
+    let height = LineHeight::Absolute(DIFF_ROW_HEIGHT.into());
     if line.t == '\\' {
-        return muted(line.text.as_str(), CODE_SIZE - 1.0)
-            .font(Font::MONOSPACE)
-            .wrapping(Wrapping::None)
+        return text(line.text.as_str())
+            .size(CODE_SIZE)
+            .font(look.mono)
+            .line_height(height)
+            .color(look.c.text_muted)
             .into();
     }
     if let Some(runs) = pane
@@ -67,37 +139,39 @@ fn code<'a>(
         .as_ref()
         .and_then(|all| all.get(&(hunk, index)))
     {
-        let spans: Vec<Span<'a, std::convert::Infallible, Font>> = runs
+        let spans: Vec<Span<'a, std::convert::Infallible, iced::Font>> = runs
             .iter()
             .filter_map(|(color, range)| {
-                line.text
-                    .get(range.clone())
-                    .map(|piece| Span::new(piece).color(*color))
+                let piece = line.text.get(range.clone())?;
+                Some(Span::new(piece.replace('\t', "    ")).color(*color))
             })
             .collect();
         return rich_text(spans)
             .size(CODE_SIZE)
-            .font(Font::MONOSPACE)
-            .wrapping(Wrapping::None)
+            .font(look.mono)
+            .line_height(height)
+            .wrapping(Wrapping::Glyph)
             .on_link_click(never)
             .into();
     }
-    text(line.text.as_str())
+    text(line.text.replace('\t', "    "))
         .size(CODE_SIZE)
-        .font(Font::MONOSPACE)
-        .wrapping(Wrapping::None)
+        .font(look.mono)
+        .line_height(height)
+        .wrapping(Wrapping::Glyph)
         .into()
 }
 
-fn number<'a>(value: Option<u32>) -> Element<'a, Message> {
-    muted(
-        value.map_or_else(String::new, |n| n.to_string()),
-        CODE_SIZE - 1.0,
-    )
-    .font(Font::MONOSPACE)
-    .width(NUMBER_WIDTH)
-    .wrapping(Wrapping::None)
-    .into()
+fn number<'a>(look: &Look, value: Option<u32>) -> Element<'a, Message> {
+    text(value.map_or_else(String::new, |n| n.to_string()))
+        .size(CODE_SIZE)
+        .font(look.mono)
+        .line_height(LineHeight::Absolute(DIFF_ROW_HEIGHT.into()))
+        .color(look.c.text_faint)
+        .align_x(Right)
+        .width(NUMBER_WIDTH - 8.0)
+        .wrapping(Wrapping::None)
+        .into()
 }
 
 fn clickable<'a>(
@@ -110,29 +184,12 @@ fn clickable<'a>(
 ) -> Element<'a, Message> {
     if selectable && matches!(tag, '+' | '-') {
         mouse_area(content)
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_press(Message::DiffLineClicked(key, hunk, index))
             .into()
     } else {
         content
     }
-}
-
-fn styled<'a>(
-    look: &Look,
-    content: Element<'a, Message>,
-    tag: char,
-    selected: bool,
-) -> Element<'a, Message> {
-    let background = line_background(look, tag, selected);
-    container(content)
-        .width(Length::Fill)
-        .height(DIFF_ROW_HEIGHT)
-        .clip(true)
-        .style(move |_: &Theme| container::Style {
-            background: background.map(Background::Color),
-            ..container::Style::default()
-        })
-        .into()
 }
 
 fn unified<'a>(
@@ -141,31 +198,38 @@ fn unified<'a>(
     key: PaneKey,
     hunk: usize,
     index: usize,
+    height: f32,
     selectable: bool,
 ) -> Element<'a, Message> {
+    let look = &app.look;
     let line = &pane.diff.as_ref().expect("rows imply a diff").hunks[hunk].lines[index];
     let sign = if line.t == '\\' { ' ' } else { line.t };
     let content = row![
-        number(line.old),
-        number(line.new),
-        single(sign.to_string(), CODE_SIZE)
-            .font(Font::MONOSPACE)
+        container(number(look, line.old)).width(NUMBER_WIDTH),
+        container(number(look, line.new)).width(NUMBER_WIDTH),
+        text(sign.to_string())
+            .size(CODE_SIZE)
+            .font(look.mono)
+            .line_height(LineHeight::Absolute(DIFF_ROW_HEIGHT.into()))
+            .color(look.c.text_muted)
             .width(SIGN_WIDTH),
-        code(pane, hunk, index, line),
-    ]
-    .align_y(Center)
-    .padding([0, 4]);
-    let selected = pane.selection.contains(&(hunk, index));
-    clickable(
-        styled(&app.look, content.into(), line.t, selected),
-        key,
-        hunk,
-        index,
-        line.t,
-        selectable,
-    )
+        container(code(look, pane, hunk, index, line))
+            .width(Length::Fill)
+            .padding(iced::Padding {
+                right: TEXT_MARGIN,
+                ..iced::Padding::ZERO
+            }),
+    ];
+    let background = line_background(look, line.t, pane.selection.contains(&(hunk, index)));
+    let body = container(content)
+        .width(Length::Fill)
+        .height(height)
+        .clip(true)
+        .style(style::maybe_fill(background));
+    clickable(body.into(), key, hunk, index, line.t, selectable)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn half<'a>(
     app: &'a App,
     pane: &'a DiffPane,
@@ -173,37 +237,45 @@ fn half<'a>(
     hunk: usize,
     index: Option<usize>,
     left: bool,
+    height: f32,
     selectable: bool,
 ) -> Element<'a, Message> {
+    let look = &app.look;
+    let c = &look.c;
     let Some(index) = index else {
         return container(space())
             .width(Length::Fill)
-            .height(DIFF_ROW_HEIGHT)
-            .style(|theme: &Theme| container::Style {
-                background: Some(Background::Color(Color {
-                    a: 0.06,
-                    ..theme.palette().text
-                })),
-                ..container::Style::default()
-            })
+            .height(height)
+            .style(style::fill(c.diff_filler))
             .into();
     };
     let line = &pane.diff.as_ref().expect("rows imply a diff").hunks[hunk].lines[index];
+    let bar = match line.t {
+        '+' => Some(c.diff_add_text),
+        '-' => Some(c.diff_del_text),
+        _ => None,
+    };
     let content = row![
-        number(if left { line.old } else { line.new }),
-        code(pane, hunk, index, line)
-    ]
-    .align_y(Center)
-    .padding([0, 4]);
-    let selected = pane.selection.contains(&(hunk, index));
-    clickable(
-        styled(&app.look, content.into(), line.t, selected),
-        key,
-        hunk,
-        index,
-        line.t,
-        selectable,
-    )
+        container(number(look, if left { line.old } else { line.new })).width(NUMBER_WIDTH),
+        container(space())
+            .width(SPLIT_BAR)
+            .height(height)
+            .style(style::maybe_fill(bar)),
+        container(code(look, pane, hunk, index, line))
+            .width(Length::Fill)
+            .padding(iced::Padding {
+                left: 6.0,
+                right: TEXT_MARGIN - 6.0,
+                ..iced::Padding::ZERO
+            }),
+    ];
+    let background = line_background(look, line.t, pane.selection.contains(&(hunk, index)));
+    let body = container(content)
+        .width(Length::Fill)
+        .height(height)
+        .clip(true)
+        .style(style::maybe_fill(background));
+    clickable(body.into(), key, hunk, index, line.t, selectable)
 }
 
 fn hunk_header<'a>(
@@ -213,14 +285,28 @@ fn hunk_header<'a>(
     stage_mode: Option<&'static str>,
 ) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 2.0;
+    let c = &look.c;
     let hunk = &pane.diff.as_ref().expect("rows imply a diff").hunks[index];
     let title = format!(
-        "@@ -{},{} +{},{} @@ {}",
-        hunk.old_start, hunk.old_lines, hunk.new_start, hunk.new_lines, hunk.context
+        "@@ -{},{} +{},{} @@",
+        hunk.old_start, hunk.old_lines, hunk.new_start, hunk.new_lines
     );
-    // Buttons come first, so that long lines scrolling sideways can't push them out of reach.
-    let mut line = row![].spacing(6).align_y(Center).padding([0, 6]);
+    let mut line = row![
+        container(
+            row![
+                single(title, 12).font(look.mono).color(c.text_muted),
+                single(hunk.context.as_str(), 12)
+                    .font(look.mono)
+                    .color(c.text)
+            ]
+            .spacing(6)
+        )
+        .width(Length::Fill)
+        .clip(true)
+    ]
+    .spacing(6)
+    .align_y(Center)
+    .padding([0, 10]);
     let count = pane.selected_in(index).len();
     let name = |verb: &str| {
         if count > 0 {
@@ -232,7 +318,7 @@ fn hunk_header<'a>(
     match stage_mode {
         Some("stage") => {
             line = line
-                .push(danger(
+                .push(danger_text(
                     look,
                     name("Discard"),
                     Some(Message::HunkAction(index, "discard")),
@@ -252,52 +338,15 @@ fn hunk_header<'a>(
         }
         None => {}
     }
-    line = line.push(
-        muted(title, size)
-            .font(Font::MONOSPACE)
-            .wrapping(Wrapping::None),
-    );
-    container(line)
-        .width(Length::Fill)
-        .height(HUNK_HEIGHT)
-        .center_y(HUNK_HEIGHT)
-        .clip(true)
-        .style(|theme: &Theme| container::Style {
-            background: Some(Background::Color(Color {
-                a: 0.07,
-                ..theme.palette().text
-            })),
-            ..container::Style::default()
-        })
-        .into()
-}
-
-fn height_of(rows: &[DiffRow]) -> f32 {
-    rows.iter()
-        .map(|row| {
-            if matches!(row, DiffRow::Hunk(_)) {
-                HUNK_HEIGHT
-            } else {
-                DIFF_ROW_HEIGHT
-            }
-        })
-        .sum()
-}
-
-/// The first row to draw for a scroll position, allowing for the taller hunk headers.
-fn first_visible(rows: &[DiffRow], offset: f32) -> usize {
-    let mut top = 0.0;
-    for (index, row) in rows.iter().enumerate() {
-        top += if matches!(row, DiffRow::Hunk(_)) {
-            HUNK_HEIGHT
-        } else {
-            DIFF_ROW_HEIGHT
-        };
-        if top > offset {
-            return index;
-        }
-    }
-    rows.len()
+    container(column![
+        hline(look),
+        container(line).height(Length::Fill).center_y(Length::Fill),
+        hline(look)
+    ])
+    .width(Length::Fill)
+    .height(HUNK_HEIGHT)
+    .style(style::fill(c.diff_hunk_bg))
+    .into()
 }
 
 /// `stage_mode`: `None` is read-only, otherwise "stage" or "unstage". `actions` are extra header buttons.
@@ -311,12 +360,15 @@ pub fn view<'a>(
     available_width: f32,
 ) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let c = &look.c;
+    let page_style = style::fill(c.bg);
     if pane.loading {
-        return placeholder(look, "Loading diff…");
+        return container(placeholder(look, "Loading diff…"))
+            .style(page_style)
+            .into();
     }
     let Some(diff) = &pane.diff else {
-        return placeholder(look, empty);
+        return container(placeholder(look, empty)).style(page_style).into();
     };
     let (added, removed) = stats(diff);
     let title = match (&diff.old_path, &diff.new_path) {
@@ -327,103 +379,121 @@ pub fn view<'a>(
     };
     let split = app.settings.diff_split;
     let mut header = row![
-        container(single(title, size)).clip(true),
-        single(format!("+{added}"), size).color(look.palette.added),
-        single(format!("−{removed}"), size).color(look.palette.removed),
+        icon("file", 14.0, c.text_muted),
+        container(single(title, 13).font(look.semibold)).clip(true),
+        row![
+            single(format!("+{added}"), 12)
+                .font(look.mono)
+                .color(c.diff_add_text),
+            single(format!("−{removed}"), 12)
+                .font(look.mono)
+                .color(c.diff_del_text)
+        ]
+        .spacing(4),
         spacer(),
     ]
     .spacing(8)
-    .align_y(Center)
-    .padding([3, 8]);
+    .align_y(Center);
     if let Some(actions) = actions {
         header = header.push(actions);
     }
-    header = header
-        .push(toggle(look, "Unified", !split, Message::SetSplit(false)))
-        .push(toggle(look, "Split", split, Message::SetSplit(true)));
+    header = header.push(segmented(
+        look,
+        ("Unified", !split, Message::SetSplit(false)),
+        ("Split", split, Message::SetSplit(true)),
+    ));
 
-    let mut page = column![header, hline(look)];
+    let mut page = column![
+        container(header)
+            .padding([6, 12])
+            .width(Length::Fill)
+            .style(style::fill(c.panel)),
+        hline(look)
+    ];
     if diff.binary {
-        return page
-            .push(placeholder(look, "Binary file — no text diff available"))
-            .into();
+        page = page.push(placeholder(look, "Binary file — no text diff available"));
+        return container(page).style(page_style).into();
     }
     if diff.hunks.is_empty() {
-        return page
-            .push(placeholder(
-                look,
-                "No content changes (mode or rename only)",
-            ))
-            .into();
+        page = page.push(placeholder(
+            look,
+            "No content changes (mode or rename only)",
+        ));
+        return container(page).style(page_style).into();
     }
 
     // Line staging can't work while the diff ignores whitespace: it wouldn't match the file.
     let selectable = stage_mode.is_some() && !app.settings.ignore_whitespace && diff.status != "?";
     let shown_mode = stage_mode.filter(|_| selectable);
     // The window's height is a safe upper bound: the pane's own is only known after it scrolled.
-    let count = (app.window.height / app.scale() / DIFF_ROW_HEIGHT) as usize + 2 * OVERSCAN + 1;
-    let first = first_visible(&pane.rows, pane.offset)
-        .saturating_sub(OVERSCAN)
-        .min(pane.rows.len().saturating_sub(count));
-    let end = (first + count).min(pane.rows.len());
+    let window_height = app.window.height / app.scale();
+    let (first, end, above, below, heights) =
+        with_tops(pane, available_width, look.char_width, |tops| {
+            let total = tops.last().copied().unwrap_or(0.0);
+            let rows = pane.rows.len();
+            // A scroll position left over from a longer diff can't leave the pane blank.
+            let offset = pane.offset.min((total - window_height).max(0.0));
+            let first = first_visible(tops, offset)
+                .saturating_sub(OVERSCAN)
+                .min(rows);
+            let bottom = offset + window_height;
+            let end = (tops.partition_point(|top| *top < bottom) + OVERSCAN).min(rows);
+            let heights: Vec<f32> = (first..end)
+                .map(|index| tops[index + 1] - tops[index])
+                .collect();
+            (first, end, tops[first], total - tops[end], heights)
+        });
 
     let mut items: Vec<Element<'a, Message>> = Vec::with_capacity(end - first + 4);
-    items.push(space().height(height_of(&pane.rows[..first])).into());
-    for diff_row in &pane.rows[first..end] {
+    items.push(space().height(above).into());
+    for (diff_row, height) in pane.rows[first..end].iter().zip(heights) {
         items.push(match *diff_row {
             DiffRow::Hunk(index) => hunk_header(app, pane, index, shown_mode),
-            DiffRow::Line(hunk, index) => unified(app, pane, key, hunk, index, selectable),
+            DiffRow::Line(hunk, index) => unified(app, pane, key, hunk, index, height, selectable),
             DiffRow::Split(hunk, left, right) => row![
-                container(half(app, pane, key, hunk, left, true, selectable))
-                    .width(Length::FillPortion(1))
-                    .clip(true),
-                container(half(app, pane, key, hunk, right, false, selectable))
-                    .width(Length::FillPortion(1))
-                    .clip(true),
+                container(half(app, pane, key, hunk, left, true, height, selectable))
+                    .width(Length::FillPortion(1)),
+                container(half(app, pane, key, hunk, right, false, height, selectable))
+                    .width(Length::FillPortion(1)),
             ]
             .into(),
         });
     }
-    items.push(space().height(height_of(&pane.rows[end..])).into());
+    items.push(space().height(below).into());
     if diff.truncated {
         items.push(
-            container(muted(
+            container(muted_text(
+                look,
                 "Diff truncated — the file is too large to show completely.",
-                size,
+                13,
             ))
-            .padding(8)
+            .padding(24)
+            .center_x(Length::Fill)
             .into(),
         );
     }
     if selectable {
-        items.push(container(muted("Click lines to select them (Shift+click for a range), then stage or discard just those lines.", size)).padding(8).into());
+        items.push(container(muted_text(look, "Click lines to select them (Shift+click for a range), then stage or discard just those lines.", 12)).padding([8, 12]).into());
     } else if stage_mode.is_some() {
         let note = if diff.status == "?" {
             "Untracked file: stage the whole file to include it."
         } else {
             "Line staging is disabled while “Ignore whitespace” is on."
         };
-        items.push(container(muted(note, size)).padding(8).into());
+        items.push(
+            container(muted_text(look, note, 12))
+                .padding([8, 12])
+                .into(),
+        );
     }
 
-    let list = column(items);
-    let body = if split {
-        scrollable(list.width(Length::Fill)).direction(scrollable::Direction::Vertical(
-            styles::scrollbar(&look.resolved),
-        ))
-    } else {
-        // Long lines scroll sideways; the rows are as wide as the longest one.
-        let width = (pane.longest as f32 * CHAR_WIDTH + GUTTER).max(available_width);
-        scrollable(list.width(width)).direction(scrollable::Direction::Both {
-            vertical: styles::scrollbar(&look.resolved),
-            horizontal: styles::scrollbar(&look.resolved),
-        })
-    };
     page = page.push(
-        body.id(pane.scroll.clone())
+        scrollable(column(items).width(Length::Fill))
+            .id(pane.scroll.clone())
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(styles::scrollable(&look.resolved))
+            .direction(scrollable::Direction::Vertical(style::scrollbar()))
+            .style(style::scrollable(look))
             .on_scroll(move |viewport| {
                 let bounds = viewport.bounds();
                 Message::DiffScrolled(
@@ -433,7 +503,7 @@ pub fn view<'a>(
                 )
             }),
     );
-    page.into()
+    container(page).style(page_style).into()
 }
 
 #[cfg(test)]
@@ -441,18 +511,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn finds_the_first_row_past_taller_headers() {
-        let rows = [
-            DiffRow::Hunk(0),
-            DiffRow::Line(0, 0),
-            DiffRow::Line(0, 1),
-            DiffRow::Hunk(1),
-            DiffRow::Line(1, 0),
-        ];
-        assert_eq!(first_visible(&rows, 0.0), 0);
-        assert_eq!(first_visible(&rows, HUNK_HEIGHT - 1.0), 0);
-        assert_eq!(first_visible(&rows, HUNK_HEIGHT), 1);
-        assert_eq!(first_visible(&rows, HUNK_HEIGHT + DIFF_ROW_HEIGHT * 2.0), 3);
-        assert_eq!(first_visible(&rows, 10_000.0), 5);
+    fn counts_columns_like_the_screen_does() {
+        assert_eq!(columns("abc"), 3);
+        assert_eq!(columns("\tx"), 5);
+        assert_eq!(columns("日本"), 4);
+    }
+
+    #[test]
+    fn finds_the_row_at_a_scroll_position() {
+        let tops = [0.0, 33.0, 53.0, 93.0, 126.0, 146.0];
+        assert_eq!(first_visible(&tops, 0.0), 0);
+        assert_eq!(first_visible(&tops, 32.0), 0);
+        assert_eq!(first_visible(&tops, 33.0), 1);
+        assert_eq!(first_visible(&tops, 60.0), 2);
+        assert_eq!(first_visible(&tops, 10_000.0), 5);
     }
 }

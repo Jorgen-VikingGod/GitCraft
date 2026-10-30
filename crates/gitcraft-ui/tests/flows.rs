@@ -74,6 +74,7 @@ fn empty_fixture() -> Fixture {
         ("user.name", "Test User"),
         ("user.email", "t@example.com"),
         ("commit.gpgsign", "false"),
+        ("core.autocrlf", "false"),
     ] {
         git(&path, &["config", key, value]);
     }
@@ -196,9 +197,9 @@ async fn opening_loads_history_refs_and_selects_head() {
         "work on the side",
         "first commit",
         "v1.0",
-        "1 change",
-        "Branches",
+        "BRANCHES",
         "Uncommitted changes",
+        "1 file",
     ] {
         assert!(ui.find(expected).is_ok(), "{expected} is on screen");
     }
@@ -225,7 +226,7 @@ async fn clicking_a_commit_selects_it_and_shows_its_details() {
     let mut ui = simulator(app.view());
     assert!(ui.find("b.txt").is_ok(), "the changed file is listed");
     assert!(
-        ui.find("Test User <t@example.com>").is_ok(),
+        ui.find("Test User").is_ok() && ui.find("<t@example.com>").is_ok(),
         "the author is shown"
     );
 }
@@ -463,6 +464,44 @@ async fn resolving_a_merge_conflict_in_the_ui() {
             .unwrap()
             .operation
             .is_none()
+    );
+}
+
+#[tokio::test]
+async fn resolving_a_conflict_in_a_crlf_checkout() {
+    let f = empty_fixture();
+    conflicting(&f);
+    f.git(&["config", "core.autocrlf", "true"]);
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Run(Command::Merge {
+            reference: "other".into(),
+            mode: "default".into(),
+        }),
+    )
+    .await;
+    drive(&mut app, Message::OpenConflict("c.txt".into())).await;
+    let Some(Overlay::Conflict(state)) = &app.overlay else {
+        panic!("the resolver opened")
+    };
+    assert_eq!(
+        state.conflict_count(),
+        1,
+        "markers are found despite the carriage returns"
+    );
+    drive(&mut app, Message::ConflictChoose(0, Choice::OursTheirs)).await;
+    drive(&mut app, Message::ConflictSave).await;
+    assert!(app.form.is_none(), "no markers left, so no warning");
+    assert!(
+        app.overlay.is_none(),
+        "saved: {:?}",
+        app.toasts.first().map(|t| &t.detail)
+    );
+    assert_eq!(
+        f.git(&["show", ":c.txt"]),
+        "ours\ntheirs\n",
+        "the index is clean LF"
     );
 }
 
@@ -1029,6 +1068,11 @@ async fn screenshots() {
         f.write("notes.md", "# Notes\n\nfirst\nSECOND\nthird\nfourth\n");
         f.write("new.txt", "new\n");
         f.git(&["add", "new.txt"]);
+        let long = "wrapped text ".repeat(40);
+        f.write(
+            "long.rs",
+            &format!("fn long() {{\n\tlet text = \"{long}\";\n    let short = 1;\n}}\n"),
+        );
         let mut app = opened(&f, dark).await;
         let shot = |app: &App, name: &str| {
             let theme = app.theme();
@@ -1045,6 +1089,10 @@ async fn screenshots() {
         let code = sha_of(&app, "add code");
         drive(&mut app, Message::Select(code.clone())).await;
         shot(&app, "history");
+        let preset = app.look.clone();
+        app.look = gitcraft_ui::theme::Look::for_setting(mode);
+        shot(&app, "system-fonts");
+        app.look = preset;
 
         drive(
             &mut app,
@@ -1072,6 +1120,15 @@ async fn screenshots() {
         drive(&mut app, Message::CloseMenu).await;
 
         drive(&mut app, Message::SetView(View::Changes)).await;
+        drive(
+            &mut app,
+            Message::FilePicked(Area::Unstaged, "long.rs".into()),
+        )
+        .await;
+        shot(&app, "wrap");
+        drive(&mut app, Message::SetSplit(true)).await;
+        shot(&app, "wrap-split");
+        drive(&mut app, Message::SetSplit(false)).await;
         drive(
             &mut app,
             Message::FilePicked(Area::Unstaged, "notes.md".into()),

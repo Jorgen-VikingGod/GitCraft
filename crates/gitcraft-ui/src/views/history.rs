@@ -1,40 +1,37 @@
 //! The virtualised commit list with its graph, above the details of the selection.
 
-use chrono::{DateTime, Local};
 use gitcraft_core::model::{Commit, RefLabel};
 use iced::widget::text::Wrapping;
 use iced::widget::{canvas, column, container, mouse_area, row, scrollable, space, text};
 use iced::{Background, Center, Color, Element, Length, Theme};
-use native_theme_iced::{selection_background, styles};
 
 use super::details;
 use super::graph_cell::{GraphCell, width_for};
-use super::widgets::{btn, hline, muted, placeholder, single, spacer, splitter, toggle};
+use super::icon::icon;
+use super::style;
+use super::widgets::{
+    btn, heading, hline, hoverable, placeholder, segmented, single, spacer, splitter,
+};
 use crate::actions::{MenuRequest, RefTarget};
 use crate::app::{App, Message, ROW_HEIGHT, RepoTab, Splitter, View};
 use crate::command::Command;
-use crate::logic::{plural, short_sha};
+use crate::logic::{plural, short_date, short_sha};
 use crate::theme::Look;
-
-pub fn format_time(seconds: i64) -> String {
-    DateTime::from_timestamp(seconds, 0)
-        .map(|time| {
-            time.with_timezone(&Local)
-                .format("%Y-%m-%d %H:%M")
-                .to_string()
-        })
-        .unwrap_or_default()
-}
 
 /// Rows drawn beyond the visible ones, so that a small scroll never shows a gap.
 const OVERSCAN: usize = 4;
 const AUTHOR_WIDTH: f32 = 150.0;
-const DATE_WIDTH: f32 = 112.0;
-const SHA_WIDTH: f32 = 60.0;
+const DATE_WIDTH: f32 = 120.0;
+const SHA_WIDTH: f32 = 76.0;
 
 pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let c = &look.c;
+    let graph_width = if tab.search.is_some() {
+        10.0
+    } else {
+        width_for(tab.graph_lanes)
+    };
     let mut top = column![];
     if let Some(search) = &tab.search {
         let summary = if search.loading {
@@ -47,60 +44,120 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
                 search.mode.key()
             )
         };
-        top = top.push(
+        top = top.push(column![
             container(
                 row![
-                    text(summary).size(size),
+                    icon("search", 13.0, c.text_muted),
+                    text(summary).size(12),
                     spacer(),
                     btn(look, "Clear search", Some(Message::SearchClear))
                 ]
+                .spacing(6)
                 .align_y(Center),
             )
-            .padding([3, 10]),
-        );
+            .padding([4, 10])
+            .width(Length::Fill)
+            .style(style::fill(c.accent_soft)),
+            hline(look),
+        ]);
     } else if tab.change_count() > 0 {
-        top = top.push(
-            mouse_area(
+        let dot = container(space()).width(9).height(9).style({
+            let color = c.text_muted;
+            move |_: &Theme| container::Style {
+                border: iced::Border {
+                    color,
+                    width: 2.0,
+                    radius: 5.0.into(),
+                },
+                ..container::Style::default()
+            }
+        });
+        top = top.push(column![
+            mouse_area(hoverable(
+                look,
                 container(
                     row![
-                        single("●", size).color(look.palette.modified),
-                        text("Uncommitted changes").size(size),
-                        muted(plural(tab.change_count(), "file"), size),
+                        container(dot).width(graph_width).center_x(graph_width),
+                        text("Uncommitted changes")
+                            .size(13)
+                            .font(look.italic)
+                            .color(c.text_muted)
+                            .width(Length::Fill),
+                        single(plural(tab.change_count(), "file"), 13)
+                            .font(look.italic)
+                            .color(c.text_muted),
                     ]
-                    .spacing(8)
-                    .align_y(Center),
+                    .align_y(Center)
+                    .height(ROW_HEIGHT)
+                    .padding(iced::Padding {
+                        top: 0.0,
+                        bottom: 0.0,
+                        left: 0.0,
+                        right: 12.0
+                    }),
                 )
-                .padding([4, 10])
                 .width(Length::Fill),
-            )
+                0.0
+            ))
             .on_press(Message::SetView(View::Changes)),
-        );
+            hline(look),
+        ]);
     }
-    let mut header = row![single("Description", size)]
-        .spacing(6)
-        .align_y(Center)
-        .padding([3, 8]);
+    let mut header = row![
+        container(heading(look, "Description")).padding(iced::Padding {
+            left: graph_width,
+            ..iced::Padding::ZERO
+        })
+    ]
+    .spacing(12)
+    .align_y(Center);
     if tab.search.is_none() {
-        header = header
-            .push(toggle(
-                look,
+        header = header.push(segmented(
+            look,
+            (
                 "All branches",
                 tab.all_branches,
                 Message::SetBranchFilter(true),
-            ))
-            .push(toggle(
-                look,
+            ),
+            (
                 "Current branch",
                 !tab.all_branches,
                 Message::SetBranchFilter(false),
-            ));
+            ),
+        ));
     }
     header = header
         .push(spacer())
-        .push(muted("Author", size).width(AUTHOR_WIDTH))
-        .push(muted("Date", size).width(DATE_WIDTH))
-        .push(muted("Commit", size).width(SHA_WIDTH));
-    top = top.push(header).push(hline(look)).push(list(app, tab));
+        .push(
+            container(heading(look, "Author"))
+                .width(AUTHOR_WIDTH)
+                .padding([0, 8]),
+        )
+        .push(
+            container(heading(look, "Date"))
+                .width(DATE_WIDTH)
+                .padding([0, 8]),
+        )
+        .push(
+            container(heading(look, "Commit"))
+                .width(SHA_WIDTH)
+                .padding(iced::Padding {
+                    top: 0.0,
+                    bottom: 0.0,
+                    left: 4.0,
+                    right: 10.0,
+                }),
+        );
+    top = top
+        .push(
+            container(header)
+                .height(25)
+                .center_y(25)
+                .width(Length::Fill)
+                .style(style::fill(c.panel)),
+        )
+        .push(hline(look))
+        .push(list(app, tab, graph_width));
 
     let bottom: Element<'a, Message> = if tab.compare.is_some() {
         details::compare(app, tab)
@@ -112,14 +169,15 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     column![
         container(top)
             .height(app.settings.history_height)
-            .width(Length::Fill),
+            .width(Length::Fill)
+            .style(style::fill(c.bg)),
         splitter(app, Splitter::History),
         container(bottom).height(Length::Fill).width(Length::Fill),
     ]
     .into()
 }
 
-fn list<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
+fn list<'a>(app: &'a App, tab: &'a RepoTab, graph_width: f32) -> Element<'a, Message> {
     let look = &app.look;
     let commits = tab.visible();
     if commits.is_empty() {
@@ -139,11 +197,6 @@ fn list<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
         .saturating_sub(OVERSCAN)
         .min(total.saturating_sub(count));
     let visible = &commits[first..(first + count).min(total)];
-    let lanes = visible
-        .iter()
-        .filter_map(|commit| commit.graph.as_ref().map(|g| g.width))
-        .max()
-        .unwrap_or(1);
     let head = tab.refs.head.as_deref();
 
     let mut items: Vec<Element<'a, Message>> = Vec::with_capacity(visible.len() + 3);
@@ -157,9 +210,10 @@ fn list<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
         items.push(commit_row(
             look,
             commit,
-            selected || compared,
+            selected && !compared,
+            compared,
             Some(commit.sha.as_str()) == head,
-            lanes,
+            graph_width,
         ));
     }
     let below = total.saturating_sub(first + visible.len());
@@ -177,7 +231,7 @@ fn list<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
                 (!tab.loading).then_some(Message::LoadMore),
             ))
             .center_x(Length::Fill)
-            .padding(6)
+            .padding(8)
             .into(),
         );
     }
@@ -185,56 +239,69 @@ fn list<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
         .id(tab.list.clone())
         .width(Length::Fill)
         .height(Length::Fill)
-        .direction(scrollable::Direction::Vertical(styles::scrollbar(
-            &look.resolved,
-        )))
-        .style(styles::scrollable(&look.resolved))
+        .direction(scrollable::Direction::Vertical(style::scrollbar()))
+        .style(style::scrollable(look))
         .on_scroll(|viewport| {
             Message::Scrolled(viewport.absolute_offset().y, viewport.bounds().height)
         })
         .into()
 }
 
-fn badge<'a>(
-    look: &Look,
-    label: &'a RefLabel,
-    commit: &'a Commit,
-    selected: bool,
-) -> Element<'a, Message> {
-    let color = match label.kind.as_str() {
-        _ if selected => look.selected_text,
-        "tag" => look.palette.tag,
-        "remote" => look.palette.remote,
-        _ => look.palette.local,
+/// The rounded labels for branches and tags.
+pub fn badge<'a>(look: &Look, label: &RefLabel) -> Element<'a, Message> {
+    let c = &look.c;
+    let (background, color, name) = match label.kind.as_str() {
+        "tag" => (c.badge_tag_bg, c.badge_tag_text, "tag"),
+        "remote" => (c.badge_remote_bg, c.badge_remote_text, "cloud"),
+        "head" => (c.badge_head_bg, c.badge_head_text, "commit"),
+        _ if label.current => (c.badge_local_bg, c.badge_local_text, "check"),
+        _ => (c.badge_local_bg, c.badge_local_text, "branch"),
     };
-    let weight = if label.current {
-        iced::font::Weight::Bold
+    let font = if label.current {
+        look.bold
     } else {
-        iced::font::Weight::Normal
+        look.semibold
     };
-    let chip = container(
-        text(label.name.as_str())
-            .size(look.text_size - 2.0)
-            .color(color)
-            .font(iced::Font {
-                weight,
-                ..iced::Font::default()
-            })
-            .wrapping(Wrapping::None),
+    let border = if label.current {
+        color
+    } else {
+        Color::TRANSPARENT
+    };
+    container(
+        row![
+            icon(name, 11.0, color),
+            text(label.name.clone())
+                .size(11)
+                .font(font)
+                .color(color)
+                .wrapping(Wrapping::None)
+        ]
+        .spacing(3)
+        .align_y(Center),
     )
-    .padding([0, 5])
+    .padding([0, 6])
+    .height(18)
+    .center_y(18)
     .style(move |_: &Theme| container::Style {
-        background: Some(Background::Color(Color { a: 0.14, ..color })),
-        border: iced::border::rounded(3),
+        background: Some(Background::Color(background)),
+        border: iced::Border {
+            color: border,
+            width: 1.0,
+            radius: 9.0.into(),
+        },
         ..container::Style::default()
-    });
+    })
+    .into()
+}
+
+fn row_badge<'a>(look: &Look, label: &'a RefLabel, commit: &'a Commit) -> Element<'a, Message> {
     let target = match label.kind.as_str() {
         "local" => Some(RefTarget::Local(label.name.clone())),
         "remote" => Some(RefTarget::Remote(label.name.clone())),
         "tag" => Some(RefTarget::Tag(label.name.clone())),
         _ => None,
     };
-    let mut area = mouse_area(chip)
+    let mut area = mouse_area(badge(look, label))
         .on_press(Message::Select(commit.sha.clone()))
         .on_right_press(Message::OpenMenu(MenuRequest::Commit {
             sha: commit.sha.clone(),
@@ -258,81 +325,110 @@ fn commit_row<'a>(
     look: &Look,
     commit: &'a Commit,
     selected: bool,
+    compared: bool,
     is_head: bool,
-    lanes: u32,
+    graph_width: f32,
 ) -> Element<'a, Message> {
-    let size = look.text_size - 1.0;
-    let mut line = row![]
-        .spacing(6)
-        .height(ROW_HEIGHT)
-        .align_y(Center)
-        .padding([0, 8]);
+    let c = &look.c;
+    let (main, secondary) = if selected {
+        (c.selection_text, c.selection_text)
+    } else {
+        (c.text, c.text_muted)
+    };
+    let mut line = row![].height(ROW_HEIGHT).align_y(Center);
     if let Some(graph) = &commit.graph {
+        let background = if selected { c.selection } else { c.bg };
         line = line.push(
             canvas(GraphCell {
                 row: graph,
-                lanes: look.palette.lanes,
+                lanes: c.lanes,
+                background,
+                merge: commit.parents.len() > 1,
+                head: is_head,
             })
-            .width(width_for(lanes))
+            .width(graph_width)
             .height(ROW_HEIGHT),
         );
+    } else {
+        line = line.push(space().width(graph_width));
     }
+    let mut subject_row = row![].spacing(6).align_y(Center);
+    let mut badges = row![].spacing(4).align_y(Center);
+    let mut has_badges = false;
     for label in commit.refs.iter().flatten() {
-        line = line.push(badge(look, label, commit, selected));
+        badges = badges.push(row_badge(look, label, commit));
+        has_badges = true;
     }
-    let on_row = selected.then_some(look.selected_text);
-    let single_line = |content: &'a str| {
-        text(content)
-            .size(size)
-            .color_maybe(on_row)
-            .wrapping(Wrapping::None)
-    };
-    let subject = single_line(&commit.subject).font(iced::Font {
-        weight: if is_head {
-            iced::font::Weight::Bold
-        } else {
-            iced::font::Weight::Normal
-        },
-        ..iced::Font::default()
-    });
+    if has_badges {
+        subject_row = subject_row.push(badges);
+    }
+    let subject = text(commit.subject.as_str())
+        .size(13)
+        .color(main)
+        .wrapping(Wrapping::None)
+        .font(if is_head { look.semibold } else { look.font });
+    subject_row = subject_row.push(subject);
     line = line
-        .push(container(subject).width(Length::Fill).clip(true))
-        .push(
-            container(single_line(&commit.author))
-                .width(AUTHOR_WIDTH)
-                .clip(true),
-        )
+        .push(container(subject_row).width(Length::Fill).clip(true))
         .push(
             container(
-                text(format_time(commit.time))
-                    .size(size)
-                    .color_maybe(on_row)
+                text(commit.author.as_str())
+                    .size(13)
+                    .color(secondary)
                     .wrapping(Wrapping::None),
             )
-            .width(DATE_WIDTH)
+            .width(AUTHOR_WIDTH)
+            .padding([0, 8])
             .clip(true),
         )
         .push(
-            text(short_sha(&commit.sha))
-                .size(size)
-                .color_maybe(on_row)
-                .font(iced::Font::MONOSPACE)
-                .width(SHA_WIDTH),
-        );
-    let background = selected.then(|| selection_background(&look.resolved));
-    mouse_area(
-        container(line)
-            .width(Length::Fill)
-            .style(move |_: &Theme| container::Style {
-                background: background.map(Background::Color),
-                ..container::Style::default()
+            container(
+                text(short_date(commit.time))
+                    .size(13)
+                    .color(secondary)
+                    .wrapping(Wrapping::None),
+            )
+            .width(DATE_WIDTH)
+            .padding([0, 8])
+            .clip(true),
+        )
+        .push(
+            container(
+                text(short_sha(&commit.sha))
+                    .size(12)
+                    .font(look.mono)
+                    .color(secondary)
+                    .wrapping(Wrapping::None),
+            )
+            .width(SHA_WIDTH)
+            .padding(iced::Padding {
+                top: 0.0,
+                bottom: 0.0,
+                left: 4.0,
+                right: 10.0,
             }),
-    )
-    .on_press(Message::Select(commit.sha.clone()))
-    .on_double_click(Message::ActivateCommit(commit.sha.clone()))
-    .on_right_press(Message::OpenMenu(MenuRequest::Commit {
-        sha: commit.sha.clone(),
-        focus: None,
-    }))
-    .into()
+        );
+    let background = if selected {
+        Some(c.selection)
+    } else if compared {
+        Some(c.accent_soft)
+    } else {
+        None
+    };
+    let body = container(line)
+        .width(Length::Fill)
+        .style(style::maybe_fill(background));
+    let shown: Element<'a, Message> = if selected {
+        body.into()
+    } else {
+        hoverable(look, body, 0.0)
+    };
+    mouse_area(shown)
+        .on_press(Message::Select(commit.sha.clone()))
+        .on_double_click(Message::ActivateCommit(commit.sha.clone()))
+        .on_right_press(Message::OpenMenu(MenuRequest::Commit {
+            sha: commit.sha.clone(),
+            focus: None,
+        }))
+        .into()
 }

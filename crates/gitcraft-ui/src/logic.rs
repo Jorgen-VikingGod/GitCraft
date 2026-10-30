@@ -272,9 +272,100 @@ pub fn ignore_patterns(path: &str) -> Vec<(String, String)> {
     options
 }
 
+fn relative(amount: i64, unit: &str, past: bool) -> String {
+    match (amount, unit, past) {
+        (1, "day", true) => "yesterday".to_owned(),
+        (1, "day", false) => "tomorrow".to_owned(),
+        (_, _, true) => format!("{} ago", plural(amount as usize, unit)),
+        (_, _, false) => format!("in {}", plural(amount as usize, unit)),
+    }
+}
+
+/// Compact date for lists: relative within a week, otherwise the date.
+pub fn short_date_at(time: i64, now: i64) -> String {
+    let seconds = time - now;
+    let (past, distance) = (seconds <= 0, seconds.abs());
+    let rounded = |unit: i64| (distance + unit / 2) / unit;
+    if distance < 60 {
+        "just now".to_owned()
+    } else if distance < 3600 {
+        relative(rounded(60), "minute", past)
+    } else if distance < 86_400 {
+        relative(rounded(3600), "hour", past)
+    } else if distance < 7 * 86_400 {
+        relative(rounded(86_400), "day", past)
+    } else {
+        local_format(time, "%b %-d, %Y")
+    }
+}
+
+pub fn short_date(time: i64) -> String {
+    short_date_at(time, chrono::Utc::now().timestamp())
+}
+
+pub fn full_date(time: i64) -> String {
+    local_format(time, "%b %-d, %Y, %-I:%M %p")
+}
+
+fn local_format(time: i64, format: &str) -> String {
+    chrono::DateTime::from_timestamp(time, 0)
+        .map(|moment| {
+            moment
+                .with_timezone(&chrono::Local)
+                .format(format)
+                .to_string()
+        })
+        .unwrap_or_default()
+}
+
+/// Stable hue for an author name, for avatar circles.
+pub fn name_hue(name: &str) -> u32 {
+    let hash = name.encode_utf16().fold(0i32, |hash, unit| {
+        hash.wrapping_mul(31).wrapping_add(i32::from(unit))
+    });
+    hash.unsigned_abs() % 360
+}
+
+pub fn initials(name: &str) -> String {
+    let parts: Vec<&str> = name.split_whitespace().collect();
+    let first = |part: &str| {
+        part.chars()
+            .next()
+            .map(|c| c.to_uppercase().to_string())
+            .unwrap_or_default()
+    };
+    match &parts[..] {
+        [] => "?".to_owned(),
+        [only] => first(only),
+        [head, .., last] => first(head) + &first(last),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dates_read_like_the_list_shows_them() {
+        let now = 1_700_000_000;
+        assert_eq!(short_date_at(now - 10, now), "just now");
+        assert_eq!(short_date_at(now - 60, now), "1 minute ago");
+        assert_eq!(short_date_at(now - 3 * 3600, now), "3 hours ago");
+        assert_eq!(short_date_at(now - 86_400, now), "yesterday");
+        assert_eq!(short_date_at(now - 3 * 86_400, now), "3 days ago");
+        assert_eq!(short_date_at(now + 7200, now), "in 2 hours");
+        assert!(short_date_at(now - 30 * 86_400, now).contains("2023"));
+    }
+
+    #[test]
+    fn avatars_use_initials_and_a_stable_colour() {
+        assert_eq!(initials("Juergen Koennemann"), "JK");
+        assert_eq!(initials("Ada Byron King"), "AK");
+        assert_eq!(initials("cher"), "C");
+        assert_eq!(initials("  "), "?");
+        assert_eq!(name_hue("Juergen"), name_hue("Juergen"));
+        assert!(name_hue("Juergen") < 360);
+    }
 
     fn remote(name: &str) -> Remote {
         Remote {

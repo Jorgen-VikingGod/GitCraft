@@ -6,7 +6,9 @@ use std::sync::{Arc, LazyLock};
 use gitcraft_core::model::FileDiff;
 use iced::Color;
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{Theme, ThemeSet};
+use syntect::highlighting::{
+    Color as SyntaxColor, ScopeSelectors, StyleModifier, Theme, ThemeItem, ThemeSettings,
+};
 use syntect::parsing::SyntaxSet;
 
 /// Diffs with more lines than this are shown without colours.
@@ -15,17 +17,73 @@ const LINE_LIMIT: usize = 6000;
 const LENGTH_LIMIT: usize = 2000;
 
 static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
-static THEMES: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
+static LIGHT_THEME: LazyLock<Theme> = LazyLock::new(|| syntax_theme(&crate::theme::LIGHT));
+static DARK_THEME: LazyLock<Theme> = LazyLock::new(|| syntax_theme(&crate::theme::DARK));
 
 /// Coloured runs per (hunk, line): colour and byte range within the line's text.
 pub type Highlights = HashMap<(usize, usize), Vec<(Color, std::ops::Range<usize>)>>;
 
+fn syntax_color(color: Color) -> SyntaxColor {
+    let [r, g, b, a] = color.into_rgba8();
+    SyntaxColor { r, g, b, a }
+}
+
+/// Maps language scopes onto the app's syntax colours.
+fn syntax_theme(c: &crate::theme::Colors) -> Theme {
+    let rules: [(&str, Color); 9] = [
+        ("comment", c.hl_comment),
+        ("string, constant.other.symbol", c.hl_string),
+        (
+            "constant.numeric, constant.language, constant.character",
+            c.hl_number,
+        ),
+        ("keyword, storage, support.function.builtin", c.hl_keyword),
+        (
+            "entity.name.function, support.function, markup.heading",
+            c.hl_title,
+        ),
+        (
+            "entity.name.type, entity.name.class, entity.name.struct, entity.name.enum, support.type, support.class",
+            c.hl_type,
+        ),
+        (
+            "entity.other.attribute-name, variable.other.member, support.type.property-name",
+            c.hl_attr,
+        ),
+        (
+            "meta.preprocessor, meta.annotation, meta.attribute",
+            c.hl_meta,
+        ),
+        (
+            "variable.other.constant, variable.parameter, entity.name.tag",
+            c.hl_variable,
+        ),
+    ];
+    Theme {
+        name: None,
+        author: None,
+        settings: ThemeSettings {
+            foreground: Some(syntax_color(c.text)),
+            ..ThemeSettings::default()
+        },
+        scopes: rules
+            .iter()
+            .map(|(selector, color)| ThemeItem {
+                scope: selector
+                    .parse::<ScopeSelectors>()
+                    .expect("the selectors above are valid"),
+                style: StyleModifier {
+                    foreground: Some(syntax_color(*color)),
+                    background: None,
+                    font_style: None,
+                },
+            })
+            .collect(),
+    }
+}
+
 fn theme(dark: bool) -> &'static Theme {
-    &THEMES.themes[if dark {
-        "base16-ocean.dark"
-    } else {
-        "InspiredGitHub"
-    }]
+    if dark { &DARK_THEME } else { &LIGHT_THEME }
 }
 
 /// Highlights hunk by hunk, so a construct opened inside a hunk carries on through it.

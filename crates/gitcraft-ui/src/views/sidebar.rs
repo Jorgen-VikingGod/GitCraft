@@ -1,58 +1,143 @@
 //! Navigation, plus branches, remotes, tags, stashes and submodules as collapsible trees.
 
-use iced::widget::{
-    Column, button, column, container, mouse_area, row, scrollable, text, text_input,
-};
-use iced::{Background, Center, Color, Element, Length, Theme};
-use native_theme_iced::{selection_background, styles};
+use iced::widget::{Column, button, column, container, mouse_area, row, space, text, text_input};
+use iced::{Center, Color, Element, Length, Theme};
 
-use super::widgets::{muted, single, spacer, toggle};
+use super::icon::icon;
+use super::style;
+use super::widgets::{hoverable, icon_button, scrolled, single, spacer};
 use crate::actions::{Action, MenuRequest, RefTarget};
 use crate::app::{App, Message, RepoTab, View};
 use crate::command::Command;
 use crate::logic::build_tree;
 use crate::theme::Look;
 
-const INDENT: f32 = 12.0;
+const INDENT: f32 = 14.0;
+const BASE_INDENT: f32 = 8.0;
 
-fn bold() -> iced::Font {
-    iced::Font {
-        weight: iced::font::Weight::Bold,
-        ..iced::Font::default()
-    }
-}
-
-fn section<'a>(app: &App, key: &str, title: String, add: Option<Message>) -> Element<'a, Message> {
-    let look = &app.look;
-    let size = look.text_size - 1.0;
-    let chevron = if app.collapsed.contains(key) {
-        "▸"
-    } else {
-        "▾"
-    };
+fn nav<'a>(
+    look: &Look,
+    name: &'static str,
+    label: &'static str,
+    active: bool,
+    count: usize,
+    message: Message,
+) -> Element<'a, Message> {
+    let c = &look.c;
+    let color = if active { c.selection_text } else { c.text };
     let mut line = row![
-        single(chevron, size),
-        single(title, size).font(bold()),
+        icon(name, 14.0, color),
+        text(label).size(13).font(look.semibold).color(color),
         spacer()
     ]
-    .spacing(5)
+    .spacing(8)
     .align_y(Center);
-    if let Some(add) = add {
+    if count > 0 {
+        let accent = c.accent;
         line = line.push(
-            button(text("+").size(size))
-                .padding([0, 6])
-                .on_press(add)
-                .style(styles::button(&look.resolved)),
+            container(text(count.to_string()).size(11).color(Color::WHITE))
+                .padding([1, 6])
+                .style(move |_: &Theme| container::Style {
+                    background: Some(iced::Background::Color(accent)),
+                    border: iced::border::rounded(10),
+                    ..container::Style::default()
+                }),
         );
     }
-    mouse_area(container(line).padding(iced::Padding {
-        top: 9.0,
-        bottom: 3.0,
-        left: 8.0,
+    button(line.height(Length::Fill))
+        .width(Length::Fill)
+        .height(28)
+        .padding([0, 10])
+        .on_press(message)
+        .style(style::nav_item(look, active))
+        .into()
+}
+
+fn section<'a>(
+    app: &App,
+    key: &str,
+    title: &str,
+    count: Option<usize>,
+    add: Option<Message>,
+) -> Element<'a, Message> {
+    let look = &app.look;
+    let c = &look.c;
+    let name = if app.collapsed.contains(key) {
+        "chevron-right"
+    } else {
+        "chevron-down"
+    };
+    let mut line = row![
+        icon(name, 12.0, c.text_muted),
+        single(title.to_uppercase(), 11)
+            .font(look.bold)
+            .color(c.text_muted),
+        spacer()
+    ]
+    .spacing(4)
+    .align_y(Center)
+    .height(28)
+    .padding(iced::Padding {
+        top: 0.0,
+        bottom: 0.0,
+        left: 6.0,
         right: 8.0,
-    }))
-    .on_press(Message::ToggleCollapsed(key.to_owned()))
+    });
+    if let Some(count) = count {
+        line = line.push(single(count.to_string(), 11).color(c.text_faint));
+    }
+    let header = mouse_area(line).on_press(Message::ToggleCollapsed(key.to_owned()));
+    let Some(add) = add else {
+        return container(header)
+            .padding(iced::Padding {
+                top: 6.0,
+                ..iced::Padding::ZERO
+            })
+            .into();
+    };
+    // The add button only appears while the pointer is over the header.
+    let extra = container(
+        row![
+            space::horizontal(),
+            icon_button(look, "plus", 13.0, Some(add))
+        ]
+        .align_y(Center)
+        .padding([0, 4]),
+    )
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_y(Length::Fill);
+    container(iced::widget::hover(header, extra))
+        .padding(iced::Padding {
+            top: 6.0,
+            ..iced::Padding::ZERO
+        })
+        .into()
+}
+
+fn none<'a>(look: &Look, note: &'a str) -> Element<'a, Message> {
+    container(
+        text(note)
+            .size(12)
+            .font(look.italic)
+            .color(look.c.text_faint),
+    )
+    .padding(iced::Padding {
+        top: 2.0,
+        bottom: 4.0,
+        left: 26.0,
+        right: 0.0,
+    })
     .into()
+}
+
+struct Item<'a> {
+    label: String,
+    depth: usize,
+    symbol: &'static str,
+    selected: bool,
+    current: bool,
+    badges: Vec<Element<'a, Message>>,
 }
 
 fn folder<'a>(
@@ -60,109 +145,134 @@ fn folder<'a>(
     key: &str,
     label: &str,
     depth: usize,
+    symbol: &'static str,
     extra: Option<Message>,
 ) -> Element<'a, Message> {
-    let size = app.look.text_size - 1.0;
+    let look = &app.look;
+    let c = &look.c;
     let chevron = if app.collapsed.contains(key) {
-        "▸"
+        "chevron-right"
     } else {
-        "▾"
+        "chevron-down"
     };
-    let line = row![single(chevron, size), single(label.to_owned(), size)]
-        .spacing(5)
-        .padding(iced::Padding {
-            top: 1.0,
-            bottom: 1.0,
-            left: 10.0 + depth as f32 * INDENT,
-            right: 4.0,
-        });
-    let mut area = mouse_area(line).on_press(Message::ToggleCollapsed(key.to_owned()));
+    let line = row![
+        icon(chevron, 12.0, c.text_muted),
+        icon(symbol, 13.0, c.text_muted),
+        single(label.to_owned(), 13).color(c.text_muted)
+    ]
+    .spacing(6)
+    .align_y(Center)
+    .height(24)
+    .padding(iced::Padding {
+        top: 0.0,
+        bottom: 0.0,
+        left: BASE_INDENT + depth as f32 * INDENT,
+        right: 10.0,
+    });
+    let mut area = mouse_area(hoverable(look, container(line).width(Length::Fill), 5.0))
+        .on_press(Message::ToggleCollapsed(key.to_owned()));
     if let Some(extra) = extra {
         area = area.on_right_press(extra);
     }
-    area.into()
+    container(area).padding([0, 4]).width(Length::Fill).into()
 }
 
-fn leaf<'a>(
-    look: &Look,
-    label: String,
-    depth: usize,
-    selected: bool,
-    color: Option<Color>,
-    badges: Vec<Element<'a, Message>>,
-) -> Element<'a, Message> {
-    let size = look.text_size - 1.0;
-    let text_color = if selected {
-        Some(look.selected_text)
+fn leaf<'a>(look: &Look, item: Item<'a>) -> Element<'a, Message> {
+    let c = &look.c;
+    let text_color = if item.selected {
+        c.selection_text
     } else {
-        color
+        c.text
     };
-    let mut line = row![single(label, size).color_maybe(text_color)]
-        .spacing(4)
-        .align_y(Center)
-        .padding(iced::Padding {
-            top: 1.0,
-            bottom: 1.0,
-            left: 22.0 + depth as f32 * INDENT,
-            right: 8.0,
-        });
-    if !badges.is_empty() {
-        line = line.push(spacer());
-        for badge in badges {
-            line = line.push(badge);
-        }
+    let symbol_color = if item.selected {
+        c.selection_text
+    } else if item.current {
+        c.accent
+    } else {
+        c.text_muted
+    };
+    let label = single(item.label, 13)
+        .color(text_color)
+        .font(if item.current { look.bold } else { look.font });
+    let mut line = row![
+        icon(item.symbol, 13.0, symbol_color),
+        container(label).width(Length::Fill).clip(true)
+    ]
+    .spacing(6)
+    .align_y(Center)
+    .height(24)
+    .padding(iced::Padding {
+        top: 0.0,
+        bottom: 0.0,
+        left: BASE_INDENT + 18.0 + item.depth as f32 * INDENT,
+        right: 10.0,
+    });
+    for badge in item.badges {
+        line = line.push(badge);
     }
-    let background = selected.then(|| selection_background(&look.resolved));
-    container(line)
+    let fill = item.selected.then_some(c.selection);
+    let body = container(line)
         .width(Length::Fill)
-        .clip(true)
-        .style(move |_: &Theme| container::Style {
-            background: background.map(Background::Color),
-            ..container::Style::default()
-        })
+        .style(style::pill(fill, 5.0));
+    container(hoverable(look, body, 5.0))
+        .padding([0, 4])
+        .width(Length::Fill)
         .into()
 }
 
 pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let c = &look.c;
     let filter = tab.filter.to_lowercase();
     let matches = |name: &str| filter.is_empty() || name.to_lowercase().contains(&filter);
-    let shown_in_history = tab.view == View::History;
-    let is_selected = |sha: &str| shown_in_history && tab.selected.as_deref() == Some(sha);
+    let in_history = tab.view == View::History;
+    let is_selected = |sha: &str| in_history && tab.selected.as_deref() == Some(sha);
     let collapsed = |key: &str| app.collapsed.contains(key);
 
-    let count = tab.change_count();
-    let changes = if count > 0 {
-        format!("Local Changes ({count})")
-    } else {
-        "Local Changes".to_owned()
-    };
-    let mut list: Column<'a, Message> = column![
-        row![
-            toggle(
+    let head = column![
+        column![
+            nav(
                 look,
-                changes,
+                "edit",
+                "Local Changes",
                 tab.view == View::Changes,
+                tab.change_count(),
                 Message::SetView(View::Changes)
             ),
-            toggle(
+            nav(
                 look,
+                "history",
                 "All Commits",
-                tab.view == View::History,
+                in_history,
+                0,
                 Message::SetView(View::History)
             ),
         ]
-        .spacing(4)
-        .padding(6),
+        .spacing(1)
+        .padding(iced::Padding {
+            top: 8.0,
+            bottom: 4.0,
+            left: 6.0,
+            right: 6.0
+        }),
         container(
             text_input("Filter branches & tags", &tab.filter)
                 .on_input(Message::FilterInput)
-                .size(size)
-                .style(styles::text_input(&look.resolved))
+                .size(12)
+                .padding([5, 8])
+                .style(style::text_input(look))
         )
-        .padding([0, 6]),
+        .padding(iced::Padding {
+            top: 4.0,
+            bottom: 6.0,
+            left: 8.0,
+            right: 8.0
+        }),
     ];
+    let mut list: Column<'a, Message> = column![].width(Length::Fill).padding(iced::Padding {
+        bottom: 16.0,
+        ..iced::Padding::ZERO
+    });
 
     // Branches
     let new_branch = Message::Action(Action::NewBranch {
@@ -172,7 +282,8 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     list = list.push(section(
         app,
         "s:branches",
-        "Branches".to_owned(),
+        "Branches",
+        None,
         Some(new_branch),
     ));
     if !collapsed("s:branches") {
@@ -182,55 +293,62 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
             .iter()
             .filter(|branch| matches(&branch.name))
             .collect();
+        if branches.is_empty() {
+            list = list.push(none(look, "No branches"));
+        }
         let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
         for entry in build_tree("b", &names, collapsed) {
             let Some(index) = entry.item else {
-                list = list.push(folder(app, &entry.key, &entry.label, entry.depth, None));
+                list = list.push(folder(
+                    app,
+                    &entry.key,
+                    &entry.label,
+                    entry.depth,
+                    "folder",
+                    None,
+                ));
                 continue;
             };
             let branch = branches[index];
             let mut badges: Vec<Element<'a, Message>> = Vec::new();
             if branch.upstream_gone {
-                badges.push(muted("gone", size - 1.0).into());
+                badges.push(single("gone", 11).font(look.mono).color(c.warning).into());
             }
             if branch.ahead > 0 {
                 badges.push(
-                    single(format!("↑{}", branch.ahead), size - 1.0)
-                        .color(look.palette.added)
+                    single(format!("↑{}", branch.ahead), 11)
+                        .font(look.mono)
+                        .color(c.text_muted)
                         .into(),
                 );
             }
             if branch.behind > 0 {
                 badges.push(
-                    single(format!("↓{}", branch.behind), size - 1.0)
-                        .color(look.palette.modified)
+                    single(format!("↓{}", branch.behind), 11)
+                        .font(look.mono)
+                        .color(c.text_muted)
                         .into(),
                 );
             }
-            let color = branch.current.then_some(look.palette.local);
-            let label = if branch.current {
-                format!("✓ {}", entry.label)
-            } else {
-                entry.label
+            let item = Item {
+                label: entry.label,
+                depth: entry.depth,
+                symbol: if branch.current { "check" } else { "branch" },
+                selected: is_selected(&branch.sha),
+                current: branch.current,
+                badges,
             };
             list = list.push(
-                mouse_area(leaf(
-                    look,
-                    label,
-                    entry.depth,
-                    is_selected(&branch.sha),
-                    color,
-                    badges,
-                ))
-                .on_press(Message::ShowCommit(branch.sha.clone()))
-                .on_double_click(Message::Run(Command::Checkout {
-                    reference: branch.name.clone(),
-                    kind: "local",
-                }))
-                .on_right_press(Message::OpenMenu(MenuRequest::Commit {
-                    sha: branch.sha.clone(),
-                    focus: Some(RefTarget::Local(branch.name.clone())),
-                })),
+                mouse_area(leaf(look, item))
+                    .on_press(Message::ShowCommit(branch.sha.clone()))
+                    .on_double_click(Message::Run(Command::Checkout {
+                        reference: branch.name.clone(),
+                        kind: "local",
+                    }))
+                    .on_right_press(Message::OpenMenu(MenuRequest::Commit {
+                        sha: branch.sha.clone(),
+                        focus: Some(RefTarget::Local(branch.name.clone())),
+                    })),
             );
         }
     }
@@ -239,10 +357,14 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     list = list.push(section(
         app,
         "s:remotes",
-        "Remotes".to_owned(),
+        "Remotes",
+        None,
         Some(Message::Action(Action::AddRemote)),
     ));
     if !collapsed("s:remotes") {
+        if tab.refs.remotes.is_empty() {
+            list = list.push(none(look, "No remotes"));
+        }
         for remote in &tab.refs.remotes {
             let key = format!("r:{}", remote.name);
             list = list.push(folder(
@@ -250,6 +372,7 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
                 &key,
                 &remote.name,
                 0,
+                "cloud",
                 Some(Message::OpenMenu(MenuRequest::Remote(remote.name.clone()))),
             ));
             if collapsed(&key) {
@@ -267,28 +390,36 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
                 .collect();
             for entry in build_tree(&key, &names, collapsed) {
                 let Some(index) = entry.item else {
-                    list = list.push(folder(app, &entry.key, &entry.label, entry.depth + 1, None));
+                    list = list.push(folder(
+                        app,
+                        &entry.key,
+                        &entry.label,
+                        entry.depth + 1,
+                        "folder",
+                        None,
+                    ));
                     continue;
                 };
                 let branch = branches[index];
+                let item = Item {
+                    label: entry.label,
+                    depth: entry.depth + 1,
+                    symbol: "branch",
+                    selected: is_selected(&branch.sha),
+                    current: false,
+                    badges: Vec::new(),
+                };
                 list = list.push(
-                    mouse_area(leaf(
-                        look,
-                        entry.label,
-                        entry.depth + 1,
-                        is_selected(&branch.sha),
-                        None,
-                        Vec::new(),
-                    ))
-                    .on_press(Message::ShowCommit(branch.sha.clone()))
-                    .on_double_click(Message::Run(Command::Checkout {
-                        reference: branch.name.clone(),
-                        kind: "remote",
-                    }))
-                    .on_right_press(Message::OpenMenu(MenuRequest::Commit {
-                        sha: branch.sha.clone(),
-                        focus: Some(RefTarget::Remote(branch.name.clone())),
-                    })),
+                    mouse_area(leaf(look, item))
+                        .on_press(Message::ShowCommit(branch.sha.clone()))
+                        .on_double_click(Message::Run(Command::Checkout {
+                            reference: branch.name.clone(),
+                            kind: "remote",
+                        }))
+                        .on_right_press(Message::OpenMenu(MenuRequest::Commit {
+                            sha: branch.sha.clone(),
+                            focus: Some(RefTarget::Remote(branch.name.clone())),
+                        })),
                 );
             }
         }
@@ -301,28 +432,27 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
         .iter()
         .filter(|tag| matches(&tag.name))
         .collect();
-    list = list.push(section(
-        app,
-        "s:tags",
-        format!("Tags ({})", tags.len()),
-        None,
-    ));
+    list = list.push(section(app, "s:tags", "Tags", Some(tags.len()), None));
     if !collapsed("s:tags") {
+        if tags.is_empty() {
+            list = list.push(none(look, "No tags"));
+        }
         for tag in tags {
+            let item = Item {
+                label: tag.name.clone(),
+                depth: 0,
+                symbol: "tag",
+                selected: is_selected(&tag.sha),
+                current: false,
+                badges: Vec::new(),
+            };
             list = list.push(
-                mouse_area(leaf(
-                    look,
-                    tag.name.clone(),
-                    0,
-                    is_selected(&tag.sha),
-                    None,
-                    Vec::new(),
-                ))
-                .on_press(Message::ShowCommit(tag.sha.clone()))
-                .on_right_press(Message::OpenMenu(MenuRequest::Commit {
-                    sha: tag.sha.clone(),
-                    focus: Some(RefTarget::Tag(tag.name.clone())),
-                })),
+                mouse_area(leaf(look, item))
+                    .on_press(Message::ShowCommit(tag.sha.clone()))
+                    .on_right_press(Message::OpenMenu(MenuRequest::Commit {
+                        sha: tag.sha.clone(),
+                        focus: Some(RefTarget::Tag(tag.name.clone())),
+                    })),
             );
         }
     }
@@ -331,27 +461,32 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     list = list.push(section(
         app,
         "s:stashes",
-        format!("Stashes ({})", tab.refs.stashes.len()),
+        "Stashes",
+        Some(tab.refs.stashes.len()),
         None,
     ));
     if !collapsed("s:stashes") {
+        if tab.refs.stashes.is_empty() {
+            list = list.push(none(look, "No stashes"));
+        }
         for stash in &tab.refs.stashes {
             let selected = tab.view == View::Stash
                 && tab
                     .stash
                     .as_ref()
                     .is_some_and(|open| open.name == stash.name);
+            let item = Item {
+                label: stash.message.clone(),
+                depth: 0,
+                symbol: "stash",
+                selected,
+                current: false,
+                badges: Vec::new(),
+            };
             list = list.push(
-                mouse_area(leaf(
-                    look,
-                    stash.message.clone(),
-                    0,
-                    selected,
-                    None,
-                    Vec::new(),
-                ))
-                .on_press(Message::OpenStash(stash.name.clone()))
-                .on_right_press(Message::OpenMenu(MenuRequest::Stash(stash.name.clone()))),
+                mouse_area(leaf(look, item))
+                    .on_press(Message::OpenStash(stash.name.clone()))
+                    .on_right_press(Message::OpenMenu(MenuRequest::Stash(stash.name.clone()))),
             );
         }
     }
@@ -361,18 +496,32 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
         list = list.push(section(
             app,
             "s:submodules",
-            format!("Submodules ({})", tab.refs.submodules.len()),
+            "Submodules",
+            Some(tab.refs.submodules.len()),
             None,
         ));
         if !collapsed("s:submodules") {
             for module in &tab.refs.submodules {
                 let mut badges: Vec<Element<'a, Message>> = Vec::new();
                 if module.state != "ok" {
-                    badges.push(muted(module.state.as_str(), size - 1.0).into());
+                    badges.push(
+                        single(module.state.as_str(), 11)
+                            .font(look.mono)
+                            .color(c.text_muted)
+                            .into(),
+                    );
                 }
+                let item = Item {
+                    label: module.path.clone(),
+                    depth: 0,
+                    symbol: "box",
+                    selected: false,
+                    current: false,
+                    badges,
+                };
                 let full = crate::actions::join_path(&tab.path, &module.path);
                 list = list.push(
-                    mouse_area(leaf(look, module.path.clone(), 0, false, None, badges))
+                    mouse_area(leaf(look, item))
                         .on_double_click(Message::OpenPath(full))
                         .on_right_press(Message::OpenMenu(MenuRequest::File {
                             area: None,
@@ -384,11 +533,9 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
         }
     }
 
-    scrollable(list.width(Length::Fill))
+    container(column![head, scrolled(look, list).height(Length::Fill)])
         .height(Length::Fill)
-        .direction(scrollable::Direction::Vertical(styles::scrollbar(
-            &look.resolved,
-        )))
-        .style(styles::scrollable(&look.resolved))
+        .width(Length::Fill)
+        .style(style::fill(c.sidebar))
         .into()
 }

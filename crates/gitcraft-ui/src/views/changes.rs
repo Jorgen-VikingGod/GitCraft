@@ -2,15 +2,16 @@
 
 use gitcraft_core::model::FileChange;
 use iced::widget::{
-    Column, button, checkbox, column, container, mouse_area, row, scrollable, text, text_editor,
-    text_input,
+    Column, checkbox, column, container, mouse_area, row, text, text_editor, text_input,
 };
 use iced::{Center, Element, Length};
-use native_theme_iced::styles;
 
 use super::diff;
+use super::icon::icon;
+use super::style;
 use super::widgets::{
-    btn, danger, file_row, hline, muted, placeholder, primary, single, spacer, splitter,
+    btn, danger_text, file_row, ghost, heading, hline, icon_button, muted_text, placeholder,
+    primary, scrolled, single, spacer, splitter,
 };
 use crate::actions::{Action, MenuRequest};
 use crate::app::{App, Area, Message, PaneKey, RepoTab, Splitter};
@@ -27,62 +28,52 @@ fn list<'a>(
     empty: &'a str,
 ) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
     if files.is_empty() {
-        return container(muted(empty, size)).padding([6, 10]).into();
+        return container(
+            text(empty)
+                .size(13)
+                .font(look.italic)
+                .color(look.c.text_muted),
+        )
+        .padding([10, 14])
+        .into();
     }
     let picked = if tab.picked.0 == area {
         tab.picked.1.as_slice()
     } else {
         &[]
     };
-    let (action_label, action): (&str, fn(String) -> Message) = match area {
-        Area::Unstaged => ("+", |path| {
+    let (symbol, action): (&'static str, fn(String) -> Message) = match area {
+        Area::Unstaged => ("plus", |path| {
             Message::Run(Command::Stage { paths: vec![path] })
         }),
-        Area::Staged => ("−", |path| {
+        Area::Staged => ("minus", |path| {
             Message::Run(Command::Unstage { paths: vec![path] })
         }),
-        Area::Conflicts => ("…", Message::OpenConflict),
+        Area::Conflicts => ("edit", Message::OpenConflict),
     };
-    let mut rows: Column<'a, Message> = column![];
+    let mut rows: Column<'a, Message> = column![].width(Length::Fill);
     for file in files {
         let path = file.path.clone();
         let selected = picked.contains(&path);
-        let quick = button(text(action_label).size(size))
-            .padding([0, 7])
-            .on_press(action(path.clone()))
-            .style(styles::button(&look.resolved));
+        let quick = icon_button(look, symbol, 14.0, Some(action(path.clone())));
         rows = rows.push(
-            mouse_area(
-                row![
-                    container(file_row(look, file, selected)).width(Length::Fill),
-                    quick
-                ]
-                .align_y(Center)
-                .padding([0, 4]),
-            )
-            .on_press(Message::FilePicked(area, path.clone()))
-            .on_double_click(Message::FileActivated(area, path.clone()))
-            .on_right_press(Message::OpenMenu(MenuRequest::File {
-                area: Some(area),
-                path,
-                rev: None,
-            })),
+            mouse_area(file_row(look, file, selected, Some(quick)))
+                .on_press(Message::FilePicked(area, path.clone()))
+                .on_double_click(Message::FileActivated(area, path.clone()))
+                .on_right_press(Message::OpenMenu(MenuRequest::File {
+                    area: Some(area),
+                    path,
+                    rev: None,
+                })),
         );
     }
-    scrollable(rows.width(Length::Fill))
-        .height(Length::Fill)
-        .direction(scrollable::Direction::Vertical(styles::scrollbar(
-            &look.resolved,
-        )))
-        .style(styles::scrollable(&look.resolved))
-        .into()
+    scrolled(look, rows).height(Length::Fill).into()
 }
 
 fn commit_box<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let c = &look.c;
     let staged = tab.status.as_ref().map_or(0, |status| status.staged.len());
     let has_head = tab
         .status
@@ -98,16 +89,21 @@ fn commit_box<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
         "Commit".to_owned()
     };
     let length = tab.summary.chars().count();
-    let counter = single(length.to_string(), size - 1.0)
-        .color_maybe((length > SUBJECT_LIMIT).then_some(look.palette.modified));
+    let count_color = if length > SUBJECT_LIMIT {
+        c.warning
+    } else {
+        c.text_faint
+    };
     column![
         row![
             text_input("Commit summary", &tab.summary)
                 .on_input(Message::SummaryInput)
                 .on_submit(Message::CommitNow)
-                .size(size)
-                .style(styles::text_input(&look.resolved)),
-            counter,
+                .size(13)
+                .font(look.semibold)
+                .padding([6, 8])
+                .style(style::text_input(look)),
+            single(length.to_string(), 11).color(count_color),
         ]
         .spacing(6)
         .align_y(Center),
@@ -115,39 +111,60 @@ fn commit_box<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
             .placeholder("Description")
             .on_action(Message::BodyAction)
             .height(80)
-            .size(size)
-            .style(styles::text_editor(&look.resolved)),
+            .size(13)
+            .padding([6, 8])
+            .style(style::text_editor(look)),
         row![
             checkbox(tab.amend)
                 .label("Amend last commit")
-                .text_size(size)
+                .text_size(12)
+                .size(14)
+                .spacing(6)
                 .on_toggle_maybe(has_head.then_some(Message::AmendToggled))
-                .style(styles::checkbox(&look.resolved)),
+                .style(style::checkbox(look)),
             spacer(),
             primary(look, label, tab.can_commit().then_some(Message::CommitNow)),
         ]
         .align_y(Center),
     ]
     .spacing(6)
-    .padding(8)
+    .padding(10)
     .into()
+}
+
+fn header<'a>(look: &crate::theme::Look, title: String) -> iced::widget::Row<'a, Message> {
+    row![heading(look, &title), spacer()]
+        .spacing(6)
+        .align_y(Center)
+        .height(32)
+        .padding(iced::Padding {
+            top: 0.0,
+            bottom: 0.0,
+            left: 14.0,
+            right: 8.0,
+        })
 }
 
 pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let c = &look.c;
     let conflicts = tab.files_in(Area::Conflicts);
     let unstaged = tab.files_in(Area::Unstaged);
     let staged = tab.files_in(Area::Staged);
-    let title = |label: String| single(label, size);
     let mut lists: Column<'a, Message> = column![];
     if !conflicts.is_empty() {
         lists = lists
             .push(
-                container(
-                    title(format!("Conflicts ({})", conflicts.len())).color(look.palette.removed),
-                )
-                .padding([4, 8]),
+                row![
+                    icon("alert", 13.0, c.danger),
+                    single(format!("CONFLICTS ({})", conflicts.len()), 11)
+                        .font(look.semibold)
+                        .color(c.danger)
+                ]
+                .spacing(6)
+                .align_y(Center)
+                .height(32)
+                .padding([0, 14]),
             )
             .push(
                 container(list(app, tab, Area::Conflicts, &conflicts, ""))
@@ -155,14 +172,11 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
             )
             .push(hline(look));
     }
-    let mut unstaged_header = row![title(format!("Unstaged ({})", unstaged.len())), spacer()]
-        .spacing(6)
-        .align_y(Center)
-        .padding([4, 8]);
+    let mut unstaged_header = header(look, format!("Unstaged ({})", unstaged.len()));
     if !unstaged.is_empty() {
         let every: Vec<String> = unstaged.iter().map(|file| file.path.clone()).collect();
         unstaged_header = unstaged_header
-            .push(btn(
+            .push(ghost(
                 look,
                 "Discard all",
                 Some(Message::Action(Action::Discard(every))),
@@ -173,9 +187,7 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
                 Some(Message::Run(Command::StageAll)),
             ));
     }
-    let mut staged_header = row![title(format!("Staged ({})", staged.len())), spacer()]
-        .align_y(Center)
-        .padding([4, 8]);
+    let mut staged_header = header(look, format!("Staged ({})", staged.len()));
     if !staged.is_empty() {
         staged_header = staged_header.push(btn(
             look,
@@ -214,10 +226,14 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
             };
             container(
                 column![
-                    text(format!("{path} has conflicts")).size(size + 3.0),
-                    muted(
+                    icon("alert", 32.0, c.danger),
+                    text(format!("{path} has conflicts"))
+                        .size(15)
+                        .font(look.semibold),
+                    muted_text(
+                        look,
                         "Resolve the conflicting sections, then the file is marked as resolved.",
-                        size
+                        13
                     ),
                     row![
                         primary(
@@ -229,18 +245,19 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
                         btn(look, "Use theirs", resolve(Some("theirs"))),
                         btn(look, "Mark as resolved", resolve(None)),
                     ]
-                    .spacing(6),
+                    .spacing(8),
                 ]
-                .spacing(10)
+                .spacing(12)
                 .align_x(Center),
             )
             .center(Length::Fill)
+            .style(style::fill(c.bg))
             .into()
         }
         Some((area, path)) => {
             let actions: Element<'a, Message> = if *area == Area::Unstaged {
                 row![
-                    danger(
+                    danger_text(
                         look,
                         "Discard file",
                         Some(Message::Action(Action::Discard(vec![path.clone()])))
@@ -289,13 +306,16 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
             } else {
                 "Working tree is clean"
             };
-            placeholder(look, note)
+            container(placeholder(look, note))
+                .style(style::fill(c.bg))
+                .into()
         }
     };
     row![
         container(lists)
             .width(app.settings.changes_width)
-            .height(Length::Fill),
+            .height(Length::Fill)
+            .style(style::fill(c.panel)),
         splitter(app, Splitter::Changes),
         container(right).width(Length::Fill).height(Length::Fill),
     ]

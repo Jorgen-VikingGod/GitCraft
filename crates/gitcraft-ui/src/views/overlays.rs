@@ -6,19 +6,21 @@ use iced::widget::{
     Column, button, checkbox, column, container, mouse_area, pick_list, row, scrollable, space,
     text, text_editor, text_input,
 };
-use iced::{Background, Center, Color, Element, Font, Length, Theme, mouse};
-use native_theme_iced::{selection_background, styles};
+use iced::{Background, Center, Color, Element, Length, Theme, mouse};
 
 use super::diff;
-use super::history::format_time;
+use super::icon::icon;
 use super::popups::modal;
-use super::widgets::{btn, hline, muted, placeholder, primary, single, spacer, toggle};
+use super::style;
+use super::widgets::{
+    btn, hline, icon_button, muted_text, placeholder, primary, single, spacer, toggle,
+};
 use crate::actions::{Action, MenuRequest};
 use crate::app::{
     App, BLAME_ROW_HEIGHT, ConflictState, DiffPane, Message, Overlay, PaneKey, REBASE_ROW_HEIGHT,
     RebaseState,
 };
-use crate::logic::{Choice, has_conflict_markers, plural, short_sha};
+use crate::logic::{Choice, has_conflict_markers, plural, short_date, short_sha};
 use crate::theme::Look;
 
 const REBASE_ACTIONS: [(&str, &str, &str); 6] = [
@@ -50,8 +52,8 @@ fn dialog<'a>(
     let (width, height) = (app.window.width / scale, app.window.height / scale);
     let mut header = row![
         column![
-            text(title).size(look.text_size + 3.0),
-            muted(subtitle, look.text_size - 1.0)
+            text(title).size(16).font(look.bold),
+            muted_text(look, subtitle, look.text_size)
         ]
         .width(Length::Fill)
     ]
@@ -62,6 +64,7 @@ fn dialog<'a>(
     }
     header = header.push(btn(look, "Close", Some(Message::OverlayClose)));
     modal(
+        look,
         container(column![
             container(header).padding([10, 14]),
             hline(look),
@@ -69,7 +72,7 @@ fn dialog<'a>(
         ])
         .width((width - 60.0).max(300.0))
         .height((height - 50.0).max(200.0))
-        .style(styles::dialog(&look.resolved))
+        .style(style::dialog(look))
         .into(),
     )
 }
@@ -77,10 +80,8 @@ fn dialog<'a>(
 fn scrolled<'a>(look: &Look, content: Column<'a, Message>) -> Element<'a, Message> {
     scrollable(content.width(Length::Fill))
         .height(Length::Fill)
-        .direction(scrollable::Direction::Vertical(styles::scrollbar(
-            &look.resolved,
-        )))
-        .style(styles::scrollable(&look.resolved))
+        .direction(scrollable::Direction::Vertical(style::scrollbar()))
+        .style(style::scrollable(look))
         .into()
 }
 
@@ -139,7 +140,7 @@ fn reflog<'a>(
     error: Option<&'a str>,
 ) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let size = look.text_size;
     let body: Element<'a, Message> = if loading {
         placeholder(look, "Loading…")
     } else if let Some(error) = error {
@@ -151,18 +152,18 @@ fn reflog<'a>(
         for entry in entries {
             let line = row![
                 single(entry.selector.as_str(), size)
-                    .font(Font::MONOSPACE)
+                    .font(look.mono)
                     .width(90),
                 single(short_sha(&entry.sha), size)
-                    .font(Font::MONOSPACE)
+                    .font(look.mono)
                     .width(66),
-                container(muted(entry.action.as_str(), size).wrapping(Wrapping::None))
+                container(muted_text(look, entry.action.as_str(), size).wrapping(Wrapping::None))
                     .width(Length::FillPortion(2))
                     .clip(true),
                 container(single(entry.subject.as_str(), size))
                     .width(Length::FillPortion(3))
                     .clip(true),
-                single(format_time(entry.time), size).width(112),
+                single(short_date(entry.time), size).width(112),
                 btn(look, "Show", Some(Message::ShowCommit(entry.sha.clone()))),
                 btn(
                     look,
@@ -242,27 +243,22 @@ fn blame<'a>(
             let age = (line.time - min) as f32 / span;
             let bar = Color {
                 a: 0.15 + age * 0.85,
-                ..look.palette.remote
+                ..look.c.accent
             };
             let gutter: Element<'a, Message> = if starts {
                 row![
-                    single(short_sha(&line.sha), size)
-                        .font(Font::MONOSPACE)
-                        .width(60),
+                    single(short_sha(&line.sha), size).font(look.mono).width(60),
                     container(single(line.author.as_str(), size))
                         .width(110)
                         .clip(true),
-                    single(format_time(line.time), size).width(106),
+                    single(short_date(line.time), size).width(106),
                 ]
                 .spacing(4)
                 .into()
             } else {
                 space().width(284).into()
             };
-            let background = (hovered == Some(line.sha.as_str())).then(|| Color {
-                a: 0.2,
-                ..selection_background(&look.resolved)
-            });
+            let background = (hovered == Some(line.sha.as_str())).then_some(look.c.hover);
             let content = row![
                 container(space())
                     .width(3)
@@ -272,10 +268,10 @@ fn blame<'a>(
                         ..container::Style::default()
                     }),
                 container(gutter).width(290).clip(true),
-                muted(line.line.to_string(), size)
-                    .font(Font::MONOSPACE)
+                muted_text(look, line.line.to_string(), size)
+                    .font(look.mono)
                     .width(44),
-                single(line.text.as_str(), 13.0).font(Font::MONOSPACE),
+                single(line.text.as_str(), 13.0).font(look.mono),
             ]
             .spacing(4)
             .align_y(Center);
@@ -303,10 +299,8 @@ fn blame<'a>(
         );
         scrollable(column(rows).width(Length::Fill))
             .height(Length::Fill)
-            .direction(scrollable::Direction::Vertical(styles::scrollbar(
-                &look.resolved,
-            )))
-            .style(styles::scrollable(&look.resolved))
+            .direction(scrollable::Direction::Vertical(style::scrollbar()))
+            .style(style::scrollable(look))
             .on_scroll(|v| Message::BlameScrolled(v.absolute_offset().y, v.bounds().height))
             .into()
     };
@@ -323,10 +317,10 @@ fn file_history<'a>(
     error: Option<&'a str>,
 ) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let size = look.text_size;
     let mut items: Column<'a, Message> = column![];
     if loading {
-        items = items.push(container(muted("Loading…", size)).padding(10));
+        items = items.push(container(muted_text(look, "Loading…", size)).padding(10));
     } else if let Some(error) = error {
         items = items.push(container(text(error).size(size)).padding(10));
     }
@@ -335,11 +329,12 @@ fn file_history<'a>(
         let status = commit.file.as_ref().map_or("", |file| file.status.as_str());
         let mut body = column![
             single(commit.subject.as_str(), size),
-            muted(
+            muted_text(
+                look,
                 format!(
                     "{status}  {} · {} · {}",
                     commit.author,
-                    format_time(commit.time),
+                    short_date(commit.time),
                     short_sha(&commit.sha)
                 ),
                 size - 1.0
@@ -352,12 +347,9 @@ fn file_history<'a>(
             .as_ref()
             .and_then(|file| file.orig_path.as_ref())
         {
-            body = body.push(muted(format!("renamed from {orig}"), size - 1.0));
+            body = body.push(muted_text(look, format!("renamed from {orig}"), size - 1.0));
         }
-        let background = chosen.then(|| Color {
-            a: 0.3,
-            ..selection_background(&look.resolved)
-        });
+        let background = chosen.then_some(look.c.selection);
         items = items.push(
             mouse_area(
                 container(body)
@@ -416,7 +408,7 @@ fn file_history<'a>(
 
 fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let size = look.text_size;
     let body: Element<'a, Message> = if let Some(error) = &state.error {
         placeholder(look, error.as_str())
     } else if let Some(data) = &state.data {
@@ -459,7 +451,7 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
             } else {
                 "No conflict markers found (binary file, or the markers were already removed). Edit the result below if needed, then mark the file as resolved."
             };
-            chunks = chunks.push(muted(note, size)).push(btn(
+            chunks = chunks.push(muted_text(look, note, size)).push(btn(
                 look,
                 "Mark as resolved",
                 Some(resolve(None)),
@@ -473,7 +465,7 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
                 joined
             })
             .size(12.5)
-            .font(Font::MONOSPACE)
+            .font(look.mono)
         };
         let mut index = 0;
         for (at, chunk) in data.chunks.iter().enumerate() {
@@ -493,7 +485,9 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
             };
             let mut block = column![
                 row![
-                    text(format!("Conflict {}", which + 1)).size(size),
+                    text(format!("Conflict {}", which + 1))
+                        .size(size)
+                        .font(look.semibold),
                     spacer(),
                     choose("Ours", Choice::Ours),
                     choose("Theirs", Choice::Theirs),
@@ -509,7 +503,7 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
             {
                 let tail: Vec<String> = lines.iter().rev().take(3).rev().cloned().collect();
                 if !tail.is_empty() {
-                    block = block.push(muted(tail.join("\n"), 12.5).font(Font::MONOSPACE));
+                    block = block.push(muted_text(look, tail.join("\n"), 12.5).font(look.mono));
                 }
             }
             let taken = |ours_side: bool| match choice {
@@ -519,25 +513,27 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
                 None => false,
             };
             let side = |label: &'a str, lines: &[String], tint: Color, picked: bool| {
-                let background = Color {
-                    a: if picked { 0.28 } else { 0.1 },
-                    ..tint
-                };
-                container(column![muted(label, size - 1.0), code(lines)].spacing(3))
+                let frame = if picked { look.c.accent } else { look.c.border };
+                container(column![muted_text(look, label, size - 1.0), code(lines)].spacing(3))
                     .padding(6)
                     .width(Length::FillPortion(1))
                     .style(move |_: &Theme| container::Style {
-                        background: Some(Background::Color(background)),
+                        background: Some(Background::Color(tint)),
+                        border: iced::Border {
+                            color: frame,
+                            width: 1.0,
+                            radius: 6.0.into(),
+                        },
                         ..container::Style::default()
                     })
             };
             block = block.push(
                 row![
-                    side(&data.ours_label, ours, look.palette.local, taken(true)),
+                    side(&data.ours_label, ours, look.c.conflict_ours, taken(true)),
                     side(
                         &data.theirs_label,
                         theirs,
-                        look.palette.remote,
+                        look.c.conflict_theirs,
                         taken(false)
                     )
                 ]
@@ -547,17 +543,16 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
                 container(block)
                     .padding(8)
                     .width(Length::Fill)
-                    .style(styles::container_card(&look.resolved)),
+                    .style(style::card(look)),
             );
         }
         let content = state.result.text();
-        let mut head = row![text("Result").size(size)].spacing(6);
+        let mut head = row![text("Result").size(size).font(look.semibold)].spacing(6);
         if state.edited {
-            head = head.push(muted("· edited by hand", size));
+            head = head.push(muted_text(look, "· edited by hand", size));
         }
         if has_conflict_markers(&content) {
-            head =
-                head.push(single("· contains conflict markers", size).color(look.palette.modified));
+            head = head.push(single("· contains conflict markers", size).color(look.c.warning));
         }
         column![
             bar,
@@ -570,9 +565,9 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
                     text_editor(&state.result)
                         .on_action(Message::ConflictEdit)
                         .height(Length::Fill)
-                        .font(Font::MONOSPACE)
+                        .font(look.mono)
                         .size(12.5)
-                        .style(styles::text_editor(&look.resolved)),
+                        .style(style::text_editor(look)),
                 ]
                 .spacing(4)
             )
@@ -581,7 +576,11 @@ fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> 
             hline(look),
             container(
                 row![
-                    muted("Saving writes the result to the file and stages it.", size),
+                    muted_text(
+                        look,
+                        "Saving writes the result to the file and stages it.",
+                        size
+                    ),
                     spacer(),
                     btn(look, "Cancel", Some(Message::OverlayClose)),
                     primary(
@@ -615,17 +614,17 @@ fn action_button<'a>(
     button(
         text(label.to_uppercase())
             .size(look.text_size - 2.0)
-            .font(Font::MONOSPACE),
+            .font(look.mono),
     )
     .padding([1, 6])
     .on_press(Message::RebaseSetAction(index, action))
-    .style(styles::button_toggle(&look.resolved, action == current))
+    .style(style::toggle(look, action == current))
     .into()
 }
 
 fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let size = look.text_size;
     let branch = app
         .current()
         .and_then(|tab| tab.current_branch())
@@ -647,19 +646,25 @@ fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
             for (action, _, _) in REBASE_ACTIONS {
                 actions = actions.push(action_button(look, index, action, step.action));
             }
-            let handle = mouse_area(container(single("⠿", size + 2.0)).width(20).center_x(20))
-                .on_press(Message::RebaseDragStart(index))
-                .interaction(mouse::Interaction::Grab);
+            let handle = mouse_area(
+                container(icon("grip", 14.0, look.c.text_muted))
+                    .width(20)
+                    .center_x(20),
+            )
+            .on_press(Message::RebaseDragStart(index))
+            .interaction(mouse::Interaction::Grab);
             let subject: Element<'a, Message> = if step.action == "reword" {
                 text_input("Commit message", &step.message)
                     .on_input(move |value| Message::RebaseMessage(index, value))
                     .size(size)
-                    .style(styles::text_input(&look.resolved))
+                    .style(style::text_input(look))
                     .into()
             } else if step.action == "drop" {
-                container(muted(step.commit.subject.as_str(), size).wrapping(Wrapping::None))
-                    .clip(true)
-                    .into()
+                container(
+                    muted_text(look, step.commit.subject.as_str(), size).wrapping(Wrapping::None),
+                )
+                .clip(true)
+                .into()
             } else {
                 container(single(step.commit.subject.as_str(), size))
                     .clip(true)
@@ -669,20 +674,22 @@ fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
                 handle,
                 actions,
                 single(short_sha(&step.commit.sha), size)
-                    .font(Font::MONOSPACE)
+                    .font(look.mono)
                     .width(66),
                 container(subject).width(Length::Fill),
                 container(single(step.commit.author.as_str(), size))
                     .width(140)
                     .clip(true),
-                btn(
+                icon_button(
                     look,
-                    "↑",
+                    "arrow-up",
+                    14.0,
                     (index > 0).then_some(Message::RebaseMove(index, -1))
                 ),
-                btn(
+                icon_button(
                     look,
-                    "↓",
+                    "arrow-down",
+                    14.0,
                     (index + 1 < state.steps.len()).then_some(Message::RebaseMove(index, 1))
                 ),
             ]
@@ -690,10 +697,7 @@ fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
             .align_y(Center)
             .padding([0, 12])
             .height(REBASE_ROW_HEIGHT);
-            let background = (state.focused == index).then(|| Color {
-                a: 0.2,
-                ..selection_background(&look.resolved)
-            });
+            let background = (state.focused == index).then_some(look.c.selection);
             rows = rows.push(
                 mouse_area(container(line).width(Length::Fill).style(move |_: &Theme| {
                     container::Style {
@@ -708,7 +712,11 @@ fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
     };
     let mut legend = column![].spacing(1).padding([4, 12]);
     for (action, key, hint) in REBASE_ACTIONS {
-        legend = legend.push(muted(format!("{key}  {action}: {hint}"), size - 2.0));
+        legend = legend.push(muted_text(
+            look,
+            format!("{key}  {action}: {hint}"),
+            size - 2.0,
+        ));
     }
     let problem = state.problem().filter(|_| !state.loading);
     let footer = row![
@@ -716,10 +724,8 @@ fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
             .label("Stash local changes automatically")
             .text_size(size)
             .on_toggle(Message::RebaseAutostash)
-            .style(styles::checkbox(&look.resolved)),
-        text(problem.unwrap_or(""))
-            .size(size)
-            .color(look.palette.removed),
+            .style(style::checkbox(look)),
+        text(problem.unwrap_or("")).size(size).color(look.c.danger),
         spacer(),
         btn(
             look,
@@ -763,9 +769,14 @@ const THEMES: [ThemeChoice; 3] = [
 
 fn settings(app: &App) -> Element<'_, Message> {
     let look = &app.look;
-    let size = look.text_size - 1.0;
+    let size = look.text_size;
     let values = &app.settings;
-    let heading = |title: &'static str| muted(title, size);
+    let heading = |title: &'static str| {
+        container(super::widgets::heading(look, title)).padding(iced::Padding {
+            top: 10.0,
+            ..iced::Padding::ZERO
+        })
+    };
     let line = |label: &'static str, control: Element<'static, Message>| {
         row![text(label).size(size).width(Length::Fill), control].align_y(Center)
     };
@@ -778,7 +789,7 @@ fn settings(app: &App) -> Element<'_, Message> {
             .on_input(message)
             .size(size)
             .width(90)
-            .style(styles::text_input(&look.resolved))
+            .style(style::text_input(look))
             .into()
     };
     let check = |label: &'static str, value: bool, message: fn(bool) -> Message| {
@@ -786,10 +797,10 @@ fn settings(app: &App) -> Element<'_, Message> {
             .label(label)
             .text_size(size)
             .on_toggle(message)
-            .style(styles::checkbox(&look.resolved))
+            .style(style::checkbox(look))
     };
     let shortcut = |keys: &'static str, what: &'static str| {
-        row![single(keys, size).width(170), muted(what, size)]
+        row![single(keys, size).width(170), muted_text(look, what, size)]
     };
     let body = column![
         heading("Appearance"),
@@ -799,8 +810,8 @@ fn settings(app: &App) -> Element<'_, Message> {
                 choice.0.to_owned()
             ))
             .text_size(size)
-            .style(styles::pick_list(&look.resolved))
-            .menu_style(styles::menu(&look.resolved))
+            .style(style::pick_list(look))
+            .menu_style(style::menu(look))
             .into()
         ),
         heading("Diffs"),
@@ -871,10 +882,8 @@ fn settings(app: &App) -> Element<'_, Message> {
         String::new(),
         None,
         scrollable(container(body).center_x(Length::Fill))
-            .direction(scrollable::Direction::Vertical(styles::scrollbar(
-                &look.resolved,
-            )))
-            .style(styles::scrollable(&look.resolved))
+            .direction(scrollable::Direction::Vertical(style::scrollbar()))
+            .style(style::scrollable(look))
             .into(),
     )
 }
