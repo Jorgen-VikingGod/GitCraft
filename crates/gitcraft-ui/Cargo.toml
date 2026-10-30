@@ -40,8 +40,9 @@ category = "DeveloperTool"
 description = "Open-source, cross-platform Git GUI"
 authors = ["Jürgen Könnemann"]
 copyright = "Copyright © 2026 Jürgen Könnemann"
-icons = ["../../desktop/build/icon.png"]
+icons = ["assets/icon.png"]
 out-dir = "../../target/packages"
+before-packaging-command = "cargo build --release -p gitcraft-ui"
 binaries = [{ path = "gitcraft", main = true }]
 
 [package.metadata.packager.deb]

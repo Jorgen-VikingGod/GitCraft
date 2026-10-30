@@ -6,125 +6,116 @@ Author: Jürgen Könnemann. License: MIT.
 ## Architecture
 
 ```
-Angular 22 SPA (frontend/)  ──HTTP JSON + WebSocket──►  Litestar server (backend/, 127.0.0.1)
-                                                          └─► system `git` CLI (asyncio subprocess, no shell)
-Electron shell (desktop/) starts a PyInstaller-frozen copy of the server and shows the UI in a window.
+gitcraft-ui (iced 0.14)  ──function calls──►  gitcraft-core  ──►  system `git` CLI (tokio subprocess, no shell)
 ```
 
-- The backend never uses libgit2/GitPython. It runs `git` and parses machine-readable output.
-- The frontend is built into `backend/gitcraft/static/`, and the server serves it.
-- Every `/api` request needs the session token. Send it as header `x-gitcraft-token` or as `?token=`.
-  The `repo` query parameter must be a repository opened through `/api/repos/open`.
+- GitCraft is one native binary, `gitcraft`. There is no server, web UI or sidecar.
+- The core never uses libgit2 or gitoxide. It runs `git` and parses machine-readable output.
+- During rebases git starts the `gitcraft` binary itself as its editor (`--gitcraft-editor`).
 
 ## Layout
 
 | Path | What lives there |
 | --- | --- |
-| `backend/gitcraft/git/runner.py` | `run_git()`, `GitError`, env (no prompts, `GIT_EDITOR` helper), per-repo `repo_lock()` |
-| `backend/gitcraft/git/parsers.py` | Parsers (log, status v2, refs, diff, blame, conflict markers) and `build_partial_patch()` |
-| `backend/gitcraft/git/graph.py` | Commit-graph lane layout |
-| `backend/gitcraft/git/queries.py` | Read-only queries |
-| `backend/gitcraft/git/ops.py` | Mutating operations (always inside `repo_lock`) |
-| `backend/gitcraft/git/editor_helper.py` | Standalone script used as `GIT_EDITOR` / `GIT_SEQUENCE_EDITOR` (must not import gitcraft) |
-| `backend/gitcraft/routes/*.py` | Litestar controllers under `/api` |
-| `backend/gitcraft/ws.py` | WebSocket: file-watch events and progress lines |
-| `backend/gitcraft/app.py` | App factory, token guard, `gitcraft` CLI |
-| `backend/packaging/` | PyInstaller spec and frozen entry point |
-| `backend/tests/` | pytest suite against throwaway repositories |
-| `frontend/src/app/core/` | `Api`, `Events`, `RepoState` (per tab), `Workspace` (tabs + `run()`), `GitActions` (commands, dialogs, context menus), `Ui`, `SettingsStore`, `desktop` bridge |
-| `frontend/src/app/<feature>/` | UI: `history`, `changes`, `diff`, `sidebar`, `rebase`, `conflicts`, `inspect`, `dialogs`, `shell`, `shared` |
-| `desktop/main.js`, `desktop/preload.js` | Electron main process (server sidecar, window, menu, IPC) and `window.gitcraftDesktop` bridge |
-| `desktop/scripts/` | `start.mjs` (dev), `build-server.mjs` (UI + frozen server) |
-| `.github/workflows/desktop.yml` | Tests and installers on Linux, macOS and Windows |
+| `crates/gitcraft-core/src/runner.rs` | `run()`, `run_unchecked()`, `git()`, `git_unchecked()`, `GitError`, `Options`, env (no prompts, editor mode), per-repo `repo_lock()`, `MIN_GIT` |
+| `crates/gitcraft-core/src/parsers.rs` | Parsers (log, status v2, refs, diff, blame, conflict markers) and the partial patch builder |
+| `crates/gitcraft-core/src/graph.rs` | Commit-graph lane layout |
+| `crates/gitcraft-core/src/queries.rs` | Read-only queries |
+| `crates/gitcraft-core/src/ops.rs` | Mutating operations (always holding `repo_lock`) |
+| `crates/gitcraft-core/src/editor.rs` | Non-interactive editor mode, used for `GIT_EDITOR` / `GIT_SEQUENCE_EDITOR` |
+| `crates/gitcraft-core/src/model.rs` | Data handed to callers |
+| `crates/gitcraft-core/src/watcher.rs` | File-system change notifications for one repository |
+| `crates/gitcraft-core/src/store.rs`, `repos.rs`, `paths.rs` | Recent repositories and `config_dir()`; opening repositories; path handling |
+| `crates/gitcraft-core/tests/ops.rs` | Operations against real git in throwaway repositories |
+| `crates/gitcraft-ui/src/app.rs` | `App`, `Message`, and `App::update`, where all state changes happen |
+| `crates/gitcraft-ui/src/command.rs` | `Command`: every git operation the UI can start, as data (label, success text, how to run it) |
+| `crates/gitcraft-ui/src/actions.rs` | `Action`: user-facing commands with their dialogs, and all context menus (`commit_menu_items()`) |
+| `crates/gitcraft-ui/src/form.rs`, `menu.rs` | Modal forms; context menus as plain data (`MenuItem`) |
+| `crates/gitcraft-ui/src/logic.rs` | UI decisions that need no toolkit, so they can be tested directly |
+| `crates/gitcraft-ui/src/theme.rs`, `views/style.rs`, `views/icon.rs` | Colours and fonts; widget styles; SVG icons |
+| `crates/gitcraft-ui/src/views/` | Everything drawn on screen: `shell`, `sidebar`, `history`, `graph_cell`, `details`, `changes`, `diff`, `overlays`, `popups`, `widgets` |
+| `crates/gitcraft-ui/src/environment.rs`, `instance.rs`, `settings.rs` | Env for git when not started from a terminal; single-window hand-over; `settings.json` |
+| `crates/gitcraft-ui/tests/flows.rs` | Drives the real UI against real repositories |
+| `crates/gitcraft-core/tests/goldens/` | Recorded commit logs, read by the unit test in `graph.rs` |
+| `crates/gitcraft-ui/assets/icon.png` | App icon used for the installers |
+| `.github/workflows/rust.yml` | Lint, tests and installers on Linux, macOS and Windows |
 
 ## Setup
 
-Requirements: git, [uv](https://docs.astral.sh/uv/) (provides Python 3.10+), and Node 20+
-(CI uses Node 22 and Python 3.13).
-
-```bash
-cd backend && uv sync            # .venv with the app (editable) + `dev` group; add `--group bundle` for PyInstaller
-cd ../frontend && npm ci
-cd ../desktop && npm ci          # only for the Electron app
-```
-
-- The Python side is a uv project: dependencies in `backend/pyproject.toml`, dev tools in
-  `[dependency-groups]` (`dev` is the default, `bundle` = PyInstaller), versions pinned in
-  `backend/uv.lock` (commit it). Add packages with `uv add` / `uv add --dev`, never with pip.
-- Run Python tools with `uv run …` from `backend/`. Don't use `pip install` into `.venv`.
-- uv installs the project **editable**, which matters: a non-editable install copies a stale `static/`
-  into site-packages, and the server then serves an old UI. The Electron dev mode runs
-  `backend/.venv/bin/python` directly, so `uv sync` must have been run once.
+Requirements: git 2.35+ and [rustup](https://rustup.rs/). `rust-toolchain.toml` pins the toolchain
+(including rustfmt and clippy), and rustup installs it on first use.
 
 ## Run
 
 ```bash
-scripts/dev.sh                                  # backend :7420 (reload) + ng serve :4200 → http://localhost:4200/?token=dev
-cd frontend && npm run build && cd ../backend && uv run gitcraft [repo]   # production-like, opens browser
-cd desktop && npm start [repo]                  # Electron dev (needs a built frontend)
+cargo run -p gitcraft-ui -- [repo]               # debug build
+cargo run --release -p gitcraft-ui -- [repo]     # release build
 ```
 
 ## Test and build (run before finishing a change)
 
 ```bash
-cd backend && uv run pytest -q                 # must stay green
-cd frontend && npx ng test --watch=false        # Vitest
-cd frontend && npx ng build                     # strict TS + strictTemplates; fix warnings too
-cd desktop && npm run dist                      # UI + frozen server + installers for the current OS
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --no-fail-fast
 ```
 
-- Backend tests create temporary repos (`tests/conftest.py`: `repo`, `repo_with_history`, `git()`,
-  `commit_file()`). Add a test for every new git operation, and run real git rather than mocking it.
-- For UI changes, build and click through the affected flow. Headless Chrome and Playwright work for this.
+Installers (only on their own OS; `--formats` is `deb,appimage`, `dmg` or `nsis`):
+
+```bash
+cargo install cargo-packager --locked --version 0.11.8
+cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # into target/packages/
+```
+
+- Core tests use `Fixture` in `crates/gitcraft-core/tests/ops.rs`. Add a test for every new git
+  operation, and run real git rather than mocking it.
+- UI flows use the `Fixture` in `crates/gitcraft-ui/tests/flows.rs`, which sends `Message`s, runs the
+  tasks to the end and checks the result with git itself. Add one for every new user-facing flow.
+- Fixtures pin their git config (for example `core.autocrlf=false`), so tests don't depend on the machine.
 
 ## Conventions
 
-**Backend (Python):**
-- Run git through `run_git(cwd, *args, check=..., stdin=..., on_progress=...)`. Never use `shell=True`.
-  Put `--` before paths.
-- Mutations go in `ops.py`, wrapped in `async with repo_lock(repo):`. Return `_ok(result)`. Operations
-  that can stop half-way (merge, rebase, cherry-pick, revert, pull, `am`) use `_may_conflict()`, which
-  returns `{ok: False, conflicts, operation}` instead of raising.
-- Validate file paths from clients with `_safe_path()`.
-- Request bodies subclass `routes.common.Body`, a camelCase msgspec Struct. Query parameters are
-  snake_case (`ignore_ws`, `orig_path`). Handlers receive the validated repository as `repo_dir: str`
-  (router dependency).
-- Errors: raise `GitError` or `ValueError`. Both become HTTP 400 `{error}`.
-- Litestar is pinned `<3`. Its 2.x deprecation warnings about inferred parameters are filtered in
-  pytest and are expected.
-- Long operations accept `opId` and pass `progress(op_id, repo_dir)` from `ws.py`.
+**Core (`gitcraft-core`):**
+- Run git through `runner::git()` / `git_unchecked()`, or `run()` / `run_unchecked()` when you need
+  `Options` (`stdin`, `env`, `progress`). Never go through a shell. Put `--` before paths.
+- Mutations go in `ops.rs` and hold `repo_lock(repo)` for their whole duration. Operations that can stop
+  half-way (merge, rebase, cherry-pick, revert, pull, `am`) use `may_conflict()`, which reports the
+  conflict in `OpResult` rather than as an error.
+- Validate file paths with `safe_path()`, and refuse values git would read as an option with `check_ref()`.
+- Errors are `core::Error`: `Git`, `Invalid` or `Validation`. The last two carry a message for the user.
+- Long operations take a `Progress` callback.
 
-**Frontend (Angular 22):**
-- Use standalone components with OnPush and signals (`signal`, `computed`, `input()`, `output()`).
-  The app is zoneless, so all UI state must live in signals.
-- New git commands go into `GitActions`, run through `Workspace.run(label, fn, repo, {success})`, which
-  shows a busy state, toasts, progress and a refresh. Dialogs use `Ui.ask()` / `Ui.confirm()`; menus
-  use `Ui.openMenu()` with `MenuItem` (one level of `children` submenus is supported).
-- Commit context menus are built by `GitActions.commitMenu()`. Branch, tag and remote menus reuse it so
-  that commit actions (reset, cherry-pick…) are available everywhere.
-- In `effect()`s that start async loads, wrap the call in `untracked(() => …)`. Reading signals
-  synchronously inside the load creates refresh loops.
-- Theme colours come from CSS variables in `src/styles.scss` (light and dark). Don't hard-code colours.
-- Icons: add SVG path data to `shared/icon.ts`.
-- Check for desktop-only features with `desktop` from `core/desktop.ts` (null in a browser).
+**UI (`gitcraft-ui`):**
+- All state changes happen in `App::update`. Views only read state and produce `Message`s.
+- A new git operation is a `Command` variant with its label, success text and `run()` arm. Start it with
+  `Message::Run`, which handles the busy state, toasts, progress and refresh.
+- If it needs a dialog, add an `Action` in `actions.rs`. Forms are in `form.rs`; a confirmation is a form
+  without fields. Menus are `MenuItem` lists with one level of submenus.
+- Commit menus are built by `commit_menu_items()`. Branch, tag and remote menus reuse it so that commit
+  actions (reset, cherry-pick…) are available everywhere.
+- Put decisions that need no toolkit in `logic.rs`, with a unit test.
+- Colours come from `theme.rs` and widget styles from `views/style.rs`. Don't hard-code either in a view.
+  The OS only decides light or dark and the UI font.
+- Icons: add SVG path data to `PATHS` in `views/icon.rs`.
+- Don't block the UI thread: slow work runs in a `Task`.
 
-**Desktop (Electron):**
-- Context isolation and sandbox stay on; expose new capabilities only through `preload.js` + `ipcMain.handle`.
-- The server is started with `--port 0 --exit-on-stdin-close` and a random `GITCRAFT_TOKEN`. Readiness
-  is the stdout line `running at <url>`.
-- Frozen server: `sys.executable` is the server binary, so git's editor hooks call it with
-  `--gitcraft-editor` (handled in `packaging/server_entry.py`). Keep that working when touching
-  `runner.editor_command()` or `editor_helper.py`.
+**All crates:**
+- `unsafe_code` is denied in the workspace, and clippy warnings fail CI.
+- Add dependencies to the crate's `Cargo.toml` and commit `Cargo.lock`. `iced` and `native-theme-iced`
+  are pinned to exact versions.
 
 ## Gotchas
 
-- Hosts like VS Code set `ELECTRON_RUN_AS_NODE=1`. `npm start` clears it; when launching Electron any
-  other way, unset it yourself.
-- Set `GITCRAFT_USER_DATA=<dir>` when launching the desktop app in tests, so it doesn't hand over to an
-  installed GitCraft through the single-instance lock. Set `GITCRAFT_CONFIG_DIR=<dir>` so the
-  recent-repos store doesn't touch the user's real config.
-- Electron can run headless with `--ozone-platform=headless` (Playwright `_electron`).
-- If the requested port is busy, the server silently picks a free one. Read the printed URL.
+- `gitcraft_core::editor::run_if_requested()` must stay the first call in `main`. Keep it working when
+  touching `runner::editor_command()` or `editor.rs`. The core's tests use `gitcraft-editor-stub` in its place.
+- Set `GITCRAFT_CONFIG_DIR=<dir>` when launching the app in tests. Otherwise it touches the user's real
+  settings and recent repositories, and it may hand over to a running GitCraft through
+  `instance.port` and exit immediately.
+- Packaged builds rewrite the environment for git in `environment.rs`: AppImage library variables are
+  removed, and `PATH` comes from the login shell. A bug that only shows up in an installer may be here.
+- `cargo packager` builds the release binary through `before-packaging-command` in
+  `crates/gitcraft-ui/Cargo.toml`. A `.deb` without the icon file still builds without a warning, but the
+  AppImage fails with `AppImageSquareIcon`.
 - Installers can only be built on their own OS; use the GitHub workflow for macOS and Windows.
 
 ## Project rules
@@ -132,6 +123,4 @@ cd desktop && npm run dist                      # UI + frozen server + installer
 - GitCraft is an independent, original project. Do not mention, copy or imitate other Git clients
   (names, branding, assets, or wording) anywhere in code, docs or metadata.
 - Author and copyright holder: Jürgen Könnemann.
-- Still to fill in: `desktop/package.json` `homepage` (placeholder `https://example.com/gitcraft`) and
-  the maintainer email (`maintainers@gitcraft.invalid`).
-- Never commit build outputs: `backend/gitcraft/static/`, `backend/dist/`, `backend/build/`, `desktop/release/`.
+- Never commit build outputs (`target/`).

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/gitcraft-core", "crates/gitcraft-compat", "crates/gitcraft-ui", "spikes/graph-iced"]
+members = ["crates/gitcraft-core", "crates/gitcraft-ui"]
 
 [workspace.package]
 version = "0.2.0-dev"

@@ -2,7 +2,7 @@
 
 use std::path::{Component, Path, PathBuf};
 
-/// Like Python's `Path.resolve()`: absolute with symlinks resolved as far as the
+/// Absolute with symlinks resolved as far as the
 /// path exists, the rest normalised lexically. Never fails on a missing path, and
 /// never returns a `\\?\` prefix on Windows.
 pub fn resolve(path: impl AsRef<Path>) -> PathBuf {

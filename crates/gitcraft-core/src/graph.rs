@@ -231,13 +231,10 @@ mod tests {
         assert_eq!(rows.iter().map(|r| r.width).max(), Some(2));
     }
 
-    /// Every /log golden: the same parents must produce the same rows as the Python layout.
+    /// Every /log golden: the same parents must produce the same rows as when they were recorded.
     #[test]
     fn matches_goldens() {
-        let dir = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../tests/parity/goldens/read"
-        );
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/goldens");
         let mut checked = 0;
         for entry in std::fs::read_dir(dir).expect("goldens exist") {
             let path = entry.unwrap().path();
