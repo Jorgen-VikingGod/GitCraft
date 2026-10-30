@@ -17,9 +17,9 @@ installed `git`, and the Angular UI runs in your browser on `127.0.0.1`.
 - **Branches, tags, remotes**: sidebar with folder trees, ahead/behind counts, checkout (double-click),
   create, rename, delete, upstream tracking, push/delete remote branches and tags, add/edit/remove remotes.
 - **Fetch / pull / push** with live progress (merge, rebase or fast-forward pulls; force-with-lease).
-- **Merge, rebase, cherry-pick, revert, reset (soft/mixed/keep/hard), undo last commit** from context
-  menus on commits, branch/tag badges and sidebar refs; banner with Continue/Skip/Abort while an
-  operation is in progress.
+- **Merge, rebase (with optional autostash), cherry-pick, revert, reset (soft/mixed/keep/hard), undo last
+  commit** from context menus on commits, branch/tag badges and sidebar refs; banner with
+  Continue/Skip/Abort while an operation is in progress.
 - **Edit history** from the commit menu: edit message, squash/fixup into parent, drop commit.
 - **Compare** any two commits (Ctrl/Cmd+click), filter history to the current branch, **reflog** to
   recover lost commits, fast-forward branches without checking them out.
@@ -32,6 +32,27 @@ installed `git`, and the Angular UI runs in your browser on `127.0.0.1`.
 - Repository **tabs**, recent repositories, folder browser, clone, init.
 - Live refresh through file watching, **light/dark** theme, keyboard shortcuts.
 
+### Pull and rebase options
+
+**Pull** (toolbar, or *Pull…* in the context menu of the current branch) asks for the remote, the remote branch and a strategy:
+
+| Strategy | git command | Result |
+| --- | --- | --- |
+| Merge | `git pull --no-rebase` | Creates a merge commit if both sides have new commits |
+| Rebase | `git pull --rebase` | Replays your local commits on top of the remote branch (linear history) |
+| Fast-forward only | `git pull --ff-only` | Only updates if no merge or rebase is needed; otherwise stops |
+
+**Rebase** (context menu of a local or remote branch: *Rebase &lt;current&gt; onto …*) replays the current
+branch on top of the chosen one (`git rebase <target>`).
+
+Both dialogs have **Stash and reapply local changes** (`--autostash`): uncommitted changes are stashed
+before the operation and restored afterwards, so you can pull or rebase without committing first.
+Without it, a rebase refuses to start while tracked files have uncommitted changes (a merge
+pull only when they are in the way). If the restored changes conflict,
+they stay in the stash list. GitCraft remembers the strategy and the autostash choice for the next
+time. Conflicts during a pull or rebase are shown in the operation banner with Continue / Skip / Abort
+and can be resolved in the built-in conflict resolver.
+
 ## Requirements
 
 - `git` 2.30 or newer on `PATH`
@@ -39,16 +60,6 @@ installed `git`, and the Angular UI runs in your browser on `127.0.0.1`.
   Python (3.10+) by itself if none is present.
 - Node.js 20+ (only to build the frontend)
 
-### Installing uv
-
-See the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/) for all options.
-In short:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh                        # Linux and macOS
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"   # Windows
-brew install uv                                                        # Homebrew
-```
 
 ## Install & run
 

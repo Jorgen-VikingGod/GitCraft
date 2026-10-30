@@ -3,10 +3,18 @@ import { desktop } from './desktop';
 import { errorMessage } from './api';
 import { BranchInfo, LogCommit, OpResult, RebaseAction, Remote, RemoteBranch, Stash, TagInfo } from './models';
 import { RepoState } from './repo-state';
+import { readStorage, writeStorage } from './settings';
 import { MenuItem, Ui, copyText } from './ui';
 import { Workspace } from './workspace';
 
 export const shortSha = (sha: string) => sha.slice(0, 7);
+
+/** Last choices in the pull dialog, reused as defaults next time. */
+const PULL_KEY = 'gitcraft-pull';
+const PULL_DEFAULTS = { mode: 'merge', autostash: false };
+/** Last choice in the rebase dialog. */
+const REBASE_KEY = 'gitcraft-rebase';
+const REBASE_DEFAULTS = { autostash: false };
 
 /** User-facing git commands with their dialogs and context menus. */
 @Injectable({ providedIn: 'root' })
@@ -33,6 +41,7 @@ export class GitActions {
       return;
     }
     const [upRemote, upBranch] = splitUpstream(branch?.upstream ?? null, remotes);
+    const last = readStorage(PULL_KEY, PULL_DEFAULTS);
     const values = await this.ui.ask({
       title: 'Pull',
       message: branch ? `Pull into ${branch.name}` : undefined,
@@ -43,21 +52,25 @@ export class GitActions {
           key: 'mode',
           label: 'Strategy',
           type: 'select',
-          value: 'merge',
+          value: last.mode,
           options: [
-            { value: 'merge', label: 'Merge' },
-            { value: 'rebase', label: 'Rebase' },
+            { value: 'merge', label: 'Merge (create a merge commit if needed)' },
+            { value: 'rebase', label: 'Rebase (replay local commits on top)' },
             { value: 'ff-only', label: 'Fast-forward only' },
           ],
         },
+        { key: 'autostash', label: 'Stash and reapply local changes', type: 'checkbox', value: last.autostash },
       ],
       ok: 'Pull',
     });
     if (!values) return;
+    const mode = String(values['mode']);
+    const autostash = !!values['autostash'];
+    writeStorage(PULL_KEY, { mode, autostash });
     await this.ws.run(
-      'Pulling',
+      mode === 'rebase' ? 'Pulling (rebase)' : 'Pulling',
       (opId) =>
-        repo.post<OpResult>('/pull', { remote: values['remote'], branch: values['branch'] || null, mode: values['mode'], opId }),
+        repo.post<OpResult>('/pull', { remote: values['remote'], branch: values['branch'] || null, mode, autostash, opId }),
       repo,
       { success: 'Pull complete' },
     );
@@ -270,8 +283,19 @@ export class GitActions {
 
   async rebase(repo: RepoState, onto: string, label = onto): Promise<void> {
     const current = repo.currentBranch() ?? 'HEAD';
-    if (!(await this.ui.confirm('Rebase', `Rebase ${current} onto ${label}?`, 'Rebase'))) return;
-    await this.ws.run('Rebasing', () => repo.post<OpResult>('/rebase', { onto }), repo, { success: 'Rebase complete' });
+    const last = readStorage(REBASE_KEY, REBASE_DEFAULTS);
+    const values = await this.ui.ask({
+      title: 'Rebase',
+      message: `Rebase ${current} onto ${label}?`,
+      fields: [{ key: 'autostash', label: 'Stash and reapply local changes', type: 'checkbox', value: last.autostash }],
+      ok: 'Rebase',
+    });
+    if (!values) return;
+    const autostash = !!values['autostash'];
+    writeStorage(REBASE_KEY, { autostash });
+    await this.ws.run('Rebasing', () => repo.post<OpResult>('/rebase', { onto, autostash }), repo, {
+      success: 'Rebase complete',
+    });
   }
 
   interactiveRebase(repo: RepoState, base: string | null): void {

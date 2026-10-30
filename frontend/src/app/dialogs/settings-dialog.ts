@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Settings, SettingsStore } from '../core/settings';
 import { Ui } from '../core/ui';
 import { Icon } from '../shared/icon';
+import { Select } from '../shared/select';
 
 @Component({
   selector: 'app-settings-dialog',
-  imports: [Icon],
+  imports: [Icon, Select],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'ui.closeOverlay()' },
   template: `
@@ -19,20 +20,13 @@ import { Icon } from '../shared/icon';
       <section>
         <h3>Appearance</h3>
         <label class="row"><span>Theme</span>
-          <select [value]="s.theme" (change)="set('theme', $any($event.target).value)">
-            <option value="system">Follow system</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
+          <app-select [options]="themes" [value]="s.theme" (valueChange)="set('theme', $any($event))" />
         </label>
       </section>
       <section>
         <h3>Diffs</h3>
         <label class="row"><span>Layout</span>
-          <select [value]="s.diffMode" (change)="set('diffMode', $any($event.target).value)">
-            <option value="unified">Unified</option>
-            <option value="split">Side by side</option>
-          </select>
+          <app-select [options]="diffModes" [value]="s.diffMode" (valueChange)="set('diffMode', $any($event))" />
         </label>
         <label class="row"><span>Context lines</span>
           <input type="number" min="0" max="100" [value]="s.diffContext"
@@ -75,6 +69,7 @@ import { Icon } from '../shared/icon';
     .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
     .row.check { justify-content: flex-start; }
     .row input[type=number] { width: 100px; }
+    .row app-select { width: 160px; }
     dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 0; font-size: 12px; }
     dt { font-family: var(--mono); color: var(--text-muted); }
     dd { margin: 0; }
@@ -83,6 +78,15 @@ import { Icon } from '../shared/icon';
 export class SettingsDialog {
   protected readonly settings = inject(SettingsStore);
   protected readonly ui = inject(Ui);
+  protected readonly themes = [
+    { value: 'system', label: 'Follow system' },
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+  ];
+  protected readonly diffModes = [
+    { value: 'unified', label: 'Unified' },
+    { value: 'split', label: 'Side by side' },
+  ];
 
   protected set<K extends keyof Settings>(key: K, value: Settings[K]): void {
     this.settings.update({ [key]: value } as Partial<Settings>);

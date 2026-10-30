@@ -176,6 +176,19 @@ async def test_rebase_with_conflict_then_continue(repo_with_history: Path):
     assert [x["subject"] for x in (await queries.log(repo, 3, all_refs=False))["commits"]] == ["theirs", "ours", "second"]
 
 
+async def test_rebase_autostash(repo_with_history: Path):
+    repo = str(repo_with_history)
+    git(repo_with_history, "switch", "-q", "-c", "feature", "HEAD~1")
+    commit_file(repo_with_history, "f.txt", "f\n", "feature work")
+    write(repo_with_history, "f.txt", "dirty\n")
+    with pytest.raises(GitError):
+        await ops.rebase(repo, "main")  # git refuses with uncommitted changes
+    assert (await ops.rebase(repo, "main", autostash=True))["ok"]
+    subjects = [x["subject"] for x in (await queries.log(repo, 3, all_refs=False))["commits"]]
+    assert subjects == ["feature work", "second", "first"]
+    assert (repo_with_history / "f.txt").read_text() == "dirty\n"
+
+
 async def test_stash_cycle(repo_with_history: Path):
     repo = str(repo_with_history)
     write(repo_with_history, "a.txt", "changed\n")
@@ -248,3 +261,15 @@ async def test_remote_fetch_pull_push(tmp_path: Path, repo_with_history: Path):
     assert (await queries.refs(repo))["local"][0]["behind"] == 1
     assert (await ops.pull(repo, None, None, "ff-only", collect))["ok"]
     assert (repo_with_history / "x.txt").exists()
+
+    # Diverged history: pull --rebase replays the local commit on top of the remote one,
+    # and autostash keeps uncommitted changes.
+    commit_file(Path(clone_dir), "y.txt", "y\n", "remote work")
+    git(Path(clone_dir), "push", "-q")
+    commit_file(repo_with_history, "z.txt", "z\n", "local work")
+    write(repo_with_history, "a.txt", "dirty\n")
+    assert (await ops.pull(repo, "origin", "main", "rebase", collect, autostash=True))["ok"]
+    log = await queries.log(repo, 10)
+    assert [c["subject"] for c in log["commits"][:2]] == ["local work", "remote work"]
+    assert all(len(c["parents"]) == 1 for c in log["commits"][:-1])  # linear, no merge commit
+    assert (repo_with_history / "a.txt").read_text() == "dirty\n"

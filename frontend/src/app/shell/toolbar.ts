@@ -5,10 +5,11 @@ import { RepoState, SearchMode } from '../core/repo-state';
 import { Ui } from '../core/ui';
 import { Workspace } from '../core/workspace';
 import { Icon } from '../shared/icon';
+import { Select } from '../shared/select';
 
 @Component({
   selector: 'app-toolbar',
-  imports: [Icon],
+  imports: [Icon, Select],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let r = repo();
@@ -51,12 +52,8 @@ import { Icon } from '../shared/icon';
       <app-icon name="search" [size]="14" />
       <input #searchInput type="search" placeholder="Search commits (Ctrl+F)" [value]="query()"
         (input)="query.set($any($event.target).value)" (keydown.enter)="search()" (keydown.escape)="clear()" />
-      <select [value]="mode()" (change)="mode.set($any($event.target).value); query() && search()" title="Search in">
-        <option value="message">Message</option>
-        <option value="author">Author</option>
-        <option value="sha">SHA</option>
-        <option value="content">Content</option>
-      </select>
+      <app-select plain title="Search in" [options]="searchModes" [value]="mode()"
+        (valueChange)="mode.set($any($event)); query() && search()" />
     </div>
   `,
   styles: `
@@ -78,7 +75,6 @@ import { Icon } from '../shared/icon';
       border-radius: 8px; background: var(--input); color: var(--text-muted); width: 340px; }
     .search:focus-within { border-color: var(--accent); }
     .search input { flex: 1; min-width: 0; border: 0; background: none; padding: 0; height: 26px; box-shadow: none; }
-    .search select { border: 0; background: none; height: 26px; color: var(--text-muted); font-size: 12px; box-shadow: none; }
     @media (max-width: 1100px) { .search { width: 220px; } .tool span { display: none; } .tool { min-width: 36px; } }
   `,
 })
@@ -87,6 +83,12 @@ export class Toolbar {
   protected readonly ws = inject(Workspace);
   private readonly ui = inject(Ui);
   readonly repo = input.required<RepoState>();
+  protected readonly searchModes = [
+    { value: 'message', label: 'Message' },
+    { value: 'author', label: 'Author' },
+    { value: 'sha', label: 'SHA' },
+    { value: 'content', label: 'Content' },
+  ];
 
   protected readonly query = signal('');
   protected readonly mode = signal<SearchMode>('message');

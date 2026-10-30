@@ -238,10 +238,12 @@ async def fetch(repo: str, remote: str | None, prune: bool, tags: bool, on_progr
 
 
 async def pull(repo: str, remote: str | None, branch: str | None, mode: str,
-               on_progress: ProgressCallback | None) -> dict[str, Any]:
+               on_progress: ProgressCallback | None, autostash: bool = False) -> dict[str, Any]:
+    """Pull with mode merge, rebase or ff-only; autostash stashes local changes and reapplies them."""
     async with repo_lock(repo):
         args = ["pull", "--progress", "--no-edit"]
         args.append({"rebase": "--rebase", "ff-only": "--ff-only"}.get(mode, "--no-rebase"))
+        args.append("--autostash" if autostash else "--no-autostash")
         if remote:
             args.append(remote)
             if branch:
@@ -291,9 +293,9 @@ async def merge(repo: str, ref: str, mode: str = "default") -> dict[str, Any]:
         return await _may_conflict(repo, "merge", "--no-edit", *flags, ref)
 
 
-async def rebase(repo: str, onto: str) -> dict[str, Any]:
+async def rebase(repo: str, onto: str, autostash: bool = False) -> dict[str, Any]:
     async with repo_lock(repo):
-        return await _may_conflict(repo, "rebase", onto)
+        return await _may_conflict(repo, "rebase", "--autostash" if autostash else "--no-autostash", onto)
 
 
 async def cherry_pick(repo: str, shas: list[str]) -> dict[str, Any]:

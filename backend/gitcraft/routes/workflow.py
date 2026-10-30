@@ -17,6 +17,7 @@ class MergeBody(Body):
 
 class RebaseBody(Body):
     onto: str
+    autostash: bool = False
 
 
 class CherryPickBody(Body):
@@ -54,7 +55,7 @@ class WorkflowController(Controller):
 
     @post("/rebase")
     async def rebase(self, repo_dir: str, data: RebaseBody) -> dict[str, Any]:
-        return await ops.rebase(repo_dir, data.onto)
+        return await ops.rebase(repo_dir, data.onto, data.autostash)
 
     @get("/rebase/commits")
     async def rebase_commits(self, repo_dir: str, base: str | None = None) -> list[dict[str, Any]]:

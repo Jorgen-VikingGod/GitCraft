@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, effect, inject, signal, viewChild } from '@angular/core';
 import { FormField, FormValues, Ui } from '../core/ui';
+import { Select } from '../shared/select';
 
 /** Generic modal used for prompts, confirmations and small option forms. */
 @Component({
   selector: 'app-form-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Select],
   template: `
     @if (ui.form(); as current) {
       <div class="backdrop" (mousedown)="$event.target === $event.currentTarget && cancel()">
@@ -24,11 +26,8 @@ import { FormField, FormValues, Ui } from '../core/ui';
               @case ('select') {
                 <label class="field">
                   <span>{{ field.label }}</span>
-                  <select [value]="values()[field.key] ?? ''" (change)="set(field, $any($event.target).value)">
-                    @for (option of field.options ?? []; track option.value) {
-                      <option [value]="option.value" [selected]="option.value === values()[field.key]">{{ option.label }}</option>
-                    }
-                  </select>
+                  <app-select [options]="field.options ?? []" [value]="$any(values()[field.key])"
+                    (valueChange)="set(field, $event)" />
                 </label>
               }
               @case ('textarea') {
@@ -95,7 +94,7 @@ export class FormDialog {
 
   private focusFirst(): void {
     const form = this.form()?.nativeElement;
-    const target = form?.querySelector<HTMLElement>('input:not([type=checkbox]), textarea, select') ??
+    const target = form?.querySelector<HTMLElement>('input:not([type=checkbox]), textarea, app-select button') ??
       form?.querySelector<HTMLElement>('button[type=submit]');
     target?.focus();
   }

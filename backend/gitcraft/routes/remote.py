@@ -20,6 +20,7 @@ class PullBody(Body):
     remote: str | None = None
     branch: str | None = None
     mode: str = "merge"  # merge | rebase | ff-only
+    autostash: bool = False
     op_id: str | None = None
 
 
@@ -41,7 +42,8 @@ class RemoteController(Controller):
 
     @post("/pull")
     async def pull(self, repo_dir: str, data: PullBody) -> dict[str, Any]:
-        return await ops.pull(repo_dir, data.remote, data.branch, data.mode, progress(data.op_id, repo_dir))
+        return await ops.pull(repo_dir, data.remote, data.branch, data.mode, progress(data.op_id, repo_dir),
+                              data.autostash)
 
     @post("/push")
     async def push(self, repo_dir: str, data: PushBody) -> dict[str, Any]:
