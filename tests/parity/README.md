@@ -31,6 +31,7 @@ A server must accept `--no-browser --port 0`, read `GITCRAFT_TOKEN` and print `r
 ## Things to know
 
 - **Goldens record behaviour, not correctness.** Some capture existing bugs on purpose, such as `selection-context-0`, `selection-latin1`, `dash-ref-checkout` and `clean-spaced-name-real`. When the port fixes one (see the migration plan's list of deliberate changes), update that golden in the same change and say why.
+- **In CI**, each machine captures fresh goldens from Python and then checks Rust against them, so both run with the same git on the same OS. The committed goldens are the reference for local runs and for the graph unit test.
 - **Message text** (`error`, `message`, `detail`) is only compared on the git version and OS in `goldens/manifest.json`, because git's wording varies. Everything else is always compared.
 - **Status-only cases** (`status_only`) compare just the HTTP status, where the body is specific to the framework.
 - **`odd_names`** is skipped on Windows, which can't store those filenames.

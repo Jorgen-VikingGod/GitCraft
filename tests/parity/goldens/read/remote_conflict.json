@@ -1314,7 +1314,7 @@
     "path": "/patch"
    },
    "response": {
-    "body": "From 7710afbdf57b389b73ce9136f6e7576d5de2e3b9 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:27:20 +0000\nSubject: [PATCH] ours\n\n---\n a.txt | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\ndiff --git a/a.txt b/a.txt\nindex fa2da6e..656c7e4 100644\n--- a/a.txt\n+++ b/a.txt\n@@ -1,5 +1,5 @@\n line 1\n-line 2\n+line two ours\n line 3\n line 4\n line 5\n-- \n2.55.0\n\n",
+    "body": "From 7710afbdf57b389b73ce9136f6e7576d5de2e3b9 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:27:20 +0000\nSubject: [PATCH] ours\n\n---\n a.txt | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\ndiff --git a/a.txt b/a.txt\nindex fa2da6e..656c7e4 100644\n--- a/a.txt\n+++ b/a.txt\n@@ -1,5 +1,5 @@\n line 1\n-line 2\n+line two ours\n line 3\n line 4\n line 5\n-- \n<GIT>\n\n",
     "status": 200,
     "type": "text/x-patch"
    }

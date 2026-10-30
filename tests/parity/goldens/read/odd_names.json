@@ -2353,7 +2353,7 @@
     "path": "/patch"
    },
    "response": {
-    "body": "From 68fabc3bbaaa337647a1dc9caa7f166c3d5a912a Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:36:20 +0000\nSubject: [PATCH] add symlink\n\n---\n link | 1 +\n 1 file changed, 1 insertion(+)\n create mode 120000 link\n\ndiff --git a/link b/link\nnew file mode 120000\nindex 0000000..0231def\n--- /dev/null\n+++ b/link\n@@ -0,0 +1 @@\n+script.sh\n\\ No newline at end of file\n-- \n2.55.0\n\n",
+    "body": "From 68fabc3bbaaa337647a1dc9caa7f166c3d5a912a Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:36:20 +0000\nSubject: [PATCH] add symlink\n\n---\n link | 1 +\n 1 file changed, 1 insertion(+)\n create mode 120000 link\n\ndiff --git a/link b/link\nnew file mode 120000\nindex 0000000..0231def\n--- /dev/null\n+++ b/link\n@@ -0,0 +1 @@\n+script.sh\n\\ No newline at end of file\n-- \n<GIT>\n\n",
     "status": 200,
     "type": "text/x-patch"
    }

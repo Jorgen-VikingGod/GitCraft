@@ -108,7 +108,9 @@ def normalise(value: Any, root: str) -> Any:
         text = value.replace(root, ROOT_MARK).replace(root.replace("\\", "/"), ROOT_MARK)
         text = text.replace(os.environ.get("GITCRAFT_PARITY_HOME", "\0"), "<HOME>")
         # Temp files git or the server may name in messages.
-        return re.sub(r"gitcraft-todo-[\w.-]+", "gitcraft-todo-<ID>", text)
+        text = re.sub(r"gitcraft-todo-[\w.-]+", "gitcraft-todo-<ID>", text)
+        # git format-patch signs its output with the git version.
+        return re.sub(r"\n-- \n\d+\.\d+[^\n]*\n", "\n-- \n<GIT>\n", text)
     return value
 
 
@@ -429,7 +431,7 @@ def replay(server: Server, record: dict[str, Any], root: str, compare_messages: 
     diff_values(expected, response, where, compare_messages, out)
 
 
-def check(command: list[str], cwd: Path | None, only: str | None, python_server: bool = False) -> int:
+def check(command: list[str], cwd: Path | None, only: str | None, python_server: bool = False, allow_stale: bool = False) -> int:
     manifest = json.loads((GOLDENS / "manifest.json").read_text())
     version = subprocess.run(["git", "--version"], capture_output=True, text=True, check=True).stdout.strip()
     compare_messages = version == manifest["git"] and sys.platform == manifest["platform"]
@@ -490,7 +492,8 @@ def check(command: list[str], cwd: Path | None, only: str | None, python_server:
         for entry in accepted:
             if entry["match"] not in used:
                 print(f"STALE accepted difference, no longer seen: {entry['match']}")
-                unexpected.append(entry["match"])
+                if not allow_stale:
+                    unexpected.append(entry["match"])
     print(f"{total} exchanges, {len(failures)} differences: {len(failures) - len(unexpected)} accepted, {len(unexpected)} unexpected")
     return 1 if unexpected else 0
 
@@ -560,6 +563,7 @@ def main() -> int:
     parser.add_argument("mode", choices=["capture", "check"])
     parser.add_argument("--server", help="server command; default is the Python server in backend/")
     parser.add_argument("--only", help="check one scenario or mutation case")
+    parser.add_argument("--allow-stale", action="store_true", help="only report accepted differences that didn't occur, as not all occur on every OS")
     args = parser.parse_args()
     if args.server:
         command, cwd = shlex.split(args.server), None
@@ -568,7 +572,7 @@ def main() -> int:
         command, cwd = [str(python), "-m", "gitcraft.app"], BACKEND
     if args.mode == "capture":
         return capture(command, cwd)
-    return check(command, cwd, args.only, python_server=not args.server)
+    return check(command, cwd, args.only, python_server=not args.server, allow_stale=args.allow_stale)
 
 
 if __name__ == "__main__":

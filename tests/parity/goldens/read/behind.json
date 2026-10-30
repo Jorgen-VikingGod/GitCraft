@@ -1059,7 +1059,7 @@
     "path": "/patch"
    },
    "response": {
-    "body": "From b927bf8bdf7dc13e5c15c00613054c2f86509afd Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:23:20 +0000\nSubject: [PATCH] theirs\n\n---\n theirs.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 theirs.txt\n\ndiff --git a/theirs.txt b/theirs.txt\nnew file mode 100644\nindex 0000000..950b81b\n--- /dev/null\n+++ b/theirs.txt\n@@ -0,0 +1 @@\n+theirs\n-- \n2.55.0\n\n",
+    "body": "From b927bf8bdf7dc13e5c15c00613054c2f86509afd Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:23:20 +0000\nSubject: [PATCH] theirs\n\n---\n theirs.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 theirs.txt\n\ndiff --git a/theirs.txt b/theirs.txt\nnew file mode 100644\nindex 0000000..950b81b\n--- /dev/null\n+++ b/theirs.txt\n@@ -0,0 +1 @@\n+theirs\n-- \n<GIT>\n\n",
     "status": 200,
     "type": "text/x-patch"
    }

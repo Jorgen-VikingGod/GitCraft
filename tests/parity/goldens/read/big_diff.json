@@ -581,8 +581,8 @@
    "response": {
     "body": {
      "<large>": true,
-     "sha256": "8e2327e3be879b7347774319304df9ca3305893a58822c031ad4ae05fbf52c65",
-     "size": 262366
+     "sha256": "a02054bf57dedf34da585c022f873af0488c3f5b48e04a40e6192d1c2758fe2f",
+     "size": 262365
     },
     "status": 200,
     "type": "text/x-patch"

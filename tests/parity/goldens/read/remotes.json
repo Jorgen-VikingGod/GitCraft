@@ -1610,7 +1610,7 @@
     "path": "/patch"
    },
    "response": {
-    "body": "From fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:39:20 +0000\nSubject: [PATCH] local work\n\n---\n local-only.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 local-only.txt\n\ndiff --git a/local-only.txt b/local-only.txt\nnew file mode 100644\nindex 0000000..b19a1e9\n--- /dev/null\n+++ b/local-only.txt\n@@ -0,0 +1 @@\n+ours\n-- \n2.55.0\n\n",
+    "body": "From fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:39:20 +0000\nSubject: [PATCH] local work\n\n---\n local-only.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 local-only.txt\n\ndiff --git a/local-only.txt b/local-only.txt\nnew file mode 100644\nindex 0000000..b19a1e9\n--- /dev/null\n+++ b/local-only.txt\n@@ -0,0 +1 @@\n+ours\n-- \n<GIT>\n\n",
     "status": 200,
     "type": "text/x-patch"
    }

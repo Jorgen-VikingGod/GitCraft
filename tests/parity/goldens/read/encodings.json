@@ -2217,7 +2217,7 @@
     "path": "/patch"
    },
    "response": {
-    "body": "From b7c97718eba05e9b44320d9842b4fb66dc63b575 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:34:20 +0000\nSubject: [PATCH] subject with \f formfeed and \u001c sep\n\n---\n sub-ject.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 sub-ject.txt\n\ndiff --git a/sub-ject.txt b/sub-ject.txt\nnew file mode 100644\nindex 0000000..b680253\n--- /dev/null\n+++ b/sub-ject.txt\n@@ -0,0 +1 @@\n+z\n-- \n2.55.0\n\n",
+    "body": "From b7c97718eba05e9b44320d9842b4fb66dc63b575 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:34:20 +0000\nSubject: [PATCH] subject with \f formfeed and \u001c sep\n\n---\n sub-ject.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 sub-ject.txt\n\ndiff --git a/sub-ject.txt b/sub-ject.txt\nnew file mode 100644\nindex 0000000..b680253\n--- /dev/null\n+++ b/sub-ject.txt\n@@ -0,0 +1 @@\n+z\n-- \n<GIT>\n\n",
     "status": 200,
     "type": "text/x-patch"
    }

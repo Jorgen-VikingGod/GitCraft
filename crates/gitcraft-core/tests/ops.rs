@@ -63,6 +63,8 @@ impl Fixture {
         raw_git(path, &["config", "user.name", "Test User"]);
         raw_git(path, &["config", "user.email", "test@example.com"]);
         raw_git(path, &["config", "commit.gpgsign", "false"]);
+        // Git for Windows turns this on by default; tests below opt in where it matters.
+        raw_git(path, &["config", "core.autocrlf", "false"]);
     }
 
     fn git(&self, args: &[&str]) -> String {
@@ -1085,6 +1087,87 @@ async fn dropping_a_running_command_kills_it() {
             .is_err()
     );
     assert!(started.elapsed() < Duration::from_secs(5));
+}
+
+// ------------------------------------- line endings, as on a typical Windows setup
+
+fn crlf_fixture() -> Fixture {
+    let f = Fixture::empty();
+    f.git(&["config", "core.autocrlf", "true"]);
+    f.commit("a.txt", "one\ntwo\nthree\nfour\n", "first");
+    f.git(&["rm", "-q", "--cached", "a.txt"]);
+    std::fs::remove_file(f.path.join("a.txt")).unwrap();
+    f.git(&["checkout", "-q", "HEAD", "--", "a.txt"]);
+    assert_eq!(
+        f.read("a.txt"),
+        "one\r\ntwo\r\nthree\r\nfour\r\n",
+        "checked out with CRLF"
+    );
+    f
+}
+
+#[tokio::test]
+async fn staging_a_line_works_with_crlf_checkouts() {
+    let f = crlf_fixture();
+    f.write("a.txt", "one\r\nTWO\r\nthree\r\nfour\r\nfive\r\n");
+    let diff = queries::working_diff(&f.repo, "a.txt", false, 3, false, None)
+        .await
+        .unwrap()
+        .unwrap();
+    let five = line_index(&diff, 0, |l| l.text.trim_end() == "five");
+    let selection = BTreeMap::from([(0, lines_of(&[five]))]);
+    ops::apply_selection(&f.repo, "a.txt", "stage", &selection, 3)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.git(&["show", ":a.txt"]),
+        "one\ntwo\nthree\nfour\nfive\n",
+        "the index stays LF"
+    );
+    assert_eq!(
+        f.read("a.txt"),
+        "one\r\nTWO\r\nthree\r\nfour\r\nfive\r\n",
+        "the file isn't touched"
+    );
+}
+
+#[tokio::test]
+async fn discarding_a_line_keeps_crlf_line_endings() {
+    let f = crlf_fixture();
+    f.write(
+        "a.txt",
+        "one\r\ntwo\r\nthree\r\nfour\r\nextra1\r\nextra2\r\n",
+    );
+    let diff = queries::working_diff(&f.repo, "a.txt", false, 3, false, None)
+        .await
+        .unwrap()
+        .unwrap();
+    let first = line_index(&diff, 0, |l| l.text.trim_end() == "extra1");
+    let selection = BTreeMap::from([(0, lines_of(&[first]))]);
+    ops::apply_selection(&f.repo, "a.txt", "discard", &selection, 3)
+        .await
+        .unwrap();
+    assert_eq!(f.read("a.txt"), "one\r\ntwo\r\nthree\r\nfour\r\nextra2\r\n");
+}
+
+#[tokio::test]
+async fn conflict_markers_are_found_in_crlf_files() {
+    let f = Fixture::with_history();
+    f.make_conflict();
+    f.git(&["config", "core.autocrlf", "true"]);
+    assert!(!ops::merge(&f.repo, "other", "default").await.unwrap().ok);
+    let versions = ops::conflict_versions(&f.repo, "a.txt").await.unwrap();
+    assert!(
+        versions
+            .chunks
+            .iter()
+            .any(|chunk| matches!(chunk, ConflictChunk::Conflict { .. }))
+    );
+    ops::resolve_conflict(&f.repo, "a.txt", Some("one\ntwo\nthree\nmerged\n"), None)
+        .await
+        .unwrap();
+    assert_eq!(f.git(&["show", ":a.txt"]), "one\ntwo\nthree\nmerged\n");
+    assert!(ops::continue_operation(&f.repo).await.unwrap().ok);
 }
 
 // --------------------------------------------------------------------- watcher

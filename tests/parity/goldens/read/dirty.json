@@ -2780,7 +2780,7 @@
     "path": "/patch"
    },
    "response": {
-    "body": "From 7436432ed7842dedef658c96b1adf747b26181f6 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:28:20 +0000\nSubject: [PATCH] add tail\n\n---\n tail.txt | 2 ++\n 1 file changed, 2 insertions(+)\n create mode 100644 tail.txt\n\ndiff --git a/tail.txt b/tail.txt\nnew file mode 100644\nindex 0000000..151b58c\n--- /dev/null\n+++ b/tail.txt\n@@ -0,0 +1,2 @@\n+first\n+no newline at end\n\\ No newline at end of file\n-- \n2.55.0\n\n",
+    "body": "From 7436432ed7842dedef658c96b1adf747b26181f6 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:28:20 +0000\nSubject: [PATCH] add tail\n\n---\n tail.txt | 2 ++\n 1 file changed, 2 insertions(+)\n create mode 100644 tail.txt\n\ndiff --git a/tail.txt b/tail.txt\nnew file mode 100644\nindex 0000000..151b58c\n--- /dev/null\n+++ b/tail.txt\n@@ -0,0 +1,2 @@\n+first\n+no newline at end\n\\ No newline at end of file\n-- \n<GIT>\n\n",
     "status": 200,
     "type": "text/x-patch"
    }

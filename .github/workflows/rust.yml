@@ -38,15 +38,19 @@ jobs:
           cargo fmt --all --check
           cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
-        run: cargo test --workspace
-      - name: Replay the goldens against the Rust core
+        run: cargo test --workspace --no-fail-fast
+      # Recorded here rather than taken from the repository, because git's output varies by version
+      # and OS: this compares Python and Rust with the same git. Runs even if tests failed.
+      - name: Compare the Rust core with the Python server
+        if: success() || failure()
         shell: bash
         run: |
           cargo build --release -p gitcraft-compat
           cd backend && uv sync --locked && cd ..
           PY=backend/.venv/bin/python
           [ -x "$PY" ] || PY=backend/.venv/Scripts/python.exe
-          "$PY" tests/parity/parity.py check --server "$PWD/target/release/gitcraft-compat"
+          "$PY" tests/parity/parity.py capture
+          "$PY" tests/parity/parity.py check --allow-stale --server "$PWD/target/release/gitcraft-compat"
       - name: Build the installers
         working-directory: crates/gitcraft-ui
         env:
