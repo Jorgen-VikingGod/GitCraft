@@ -1,0 +1,1879 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/status"
+   },
+   "response": {
+    "body": {
+     "branch": {
+      "ahead": 1,
+      "behind": 0,
+      "detached": false,
+      "head": "main",
+      "oid": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "upstream": "origin/main"
+     },
+     "conflicts": [],
+     "operation": null,
+     "staged": [],
+     "unstaged": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/refs"
+   },
+   "response": {
+    "body": {
+     "head": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+     "local": [
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "doomed",
+       "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+       "upstream": "origin/doomed",
+       "upstreamGone": false
+      },
+      {
+       "ahead": 1,
+       "behind": 0,
+       "current": true,
+       "name": "main",
+       "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+       "upstream": "origin/main",
+       "upstreamGone": false
+      }
+     ],
+     "remote": [
+      {
+       "branch": "doomed",
+       "name": "origin/doomed",
+       "remote": "origin",
+       "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e"
+      },
+      {
+       "branch": "main",
+       "name": "origin/main",
+       "remote": "origin",
+       "sha": "6147edac27e13ae22fbd860a319c694adf863d08"
+      }
+     ],
+     "remotes": [
+      {
+       "fetchUrl": "../origin.git",
+       "name": "origin",
+       "pushUrl": "../origin.git"
+      },
+      {
+       "fetchUrl": "https://user:s3cret@example.invalid/x.git",
+       "name": "tokened",
+       "pushUrl": "https://user:s3cret@example.invalid/x.git"
+      }
+     ],
+     "stashes": [],
+     "submodules": [],
+     "tags": [
+      {
+       "annotated": false,
+       "message": "",
+       "name": "shared-tag",
+       "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+       "time": 1700000540
+      }
+     ]
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "6147edac27e13ae22fbd860a319c694adf863d08"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+       "subject": "local work",
+       "time": 1700001560
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 1,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "6147edac27e13ae22fbd860a319c694adf863d08"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "remote",
+         "name": "origin/doomed"
+        },
+        {
+         "current": false,
+         "kind": "local",
+         "name": "doomed"
+        }
+       ],
+       "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+       "subject": "doomed work",
+       "time": 1700000900
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          1,
+          0,
+          1,
+          1
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "tag",
+         "name": "shared-tag"
+        },
+        {
+         "current": false,
+         "kind": "remote",
+         "name": "origin/main"
+        }
+       ],
+       "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+       "subject": "second",
+       "time": 1700000540
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+       "subject": "first",
+       "time": 1700000360
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "all": "false",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "6147edac27e13ae22fbd860a319c694adf863d08"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+       "subject": "local work",
+       "time": 1700001560
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "tag",
+         "name": "shared-tag"
+        },
+        {
+         "current": false,
+         "kind": "remote",
+         "name": "origin/main"
+        }
+       ],
+       "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+       "subject": "second",
+       "time": 1700000540
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+       "subject": "first",
+       "time": 1700000360
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "6147edac27e13ae22fbd860a319c694adf863d08"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+       "subject": "local work",
+       "time": 1700001560
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 1,
+        "color": 1,
+        "segments": [
+         [
+          0,
+          0,
+          0,
+          0
+         ],
+         [
+          1,
+          1,
+          2,
+          1
+         ]
+        ],
+        "width": 2
+       },
+       "parents": [
+        "6147edac27e13ae22fbd860a319c694adf863d08"
+       ],
+       "refs": [
+        {
+         "current": false,
+         "kind": "remote",
+         "name": "origin/doomed"
+        },
+        {
+         "current": false,
+         "kind": "local",
+         "name": "doomed"
+        }
+       ],
+       "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+       "subject": "doomed work",
+       "time": 1700000900
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 1,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "6147edac27e13ae22fbd860a319c694adf863d08"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+       "subject": "local work",
+       "time": 1700001560
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/head-message"
+   },
+   "response": {
+    "body": {
+     "message": "local work"
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/template"
+   },
+   "response": {
+    "body": {
+     "template": ""
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+      "subject": "first",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+      ],
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: local work",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     },
+     {
+      "action": "checkout: moving from doomed to main",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "action": "commit: doomed work",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+      "subject": "doomed work",
+      "time": 1700000900
+     },
+     {
+      "action": "checkout: moving from main to doomed",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "action": "commit: second",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "action": "commit (initial): first",
+      "author": "Parity User",
+      "selector": "HEAD@{5}",
+      "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+      "subject": "first",
+      "time": 1700000360
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: local work",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     },
+     {
+      "action": "checkout: moving from doomed to main",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "e",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "remote",
+        "name": "origin/doomed"
+       },
+       {
+        "current": false,
+        "kind": "local",
+        "name": "doomed"
+       }
+      ],
+      "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+      "subject": "doomed work",
+      "time": 1700000900
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "tag",
+        "name": "shared-tag"
+       },
+       {
+        "current": false,
+        "kind": "remote",
+        "name": "origin/main"
+       }
+      ],
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "author",
+     "q": "Parity",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "remote",
+        "name": "origin/doomed"
+       },
+       {
+        "current": false,
+        "kind": "local",
+        "name": "doomed"
+       }
+      ],
+      "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+      "subject": "doomed work",
+      "time": 1700000900
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+      ],
+      "refs": [
+       {
+        "current": false,
+        "kind": "tag",
+        "name": "shared-tag"
+       },
+       {
+        "current": false,
+        "kind": "remote",
+        "name": "origin/main"
+       }
+      ],
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [],
+      "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+      "subject": "first",
+      "time": 1700000360
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "content",
+     "q": "line",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [],
+      "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+      "subject": "first",
+      "time": 1700000360
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "nothing-matches-this",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700001560,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "local-only.txt",
+       "status": "A"
+      }
+     ],
+     "message": "local work",
+     "parents": [
+      "6147edac27e13ae22fbd860a319c694adf863d08"
+     ],
+     "refs": [
+      {
+       "current": true,
+       "kind": "local",
+       "name": "main"
+      }
+     ],
+     "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+     "subject": "local work",
+     "time": 1700001560
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "local-only.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/local-only.txt b/local-only.txt",
+      "new file mode 100644",
+      "index 0000000..b19a1e9",
+      "--- /dev/null",
+      "+++ b/local-only.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "ours"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "local-only.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "local-only.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/local-only.txt b/local-only.txt",
+      "new file mode 100644",
+      "index 0000000..b19a1e9",
+      "--- /dev/null",
+      "+++ b/local-only.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "ours"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "local-only.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000900,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "doomed.txt",
+       "status": "A"
+      }
+     ],
+     "message": "doomed work",
+     "parents": [
+      "6147edac27e13ae22fbd860a319c694adf863d08"
+     ],
+     "refs": [
+      {
+       "current": false,
+       "kind": "remote",
+       "name": "origin/doomed"
+      },
+      {
+       "current": false,
+       "kind": "local",
+       "name": "doomed"
+      }
+     ],
+     "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+     "subject": "doomed work",
+     "time": 1700000900
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "doomed.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/doomed.txt b/doomed.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/doomed.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "doomed.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "doomed.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/doomed.txt b/doomed.txt",
+      "new file mode 100644",
+      "index 0000000..587be6b",
+      "--- /dev/null",
+      "+++ b/doomed.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "doomed.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "6147edac27e13ae22fbd860a319c694adf863d08"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000540,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "b.txt",
+       "status": "A"
+      }
+     ],
+     "message": "second",
+     "parents": [
+      "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+     ],
+     "refs": [
+      {
+       "current": false,
+       "kind": "tag",
+       "name": "shared-tag"
+      },
+      {
+       "current": false,
+       "kind": "remote",
+       "name": "origin/main"
+      }
+     ],
+     "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+     "subject": "second",
+     "time": 1700000540
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "b.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "6147edac27e13ae22fbd860a319c694adf863d08"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/b.txt b/b.txt",
+      "new file mode 100644",
+      "index 0000000..6178079",
+      "--- /dev/null",
+      "+++ b/b.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "b"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "b.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "b.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "6147edac27e13ae22fbd860a319c694adf863d08"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/b.txt b/b.txt",
+      "new file mode 100644",
+      "index 0000000..6178079",
+      "--- /dev/null",
+      "+++ b/b.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "b"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "b.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000360,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "a.txt",
+       "status": "A"
+      }
+     ],
+     "message": "first",
+     "parents": [],
+     "refs": [],
+     "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+     "subject": "first",
+     "time": 1700000360
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "a.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/a.txt b/a.txt",
+      "new file mode 100644",
+      "index 0000000..fa2da6e",
+      "--- /dev/null",
+      "+++ b/a.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,10 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line 1"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "line 2"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "line 4"
+        },
+        {
+         "new": 5,
+         "old": null,
+         "t": "+",
+         "text": "line 5"
+        },
+        {
+         "new": 6,
+         "old": null,
+         "t": "+",
+         "text": "line 6"
+        },
+        {
+         "new": 7,
+         "old": null,
+         "t": "+",
+         "text": "line 7"
+        },
+        {
+         "new": 8,
+         "old": null,
+         "t": "+",
+         "text": "line 8"
+        },
+        {
+         "new": 9,
+         "old": null,
+         "t": "+",
+         "text": "line 9"
+        },
+        {
+         "new": 10,
+         "old": null,
+         "t": "+",
+         "text": "line 10"
+        }
+       ],
+       "newLines": 10,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "a.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "a.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/a.txt b/a.txt",
+      "new file mode 100644",
+      "index 0000000..fa2da6e",
+      "--- /dev/null",
+      "+++ b/a.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,10 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line 1"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "line 2"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "line 4"
+        },
+        {
+         "new": 5,
+         "old": null,
+         "t": "+",
+         "text": "line 5"
+        },
+        {
+         "new": 6,
+         "old": null,
+         "t": "+",
+         "text": "line 6"
+        },
+        {
+         "new": 7,
+         "old": null,
+         "t": "+",
+         "text": "line 7"
+        },
+        {
+         "new": 8,
+         "old": null,
+         "t": "+",
+         "text": "line 8"
+        },
+        {
+         "new": 9,
+         "old": null,
+         "t": "+",
+         "text": "line 9"
+        },
+        {
+         "new": 10,
+         "old": null,
+         "t": "+",
+         "text": "line 10"
+        }
+       ],
+       "newLines": 10,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "a.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "sha",
+     "q": "fc23b76",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "loca",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23"
+    },
+    "path": "/patch"
+   },
+   "response": {
+    "body": "From fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:39:20 +0000\nSubject: [PATCH] local work\n\n---\n local-only.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 local-only.txt\n\ndiff --git a/local-only.txt b/local-only.txt\nnew file mode 100644\nindex 0000000..b19a1e9\n--- /dev/null\n+++ b/local-only.txt\n@@ -0,0 +1 @@\n+ours\n-- \n<GIT>\n\n",
+    "status": 200,
+    "type": "text/x-patch"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "fa8941b8e3bcc4eb82338106312e9084933d8bea"
+      ],
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+     "repo": "<ROOT>/repo",
+     "target": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23"
+    },
+    "path": "/compare"
+   },
+   "response": {
+    "body": {
+     "baseOnly": 0,
+     "files": [
+      {
+       "origPath": null,
+       "path": "b.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "local-only.txt",
+       "status": "A"
+      }
+     ],
+     "targetOnly": 2
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 5,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: local work",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     },
+     {
+      "action": "checkout: moving from doomed to main",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "action": "commit: doomed work",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "6ea90592a8408ad2e9288925de536576d4e37e1e",
+      "subject": "doomed work",
+      "time": 1700000900
+     },
+     {
+      "action": "checkout: moving from main to doomed",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     },
+     {
+      "action": "commit: second",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "6147edac27e13ae22fbd860a319c694adf863d08",
+      "subject": "second",
+      "time": 1700000540
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "fa8941b8e3bcc4eb82338106312e9084933d8bea",
+     "path": "local-only.txt",
+     "repo": "<ROOT>/repo",
+     "target": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/local-only.txt b/local-only.txt",
+      "new file mode 100644",
+      "index 0000000..b19a1e9",
+      "--- /dev/null",
+      "+++ b/local-only.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "ours"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "local-only.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "local-only.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "local-only.txt",
+       "status": "A"
+      },
+      "parents": [
+       "6147edac27e13ae22fbd860a319c694adf863d08"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "subject": "local work",
+      "time": 1700001560
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "local-only.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "summary": "local work",
+      "text": "ours",
+      "time": 1700001560
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "local-only.txt",
+     "repo": "<ROOT>/repo",
+     "rev": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "fc23b76c3fbbdf1291f30c4f60fe93aa4b9a3d23",
+      "summary": "local work",
+      "text": "ours",
+      "time": 1700001560
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "remotes"
+}

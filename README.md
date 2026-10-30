@@ -1,8 +1,8 @@
 # GitCraft
 
-An open-source, cross-platform graphical Git client.
-It runs on Linux, macOS and Windows: a small Python ([Litestar](https://litestar.dev/)) server drives your
-installed `git`, and the Angular UI runs in your browser on `127.0.0.1`.
+An open-source, cross-platform graphical Git client for Linux, macOS and Windows.
+GitCraft is a single native program written in Rust, with an [iced](https://iced.rs/) UI. It drives your
+installed `git`, so it behaves the same as git on the command line and uses your existing git setup.
 
 | Light | Dark |
 | --- | --- |
@@ -29,8 +29,8 @@ installed `git`, and the Angular UI runs in your browser on `127.0.0.1`.
 - **Conflict resolver**: per-conflict ours/theirs/both choices, editable result, take whole file.
 - **Stashes**: create (incl. untracked / staged only), browse, apply, pop, drop.
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
-- Repository **tabs**, recent repositories, folder browser, clone, init.
-- Live refresh through file watching, **light/dark** theme, keyboard shortcuts.
+- Repository **tabs**, recent repositories, clone, init.
+- Live refresh through file watching, **light/dark** theme, zoom, keyboard shortcuts.
 
 ### Pull and rebase options
 
@@ -53,125 +53,107 @@ they stay in the stash list. GitCraft remembers the strategy and the autostash c
 time. Conflicts during a pull or rebase are shown in the operation banner with Continue / Skip / Abort
 and can be resolved in the built-in conflict resolver.
 
+### Keyboard shortcuts
+
+| Keys | Action |
+| --- | --- |
+| Ctrl/⌘ + 1 / 2 | All commits / Local changes |
+| Ctrl/⌘ + F | Search commits |
+| Ctrl/⌘ + T or O | Open repository |
+| Ctrl/⌘ + W | Close tab |
+| Ctrl/⌘ + Enter | Commit |
+| Ctrl/⌘ + + / − / 0 | Zoom |
+| F5 or Ctrl/⌘ + R | Refresh repository |
+| ↑ ↓ PgUp PgDn | Move through commits |
+
+In the interactive rebase editor, ↑ ↓ moves the focus, Alt + ↑ ↓ moves the commit, and
+<kbd>p</kbd> <kbd>r</kbd> <kbd>e</kbd> <kbd>s</kbd> <kbd>f</kbd> <kbd>d</kbd> set its action.
+
 ## Requirements
 
-- `git` 2.30 or newer on `PATH`
-- [uv](https://docs.astral.sh/uv/), the Python package and project manager. It installs a suitable
-  Python (3.10+) by itself if none is present.
-- Node.js 20+ (only to build the frontend)
+To run GitCraft you need `git` 2.35 or newer. GitCraft finds it on `PATH`, including the `PATH` of your
+login shell when it is started from a desktop launcher.
 
+To build it you also need [rustup](https://rustup.rs/). `rust-toolchain.toml` pins the Rust version,
+and rustup installs that version by itself.
 
-## Install & run
+## Build & run
 
 ```bash
-# 1. Build the UI (output goes to backend/gitcraft/static)
-cd frontend
-npm ci
-npm run build
-
-# 2. Install the server (creates backend/.venv from uv.lock)
-cd ../backend
-uv sync
-
-# 3. Start (opens your browser)
-uv run gitcraft                  # or: uv run gitcraft path/to/repo
+cargo run --release -p gitcraft-ui                  # start GitCraft
+cargo run --release -p gitcraft-ui -- path/to/repo  # start GitCraft and open a repository
 ```
 
-`uv run` keeps the environment in sync with `pyproject.toml` and `uv.lock` before it starts a command,
-so there is no virtualenv to activate. Useful commands (see the
-[uv project guide](https://docs.astral.sh/uv/guides/projects/)):
+The program takes one optional argument, the repository to open, and is called `gitcraft`
+(`target/release/gitcraft`). A second launch hands its repository to the window that is already open
+and exits.
 
-| Command (in `backend/`) | What it does |
-| --- | --- |
-| `uv sync` | Create or update `.venv` with the app and the `dev` group (pytest…) |
-| `uv sync --no-dev` | Only the runtime dependencies |
-| `uv run <cmd>` | Run a command inside the environment, e.g. `uv run pytest` |
-| `uv add <pkg>` / `uv add --dev <pkg>` | Add a runtime / development dependency (updates `uv.lock`) |
-| `uv lock --upgrade` | Upgrade all locked versions |
-
-Options: `--port 7420`, `--host 127.0.0.1`, `--no-browser`. The command prints a URL containing a
-session token; open that URL (it is opened automatically unless `--no-browser` is given).
+Settings, tabs and recent repositories are stored in the user config folder: `~/.config/gitcraft` on
+Linux, `~/Library/Application Support/gitcraft` on macOS and `%LOCALAPPDATA%\gitcraft` on Windows. Set
+`GITCRAFT_CONFIG_DIR` to use a different folder.
 
 Authentication for remotes uses your normal git setup: credential helpers (e.g. Git Credential Manager,
 macOS keychain, libsecret) and the SSH agent. GitCraft never prompts for passwords itself.
 
-## Desktop app (Electron)
+## Installers
 
-GitCraft can also be packaged as a native desktop app for Linux, macOS and Windows. The Electron shell
-in `desktop/` starts a frozen copy of the server (built with PyInstaller, so users need neither Python
-nor Node) on a random local port with a fresh session token, and shows the UI in a native window with
-a native menu, folder picker and "Show in file manager". The server exits together with the app.
+Installers are built with [cargo-packager](https://github.com/crabnebula-dev/cargo-packager), which
+also builds the release binary:
 
 ```bash
-cd desktop
-npm ci
-npm start [path/to/repo]   # development: uses backend/.venv (run `uv sync` first) and the built frontend
-npm run dist               # builds UI + server bundle + installers into desktop/release/
+cargo install cargo-packager --locked --version 0.11.8
+cd crates/gitcraft-ui
+cargo packager --release --formats deb,appimage     # output goes to target/packages/
 ```
 
-`npm run dist` produces, for the platform it runs on:
+| Platform | `--formats` | Output |
+| --- | --- | --- |
+| Linux | `deb,appimage` | `.deb`, `.AppImage` |
+| macOS | `dmg` | `.dmg` |
+| Windows | `nsis` | NSIS installer `.exe` |
 
-| Platform | Output |
-| --- | --- |
-| Linux | `.AppImage`, `.deb` |
-| macOS | `.dmg`, `.zip` |
-| Windows | NSIS installer `.exe` |
-
-`npm run dist` calls `uv sync --group bundle` and `uv run --group bundle pyinstaller`, so uv has to
-be installed for packaging as well. Installers must be built on their own OS (PyInstaller cannot cross-compile); the GitHub Actions
-workflow `.github/workflows/desktop.yml` tests and builds all three. The builds are unsigned; add
-code-signing certificates (electron-builder `CSC_LINK` / `CSC_KEY_PASSWORD`, Apple notarization) for
-public releases. `git` must be installed on the user's machine (the `.deb` depends on it).
+Installers must be built on their own OS; `.github/workflows/rust.yml` builds all of them and attaches
+them to the workflow run. The builds are unsigned, apart from the ad-hoc signature that
+Apple Silicon requires, so add code-signing for public releases. `git` must be installed on the user's
+machine (the `.deb` depends on it).
 
 ## Development
 
 ```bash
-cd backend && uv sync
-cd ../frontend && npm ci
-cd .. && scripts/dev.sh          # backend on :7420 with reload, UI on :4200
-# open http://localhost:4200/?token=dev
+cargo run -p gitcraft-ui -- path/to/repo            # debug build
+cargo test --workspace                              # real git against throwaway repositories, no mocks
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-On Windows run the two parts by hand:
-`set GITCRAFT_TOKEN=dev && uv run uvicorn gitcraft.app:dev_app --factory --reload --port 7420`
-in `backend/`, and `npx ng serve` in `frontend/`.
-
-Tests:
-
-```bash
-cd backend && uv run pytest            # git operations against throwaway repositories
-cd frontend && npx ng test --watch=false
-```
+`.github/workflows/rust.yml` runs the tests on Linux, macOS and Windows.
 
 ## Architecture
 
 ```
-browser (Angular 22, signals)  ──HTTP JSON + WebSocket──►  Litestar on 127.0.0.1
-                                                             └─► git CLI (asyncio subprocess)
+gitcraft-ui (iced)  ──function calls──►  gitcraft-core  ──►  git CLI (async subprocess, no shell)
 ```
 
 | Path | Purpose |
 | --- | --- |
-| `backend/gitcraft/git/runner.py` | Runs `git` without a shell or terminal; non-interactive editor; per-repo lock |
-| `backend/gitcraft/git/parsers.py` | Parsers for log, status v2, refs, diffs, blame, conflict markers; partial patch builder |
-| `backend/gitcraft/git/graph.py` | Lane layout for the commit graph |
-| `backend/gitcraft/git/queries.py` / `ops.py` | Read-only queries / mutating operations |
-| `backend/gitcraft/git/editor_helper.py` | `GIT_EDITOR` / `GIT_SEQUENCE_EDITOR` used for interactive rebase |
-| `backend/gitcraft/routes/` | REST endpoints under `/api` |
-| `backend/gitcraft/ws.py` | WebSocket: file-watch notifications and progress |
-| `frontend/src/app/core/` | API client, per-repository state, git actions & menus |
-| `frontend/src/app/*/` | UI: history, changes, diff, sidebar, rebase, conflicts, blame/file history |
-| `backend/packaging/` | PyInstaller spec and entry point for the bundled server |
-| `desktop/main.js` / `preload.js` | Electron main process (server sidecar, window, menu) and the `gitcraftDesktop` bridge |
+| `crates/gitcraft-core/src/runner.rs` | Runs `git` without a shell or terminal; non-interactive editor; per-repo lock |
+| `crates/gitcraft-core/src/parsers.rs` | Parsers for log, status v2, refs, diffs, blame, conflict markers; partial patch builder |
+| `crates/gitcraft-core/src/graph.rs` | Lane layout for the commit graph |
+| `crates/gitcraft-core/src/queries.rs` / `ops.rs` | Read-only queries / mutating operations |
+| `crates/gitcraft-core/src/editor.rs` | `GIT_EDITOR` / `GIT_SEQUENCE_EDITOR` mode of the program, used for interactive rebase |
+| `crates/gitcraft-core/src/watcher.rs` | File-system change notifications |
+| `crates/gitcraft-ui/src/app.rs` | Application state, messages and the update loop |
+| `crates/gitcraft-ui/src/command.rs` / `actions.rs` | Git operations as data / dialogs and context menus |
+| `crates/gitcraft-ui/src/views/` | Everything drawn on screen: history, changes, diff, sidebar, overlays |
 
 Line staging works by rebuilding a patch with only the selected lines from the parsed diff and applying
 it with `git apply --cached [--reverse] --recount`.
 
 ### Security
 
-The server only listens on `127.0.0.1` and requires a random per-session token (header
-`x-gitcraft-token` or `?token=`) for every API and WebSocket call, so other websites cannot drive your
-git. Only repositories you opened (stored in your user config folder) can be accessed.
+GitCraft talks to git directly and has no web server or API. It opens a single port on `127.0.0.1`, so
+that a second launch can pass a repository path to the running window. That port accepts nothing else.
+Passwords in remote URLs are masked in what GitCraft shows.
 
 ## Author
 

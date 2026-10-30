@@ -1,0 +1,3389 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/status"
+   },
+   "response": {
+    "body": {
+     "branch": {
+      "ahead": 0,
+      "behind": 0,
+      "detached": false,
+      "head": "main",
+      "oid": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "upstream": null
+     },
+     "conflicts": [],
+     "operation": null,
+     "staged": [],
+     "unstaged": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/refs"
+   },
+   "response": {
+    "body": {
+     "head": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+     "local": [
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": true,
+       "name": "main",
+       "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+       "upstream": null,
+       "upstreamGone": false
+      }
+     ],
+     "remote": [],
+     "remotes": [],
+     "stashes": [],
+     "submodules": [],
+     "tags": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "2d5473884071d7c90189313d7b8645cdd0bacea2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+       "subject": "delete it",
+       "time": 1700000840
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "f3c789612da6e62e7b6faf44642fa218ac774119"
+       ],
+       "refs": [],
+       "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+       "subject": "rename with edit",
+       "time": 1700000720
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "90b537680a6d57068ec51d62cc96b191561b8bf1"
+       ],
+       "refs": [],
+       "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+       "subject": "edit after rename",
+       "time": 1700000480
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+       ],
+       "refs": [],
+       "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+       "subject": "rename old to new",
+       "time": 1700000360
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+       "subject": "add old",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "all": "false",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "2d5473884071d7c90189313d7b8645cdd0bacea2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+       "subject": "delete it",
+       "time": 1700000840
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "f3c789612da6e62e7b6faf44642fa218ac774119"
+       ],
+       "refs": [],
+       "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+       "subject": "rename with edit",
+       "time": 1700000720
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "90b537680a6d57068ec51d62cc96b191561b8bf1"
+       ],
+       "refs": [],
+       "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+       "subject": "edit after rename",
+       "time": 1700000480
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+       ],
+       "refs": [],
+       "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+       "subject": "rename old to new",
+       "time": 1700000360
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+       "subject": "add old",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "2d5473884071d7c90189313d7b8645cdd0bacea2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+       "subject": "delete it",
+       "time": 1700000840
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "f3c789612da6e62e7b6faf44642fa218ac774119"
+       ],
+       "refs": [],
+       "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+       "subject": "rename with edit",
+       "time": 1700000720
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 1,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "2d5473884071d7c90189313d7b8645cdd0bacea2"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+       "subject": "delete it",
+       "time": 1700000840
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/head-message"
+   },
+   "response": {
+    "body": {
+     "message": "delete it"
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/template"
+   },
+   "response": {
+    "body": {
+     "template": ""
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+      "subject": "add old",
+      "time": 1700000180
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+      ],
+      "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+      "subject": "rename old to new",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "90b537680a6d57068ec51d62cc96b191561b8bf1"
+      ],
+      "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+      "subject": "edit after rename",
+      "time": 1700000480
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f3c789612da6e62e7b6faf44642fa218ac774119"
+      ],
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: delete it",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     },
+     {
+      "action": "commit: rename with edit",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     },
+     {
+      "action": "commit: edit after rename",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+      "subject": "edit after rename",
+      "time": 1700000480
+     },
+     {
+      "action": "commit: rename old to new",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+      "subject": "rename old to new",
+      "time": 1700000360
+     },
+     {
+      "action": "commit (initial): add old",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+      "subject": "add old",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: delete it",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     },
+     {
+      "action": "commit: rename with edit",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "e",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f3c789612da6e62e7b6faf44642fa218ac774119"
+      ],
+      "refs": [],
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "90b537680a6d57068ec51d62cc96b191561b8bf1"
+      ],
+      "refs": [],
+      "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+      "subject": "edit after rename",
+      "time": 1700000480
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+      ],
+      "refs": [],
+      "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+      "subject": "rename old to new",
+      "time": 1700000360
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "author",
+     "q": "Parity",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f3c789612da6e62e7b6faf44642fa218ac774119"
+      ],
+      "refs": [],
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "90b537680a6d57068ec51d62cc96b191561b8bf1"
+      ],
+      "refs": [],
+      "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+      "subject": "edit after rename",
+      "time": 1700000480
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+      ],
+      "refs": [],
+      "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+      "subject": "rename old to new",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [],
+      "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+      "subject": "add old",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "content",
+     "q": "line",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [],
+      "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+      "subject": "add old",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "nothing-matches-this",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000840,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "moved/new.txt",
+       "status": "D"
+      }
+     ],
+     "message": "delete it",
+     "parents": [
+      "2d5473884071d7c90189313d7b8645cdd0bacea2"
+     ],
+     "refs": [
+      {
+       "current": true,
+       "kind": "local",
+       "name": "main"
+      }
+     ],
+     "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+     "subject": "delete it",
+     "time": 1700000840
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/moved/new.txt b/moved/new.txt",
+      "deleted file mode 100644",
+      "index c63e8f7..0000000",
+      "--- a/moved/new.txt",
+      "+++ /dev/null"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1,40 +0,0 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "line one"
+        },
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "line two"
+        },
+        {
+         "new": null,
+         "old": 3,
+         "t": "-",
+         "text": "line 3"
+        },
+        {
+         "new": null,
+         "old": 4,
+         "t": "-",
+         "text": "line 4"
+        },
+        {
+         "new": null,
+         "old": 5,
+         "t": "-",
+         "text": "line 5"
+        },
+        {
+         "new": null,
+         "old": 6,
+         "t": "-",
+         "text": "line 6"
+        },
+        {
+         "new": null,
+         "old": 7,
+         "t": "-",
+         "text": "line 7"
+        },
+        {
+         "new": null,
+         "old": 8,
+         "t": "-",
+         "text": "line 8"
+        },
+        {
+         "new": null,
+         "old": 9,
+         "t": "-",
+         "text": "line 9"
+        },
+        {
+         "new": null,
+         "old": 10,
+         "t": "-",
+         "text": "line 10"
+        },
+        {
+         "new": null,
+         "old": 11,
+         "t": "-",
+         "text": "line 11"
+        },
+        {
+         "new": null,
+         "old": 12,
+         "t": "-",
+         "text": "line 12"
+        },
+        {
+         "new": null,
+         "old": 13,
+         "t": "-",
+         "text": "line 13"
+        },
+        {
+         "new": null,
+         "old": 14,
+         "t": "-",
+         "text": "line 14"
+        },
+        {
+         "new": null,
+         "old": 15,
+         "t": "-",
+         "text": "line 15"
+        },
+        {
+         "new": null,
+         "old": 16,
+         "t": "-",
+         "text": "line 16"
+        },
+        {
+         "new": null,
+         "old": 17,
+         "t": "-",
+         "text": "line 17"
+        },
+        {
+         "new": null,
+         "old": 18,
+         "t": "-",
+         "text": "line 18"
+        },
+        {
+         "new": null,
+         "old": 19,
+         "t": "-",
+         "text": "line 19"
+        },
+        {
+         "new": null,
+         "old": 20,
+         "t": "-",
+         "text": "line 20"
+        },
+        {
+         "new": null,
+         "old": 21,
+         "t": "-",
+         "text": "line 21"
+        },
+        {
+         "new": null,
+         "old": 22,
+         "t": "-",
+         "text": "line 22"
+        },
+        {
+         "new": null,
+         "old": 23,
+         "t": "-",
+         "text": "line 23"
+        },
+        {
+         "new": null,
+         "old": 24,
+         "t": "-",
+         "text": "line 24"
+        },
+        {
+         "new": null,
+         "old": 25,
+         "t": "-",
+         "text": "line 25"
+        },
+        {
+         "new": null,
+         "old": 26,
+         "t": "-",
+         "text": "line 26"
+        },
+        {
+         "new": null,
+         "old": 27,
+         "t": "-",
+         "text": "line 27"
+        },
+        {
+         "new": null,
+         "old": 28,
+         "t": "-",
+         "text": "line 28"
+        },
+        {
+         "new": null,
+         "old": 29,
+         "t": "-",
+         "text": "line 29"
+        },
+        {
+         "new": null,
+         "old": 30,
+         "t": "-",
+         "text": "line 30"
+        },
+        {
+         "new": null,
+         "old": 31,
+         "t": "-",
+         "text": "line 31"
+        },
+        {
+         "new": null,
+         "old": 32,
+         "t": "-",
+         "text": "line 32"
+        },
+        {
+         "new": null,
+         "old": 33,
+         "t": "-",
+         "text": "line 33"
+        },
+        {
+         "new": null,
+         "old": 34,
+         "t": "-",
+         "text": "line 34"
+        },
+        {
+         "new": null,
+         "old": 35,
+         "t": "-",
+         "text": "line 35"
+        },
+        {
+         "new": null,
+         "old": 36,
+         "t": "-",
+         "text": "line 36"
+        },
+        {
+         "new": null,
+         "old": 37,
+         "t": "-",
+         "text": "line 37"
+        },
+        {
+         "new": null,
+         "old": 38,
+         "t": "-",
+         "text": "line 38"
+        },
+        {
+         "new": null,
+         "old": 39,
+         "t": "-",
+         "text": "line 39"
+        },
+        {
+         "new": null,
+         "old": 40,
+         "t": "-",
+         "text": "line 40"
+        }
+       ],
+       "newLines": 0,
+       "newStart": 0,
+       "oldLines": 40,
+       "oldStart": 1
+      }
+     ],
+     "newPath": null,
+     "oldPath": "moved/new.txt",
+     "status": "D",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/moved/new.txt b/moved/new.txt",
+      "deleted file mode 100644",
+      "index c63e8f7..0000000",
+      "--- a/moved/new.txt",
+      "+++ /dev/null"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1,40 +0,0 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "line one"
+        },
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "line two"
+        },
+        {
+         "new": null,
+         "old": 3,
+         "t": "-",
+         "text": "line 3"
+        },
+        {
+         "new": null,
+         "old": 4,
+         "t": "-",
+         "text": "line 4"
+        },
+        {
+         "new": null,
+         "old": 5,
+         "t": "-",
+         "text": "line 5"
+        },
+        {
+         "new": null,
+         "old": 6,
+         "t": "-",
+         "text": "line 6"
+        },
+        {
+         "new": null,
+         "old": 7,
+         "t": "-",
+         "text": "line 7"
+        },
+        {
+         "new": null,
+         "old": 8,
+         "t": "-",
+         "text": "line 8"
+        },
+        {
+         "new": null,
+         "old": 9,
+         "t": "-",
+         "text": "line 9"
+        },
+        {
+         "new": null,
+         "old": 10,
+         "t": "-",
+         "text": "line 10"
+        },
+        {
+         "new": null,
+         "old": 11,
+         "t": "-",
+         "text": "line 11"
+        },
+        {
+         "new": null,
+         "old": 12,
+         "t": "-",
+         "text": "line 12"
+        },
+        {
+         "new": null,
+         "old": 13,
+         "t": "-",
+         "text": "line 13"
+        },
+        {
+         "new": null,
+         "old": 14,
+         "t": "-",
+         "text": "line 14"
+        },
+        {
+         "new": null,
+         "old": 15,
+         "t": "-",
+         "text": "line 15"
+        },
+        {
+         "new": null,
+         "old": 16,
+         "t": "-",
+         "text": "line 16"
+        },
+        {
+         "new": null,
+         "old": 17,
+         "t": "-",
+         "text": "line 17"
+        },
+        {
+         "new": null,
+         "old": 18,
+         "t": "-",
+         "text": "line 18"
+        },
+        {
+         "new": null,
+         "old": 19,
+         "t": "-",
+         "text": "line 19"
+        },
+        {
+         "new": null,
+         "old": 20,
+         "t": "-",
+         "text": "line 20"
+        },
+        {
+         "new": null,
+         "old": 21,
+         "t": "-",
+         "text": "line 21"
+        },
+        {
+         "new": null,
+         "old": 22,
+         "t": "-",
+         "text": "line 22"
+        },
+        {
+         "new": null,
+         "old": 23,
+         "t": "-",
+         "text": "line 23"
+        },
+        {
+         "new": null,
+         "old": 24,
+         "t": "-",
+         "text": "line 24"
+        },
+        {
+         "new": null,
+         "old": 25,
+         "t": "-",
+         "text": "line 25"
+        },
+        {
+         "new": null,
+         "old": 26,
+         "t": "-",
+         "text": "line 26"
+        },
+        {
+         "new": null,
+         "old": 27,
+         "t": "-",
+         "text": "line 27"
+        },
+        {
+         "new": null,
+         "old": 28,
+         "t": "-",
+         "text": "line 28"
+        },
+        {
+         "new": null,
+         "old": 29,
+         "t": "-",
+         "text": "line 29"
+        },
+        {
+         "new": null,
+         "old": 30,
+         "t": "-",
+         "text": "line 30"
+        },
+        {
+         "new": null,
+         "old": 31,
+         "t": "-",
+         "text": "line 31"
+        },
+        {
+         "new": null,
+         "old": 32,
+         "t": "-",
+         "text": "line 32"
+        },
+        {
+         "new": null,
+         "old": 33,
+         "t": "-",
+         "text": "line 33"
+        },
+        {
+         "new": null,
+         "old": 34,
+         "t": "-",
+         "text": "line 34"
+        },
+        {
+         "new": null,
+         "old": 35,
+         "t": "-",
+         "text": "line 35"
+        },
+        {
+         "new": null,
+         "old": 36,
+         "t": "-",
+         "text": "line 36"
+        },
+        {
+         "new": null,
+         "old": 37,
+         "t": "-",
+         "text": "line 37"
+        },
+        {
+         "new": null,
+         "old": 38,
+         "t": "-",
+         "text": "line 38"
+        },
+        {
+         "new": null,
+         "old": 39,
+         "t": "-",
+         "text": "line 39"
+        },
+        {
+         "new": null,
+         "old": 40,
+         "t": "-",
+         "text": "line 40"
+        }
+       ],
+       "newLines": 0,
+       "newStart": 0,
+       "oldLines": 40,
+       "oldStart": 1
+      }
+     ],
+     "newPath": null,
+     "oldPath": "moved/new.txt",
+     "status": "D",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000720,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": "new.txt",
+       "path": "moved/new.txt",
+       "status": "R"
+      }
+     ],
+     "message": "rename with edit",
+     "parents": [
+      "f3c789612da6e62e7b6faf44642fa218ac774119"
+     ],
+     "refs": [],
+     "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+     "subject": "rename with edit",
+     "time": 1700000720
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "orig_path": "new.txt",
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/new.txt b/moved/new.txt",
+      "similarity index 97%",
+      "rename from new.txt",
+      "rename to moved/new.txt",
+      "index a34d23e..c63e8f7 100644",
+      "--- a/new.txt",
+      "+++ b/moved/new.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1,5 +1,5 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": 1,
+         "t": " ",
+         "text": "line one"
+        },
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "line 2"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "line two"
+        },
+        {
+         "new": 3,
+         "old": 3,
+         "t": " ",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": 4,
+         "t": " ",
+         "text": "line 4"
+        },
+        {
+         "new": 5,
+         "old": 5,
+         "t": " ",
+         "text": "line 5"
+        }
+       ],
+       "newLines": 5,
+       "newStart": 1,
+       "oldLines": 5,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "moved/new.txt",
+     "oldPath": "new.txt",
+     "status": "R",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/moved/new.txt b/moved/new.txt",
+      "new file mode 100644",
+      "index 0000000..c63e8f7",
+      "--- /dev/null",
+      "+++ b/moved/new.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,40 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line one"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "line two"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "line 4"
+        },
+        {
+         "new": 5,
+         "old": null,
+         "t": "+",
+         "text": "line 5"
+        },
+        {
+         "new": 6,
+         "old": null,
+         "t": "+",
+         "text": "line 6"
+        },
+        {
+         "new": 7,
+         "old": null,
+         "t": "+",
+         "text": "line 7"
+        },
+        {
+         "new": 8,
+         "old": null,
+         "t": "+",
+         "text": "line 8"
+        },
+        {
+         "new": 9,
+         "old": null,
+         "t": "+",
+         "text": "line 9"
+        },
+        {
+         "new": 10,
+         "old": null,
+         "t": "+",
+         "text": "line 10"
+        },
+        {
+         "new": 11,
+         "old": null,
+         "t": "+",
+         "text": "line 11"
+        },
+        {
+         "new": 12,
+         "old": null,
+         "t": "+",
+         "text": "line 12"
+        },
+        {
+         "new": 13,
+         "old": null,
+         "t": "+",
+         "text": "line 13"
+        },
+        {
+         "new": 14,
+         "old": null,
+         "t": "+",
+         "text": "line 14"
+        },
+        {
+         "new": 15,
+         "old": null,
+         "t": "+",
+         "text": "line 15"
+        },
+        {
+         "new": 16,
+         "old": null,
+         "t": "+",
+         "text": "line 16"
+        },
+        {
+         "new": 17,
+         "old": null,
+         "t": "+",
+         "text": "line 17"
+        },
+        {
+         "new": 18,
+         "old": null,
+         "t": "+",
+         "text": "line 18"
+        },
+        {
+         "new": 19,
+         "old": null,
+         "t": "+",
+         "text": "line 19"
+        },
+        {
+         "new": 20,
+         "old": null,
+         "t": "+",
+         "text": "line 20"
+        },
+        {
+         "new": 21,
+         "old": null,
+         "t": "+",
+         "text": "line 21"
+        },
+        {
+         "new": 22,
+         "old": null,
+         "t": "+",
+         "text": "line 22"
+        },
+        {
+         "new": 23,
+         "old": null,
+         "t": "+",
+         "text": "line 23"
+        },
+        {
+         "new": 24,
+         "old": null,
+         "t": "+",
+         "text": "line 24"
+        },
+        {
+         "new": 25,
+         "old": null,
+         "t": "+",
+         "text": "line 25"
+        },
+        {
+         "new": 26,
+         "old": null,
+         "t": "+",
+         "text": "line 26"
+        },
+        {
+         "new": 27,
+         "old": null,
+         "t": "+",
+         "text": "line 27"
+        },
+        {
+         "new": 28,
+         "old": null,
+         "t": "+",
+         "text": "line 28"
+        },
+        {
+         "new": 29,
+         "old": null,
+         "t": "+",
+         "text": "line 29"
+        },
+        {
+         "new": 30,
+         "old": null,
+         "t": "+",
+         "text": "line 30"
+        },
+        {
+         "new": 31,
+         "old": null,
+         "t": "+",
+         "text": "line 31"
+        },
+        {
+         "new": 32,
+         "old": null,
+         "t": "+",
+         "text": "line 32"
+        },
+        {
+         "new": 33,
+         "old": null,
+         "t": "+",
+         "text": "line 33"
+        },
+        {
+         "new": 34,
+         "old": null,
+         "t": "+",
+         "text": "line 34"
+        },
+        {
+         "new": 35,
+         "old": null,
+         "t": "+",
+         "text": "line 35"
+        },
+        {
+         "new": 36,
+         "old": null,
+         "t": "+",
+         "text": "line 36"
+        },
+        {
+         "new": 37,
+         "old": null,
+         "t": "+",
+         "text": "line 37"
+        },
+        {
+         "new": 38,
+         "old": null,
+         "t": "+",
+         "text": "line 38"
+        },
+        {
+         "new": 39,
+         "old": null,
+         "t": "+",
+         "text": "line 39"
+        },
+        {
+         "new": 40,
+         "old": null,
+         "t": "+",
+         "text": "line 40"
+        }
+       ],
+       "newLines": 40,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "moved/new.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "f3c789612da6e62e7b6faf44642fa218ac774119"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000480,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "new.txt",
+       "status": "M"
+      }
+     ],
+     "message": "edit after rename",
+     "parents": [
+      "90b537680a6d57068ec51d62cc96b191561b8bf1"
+     ],
+     "refs": [],
+     "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+     "subject": "edit after rename",
+     "time": 1700000480
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "f3c789612da6e62e7b6faf44642fa218ac774119"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/new.txt b/new.txt",
+      "index bab081f..a34d23e 100644",
+      "--- a/new.txt",
+      "+++ b/new.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1,4 +1,4 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "line 1"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line one"
+        },
+        {
+         "new": 2,
+         "old": 2,
+         "t": " ",
+         "text": "line 2"
+        },
+        {
+         "new": 3,
+         "old": 3,
+         "t": " ",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": 4,
+         "t": " ",
+         "text": "line 4"
+        }
+       ],
+       "newLines": 4,
+       "newStart": 1,
+       "oldLines": 4,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "new.txt",
+     "oldPath": "new.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "f3c789612da6e62e7b6faf44642fa218ac774119"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/new.txt b/new.txt",
+      "index bab081f..a34d23e 100644",
+      "--- a/new.txt",
+      "+++ b/new.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "line 1"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line one"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "new.txt",
+     "oldPath": "new.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000360,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": "old.txt",
+       "path": "new.txt",
+       "status": "R"
+      }
+     ],
+     "message": "rename old to new",
+     "parents": [
+      "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+     ],
+     "refs": [],
+     "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+     "subject": "rename old to new",
+     "time": 1700000360
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "orig_path": "old.txt",
+     "path": "new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/old.txt b/new.txt",
+      "similarity index 100%",
+      "rename from old.txt",
+      "rename to new.txt",
+      ""
+     ],
+     "hunks": [],
+     "newPath": "new.txt",
+     "oldPath": "old.txt",
+     "status": "R",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "new.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/new.txt b/new.txt",
+      "new file mode 100644",
+      "index 0000000..bab081f",
+      "--- /dev/null",
+      "+++ b/new.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,40 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line 1"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "line 2"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "line 4"
+        },
+        {
+         "new": 5,
+         "old": null,
+         "t": "+",
+         "text": "line 5"
+        },
+        {
+         "new": 6,
+         "old": null,
+         "t": "+",
+         "text": "line 6"
+        },
+        {
+         "new": 7,
+         "old": null,
+         "t": "+",
+         "text": "line 7"
+        },
+        {
+         "new": 8,
+         "old": null,
+         "t": "+",
+         "text": "line 8"
+        },
+        {
+         "new": 9,
+         "old": null,
+         "t": "+",
+         "text": "line 9"
+        },
+        {
+         "new": 10,
+         "old": null,
+         "t": "+",
+         "text": "line 10"
+        },
+        {
+         "new": 11,
+         "old": null,
+         "t": "+",
+         "text": "line 11"
+        },
+        {
+         "new": 12,
+         "old": null,
+         "t": "+",
+         "text": "line 12"
+        },
+        {
+         "new": 13,
+         "old": null,
+         "t": "+",
+         "text": "line 13"
+        },
+        {
+         "new": 14,
+         "old": null,
+         "t": "+",
+         "text": "line 14"
+        },
+        {
+         "new": 15,
+         "old": null,
+         "t": "+",
+         "text": "line 15"
+        },
+        {
+         "new": 16,
+         "old": null,
+         "t": "+",
+         "text": "line 16"
+        },
+        {
+         "new": 17,
+         "old": null,
+         "t": "+",
+         "text": "line 17"
+        },
+        {
+         "new": 18,
+         "old": null,
+         "t": "+",
+         "text": "line 18"
+        },
+        {
+         "new": 19,
+         "old": null,
+         "t": "+",
+         "text": "line 19"
+        },
+        {
+         "new": 20,
+         "old": null,
+         "t": "+",
+         "text": "line 20"
+        },
+        {
+         "new": 21,
+         "old": null,
+         "t": "+",
+         "text": "line 21"
+        },
+        {
+         "new": 22,
+         "old": null,
+         "t": "+",
+         "text": "line 22"
+        },
+        {
+         "new": 23,
+         "old": null,
+         "t": "+",
+         "text": "line 23"
+        },
+        {
+         "new": 24,
+         "old": null,
+         "t": "+",
+         "text": "line 24"
+        },
+        {
+         "new": 25,
+         "old": null,
+         "t": "+",
+         "text": "line 25"
+        },
+        {
+         "new": 26,
+         "old": null,
+         "t": "+",
+         "text": "line 26"
+        },
+        {
+         "new": 27,
+         "old": null,
+         "t": "+",
+         "text": "line 27"
+        },
+        {
+         "new": 28,
+         "old": null,
+         "t": "+",
+         "text": "line 28"
+        },
+        {
+         "new": 29,
+         "old": null,
+         "t": "+",
+         "text": "line 29"
+        },
+        {
+         "new": 30,
+         "old": null,
+         "t": "+",
+         "text": "line 30"
+        },
+        {
+         "new": 31,
+         "old": null,
+         "t": "+",
+         "text": "line 31"
+        },
+        {
+         "new": 32,
+         "old": null,
+         "t": "+",
+         "text": "line 32"
+        },
+        {
+         "new": 33,
+         "old": null,
+         "t": "+",
+         "text": "line 33"
+        },
+        {
+         "new": 34,
+         "old": null,
+         "t": "+",
+         "text": "line 34"
+        },
+        {
+         "new": 35,
+         "old": null,
+         "t": "+",
+         "text": "line 35"
+        },
+        {
+         "new": 36,
+         "old": null,
+         "t": "+",
+         "text": "line 36"
+        },
+        {
+         "new": 37,
+         "old": null,
+         "t": "+",
+         "text": "line 37"
+        },
+        {
+         "new": 38,
+         "old": null,
+         "t": "+",
+         "text": "line 38"
+        },
+        {
+         "new": 39,
+         "old": null,
+         "t": "+",
+         "text": "line 39"
+        },
+        {
+         "new": 40,
+         "old": null,
+         "t": "+",
+         "text": "line 40"
+        }
+       ],
+       "newLines": 40,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "new.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000180,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "old.txt",
+       "status": "A"
+      }
+     ],
+     "message": "add old",
+     "parents": [],
+     "refs": [],
+     "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+     "subject": "add old",
+     "time": 1700000180
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "old.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/old.txt b/old.txt",
+      "new file mode 100644",
+      "index 0000000..bab081f",
+      "--- /dev/null",
+      "+++ b/old.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,40 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line 1"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "line 2"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "line 4"
+        },
+        {
+         "new": 5,
+         "old": null,
+         "t": "+",
+         "text": "line 5"
+        },
+        {
+         "new": 6,
+         "old": null,
+         "t": "+",
+         "text": "line 6"
+        },
+        {
+         "new": 7,
+         "old": null,
+         "t": "+",
+         "text": "line 7"
+        },
+        {
+         "new": 8,
+         "old": null,
+         "t": "+",
+         "text": "line 8"
+        },
+        {
+         "new": 9,
+         "old": null,
+         "t": "+",
+         "text": "line 9"
+        },
+        {
+         "new": 10,
+         "old": null,
+         "t": "+",
+         "text": "line 10"
+        },
+        {
+         "new": 11,
+         "old": null,
+         "t": "+",
+         "text": "line 11"
+        },
+        {
+         "new": 12,
+         "old": null,
+         "t": "+",
+         "text": "line 12"
+        },
+        {
+         "new": 13,
+         "old": null,
+         "t": "+",
+         "text": "line 13"
+        },
+        {
+         "new": 14,
+         "old": null,
+         "t": "+",
+         "text": "line 14"
+        },
+        {
+         "new": 15,
+         "old": null,
+         "t": "+",
+         "text": "line 15"
+        },
+        {
+         "new": 16,
+         "old": null,
+         "t": "+",
+         "text": "line 16"
+        },
+        {
+         "new": 17,
+         "old": null,
+         "t": "+",
+         "text": "line 17"
+        },
+        {
+         "new": 18,
+         "old": null,
+         "t": "+",
+         "text": "line 18"
+        },
+        {
+         "new": 19,
+         "old": null,
+         "t": "+",
+         "text": "line 19"
+        },
+        {
+         "new": 20,
+         "old": null,
+         "t": "+",
+         "text": "line 20"
+        },
+        {
+         "new": 21,
+         "old": null,
+         "t": "+",
+         "text": "line 21"
+        },
+        {
+         "new": 22,
+         "old": null,
+         "t": "+",
+         "text": "line 22"
+        },
+        {
+         "new": 23,
+         "old": null,
+         "t": "+",
+         "text": "line 23"
+        },
+        {
+         "new": 24,
+         "old": null,
+         "t": "+",
+         "text": "line 24"
+        },
+        {
+         "new": 25,
+         "old": null,
+         "t": "+",
+         "text": "line 25"
+        },
+        {
+         "new": 26,
+         "old": null,
+         "t": "+",
+         "text": "line 26"
+        },
+        {
+         "new": 27,
+         "old": null,
+         "t": "+",
+         "text": "line 27"
+        },
+        {
+         "new": 28,
+         "old": null,
+         "t": "+",
+         "text": "line 28"
+        },
+        {
+         "new": 29,
+         "old": null,
+         "t": "+",
+         "text": "line 29"
+        },
+        {
+         "new": 30,
+         "old": null,
+         "t": "+",
+         "text": "line 30"
+        },
+        {
+         "new": 31,
+         "old": null,
+         "t": "+",
+         "text": "line 31"
+        },
+        {
+         "new": 32,
+         "old": null,
+         "t": "+",
+         "text": "line 32"
+        },
+        {
+         "new": 33,
+         "old": null,
+         "t": "+",
+         "text": "line 33"
+        },
+        {
+         "new": 34,
+         "old": null,
+         "t": "+",
+         "text": "line 34"
+        },
+        {
+         "new": 35,
+         "old": null,
+         "t": "+",
+         "text": "line 35"
+        },
+        {
+         "new": 36,
+         "old": null,
+         "t": "+",
+         "text": "line 36"
+        },
+        {
+         "new": 37,
+         "old": null,
+         "t": "+",
+         "text": "line 37"
+        },
+        {
+         "new": 38,
+         "old": null,
+         "t": "+",
+         "text": "line 38"
+        },
+        {
+         "new": 39,
+         "old": null,
+         "t": "+",
+         "text": "line 39"
+        },
+        {
+         "new": 40,
+         "old": null,
+         "t": "+",
+         "text": "line 40"
+        }
+       ],
+       "newLines": 40,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "old.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "old.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/old.txt b/old.txt",
+      "new file mode 100644",
+      "index 0000000..bab081f",
+      "--- /dev/null",
+      "+++ b/old.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,40 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "line 1"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "line 2"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "line 3"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "line 4"
+        },
+        {
+         "new": 5,
+         "old": null,
+         "t": "+",
+         "text": "line 5"
+        },
+        {
+         "new": 6,
+         "old": null,
+         "t": "+",
+         "text": "line 6"
+        },
+        {
+         "new": 7,
+         "old": null,
+         "t": "+",
+         "text": "line 7"
+        },
+        {
+         "new": 8,
+         "old": null,
+         "t": "+",
+         "text": "line 8"
+        },
+        {
+         "new": 9,
+         "old": null,
+         "t": "+",
+         "text": "line 9"
+        },
+        {
+         "new": 10,
+         "old": null,
+         "t": "+",
+         "text": "line 10"
+        },
+        {
+         "new": 11,
+         "old": null,
+         "t": "+",
+         "text": "line 11"
+        },
+        {
+         "new": 12,
+         "old": null,
+         "t": "+",
+         "text": "line 12"
+        },
+        {
+         "new": 13,
+         "old": null,
+         "t": "+",
+         "text": "line 13"
+        },
+        {
+         "new": 14,
+         "old": null,
+         "t": "+",
+         "text": "line 14"
+        },
+        {
+         "new": 15,
+         "old": null,
+         "t": "+",
+         "text": "line 15"
+        },
+        {
+         "new": 16,
+         "old": null,
+         "t": "+",
+         "text": "line 16"
+        },
+        {
+         "new": 17,
+         "old": null,
+         "t": "+",
+         "text": "line 17"
+        },
+        {
+         "new": 18,
+         "old": null,
+         "t": "+",
+         "text": "line 18"
+        },
+        {
+         "new": 19,
+         "old": null,
+         "t": "+",
+         "text": "line 19"
+        },
+        {
+         "new": 20,
+         "old": null,
+         "t": "+",
+         "text": "line 20"
+        },
+        {
+         "new": 21,
+         "old": null,
+         "t": "+",
+         "text": "line 21"
+        },
+        {
+         "new": 22,
+         "old": null,
+         "t": "+",
+         "text": "line 22"
+        },
+        {
+         "new": 23,
+         "old": null,
+         "t": "+",
+         "text": "line 23"
+        },
+        {
+         "new": 24,
+         "old": null,
+         "t": "+",
+         "text": "line 24"
+        },
+        {
+         "new": 25,
+         "old": null,
+         "t": "+",
+         "text": "line 25"
+        },
+        {
+         "new": 26,
+         "old": null,
+         "t": "+",
+         "text": "line 26"
+        },
+        {
+         "new": 27,
+         "old": null,
+         "t": "+",
+         "text": "line 27"
+        },
+        {
+         "new": 28,
+         "old": null,
+         "t": "+",
+         "text": "line 28"
+        },
+        {
+         "new": 29,
+         "old": null,
+         "t": "+",
+         "text": "line 29"
+        },
+        {
+         "new": 30,
+         "old": null,
+         "t": "+",
+         "text": "line 30"
+        },
+        {
+         "new": 31,
+         "old": null,
+         "t": "+",
+         "text": "line 31"
+        },
+        {
+         "new": 32,
+         "old": null,
+         "t": "+",
+         "text": "line 32"
+        },
+        {
+         "new": 33,
+         "old": null,
+         "t": "+",
+         "text": "line 33"
+        },
+        {
+         "new": 34,
+         "old": null,
+         "t": "+",
+         "text": "line 34"
+        },
+        {
+         "new": 35,
+         "old": null,
+         "t": "+",
+         "text": "line 35"
+        },
+        {
+         "new": 36,
+         "old": null,
+         "t": "+",
+         "text": "line 36"
+        },
+        {
+         "new": 37,
+         "old": null,
+         "t": "+",
+         "text": "line 37"
+        },
+        {
+         "new": 38,
+         "old": null,
+         "t": "+",
+         "text": "line 38"
+        },
+        {
+         "new": 39,
+         "old": null,
+         "t": "+",
+         "text": "line 39"
+        },
+        {
+         "new": 40,
+         "old": null,
+         "t": "+",
+         "text": "line 40"
+        }
+       ],
+       "newLines": 40,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "old.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "sha",
+     "q": "ee60009",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "dele",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa"
+    },
+    "path": "/patch"
+   },
+   "response": {
+    "body": "From ee6000929d1f2e8bd3af9b73dfd8800286175dfa Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:27:20 +0000\nSubject: [PATCH] delete it\n\n---\n moved/new.txt | 40 ----------------------------------------\n 1 file changed, 40 deletions(-)\n delete mode 100644 moved/new.txt\n\ndiff --git a/moved/new.txt b/moved/new.txt\ndeleted file mode 100644\nindex c63e8f7..0000000\n--- a/moved/new.txt\n+++ /dev/null\n@@ -1,40 +0,0 @@\n-line one\n-line two\n-line 3\n-line 4\n-line 5\n-line 6\n-line 7\n-line 8\n-line 9\n-line 10\n-line 11\n-line 12\n-line 13\n-line 14\n-line 15\n-line 16\n-line 17\n-line 18\n-line 19\n-line 20\n-line 21\n-line 22\n-line 23\n-line 24\n-line 25\n-line 26\n-line 27\n-line 28\n-line 29\n-line 30\n-line 31\n-line 32\n-line 33\n-line 34\n-line 35\n-line 36\n-line 37\n-line 38\n-line 39\n-line 40\n-- \n<GIT>\n\n",
+    "status": 200,
+    "type": "text/x-patch"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+      ],
+      "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+      "subject": "rename old to new",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "90b537680a6d57068ec51d62cc96b191561b8bf1"
+      ],
+      "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+      "subject": "edit after rename",
+      "time": 1700000480
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f3c789612da6e62e7b6faf44642fa218ac774119"
+      ],
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+     "repo": "<ROOT>/repo",
+     "target": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa"
+    },
+    "path": "/compare"
+   },
+   "response": {
+    "body": {
+     "baseOnly": 0,
+     "files": [
+      {
+       "origPath": null,
+       "path": "old.txt",
+       "status": "D"
+      }
+     ],
+     "targetOnly": 4
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 5,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: delete it",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     },
+     {
+      "action": "commit: rename with edit",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     },
+     {
+      "action": "commit: edit after rename",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+      "subject": "edit after rename",
+      "time": 1700000480
+     },
+     {
+      "action": "commit: rename old to new",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+      "subject": "rename old to new",
+      "time": 1700000360
+     },
+     {
+      "action": "commit (initial): add old",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+      "subject": "add old",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo",
+     "target": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": null,
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "moved/new.txt",
+       "status": "D"
+      },
+      "parents": [
+       "2d5473884071d7c90189313d7b8645cdd0bacea2"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+      "subject": "delete it",
+      "time": 1700000840
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": "new.txt",
+       "path": "moved/new.txt",
+       "status": "R"
+      },
+      "parents": [
+       "f3c789612da6e62e7b6faf44642fa218ac774119"
+      ],
+      "refs": [],
+      "sha": "2d5473884071d7c90189313d7b8645cdd0bacea2",
+      "subject": "rename with edit",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "new.txt",
+       "status": "M"
+      },
+      "parents": [
+       "90b537680a6d57068ec51d62cc96b191561b8bf1"
+      ],
+      "refs": [],
+      "sha": "f3c789612da6e62e7b6faf44642fa218ac774119",
+      "subject": "edit after rename",
+      "time": 1700000480
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": "old.txt",
+       "path": "new.txt",
+       "status": "R"
+      },
+      "parents": [
+       "22760475ce65b4ecfcd57ce5c4940a6ef2bece75"
+      ],
+      "refs": [],
+      "sha": "90b537680a6d57068ec51d62cc96b191561b8bf1",
+      "subject": "rename old to new",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "old.txt",
+       "status": "A"
+      },
+      "parents": [],
+      "refs": [],
+      "sha": "22760475ce65b4ecfcd57ce5c4940a6ef2bece75",
+      "subject": "add old",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": {
+     "command": "git blame --porcelain -- moved/new.txt",
+     "error": "fatal: no such path 'moved/new.txt' in HEAD",
+     "status_code": 400
+    },
+    "status": 400,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "moved/new.txt",
+     "repo": "<ROOT>/repo",
+     "rev": "ee6000929d1f2e8bd3af9b73dfd8800286175dfa"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": {
+     "command": "git blame --porcelain ee6000929d1f2e8bd3af9b73dfd8800286175dfa -- moved/new.txt",
+     "error": "fatal: no such path moved/new.txt in ee6000929d1f2e8bd3af9b73dfd8800286175dfa",
+     "status_code": 400
+    },
+    "status": 400,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "renames"
+}

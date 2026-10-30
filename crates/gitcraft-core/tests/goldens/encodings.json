@@ -1,0 +1,3142 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/status"
+   },
+   "response": {
+    "body": {
+     "branch": {
+      "ahead": 0,
+      "behind": 0,
+      "detached": false,
+      "head": "main",
+      "oid": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "upstream": null
+     },
+     "conflicts": [],
+     "operation": null,
+     "staged": [],
+     "unstaged": [
+      {
+       "origPath": null,
+       "path": "crlf.txt",
+       "status": "M"
+      },
+      {
+       "origPath": null,
+       "path": "latin1.txt",
+       "status": "M"
+      },
+      {
+       "origPath": null,
+       "path": "unicode-ÄÖÜ-日本語.txt",
+       "status": "M"
+      },
+      {
+       "origPath": null,
+       "path": "new-latin1.txt",
+       "status": "?"
+      },
+      {
+       "origPath": null,
+       "path": "untracked spaced.txt",
+       "status": "?"
+      }
+     ]
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/refs"
+   },
+   "response": {
+    "body": {
+     "head": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+     "local": [],
+     "remote": [],
+     "remotes": [],
+     "stashes": [],
+     "submodules": [],
+     "tags": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+       "subject": "subject with \f formfeed and \u001c sep",
+       "time": 1700001260
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "3671b182b359c327d589105f5247c98e12d681f7"
+       ],
+       "refs": [],
+       "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+       "subject": "add spaced name",
+       "time": 1700001080
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "467b66fc69aa12033e8a004e01ae9fed312a395c"
+       ],
+       "refs": [],
+       "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+       "subject": "control characters in content",
+       "time": 1700000900
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "1975883723f51aa1bb61301b98d099dc310bf26b"
+       ],
+       "refs": [],
+       "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+       "subject": "add unicode name: Grüße 日本語",
+       "time": 1700000720
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+       ],
+       "refs": [],
+       "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+       "subject": "add mixed endings",
+       "time": 1700000540
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+       ],
+       "refs": [],
+       "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b",
+       "subject": "add crlf",
+       "time": 1700000360
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+       "subject": "add latin1",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "all": "false",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+       "subject": "subject with \f formfeed and \u001c sep",
+       "time": 1700001260
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "3671b182b359c327d589105f5247c98e12d681f7"
+       ],
+       "refs": [],
+       "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+       "subject": "add spaced name",
+       "time": 1700001080
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "467b66fc69aa12033e8a004e01ae9fed312a395c"
+       ],
+       "refs": [],
+       "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+       "subject": "control characters in content",
+       "time": 1700000900
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "1975883723f51aa1bb61301b98d099dc310bf26b"
+       ],
+       "refs": [],
+       "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+       "subject": "add unicode name: Grüße 日本語",
+       "time": 1700000720
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+       ],
+       "refs": [],
+       "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+       "subject": "add mixed endings",
+       "time": 1700000540
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+       ],
+       "refs": [],
+       "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b",
+       "subject": "add crlf",
+       "time": 1700000360
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+       "subject": "add latin1",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+       "subject": "subject with \f formfeed and \u001c sep",
+       "time": 1700001260
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ],
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "3671b182b359c327d589105f5247c98e12d681f7"
+       ],
+       "refs": [],
+       "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+       "subject": "add spaced name",
+       "time": 1700001080
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 1,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+       "subject": "subject with \f formfeed and \u001c sep",
+       "time": 1700001260
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/head-message"
+   },
+   "response": {
+    "body": {
+     "message": "subject with \f formfeed and \u001c sep"
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/template"
+   },
+   "response": {
+    "body": {
+     "template": ""
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+      "subject": "add latin1",
+      "time": 1700000180
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+      ],
+      "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b",
+      "subject": "add crlf",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+      ],
+      "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+      "subject": "add mixed endings",
+      "time": 1700000540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "1975883723f51aa1bb61301b98d099dc310bf26b"
+      ],
+      "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+      "subject": "add unicode name: Grüße 日本語",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "467b66fc69aa12033e8a004e01ae9fed312a395c"
+      ],
+      "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+      "subject": "control characters in content",
+      "time": 1700000900
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "3671b182b359c327d589105f5247c98e12d681f7"
+      ],
+      "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+      "subject": "add spaced name",
+      "time": 1700001080
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+      ],
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "subject": "subject with \f formfeed and \u001c sep",
+      "time": 1700001260
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: add spaced name",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+      "subject": "add spaced name",
+      "time": 1700001080
+     },
+     {
+      "action": "commit: control characters in content",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+      "subject": "control characters in content",
+      "time": 1700000900
+     },
+     {
+      "action": "commit: add unicode name: Grüße 日本語",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+      "subject": "add unicode name: Grüße 日本語",
+      "time": 1700000720
+     },
+     {
+      "action": "commit: add mixed endings",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+      "subject": "add mixed endings",
+      "time": 1700000540
+     },
+     {
+      "action": "commit: add crlf",
+      "author": "Parity User",
+      "selector": "HEAD@{5}",
+      "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b",
+      "subject": "add crlf",
+      "time": 1700000360
+     },
+     {
+      "action": "commit (initial): add latin1",
+      "author": "Parity User",
+      "selector": "HEAD@{6}",
+      "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+      "subject": "add latin1",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: add spaced name",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+      "subject": "add spaced name",
+      "time": 1700001080
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "e",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "subject": "subject with \f formfeed and \u001c sep",
+      "time": 1700001260
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "3671b182b359c327d589105f5247c98e12d681f7"
+      ],
+      "refs": [],
+      "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+      "subject": "add spaced name",
+      "time": 1700001080
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "467b66fc69aa12033e8a004e01ae9fed312a395c"
+      ],
+      "refs": [],
+      "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+      "subject": "control characters in content",
+      "time": 1700000900
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "1975883723f51aa1bb61301b98d099dc310bf26b"
+      ],
+      "refs": [],
+      "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+      "subject": "add unicode name: Grüße 日本語",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+      ],
+      "refs": [],
+      "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+      "subject": "add mixed endings",
+      "time": 1700000540
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "author",
+     "q": "Parity",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "subject": "subject with \f formfeed and \u001c sep",
+      "time": 1700001260
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "3671b182b359c327d589105f5247c98e12d681f7"
+      ],
+      "refs": [],
+      "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+      "subject": "add spaced name",
+      "time": 1700001080
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "467b66fc69aa12033e8a004e01ae9fed312a395c"
+      ],
+      "refs": [],
+      "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+      "subject": "control characters in content",
+      "time": 1700000900
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "1975883723f51aa1bb61301b98d099dc310bf26b"
+      ],
+      "refs": [],
+      "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+      "subject": "add unicode name: Grüße 日本語",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+      ],
+      "refs": [],
+      "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+      "subject": "add mixed endings",
+      "time": 1700000540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+      ],
+      "refs": [],
+      "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b",
+      "subject": "add crlf",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [],
+      "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+      "subject": "add latin1",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "content",
+     "q": "line",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "467b66fc69aa12033e8a004e01ae9fed312a395c"
+      ],
+      "refs": [],
+      "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+      "subject": "control characters in content",
+      "time": 1700000900
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "nothing-matches-this",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700001260,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "sub-ject.txt",
+       "status": "A"
+      }
+     ],
+     "message": "subject with \f formfeed and \u001c sep",
+     "parents": [
+      "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+     ],
+     "refs": [
+      {
+       "current": true,
+       "kind": "local",
+       "name": "main"
+      }
+     ],
+     "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+     "subject": "subject with \f formfeed and \u001c sep",
+     "time": 1700001260
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "sub-ject.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/sub-ject.txt b/sub-ject.txt",
+      "new file mode 100644",
+      "index 0000000..b680253",
+      "--- /dev/null",
+      "+++ b/sub-ject.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "z"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "sub-ject.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "sub-ject.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/sub-ject.txt b/sub-ject.txt",
+      "new file mode 100644",
+      "index 0000000..b680253",
+      "--- /dev/null",
+      "+++ b/sub-ject.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "z"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "sub-ject.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700001080,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "spaces in name.txt",
+       "status": "A"
+      }
+     ],
+     "message": "add spaced name",
+     "parents": [
+      "3671b182b359c327d589105f5247c98e12d681f7"
+     ],
+     "refs": [],
+     "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+     "subject": "add spaced name",
+     "time": 1700001080
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "spaces in name.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/spaces in name.txt b/spaces in name.txt",
+      "new file mode 100644",
+      "index 0000000..b77b4eb",
+      "--- /dev/null",
+      "+++ b/spaces in name.txt\t"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,2 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 2,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "spaces in name.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "spaces in name.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/spaces in name.txt b/spaces in name.txt",
+      "new file mode 100644",
+      "index 0000000..b77b4eb",
+      "--- /dev/null",
+      "+++ b/spaces in name.txt\t"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,2 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "x"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "y"
+        }
+       ],
+       "newLines": 2,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "spaces in name.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "3671b182b359c327d589105f5247c98e12d681f7"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000900,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "ctl.txt",
+       "status": "A"
+      }
+     ],
+     "message": "control characters in content",
+     "parents": [
+      "467b66fc69aa12033e8a004e01ae9fed312a395c"
+     ],
+     "refs": [],
+     "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+     "subject": "control characters in content",
+     "time": 1700000900
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "ctl.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "3671b182b359c327d589105f5247c98e12d681f7"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/ctl.txt b/ctl.txt",
+      "new file mode 100644",
+      "index 0000000..0b5692a",
+      "--- /dev/null",
+      "+++ b/ctl.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,3 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "form\ffeed"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "nextline"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "ls sep"
+        }
+       ],
+       "newLines": 3,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "ctl.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "ctl.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "3671b182b359c327d589105f5247c98e12d681f7"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/ctl.txt b/ctl.txt",
+      "new file mode 100644",
+      "index 0000000..0b5692a",
+      "--- /dev/null",
+      "+++ b/ctl.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,3 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "form\ffeed"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "nextline"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "ls sep"
+        }
+       ],
+       "newLines": 3,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "ctl.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000720,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "unicode-ÄÖÜ-日本語.txt",
+       "status": "A"
+      }
+     ],
+     "message": "add unicode name: Grüße 日本語",
+     "parents": [
+      "1975883723f51aa1bb61301b98d099dc310bf26b"
+     ],
+     "refs": [],
+     "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+     "subject": "add unicode name: Grüße 日本語",
+     "time": 1700000720
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "unicode-ÄÖÜ-日本語.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/unicode-ÄÖÜ-日本語.txt b/unicode-ÄÖÜ-日本語.txt",
+      "new file mode 100644",
+      "index 0000000..d937cf3",
+      "--- /dev/null",
+      "+++ b/unicode-ÄÖÜ-日本語.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,2 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "unicode name"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "second"
+        }
+       ],
+       "newLines": 2,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "unicode-ÄÖÜ-日本語.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "unicode-ÄÖÜ-日本語.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/unicode-ÄÖÜ-日本語.txt b/unicode-ÄÖÜ-日本語.txt",
+      "new file mode 100644",
+      "index 0000000..d937cf3",
+      "--- /dev/null",
+      "+++ b/unicode-ÄÖÜ-日本語.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,2 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "unicode name"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "second"
+        }
+       ],
+       "newLines": 2,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "unicode-ÄÖÜ-日本語.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "1975883723f51aa1bb61301b98d099dc310bf26b"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000540,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "mixed.txt",
+       "status": "A"
+      }
+     ],
+     "message": "add mixed endings",
+     "parents": [
+      "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+     ],
+     "refs": [],
+     "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+     "subject": "add mixed endings",
+     "time": 1700000540
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "mixed.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "1975883723f51aa1bb61301b98d099dc310bf26b"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/mixed.txt b/mixed.txt",
+      "new file mode 100644",
+      "index 0000000..59555e6",
+      "--- /dev/null",
+      "+++ b/mixed.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,3 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "one"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "two\r"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "three"
+        }
+       ],
+       "newLines": 3,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "mixed.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "mixed.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "1975883723f51aa1bb61301b98d099dc310bf26b"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/mixed.txt b/mixed.txt",
+      "new file mode 100644",
+      "index 0000000..59555e6",
+      "--- /dev/null",
+      "+++ b/mixed.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,3 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "one"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "two\r"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "three"
+        }
+       ],
+       "newLines": 3,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "mixed.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000360,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "crlf.txt",
+       "status": "A"
+      }
+     ],
+     "message": "add crlf",
+     "parents": [
+      "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+     ],
+     "refs": [],
+     "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b",
+     "subject": "add crlf",
+     "time": 1700000360
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "crlf.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/crlf.txt b/crlf.txt",
+      "new file mode 100644",
+      "index 0000000..7fbf4d8",
+      "--- /dev/null",
+      "+++ b/crlf.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,4 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "one\r"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "two\r"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "three\r"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "four\r"
+        }
+       ],
+       "newLines": 4,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "crlf.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "crlf.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/crlf.txt b/crlf.txt",
+      "new file mode 100644",
+      "index 0000000..7fbf4d8",
+      "--- /dev/null",
+      "+++ b/crlf.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,4 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "one\r"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "two\r"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "three\r"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "four\r"
+        }
+       ],
+       "newLines": 4,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "crlf.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000180,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "latin1.txt",
+       "status": "A"
+      }
+     ],
+     "message": "add latin1",
+     "parents": [],
+     "refs": [],
+     "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+     "subject": "add latin1",
+     "time": 1700000180
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "latin1.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/latin1.txt b/latin1.txt",
+      "new file mode 100644",
+      "index 0000000..014b594",
+      "--- /dev/null",
+      "+++ b/latin1.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,4 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "Gr��e aus K�ln"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "zweite Zeile"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "dritte Zeile"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "vierte Zeile"
+        }
+       ],
+       "newLines": 4,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "latin1.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "latin1.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/latin1.txt b/latin1.txt",
+      "new file mode 100644",
+      "index 0000000..014b594",
+      "--- /dev/null",
+      "+++ b/latin1.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,4 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "Gr��e aus K�ln"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "zweite Zeile"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "dritte Zeile"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "vierte Zeile"
+        }
+       ],
+       "newLines": 4,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "latin1.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "sha",
+     "q": "b7c9771",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "subject": "subject with \f formfeed and \u001c sep",
+      "time": 1700001260
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "subj",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "subject": "subject with \f formfeed and \u001c sep",
+      "time": 1700001260
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575"
+    },
+    "path": "/patch"
+   },
+   "response": {
+    "body": "From b7c97718eba05e9b44320d9842b4fb66dc63b575 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:34:20 +0000\nSubject: [PATCH] subject with \f formfeed and \u001c sep\n\n---\n sub-ject.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 sub-ject.txt\n\ndiff --git a/sub-ject.txt b/sub-ject.txt\nnew file mode 100644\nindex 0000000..b680253\n--- /dev/null\n+++ b/sub-ject.txt\n@@ -0,0 +1 @@\n+z\n-- \n<GIT>\n\n",
+    "status": 200,
+    "type": "text/x-patch"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "7d457ba09cb8c8335edaf1125516b3d14d26ac5a"
+      ],
+      "sha": "89f0f03537ddba17b9fa3401b00a9980dc48793b",
+      "subject": "add crlf",
+      "time": 1700000360
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "89f0f03537ddba17b9fa3401b00a9980dc48793b"
+      ],
+      "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+      "subject": "add mixed endings",
+      "time": 1700000540
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "1975883723f51aa1bb61301b98d099dc310bf26b"
+      ],
+      "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+      "subject": "add unicode name: Grüße 日本語",
+      "time": 1700000720
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "467b66fc69aa12033e8a004e01ae9fed312a395c"
+      ],
+      "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+      "subject": "control characters in content",
+      "time": 1700000900
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "3671b182b359c327d589105f5247c98e12d681f7"
+      ],
+      "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+      "subject": "add spaced name",
+      "time": 1700001080
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+      ],
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "subject": "subject with \f formfeed and \u001c sep",
+      "time": 1700001260
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+     "repo": "<ROOT>/repo",
+     "target": "b7c97718eba05e9b44320d9842b4fb66dc63b575"
+    },
+    "path": "/compare"
+   },
+   "response": {
+    "body": {
+     "baseOnly": 0,
+     "files": [
+      {
+       "origPath": null,
+       "path": "crlf.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "ctl.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "mixed.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "spaces in name.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "sub-ject.txt",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "unicode-ÄÖÜ-日本語.txt",
+       "status": "A"
+      }
+     ],
+     "targetOnly": 6
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 5,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: add spaced name",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "5f1f37cce7b98e3cbd10e6f32f62558283abfe57",
+      "subject": "add spaced name",
+      "time": 1700001080
+     },
+     {
+      "action": "commit: control characters in content",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "3671b182b359c327d589105f5247c98e12d681f7",
+      "subject": "control characters in content",
+      "time": 1700000900
+     },
+     {
+      "action": "commit: add unicode name: Grüße 日本語",
+      "author": "Parity User",
+      "selector": "HEAD@{3}",
+      "sha": "467b66fc69aa12033e8a004e01ae9fed312a395c",
+      "subject": "add unicode name: Grüße 日本語",
+      "time": 1700000720
+     },
+     {
+      "action": "commit: add mixed endings",
+      "author": "Parity User",
+      "selector": "HEAD@{4}",
+      "sha": "1975883723f51aa1bb61301b98d099dc310bf26b",
+      "subject": "add mixed endings",
+      "time": 1700000540
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "7d457ba09cb8c8335edaf1125516b3d14d26ac5a",
+     "path": "sub-ject.txt",
+     "repo": "<ROOT>/repo",
+     "target": "b7c97718eba05e9b44320d9842b4fb66dc63b575"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/sub-ject.txt b/sub-ject.txt",
+      "new file mode 100644",
+      "index 0000000..b680253",
+      "--- /dev/null",
+      "+++ b/sub-ject.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "z"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "sub-ject.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "sub-ject.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "sub-ject.txt",
+       "status": "A"
+      },
+      "parents": [
+       "5f1f37cce7b98e3cbd10e6f32f62558283abfe57"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "subject": "subject with \f formfeed and \u001c sep",
+      "time": 1700001260
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "sub-ject.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "summary": "subject with \f formfeed and \u001c sep",
+      "text": "z",
+      "time": 1700001260
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "sub-ject.txt",
+     "repo": "<ROOT>/repo",
+     "rev": "b7c97718eba05e9b44320d9842b4fb66dc63b575"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "b7c97718eba05e9b44320d9842b4fb66dc63b575",
+      "summary": "subject with \f formfeed and \u001c sep",
+      "text": "z",
+      "time": 1700001260
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "crlf.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/crlf.txt b/crlf.txt",
+      "index 7fbf4d8..c6888c5 100644",
+      "--- a/crlf.txt",
+      "+++ b/crlf.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1,4 +1,4 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": 1,
+         "t": " ",
+         "text": "one\r"
+        },
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "two\r"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "TWO\r"
+        },
+        {
+         "new": 3,
+         "old": 3,
+         "t": " ",
+         "text": "three\r"
+        },
+        {
+         "new": null,
+         "old": 4,
+         "t": "-",
+         "text": "four\r"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "FOUR\r"
+        }
+       ],
+       "newLines": 4,
+       "newStart": 1,
+       "oldLines": 4,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "crlf.txt",
+     "oldPath": "crlf.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "crlf.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/crlf.txt b/crlf.txt",
+      "index 7fbf4d8..c6888c5 100644",
+      "--- a/crlf.txt",
+      "+++ b/crlf.txt"
+     ],
+     "hunks": [
+      {
+       "context": "one",
+       "header": "@@ -2 +2 @@ one",
+       "lines": [
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "two\r"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "TWO\r"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 2,
+       "oldLines": 1,
+       "oldStart": 2
+      },
+      {
+       "context": "three",
+       "header": "@@ -4 +4 @@ three",
+       "lines": [
+        {
+         "new": null,
+         "old": 4,
+         "t": "-",
+         "text": "four\r"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "FOUR\r"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 4,
+       "oldLines": 1,
+       "oldStart": 4
+      }
+     ],
+     "newPath": "crlf.txt",
+     "oldPath": "crlf.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "latin1.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/latin1.txt b/latin1.txt",
+      "index 014b594..82e65ea 100644",
+      "--- a/latin1.txt",
+      "+++ b/latin1.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1,4 +1,4 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": 1,
+         "t": " ",
+         "text": "Gr��e aus K�ln"
+        },
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "zweite Zeile"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "ZWEITE"
+        },
+        {
+         "new": 3,
+         "old": 3,
+         "t": " ",
+         "text": "dritte Zeile"
+        },
+        {
+         "new": null,
+         "old": 4,
+         "t": "-",
+         "text": "vierte Zeile"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "VIERTE"
+        }
+       ],
+       "newLines": 4,
+       "newStart": 1,
+       "oldLines": 4,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "latin1.txt",
+     "oldPath": "latin1.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "latin1.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/latin1.txt b/latin1.txt",
+      "index 014b594..82e65ea 100644",
+      "--- a/latin1.txt",
+      "+++ b/latin1.txt"
+     ],
+     "hunks": [
+      {
+       "context": "Gr",
+       "header": "@@ -2 +2 @@ Gr",
+       "lines": [
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "zweite Zeile"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "ZWEITE"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 2,
+       "oldLines": 1,
+       "oldStart": 2
+      },
+      {
+       "context": "dritte Zeile",
+       "header": "@@ -4 +4 @@ dritte Zeile",
+       "lines": [
+        {
+         "new": null,
+         "old": 4,
+         "t": "-",
+         "text": "vierte Zeile"
+        },
+        {
+         "new": 4,
+         "old": null,
+         "t": "+",
+         "text": "VIERTE"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 4,
+       "oldLines": 1,
+       "oldStart": 4
+      }
+     ],
+     "newPath": "latin1.txt",
+     "oldPath": "latin1.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "unicode-ÄÖÜ-日本語.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/unicode-ÄÖÜ-日本語.txt b/unicode-ÄÖÜ-日本語.txt",
+      "index d937cf3..88d2eb6 100644",
+      "--- a/unicode-ÄÖÜ-日本語.txt",
+      "+++ b/unicode-ÄÖÜ-日本語.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1,2 +1,2 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": 1,
+         "t": " ",
+         "text": "unicode name"
+        },
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "second"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "changed"
+        }
+       ],
+       "newLines": 2,
+       "newStart": 1,
+       "oldLines": 2,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "unicode-ÄÖÜ-日本語.txt",
+     "oldPath": "unicode-ÄÖÜ-日本語.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "unicode-ÄÖÜ-日本語.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/unicode-ÄÖÜ-日本語.txt b/unicode-ÄÖÜ-日本語.txt",
+      "index d937cf3..88d2eb6 100644",
+      "--- a/unicode-ÄÖÜ-日本語.txt",
+      "+++ b/unicode-ÄÖÜ-日本語.txt"
+     ],
+     "hunks": [
+      {
+       "context": "unicode name",
+       "header": "@@ -2 +2 @@ unicode name",
+       "lines": [
+        {
+         "new": null,
+         "old": 2,
+         "t": "-",
+         "text": "second"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "changed"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 2,
+       "oldLines": 1,
+       "oldStart": 2
+      }
+     ],
+     "newPath": "unicode-ÄÖÜ-日本語.txt",
+     "oldPath": "unicode-ÄÖÜ-日本語.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "new-latin1.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/new-latin1.txt b/new-latin1.txt",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/new-latin1.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "B�ro"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "new-latin1.txt",
+     "oldPath": null,
+     "status": "?",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "new-latin1.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/new-latin1.txt b/new-latin1.txt",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/new-latin1.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "B�ro"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "new-latin1.txt",
+     "oldPath": null,
+     "status": "?",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "untracked spaced.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/untracked spaced.txt b/untracked spaced.txt",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/untracked spaced.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "z"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "untracked spaced.txt",
+     "oldPath": null,
+     "status": "?",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "untracked spaced.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/untracked spaced.txt b/untracked spaced.txt",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/untracked spaced.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "z"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "untracked spaced.txt",
+     "oldPath": null,
+     "status": "?",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "encodings"
+}

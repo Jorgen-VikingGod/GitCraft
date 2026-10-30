@@ -1,0 +1,1439 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/status"
+   },
+   "response": {
+    "body": {
+     "branch": {
+      "ahead": 0,
+      "behind": 0,
+      "detached": false,
+      "head": "main",
+      "oid": "835d457d75072becbc0538996147cc7d58d987e9",
+      "upstream": null
+     },
+     "conflicts": [],
+     "operation": null,
+     "staged": [],
+     "unstaged": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/refs"
+   },
+   "response": {
+    "body": {
+     "head": "835d457d75072becbc0538996147cc7d58d987e9",
+     "local": [
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": true,
+       "name": "main",
+       "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+       "upstream": null,
+       "upstreamGone": false
+      }
+     ],
+     "remote": [],
+     "remotes": [],
+     "stashes": [],
+     "submodules": [
+      {
+       "path": "vendor/sub",
+       "sha": "60b25fe8b7fabb55d66fc81edaf7a498c1523ff8",
+       "state": "uninitialized"
+      }
+     ],
+     "tags": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+       "subject": "add submodule",
+       "time": 1700000600
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+       "subject": "top",
+       "time": 1700000420
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "all": "false",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+       "subject": "add submodule",
+       "time": 1700000600
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+       "subject": "top",
+       "time": 1700000420
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+       "subject": "add submodule",
+       "time": 1700000600
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [],
+       "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+       "subject": "top",
+       "time": 1700000420
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 1,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+       "subject": "add submodule",
+       "time": 1700000600
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/head-message"
+   },
+   "response": {
+    "body": {
+     "message": "add submodule"
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/template"
+   },
+   "response": {
+    "body": {
+     "template": ""
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+      "subject": "top",
+      "time": 1700000420
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: add submodule",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     },
+     {
+      "action": "commit (initial): top",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+      "subject": "top",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: add submodule",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     },
+     {
+      "action": "commit (initial): top",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+      "subject": "top",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "e",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "author",
+     "q": "Parity",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [],
+      "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+      "subject": "top",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "content",
+     "q": "line",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "nothing-matches-this",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000600,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": ".gitmodules",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "vendor/sub",
+       "status": "A"
+      }
+     ],
+     "message": "add submodule",
+     "parents": [
+      "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+     ],
+     "refs": [
+      {
+       "current": true,
+       "kind": "local",
+       "name": "main"
+      }
+     ],
+     "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+     "subject": "add submodule",
+     "time": 1700000600
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": ".gitmodules",
+     "repo": "<ROOT>/repo",
+     "sha": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/.gitmodules b/.gitmodules",
+      "new file mode 100644",
+      "index 0000000..08eb445",
+      "--- /dev/null",
+      "+++ b/.gitmodules"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,3 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "[submodule \"vendor/sub\"]"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "\tpath = vendor/sub"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "\turl = ../sub-src"
+        }
+       ],
+       "newLines": 3,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": ".gitmodules",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": ".gitmodules",
+     "repo": "<ROOT>/repo",
+     "sha": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/.gitmodules b/.gitmodules",
+      "new file mode 100644",
+      "index 0000000..08eb445",
+      "--- /dev/null",
+      "+++ b/.gitmodules"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,3 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "[submodule \"vendor/sub\"]"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "\tpath = vendor/sub"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "\turl = ../sub-src"
+        }
+       ],
+       "newLines": 3,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": ".gitmodules",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "vendor/sub",
+     "repo": "<ROOT>/repo",
+     "sha": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/vendor/sub b/vendor/sub",
+      "new file mode 160000",
+      "index 0000000..60b25fe",
+      "--- /dev/null",
+      "+++ b/vendor/sub"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "Subproject commit 60b25fe8b7fabb55d66fc81edaf7a498c1523ff8"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "vendor/sub",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "vendor/sub",
+     "repo": "<ROOT>/repo",
+     "sha": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/vendor/sub b/vendor/sub",
+      "new file mode 160000",
+      "index 0000000..60b25fe",
+      "--- /dev/null",
+      "+++ b/vendor/sub"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "Subproject commit 60b25fe8b7fabb55d66fc81edaf7a498c1523ff8"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "vendor/sub",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000420,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "top.txt",
+       "status": "A"
+      }
+     ],
+     "message": "top",
+     "parents": [],
+     "refs": [],
+     "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+     "subject": "top",
+     "time": 1700000420
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "top.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/top.txt b/top.txt",
+      "new file mode 100644",
+      "index 0000000..bf1a1fd",
+      "--- /dev/null",
+      "+++ b/top.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "top"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "top.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "top.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/top.txt b/top.txt",
+      "new file mode 100644",
+      "index 0000000..bf1a1fd",
+      "--- /dev/null",
+      "+++ b/top.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "top"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "top.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "sha",
+     "q": "835d457",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "add ",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/patch"
+   },
+   "response": {
+    "body": "From 835d457d75072becbc0538996147cc7d58d987e9 Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:23:20 +0000\nSubject: [PATCH] add submodule\n\n---\n .gitmodules | 3 +++\n vendor/sub  | 1 +\n 2 files changed, 4 insertions(+)\n create mode 100644 .gitmodules\n create mode 160000 vendor/sub\n\ndiff --git a/.gitmodules b/.gitmodules\nnew file mode 100644\nindex 0000000..08eb445\n--- /dev/null\n+++ b/.gitmodules\n@@ -0,0 +1,3 @@\n+[submodule \"vendor/sub\"]\n+\tpath = vendor/sub\n+\turl = ../sub-src\ndiff --git a/vendor/sub b/vendor/sub\nnew file mode 160000\nindex 0000000..60b25fe\n--- /dev/null\n+++ b/vendor/sub\n@@ -0,0 +1 @@\n+Subproject commit 60b25fe8b7fabb55d66fc81edaf7a498c1523ff8\n-- \n<GIT>\n\n",
+    "status": 200,
+    "type": "text/x-patch"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+     "repo": "<ROOT>/repo",
+     "target": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/compare"
+   },
+   "response": {
+    "body": {
+     "baseOnly": 0,
+     "files": [
+      {
+       "origPath": null,
+       "path": ".gitmodules",
+       "status": "A"
+      },
+      {
+       "origPath": null,
+       "path": "vendor/sub",
+       "status": "A"
+      }
+     ],
+     "targetOnly": 1
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 5,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: add submodule",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     },
+     {
+      "action": "commit (initial): top",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+      "subject": "top",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+     "path": ".gitmodules",
+     "repo": "<ROOT>/repo",
+     "target": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/.gitmodules b/.gitmodules",
+      "new file mode 100644",
+      "index 0000000..08eb445",
+      "--- /dev/null",
+      "+++ b/.gitmodules"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1,3 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "[submodule \"vendor/sub\"]"
+        },
+        {
+         "new": 2,
+         "old": null,
+         "t": "+",
+         "text": "\tpath = vendor/sub"
+        },
+        {
+         "new": 3,
+         "old": null,
+         "t": "+",
+         "text": "\turl = ../sub-src"
+        }
+       ],
+       "newLines": 3,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": ".gitmodules",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": ".gitmodules",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": ".gitmodules",
+       "status": "A"
+      },
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": ".gitmodules",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "summary": "add submodule",
+      "text": "[submodule \"vendor/sub\"]",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "line": 2,
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "summary": "add submodule",
+      "text": "\tpath = vendor/sub",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "line": 3,
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "summary": "add submodule",
+      "text": "\turl = ../sub-src",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": ".gitmodules",
+     "repo": "<ROOT>/repo",
+     "rev": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "summary": "add submodule",
+      "text": "[submodule \"vendor/sub\"]",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "line": 2,
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "summary": "add submodule",
+      "text": "\tpath = vendor/sub",
+      "time": 1700000600
+     },
+     {
+      "author": "Parity User",
+      "line": 3,
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "summary": "add submodule",
+      "text": "\turl = ../sub-src",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "ef8fd01c168ebba2f35ee078b04dda727930bf4a",
+     "path": "vendor/sub",
+     "repo": "<ROOT>/repo",
+     "target": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/vendor/sub b/vendor/sub",
+      "new file mode 160000",
+      "index 0000000..60b25fe",
+      "--- /dev/null",
+      "+++ b/vendor/sub"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "Subproject commit 60b25fe8b7fabb55d66fc81edaf7a498c1523ff8"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "vendor/sub",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "vendor/sub",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "vendor/sub",
+       "status": "A"
+      },
+      "parents": [
+       "ef8fd01c168ebba2f35ee078b04dda727930bf4a"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "835d457d75072becbc0538996147cc7d58d987e9",
+      "subject": "add submodule",
+      "time": 1700000600
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "vendor/sub",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": {
+     "command": "git blame --porcelain -- vendor/sub",
+     "error": "fatal: unsupported file type vendor/sub",
+     "status_code": 400
+    },
+    "status": 400,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "vendor/sub",
+     "repo": "<ROOT>/repo",
+     "rev": "835d457d75072becbc0538996147cc7d58d987e9"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": {
+     "command": "git blame --porcelain 835d457d75072becbc0538996147cc7d58d987e9 -- vendor/sub",
+     "error": "fatal: no such path vendor/sub in 835d457d75072becbc0538996147cc7d58d987e9",
+     "status_code": 400
+    },
+    "status": 400,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "submodule_uninit"
+}

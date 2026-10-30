@@ -1,0 +1,787 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/status"
+   },
+   "response": {
+    "body": {
+     "branch": {
+      "ahead": 0,
+      "behind": 0,
+      "detached": false,
+      "head": "main",
+      "oid": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "upstream": null
+     },
+     "conflicts": [],
+     "operation": null,
+     "staged": [],
+     "unstaged": [
+      {
+       "origPath": null,
+       "path": "big.txt",
+       "status": "M"
+      }
+     ]
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/refs"
+   },
+   "response": {
+    "body": {
+     "head": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+     "local": [
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": true,
+       "name": "main",
+       "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+       "upstream": null,
+       "upstreamGone": false
+      }
+     ],
+     "remote": [],
+     "remotes": [],
+     "stashes": [],
+     "submodules": [],
+     "tags": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+       "subject": "add big",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "all": "false",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+       "subject": "add big",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+       "subject": "add big",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 1,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+       "subject": "add big",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/head-message"
+   },
+   "response": {
+    "body": {
+     "message": "add big"
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/template"
+   },
+   "response": {
+    "body": {
+     "template": ""
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit (initial): add big",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit (initial): add big",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "e",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "author",
+     "q": "Parity",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "content",
+     "q": "line",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "nothing-matches-this",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000180,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "big.txt",
+       "status": "A"
+      }
+     ],
+     "message": "add big",
+     "parents": [],
+     "refs": [
+      {
+       "current": true,
+       "kind": "local",
+       "name": "main"
+      }
+     ],
+     "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+     "subject": "add big",
+     "time": 1700000180
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "big.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "<large>": true,
+     "sha256": "be16cd8f62ed6afbc54cac57e2d941a593adc2dbf3bc7198021cdbd63dc8bd38",
+     "size": 1198144
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "big.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "<large>": true,
+     "sha256": "be16cd8f62ed6afbc54cac57e2d941a593adc2dbf3bc7198021cdbd63dc8bd38",
+     "size": 1198144
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "sha",
+     "q": "bec9e1b",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "add ",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8"
+    },
+    "path": "/patch"
+   },
+   "response": {
+    "body": {
+     "<large>": true,
+     "sha256": "a02054bf57dedf34da585c022f873af0488c3f5b48e04a40e6192d1c2758fe2f",
+     "size": 262365
+    },
+    "status": 200,
+    "type": "text/x-patch"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+     "repo": "<ROOT>/repo",
+     "target": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8"
+    },
+    "path": "/compare"
+   },
+   "response": {
+    "body": {
+     "baseOnly": 0,
+     "files": [],
+     "targetOnly": 0
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 5,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit (initial): add big",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+     "path": "big.txt",
+     "repo": "<ROOT>/repo",
+     "target": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": null,
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "big.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "big.txt",
+       "status": "A"
+      },
+      "parents": [],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8",
+      "subject": "add big",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "big.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": {
+     "<large>": true,
+     "sha256": "2193e348a74c649ed1272482657a26fcbee35f540314f9ac681325c0c3e269f8",
+     "size": 3925788
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "big.txt",
+     "repo": "<ROOT>/repo",
+     "rev": "bec9e1bdcb77578d14b21e1393aad4d0d2448df8"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": {
+     "<large>": true,
+     "sha256": "e04c4669feb2e402ff9b2c0b62d335f7170e384382d5b86328936e44b62d8edc",
+     "size": 3274788
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "big.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "<large>": true,
+     "sha256": "c614a461b25cef2ae27b67d4a09da939fd050eaac826aeebab2c51b2363d9dfa",
+     "size": 1198140
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "big.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "<large>": true,
+     "sha256": "c614a461b25cef2ae27b67d4a09da939fd050eaac826aeebab2c51b2363d9dfa",
+     "size": 1198140
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "big_diff"
+}

@@ -1,0 +1,1301 @@
+{
+ "exchanges": [
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/status"
+   },
+   "response": {
+    "body": {
+     "branch": {
+      "ahead": 0,
+      "behind": 0,
+      "detached": false,
+      "head": "wt-branch",
+      "oid": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "upstream": null
+     },
+     "conflicts": [],
+     "operation": null,
+     "staged": [],
+     "unstaged": [
+      {
+       "origPath": null,
+       "path": "w.txt",
+       "status": "M"
+      }
+     ]
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/refs"
+   },
+   "response": {
+    "body": {
+     "head": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+     "local": [
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": false,
+       "name": "main",
+       "sha": "f0280ed94317211560295768cc2a411506b90143",
+       "upstream": null,
+       "upstreamGone": false
+      },
+      {
+       "ahead": 0,
+       "behind": 0,
+       "current": true,
+       "name": "wt-branch",
+       "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+       "upstream": null,
+       "upstreamGone": false
+      }
+     ],
+     "remote": [],
+     "remotes": [],
+     "stashes": [],
+     "submodules": [],
+     "tags": []
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "f0280ed94317211560295768cc2a411506b90143"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "wt-branch"
+        }
+       ],
+       "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+       "subject": "in worktree",
+       "time": 1700000420
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "f0280ed94317211560295768cc2a411506b90143",
+       "subject": "first",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "all": "false",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "f0280ed94317211560295768cc2a411506b90143"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "wt-branch"
+        }
+       ],
+       "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+       "subject": "in worktree",
+       "time": 1700000420
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "f0280ed94317211560295768cc2a411506b90143",
+       "subject": "first",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "f0280ed94317211560295768cc2a411506b90143"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "wt-branch"
+        }
+       ],
+       "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+       "subject": "in worktree",
+       "time": 1700000420
+      },
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          1,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [],
+       "refs": [
+        {
+         "current": false,
+         "kind": "local",
+         "name": "main"
+        }
+       ],
+       "sha": "f0280ed94317211560295768cc2a411506b90143",
+       "subject": "first",
+       "time": 1700000180
+      }
+     ],
+     "hasMore": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 1,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/log"
+   },
+   "response": {
+    "body": {
+     "commits": [
+      {
+       "author": "Parity User",
+       "email": "parity@example.com",
+       "graph": {
+        "col": 0,
+        "color": 0,
+        "segments": [
+         [
+          0,
+          0,
+          2,
+          0
+         ]
+        ],
+        "width": 1
+       },
+       "parents": [
+        "f0280ed94317211560295768cc2a411506b90143"
+       ],
+       "refs": [
+        {
+         "current": true,
+         "kind": "local",
+         "name": "wt-branch"
+        }
+       ],
+       "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+       "subject": "in worktree",
+       "time": 1700000420
+      }
+     ],
+     "hasMore": true
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/head-message"
+   },
+   "response": {
+    "body": {
+     "message": "in worktree"
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/commit/template"
+   },
+   "response": {
+    "body": {
+     "template": ""
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "sha": "f0280ed94317211560295768cc2a411506b90143",
+      "subject": "first",
+      "time": 1700000180
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f0280ed94317211560295768cc2a411506b90143"
+      ],
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: in worktree",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     },
+     {
+      "action": "reset: moving to HEAD",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "f0280ed94317211560295768cc2a411506b90143",
+      "subject": "first",
+      "time": 1700000180
+     },
+     {
+      "action": "",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "f0280ed94317211560295768cc2a411506b90143",
+      "subject": "first",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 2,
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: in worktree",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     },
+     {
+      "action": "reset: moving to HEAD",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "f0280ed94317211560295768cc2a411506b90143",
+      "subject": "first",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "e",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f0280ed94317211560295768cc2a411506b90143"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "wt-branch"
+       }
+      ],
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "author",
+     "q": "Parity",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f0280ed94317211560295768cc2a411506b90143"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "wt-branch"
+       }
+      ],
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     },
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [],
+      "refs": [
+       {
+        "current": false,
+        "kind": "local",
+        "name": "main"
+       }
+      ],
+      "sha": "f0280ed94317211560295768cc2a411506b90143",
+      "subject": "first",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "content",
+     "q": "line",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "nothing-matches-this",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000420,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "w2.txt",
+       "status": "A"
+      }
+     ],
+     "message": "in worktree",
+     "parents": [
+      "f0280ed94317211560295768cc2a411506b90143"
+     ],
+     "refs": [
+      {
+       "current": true,
+       "kind": "local",
+       "name": "wt-branch"
+      }
+     ],
+     "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+     "subject": "in worktree",
+     "time": 1700000420
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "w2.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/w2.txt b/w2.txt",
+      "new file mode 100644",
+      "index 0000000..f232135",
+      "--- /dev/null",
+      "+++ b/w2.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "w2"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "w2.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "w2.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/w2.txt b/w2.txt",
+      "new file mode 100644",
+      "index 0000000..f232135",
+      "--- /dev/null",
+      "+++ b/w2.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "w2"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "w2.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "f0280ed94317211560295768cc2a411506b90143"
+    },
+    "path": "/commit"
+   },
+   "response": {
+    "body": {
+     "author": "Parity User",
+     "commitTime": 1700000180,
+     "committer": "Parity User",
+     "committerEmail": "parity@example.com",
+     "email": "parity@example.com",
+     "files": [
+      {
+       "origPath": null,
+       "path": "w.txt",
+       "status": "A"
+      }
+     ],
+     "message": "first",
+     "parents": [],
+     "refs": [
+      {
+       "current": false,
+       "kind": "local",
+       "name": "main"
+      }
+     ],
+     "sha": "f0280ed94317211560295768cc2a411506b90143",
+     "subject": "first",
+     "time": 1700000180
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "w.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "f0280ed94317211560295768cc2a411506b90143"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/w.txt b/w.txt",
+      "new file mode 100644",
+      "index 0000000..e556b83",
+      "--- /dev/null",
+      "+++ b/w.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "w"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "w.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "w.txt",
+     "repo": "<ROOT>/repo",
+     "sha": "f0280ed94317211560295768cc2a411506b90143"
+    },
+    "path": "/diff/commit"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/w.txt b/w.txt",
+      "new file mode 100644",
+      "index 0000000..e556b83",
+      "--- /dev/null",
+      "+++ b/w.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "w"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "w.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "sha",
+     "q": "ed9cae5",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f0280ed94317211560295768cc2a411506b90143"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "wt-branch"
+       }
+      ],
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "mode": "message",
+     "q": "in w",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/search"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f0280ed94317211560295768cc2a411506b90143"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "wt-branch"
+       }
+      ],
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "repo": "<ROOT>/repo",
+     "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e"
+    },
+    "path": "/patch"
+   },
+   "response": {
+    "body": "From ed9cae5c40235e25e4c582e16fcd5858edfeb35e Mon Sep 17 00:00:00 2001\nFrom: Parity User <parity@example.com>\nDate: Tue, 14 Nov 2023 22:20:20 +0000\nSubject: [PATCH] in worktree\n\n---\n w2.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 w2.txt\n\ndiff --git a/w2.txt b/w2.txt\nnew file mode 100644\nindex 0000000..f232135\n--- /dev/null\n+++ b/w2.txt\n@@ -0,0 +1 @@\n+w2\n-- \n<GIT>\n\n",
+    "status": 200,
+    "type": "text/x-patch"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "f0280ed94317211560295768cc2a411506b90143",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/rebase/commits"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "parents": [
+       "f0280ed94317211560295768cc2a411506b90143"
+      ],
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "f0280ed94317211560295768cc2a411506b90143",
+     "repo": "<ROOT>/repo",
+     "target": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e"
+    },
+    "path": "/compare"
+   },
+   "response": {
+    "body": {
+     "baseOnly": 0,
+     "files": [
+      {
+       "origPath": null,
+       "path": "w2.txt",
+       "status": "A"
+      }
+     ],
+     "targetOnly": 1
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "limit": 5,
+     "ref": "HEAD",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/reflog"
+   },
+   "response": {
+    "body": [
+     {
+      "action": "commit: in worktree",
+      "author": "Parity User",
+      "selector": "HEAD@{0}",
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     },
+     {
+      "action": "reset: moving to HEAD",
+      "author": "Parity User",
+      "selector": "HEAD@{1}",
+      "sha": "f0280ed94317211560295768cc2a411506b90143",
+      "subject": "first",
+      "time": 1700000180
+     },
+     {
+      "action": "",
+      "author": "Parity User",
+      "selector": "HEAD@{2}",
+      "sha": "f0280ed94317211560295768cc2a411506b90143",
+      "subject": "first",
+      "time": 1700000180
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "base": "f0280ed94317211560295768cc2a411506b90143",
+     "path": "w2.txt",
+     "repo": "<ROOT>/repo",
+     "target": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e"
+    },
+    "path": "/diff/compare"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/w2.txt b/w2.txt",
+      "new file mode 100644",
+      "index 0000000..f232135",
+      "--- /dev/null",
+      "+++ b/w2.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -0,0 +1 @@",
+       "lines": [
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "w2"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 0,
+       "oldStart": 0
+      }
+     ],
+     "newPath": "w2.txt",
+     "oldPath": null,
+     "status": "A",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "w2.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/file-history"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "email": "parity@example.com",
+      "file": {
+       "origPath": null,
+       "path": "w2.txt",
+       "status": "A"
+      },
+      "parents": [
+       "f0280ed94317211560295768cc2a411506b90143"
+      ],
+      "refs": [
+       {
+        "current": true,
+        "kind": "local",
+        "name": "wt-branch"
+       }
+      ],
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "subject": "in worktree",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "w2.txt",
+     "repo": "<ROOT>/repo"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "summary": "in worktree",
+      "text": "w2",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "w2.txt",
+     "repo": "<ROOT>/repo",
+     "rev": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e"
+    },
+    "path": "/blame"
+   },
+   "response": {
+    "body": [
+     {
+      "author": "Parity User",
+      "line": 1,
+      "sha": "ed9cae5c40235e25e4c582e16fcd5858edfeb35e",
+      "summary": "in worktree",
+      "text": "w2",
+      "time": 1700000420
+     }
+    ],
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "path": "w.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/w.txt b/w.txt",
+      "index e556b83..6e5aa7c 100644",
+      "--- a/w.txt",
+      "+++ b/w.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "w"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "dirty"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "w.txt",
+     "oldPath": "w.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  },
+  {
+   "request": {
+    "method": "GET",
+    "params": {
+     "context": 0,
+     "ignore_ws": true,
+     "path": "w.txt",
+     "repo": "<ROOT>/repo",
+     "staged": false
+    },
+    "path": "/diff/working"
+   },
+   "response": {
+    "body": {
+     "binary": false,
+     "header": [
+      "diff --git a/w.txt b/w.txt",
+      "index e556b83..6e5aa7c 100644",
+      "--- a/w.txt",
+      "+++ b/w.txt"
+     ],
+     "hunks": [
+      {
+       "context": "",
+       "header": "@@ -1 +1 @@",
+       "lines": [
+        {
+         "new": null,
+         "old": 1,
+         "t": "-",
+         "text": "w"
+        },
+        {
+         "new": 1,
+         "old": null,
+         "t": "+",
+         "text": "dirty"
+        }
+       ],
+       "newLines": 1,
+       "newStart": 1,
+       "oldLines": 1,
+       "oldStart": 1
+      }
+     ],
+     "newPath": "w.txt",
+     "oldPath": "w.txt",
+     "status": "M",
+     "truncated": false
+    },
+    "status": 200,
+    "type": "application/json"
+   }
+  }
+ ],
+ "scenario": "worktree"
+}
