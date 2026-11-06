@@ -1213,3 +1213,69 @@ async fn arrow_keys_move_through_the_changed_files_not_the_commits() {
         "the history selection stays put"
     );
 }
+
+#[tokio::test]
+async fn arrow_keys_follow_the_list_that_was_clicked_last() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.write("a.txt", "changed a\n");
+    f.write("b.txt", "two\n");
+    git(&f.path, &["add", "--", "a.txt", "b.txt"]);
+    git(&f.path, &["commit", "-q", "-m", "second"]);
+    f.commit("c.txt", "three\n", "third");
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "second");
+    drive(&mut app, Message::Select(sha.clone())).await;
+    let tab = app.current().unwrap();
+    let files: Vec<String> = tab
+        .detail
+        .as_ref()
+        .unwrap()
+        .files
+        .iter()
+        .map(|f| f.path.clone())
+        .collect();
+    assert_eq!(files.len(), 2);
+
+    // Nothing in the file list was clicked yet: the arrows move through commits.
+    drive(
+        &mut app,
+        Message::Key(egui::Key::ArrowDown, Modifiers::NONE),
+    )
+    .await;
+    assert_ne!(
+        app.current().unwrap().selected.as_deref(),
+        Some(sha.as_str())
+    );
+    drive(&mut app, Message::Select(sha.clone())).await;
+
+    drive(&mut app, Message::PickFile(files[0].clone())).await;
+    drive(
+        &mut app,
+        Message::Key(egui::Key::ArrowDown, Modifiers::NONE),
+    )
+    .await;
+    let tab = app.current().unwrap();
+    assert_eq!(
+        tab.selected_file.as_deref(),
+        Some(files[1].as_str()),
+        "the next file"
+    );
+    assert_eq!(
+        tab.selected.as_deref(),
+        Some(sha.as_str()),
+        "the same commit"
+    );
+
+    // Picking a commit again hands the arrows back to the commit list.
+    drive(&mut app, Message::Select(sha.clone())).await;
+    drive(
+        &mut app,
+        Message::Key(egui::Key::ArrowDown, Modifiers::NONE),
+    )
+    .await;
+    assert_ne!(
+        app.current().unwrap().selected.as_deref(),
+        Some(sha.as_str())
+    );
+}

@@ -195,7 +195,7 @@ impl Shell {
     fn take_shot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
-        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split also opens that, to see how it looks.
+        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split|settings also opens that, to see how it looks.
         if shot.frames == 20
             && let Some(what) = std::env::var_os("GITCRAFT_SHOT_OPEN")
         {
@@ -207,6 +207,7 @@ impl Shell {
                 Some("pull") => Message::Action(crate::actions::Action::Pull),
                 Some("changes") => Message::SetView(crate::app::View::Changes),
                 Some("split") => Message::SetSplit(true),
+                Some("settings") => Message::OpenSettings,
                 _ => return,
             };
             self.handle(message);

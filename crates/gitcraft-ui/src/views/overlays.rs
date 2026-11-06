@@ -7,8 +7,8 @@ use egui::{
 use gitcraft_core::model::{BlameLine, Commit, ConflictChunk, ReflogEntry};
 
 use super::widgets::{
-    area_edit, bar, btn, card, check, choice, fill, floating, heading, line_edit, muted,
-    paint_text, placeholder, primary, region, scroll, split_x, split_y, text, text_width, toggle,
+    area_edit, bar, btn, card, check, choice, fill, floating, line_edit, muted, paint_text,
+    placeholder, primary, region, scroll, segmented, split_x, split_y, text, text_width, toggle,
 };
 use super::{Cx, diff, icon};
 use crate::actions::{Action, MenuRequest};
@@ -1010,132 +1010,160 @@ const THEMES: [(&str, &str); 3] = [
     ("dark", "Dark"),
 ];
 
+const SHORTCUTS: [(&str, &str); 8] = [
+    ("Ctrl/⌘ + 1 / 2", "All commits / Local changes"),
+    ("Ctrl/⌘ + F", "Search commits"),
+    ("Ctrl/⌘ + T or O", "Open repository"),
+    ("Ctrl/⌘ + W", "Close tab"),
+    ("Ctrl/⌘ + Enter", "Commit"),
+    ("Ctrl/⌘ + + / − / 0", "Zoom"),
+    ("F5 / Ctrl/⌘ + R", "Refresh repository"),
+    ("↑ ↓ PgUp PgDn", "Move through commits or files"),
+];
+
+/// A titled group of settings.
+fn group(ui: &mut Ui, cx: &Cx, title: &str, add: impl FnOnce(&mut Ui)) {
+    ui.add_space(8.0);
+    ui.label(
+        egui::RichText::new(title)
+            .size(15.0)
+            .strong()
+            .color(cx.c().text),
+    );
+    ui.add_space(2.0);
+    add(ui);
+}
+
+/// Settings: a small window of its own, with egui's native controls in aligned rows.
 fn settings(ctx: &Context, cx: &Cx) {
+    use egui::{DragValue, Grid, RichText};
     let look = cx.look();
     let c = &look.c;
-    let size = look.text_size;
     let values = &cx.app.settings;
-    dialog(ctx, cx, "Settings", "", None, |ui, rect| {
-        let column = Rect::from_center_size(
-            Pos2::new(rect.center().x, rect.center().y),
-            vec2(rect.width().min(560.0), rect.height()),
-        );
-        region(ui, column, |ui| {
-            scroll("settings").show(ui, |ui| {
-                Frame::new().inner_margin(Margin::same(16)).show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
-                    let section = |ui: &mut Ui, title: &str| {
-                        ui.add_space(10.0);
-                        heading(ui, look, title);
-                    };
-                    let line = |ui: &mut Ui, label: &str, control: &mut dyn FnMut(&mut Ui)| {
-                        ui.horizontal(|ui| {
-                            text(ui, label, size, c.text);
-                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| control(ui));
-                        });
-                    };
-                    section(ui, "Appearance");
-                    line(ui, "Theme", &mut |ui| {
-                        let options: Vec<(String, String)> = THEMES
-                            .iter()
-                            .map(|(value, label)| ((*value).to_owned(), (*label).to_owned()))
-                            .collect();
-                        if let Some(chosen) = choice(ui, "theme", &options, &values.theme, 150.0) {
-                            cx.send(Message::SetTheme(chosen));
-                        }
-                    });
-                    section(ui, "Diffs");
-                    line(ui, "Layout", &mut |ui| {
-                        if toggle(ui, look, "Side by side", values.diff_split) {
-                            cx.send(Message::SetSplit(true));
-                        }
-                        if toggle(ui, look, "Unified", !values.diff_split) {
-                            cx.send(Message::SetSplit(false));
-                        }
-                    });
-                    line(ui, "Context lines", &mut |ui| {
-                        let (_, changed) = line_edit(
-                            ui,
-                            "context",
-                            &values.diff_context.to_string(),
-                            "",
-                            90.0,
-                            look.ui(size),
-                        );
-                        if let Some(text) = changed {
-                            cx.send(Message::SetContext(text));
-                        }
-                    });
-                    if let Some(on) = check(
-                        ui,
-                        values.ignore_whitespace,
-                        "Ignore whitespace changes",
-                        true,
-                    ) {
-                        cx.send(Message::SetIgnoreWhitespace(on));
-                    }
-                    if let Some(on) =
-                        check(ui, values.syntax_highlight, "Syntax highlighting", true)
-                    {
-                        cx.send(Message::SetSyntax(on));
-                    }
-                    section(ui, "Repository");
-                    line(ui, "Commits loaded at a time", &mut |ui| {
-                        let (_, changed) = line_edit(
-                            ui,
-                            "log_limit",
-                            &values.log_limit.to_string(),
-                            "",
-                            90.0,
-                            look.ui(size),
-                        );
-                        if let Some(text) = changed {
-                            cx.send(Message::SetLogLimit(text));
-                        }
-                    });
-                    if let Some(on) = check(
-                        ui,
-                        values.fetch_on_open,
-                        "Fetch when opening a repository",
-                        true,
-                    ) {
-                        cx.send(Message::SetFetchOnOpen(on));
-                    }
-                    if let Some(on) = check(
-                        ui,
-                        values.commit_graph,
-                        "Keep a commit-graph file for faster history",
-                        true,
-                    ) {
-                        cx.send(Message::SetCommitGraph(on));
-                    }
-                    section(ui, "Keyboard shortcuts");
-                    for (keys, what) in [
-                        ("Ctrl/⌘ + 1 / 2", "All commits / Local changes"),
-                        ("Ctrl/⌘ + F", "Search commits"),
-                        ("Ctrl/⌘ + T or O", "Open repository"),
-                        ("Ctrl/⌘ + W", "Close tab"),
-                        ("Ctrl/⌘ + Enter", "Commit"),
-                        ("Ctrl/⌘ + + / − / 0", "Zoom"),
-                        ("F5 / Ctrl/⌘ + R", "Refresh repository"),
-                        ("↑ ↓ PgUp PgDn", "Move through commits"),
-                    ] {
-                        ui.horizontal(|ui| {
-                            let (slot, _) =
-                                ui.allocate_exact_size(vec2(170.0, 16.0), Sense::hover());
-                            ui.painter().text(
-                                slot.left_center(),
-                                Align2::LEFT_CENTER,
-                                keys,
-                                look.ui(size),
-                                c.text,
-                            );
-                            muted(ui, look, what, size);
-                        });
+    let window = cx.app.window;
+    let response = egui::Modal::new(Id::unique("settings"))
+        .backdrop_color(c.backdrop)
+        .frame(floating(look, 12).inner_margin(Margin::symmetric(24, 20)))
+        .show(ctx, |ui| {
+            ui.set_width(460.0);
+            ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Settings").size(22.0).color(c.text));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if primary(ui, look, "Done", true) {
+                        cx.send(Message::OverlayClose);
                     }
                 });
             });
+            ui.add_space(4.0);
+            ui.separator();
+            scroll("settings")
+                .auto_shrink([false, true])
+                .max_height((window.y * 0.85 - 110.0).max(160.0))
+                .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+                    group(ui, cx, "Appearance", |ui| {
+                        Grid::new("appearance")
+                            .num_columns(2)
+                            .spacing([24.0, 8.0])
+                            .show(ui, |ui| {
+                                ui.label("Theme");
+                                let options: Vec<(String, String)> = THEMES
+                                    .iter()
+                                    .map(|(value, label)| {
+                                        ((*value).to_owned(), (*label).to_owned())
+                                    })
+                                    .collect();
+                                if let Some(chosen) =
+                                    choice(ui, "theme", &options, &values.theme, 170.0)
+                                {
+                                    cx.send(Message::SetTheme(chosen));
+                                }
+                                ui.end_row();
+                            });
+                    });
+                    group(ui, cx, "Diffs", |ui| {
+                        Grid::new("diffs")
+                            .num_columns(2)
+                            .spacing([24.0, 8.0])
+                            .show(ui, |ui| {
+                                ui.label("Layout");
+                                if let Some(chosen) = segmented(
+                                    ui,
+                                    look,
+                                    ["Unified", "Side by side"],
+                                    usize::from(values.diff_split),
+                                ) {
+                                    cx.send(Message::SetSplit(chosen == 1));
+                                }
+                                ui.end_row();
+                                ui.label("Context lines");
+                                let mut lines = values.diff_context;
+                                ui.add(DragValue::new(&mut lines).range(0..=100));
+                                if lines != values.diff_context {
+                                    cx.send(Message::SetContext(lines.to_string()));
+                                }
+                                ui.end_row();
+                            });
+                        if let Some(on) = check(
+                            ui,
+                            values.ignore_whitespace,
+                            "Ignore whitespace changes",
+                            true,
+                        ) {
+                            cx.send(Message::SetIgnoreWhitespace(on));
+                        }
+                        if let Some(on) =
+                            check(ui, values.syntax_highlight, "Syntax highlighting", true)
+                        {
+                            cx.send(Message::SetSyntax(on));
+                        }
+                    });
+                    group(ui, cx, "Repository", |ui| {
+                        Grid::new("repository")
+                            .num_columns(2)
+                            .spacing([24.0, 8.0])
+                            .show(ui, |ui| {
+                                ui.label("Commits loaded at a time");
+                                let mut limit = values.log_limit;
+                                ui.add(DragValue::new(&mut limit).range(100..=100_000).speed(50));
+                                if limit != values.log_limit {
+                                    cx.send(Message::SetLogLimit(limit.to_string()));
+                                }
+                                ui.end_row();
+                            });
+                        if let Some(on) = check(
+                            ui,
+                            values.fetch_on_open,
+                            "Fetch when opening a repository",
+                            true,
+                        ) {
+                            cx.send(Message::SetFetchOnOpen(on));
+                        }
+                        if let Some(on) = check(
+                            ui,
+                            values.commit_graph,
+                            "Keep a commit-graph file for faster history",
+                            true,
+                        ) {
+                            cx.send(Message::SetCommitGraph(on));
+                        }
+                    });
+                    group(ui, cx, "Keyboard shortcuts", |ui| {
+                        Grid::new("shortcuts")
+                            .num_columns(2)
+                            .spacing([24.0, 6.0])
+                            .show(ui, |ui| {
+                                for (keys, what) in SHORTCUTS {
+                                    ui.label(RichText::new(keys).monospace().size(12.0));
+                                    muted(ui, look, what, look.text_size);
+                                    ui.end_row();
+                                }
+                            });
+                    });
+                });
         });
-    });
+    if response.backdrop_response.clicked() {
+        cx.send(Message::OverlayClose);
+    }
 }

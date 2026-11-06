@@ -244,6 +244,9 @@ pub struct RepoTab {
     pub detail: Option<CommitDetail>,
     pub detail_error: Option<String>,
     pub selected_file: Option<String>,
+    /// The keyboard moves through the commit's files rather than the commits: set by picking
+    /// a file, cleared by picking a commit.
+    pub files_focused: bool,
     pub commit_pane: DiffPane,
     pub offset: f32,
     pub viewport: f32,
@@ -286,6 +289,7 @@ impl RepoTab {
             detail: None,
             detail_error: None,
             selected_file: None,
+            files_focused: false,
             commit_pane: DiffPane::default(),
             offset: 0.0,
             viewport: 300.0,
@@ -1718,6 +1722,7 @@ impl App {
             return Task::none();
         };
         tab.selected = Some(sha.clone());
+        tab.files_focused = false;
         tab.detail_error = None;
         let path = tab.path.clone();
         Task::perform(
@@ -1775,6 +1780,7 @@ impl App {
         } else {
             tab.selected_file = Some(path);
         }
+        tab.files_focused = true;
         self.reload_commit_pane()
     }
 
@@ -2702,6 +2708,23 @@ impl App {
                 let stash = tab.stash.as_ref()?;
                 let paths = stash.files.iter().map(|file| file.path.clone()).collect();
                 (paths, stash.selected.clone(), Box::new(Message::PickFile))
+            }
+            View::History if tab.files_focused => {
+                let (paths, current) = match &tab.compare {
+                    Some(compare) => (
+                        compare.result.as_ref().map_or_else(Vec::new, |result| {
+                            result.files.iter().map(|file| file.path.clone()).collect()
+                        }),
+                        compare.selected.clone(),
+                    ),
+                    None => (
+                        tab.detail.as_ref().map_or_else(Vec::new, |detail| {
+                            detail.files.iter().map(|file| file.path.clone()).collect()
+                        }),
+                        tab.selected_file.clone(),
+                    ),
+                };
+                (paths, current, Box::new(Message::PickFile))
             }
             View::History => return None,
         };

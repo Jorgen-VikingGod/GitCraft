@@ -11,7 +11,7 @@ use gitcraft_core::model::{DiffLine, FileDiff};
 
 use super::widgets::{
     bar, btn, danger_text, fill, hline, paint_text, placeholder, primary, region, scroll,
-    segmented, text,
+    segmented, split_x, text,
 };
 use super::{Cx, icon};
 use crate::app::{DIFF_ROW_HEIGHT, DiffPane, DiffRow, Message, PaneKey};
@@ -270,6 +270,7 @@ impl Lines<'_> {
         self.click(ui, rect, hunk, index, line.t);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn hunk_header(
         &self,
         ui: &mut Ui,
@@ -277,6 +278,8 @@ impl Lines<'_> {
         visible_right: f32,
         index: usize,
         stage_mode: Option<&'static str>,
+        show_title: bool,
+        show_buttons: bool,
     ) {
         let look = self.cx.look();
         let c = &look.c;
@@ -295,21 +298,23 @@ impl Lines<'_> {
         );
         let mid = rect.center().y;
         let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
-        let mut x = rect.left() + 10.0;
-        x += paint_text(
-            &painter,
-            Pos2::new(x, mid),
-            &title,
-            look.mono(12.0),
-            c.text_muted,
-        ) + 6.0;
-        paint_text(
-            &painter,
-            Pos2::new(x, mid),
-            &hunk.context,
-            look.mono(12.0),
-            c.text,
-        );
+        if show_title {
+            let mut x = rect.left() + 10.0;
+            x += paint_text(
+                &painter,
+                Pos2::new(x, mid),
+                &title,
+                look.mono(12.0),
+                c.text_muted,
+            ) + 6.0;
+            paint_text(
+                &painter,
+                Pos2::new(x, mid),
+                &hunk.context,
+                look.mono(12.0),
+                c.text,
+            );
+        }
 
         let count = self.pane.selected_in(index).len();
         let name = |verb: &str| {
@@ -319,7 +324,9 @@ impl Lines<'_> {
                 format!("{verb} hunk")
             }
         };
-        let Some(mode) = stage_mode else { return };
+        let Some(mode) = stage_mode.filter(|_| show_buttons) else {
+            return;
+        };
         let slot = Rect::from_min_max(
             Pos2::new((visible_right - 420.0).max(rect.left()), rect.top() + 4.0),
             Pos2::new(visible_right - 10.0, rect.bottom() - 4.0),
@@ -432,80 +439,128 @@ pub fn view(
         .current()
         .map(|tab| tab.path.as_str())
         .unwrap_or_default();
-    let mut area =
-        scroll(("diff", repo, key as u8)).scroll_source(egui::scroll_area::ScrollSource::ALL);
-    area = area.scroll([true, true]);
-    if let Some(offset) = pane.scroll_to.take() {
-        // A position past the end would bounce back, showing nothing on the way.
-        let longest = with_tops(pane, |tops| tops.last().copied().unwrap_or(0.0));
-        area = area.vertical_scroll_offset(offset.clamp(0.0, (longest - pane.viewport.y).max(0.0)));
-    }
-    let output = area.show_viewport(ui, |ui, viewport| {
-        let origin = ui.max_rect().min;
-        // As wide as the longest line needs, and at least as wide as the pane.
-        let text = widest(pane) as f32 * look.char_width;
-        let needed = if split {
-            2.0 * (NUMBER_WIDTH + SPLIT_BAR + 6.0 + text + TEXT_MARGIN)
-        } else {
-            NUMBER_WIDTH * 2.0 + SIGN_WIDTH + text + TEXT_MARGIN
-        };
-        let width = needed.max(viewport.width());
-        let seen = origin.x + viewport.min.x;
-        ui.set_width(width);
-        with_tops(pane, |tops| {
-            let total = tops.last().copied().unwrap_or(0.0);
-            let extra =
-                if diff.truncated { 70.0 } else { 0.0 } + if note.is_some() { 34.0 } else { 0.0 };
-            ui.set_height(total + extra);
-            let rows = pane.rows.len();
-            let first = first_visible(tops, viewport.min.y)
-                .saturating_sub(OVERSCAN)
-                .min(rows);
-            let end = (tops.partition_point(|top| *top < viewport.max.y) + OVERSCAN).min(rows);
-            for index in first..end {
-                let rect = Rect::from_min_max(
-                    origin + vec2(0.0, tops[index]),
-                    origin + vec2(width, tops[index + 1]),
-                );
-                match pane.rows[index] {
-                    DiffRow::Hunk(hunk) => {
-                        lines.hunk_header(ui, rect, origin.x + viewport.max.x, hunk, shown_mode);
+    let longest = with_tops(pane, |tops| tops.last().copied().unwrap_or(0.0));
+    // A position past the end would bounce back, showing nothing on the way.
+    let requested = pane
+        .scroll_to
+        .take()
+        .map(|offset| offset.clamp(0.0, (longest - pane.viewport.y).max(0.0)));
+    let text = widest(pane) as f32 * look.char_width;
+    let body = ui.available_rect_before_wrap();
+    // Side by side, each side is a pane of its own with its own sideways scroll bar; they
+    // scroll up and down together.
+    let panes: Vec<(Side, Rect)> = if split {
+        let (left, right) = split_x(body, (body.width() / 2.0).floor());
+        vec![(Side::Left, left), (Side::Right, right)]
+    } else {
+        vec![(Side::Whole, body)]
+    };
+    let mut reported: Vec<(f32, Vec2)> = Vec::new();
+    for (side, rect) in panes {
+        region(ui, rect, |ui| {
+            // Solid bars, so that each pane shows its own sideways bar all the time.
+            ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
+            let mut area = scroll(("diff", repo, key as u8, side as u8))
+                .scroll([true, true])
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible);
+            if let Some(offset) = requested.or(split.then_some(pane.offset)) {
+                area = area.vertical_scroll_offset(offset);
+            }
+            let output = area.show_viewport(ui, |ui, viewport| {
+                let origin = ui.max_rect().min;
+                // As wide as the longest line needs, and at least as wide as the pane.
+                let needed = match side {
+                    Side::Whole => NUMBER_WIDTH * 2.0 + SIGN_WIDTH + text + TEXT_MARGIN,
+                    _ => NUMBER_WIDTH + SPLIT_BAR + 6.0 + text + TEXT_MARGIN,
+                };
+                let width = needed.max(viewport.width());
+                let seen = origin.x + viewport.min.x;
+                ui.set_width(width);
+                with_tops(pane, |tops| {
+                    let total = tops.last().copied().unwrap_or(0.0);
+                    let extra = if diff.truncated { 70.0 } else { 0.0 }
+                        + if note.is_some() { 34.0 } else { 0.0 };
+                    ui.set_height(total + extra);
+                    let rows = pane.rows.len();
+                    let first = first_visible(tops, viewport.min.y)
+                        .saturating_sub(OVERSCAN)
+                        .min(rows);
+                    let end =
+                        (tops.partition_point(|top| *top < viewport.max.y) + OVERSCAN).min(rows);
+                    for index in first..end {
+                        let rect = Rect::from_min_max(
+                            origin + vec2(0.0, tops[index]),
+                            origin + vec2(width, tops[index + 1]),
+                        );
+                        match pane.rows[index] {
+                            DiffRow::Hunk(hunk) => lines.hunk_header(
+                                ui,
+                                rect,
+                                origin.x + viewport.max.x,
+                                hunk,
+                                shown_mode,
+                                side != Side::Right,
+                                side != Side::Left,
+                            ),
+                            DiffRow::Line(hunk, line) => lines.unified(ui, rect, hunk, line),
+                            DiffRow::Split(hunk, left, right) => match side {
+                                Side::Right => lines.half(ui, rect, hunk, right, false),
+                                _ => lines.half(ui, rect, hunk, left, true),
+                            },
+                        }
                     }
-                    DiffRow::Line(hunk, line) => lines.unified(ui, rect, hunk, line),
-                    DiffRow::Split(hunk, left, right) => {
-                        let (a, b) = super::widgets::split_x(rect, rect.width() / 2.0);
-                        lines.half(ui, a, hunk, left, true);
-                        lines.half(ui, b, hunk, right, false);
+                    if side == Side::Right {
+                        return;
                     }
-                }
-            }
-            let mut y = origin.y + total;
-            if diff.truncated {
-                ui.painter().text(
-                    Pos2::new(seen + viewport.width() / 2.0, y + 35.0),
-                    Align2::CENTER_CENTER,
-                    "Diff truncated — the file is too large to show completely.",
-                    look.ui(13.0),
-                    c.text_muted,
-                );
-                y += 70.0;
-            }
-            if let Some(note) = note {
-                paint_text(
-                    ui.painter(),
-                    Pos2::new(seen + 12.0, y + 17.0),
-                    note,
-                    look.ui(12.0),
-                    c.text_muted,
-                );
-            }
+                    let mut y = origin.y + total;
+                    if diff.truncated {
+                        ui.painter().text(
+                            Pos2::new(seen + viewport.width() / 2.0, y + 35.0),
+                            Align2::CENTER_CENTER,
+                            "Diff truncated — the file is too large to show completely.",
+                            look.ui(13.0),
+                            c.text_muted,
+                        );
+                        y += 70.0;
+                    }
+                    if let Some(note) = note {
+                        paint_text(
+                            ui.painter(),
+                            Pos2::new(seen + 12.0, y + 17.0),
+                            note,
+                            look.ui(12.0),
+                            c.text_muted,
+                        );
+                    }
+                });
+            });
+            reported.push((
+                output.state.clamped_offset().y,
+                Vec2::new(output.inner_rect.width(), output.inner_rect.height()),
+            ));
         });
-    });
-    let offset = output.state.clamped_offset().y;
-    let size = Vec2::new(output.inner_rect.width(), output.inner_rect.height());
+    }
+    // Whichever side was scrolled leads.
+    let (offset, mut size) = reported
+        .iter()
+        .copied()
+        .find(|(offset, _)| (offset - pane.offset).abs() > 0.5)
+        .or_else(|| reported.first().copied())
+        .unwrap_or((pane.offset, pane.viewport));
+    if split {
+        size.x = body.width();
+    }
     if (offset - pane.offset).abs() > 0.5 || (size - pane.viewport).abs().max_elem() > 0.5 {
         cx.send(Message::DiffScrolled(key, offset, size));
     }
+}
+
+/// The part of a diff a scroll area shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Side {
+    Whole,
+    Left,
+    Right,
 }
 
 #[cfg(test)]
