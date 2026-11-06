@@ -1319,18 +1319,19 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             act(Action::UndoLast),
         ));
     }
+    // Also at the top level, as it is one of the most common history edits.
+    items.push(MenuItem::entry_if(
+        "Squash into parent…",
+        has_parent,
+        act(Action::Squash {
+            sha: sha.clone(),
+            fixup: false,
+        }),
+    ));
     items.push(MenuItem::sub(
         "Edit commit",
         vec![
             MenuItem::entry("Edit message…", act(Action::EditMessage(sha.clone()))),
-            MenuItem::entry_if(
-                "Squash into parent…",
-                has_parent,
-                act(Action::Squash {
-                    sha: sha.clone(),
-                    fixup: false,
-                }),
-            ),
             MenuItem::entry_if(
                 "Fixup into parent (discard message)…",
                 has_parent,

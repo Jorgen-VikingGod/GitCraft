@@ -1461,3 +1461,31 @@ async fn settings_fit_a_tall_window_and_scroll_in_a_short_one() {
     assert!(shown.has("Settings"), "the start is shown");
     assert!(!shown.has(last), "and the rest is reached by scrolling");
 }
+
+#[tokio::test]
+async fn the_commit_menu_has_squash_into_parent_at_the_top_level() {
+    let f = fixture();
+    let app = opened(&f, false).await;
+    let tab = app.current().unwrap();
+    let top_level = |subject: &str| {
+        let commit = tab.commits.iter().find(|c| c.subject == subject).unwrap();
+        commit_menu_items(tab, commit, None)
+            .into_iter()
+            .find_map(|item| match item {
+                MenuItem::Entry { label, message, .. } if label == "Squash into parent…" => {
+                    Some(message)
+                }
+                _ => None,
+            })
+    };
+    let second = top_level("second commit").expect("listed outside the submenu");
+    assert!(matches!(
+        second,
+        Some(Message::Action(Action::Squash { fixup: false, .. }))
+    ));
+    let first = top_level("first commit").expect("listed for every commit");
+    assert!(
+        first.is_none(),
+        "but off for the first commit, which has no parent"
+    );
+}
