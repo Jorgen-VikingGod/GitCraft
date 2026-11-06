@@ -1279,3 +1279,53 @@ async fn arrow_keys_follow_the_list_that_was_clicked_last() {
         Some(sha.as_str())
     );
 }
+
+#[tokio::test]
+async fn the_sides_of_a_split_diff_scroll_sideways_together() {
+    let f = empty_fixture();
+    let long = "word ".repeat(80);
+    f.commit("a.txt", &format!("{long}old\n"), "first");
+    f.commit("a.txt", &format!("{long}new\n"), "second");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetSplit(true)).await;
+    let screen = Screen::new();
+    let before = screen.show(&app);
+    let sides: Vec<Rect> = before
+        .texts
+        .iter()
+        .filter(|(text, _)| text.starts_with("word word"))
+        .map(|(_, rect)| *rect)
+        .collect();
+    assert_eq!(sides.len(), 2, "both sides show the changed line");
+    let (left, right) = (sides[0], sides[1]);
+    assert!(left.left() < right.left());
+
+    // Scroll the right side sideways; the left one follows.
+    let over = right.left_center() + vec2(40.0, 0.0);
+    screen.frame(&app, vec![Event::PointerMoved(over)]);
+    screen.frame(
+        &app,
+        vec![Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: vec2(-120.0, 0.0),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Wheel,
+            modifiers: Modifiers::NONE,
+        }],
+    );
+    let after = screen.show(&app);
+    let moved: Vec<Rect> = after
+        .texts
+        .iter()
+        .filter(|(text, _)| text.starts_with("word word"))
+        .map(|(_, rect)| *rect)
+        .collect();
+    assert!(
+        moved[0].left() < left.left() - 20.0,
+        "the left side moved too: {moved:?} vs {sides:?}"
+    );
+    assert!(
+        moved[1].left() < right.left() - 20.0,
+        "and so did the right side"
+    );
+}

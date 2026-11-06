@@ -456,6 +456,7 @@ pub fn view(
         vec![(Side::Whole, body)]
     };
     let mut reported: Vec<(f32, Vec2)> = Vec::new();
+    let mut sideways: Vec<f32> = Vec::new();
     for (side, rect) in panes {
         region(ui, rect, |ui| {
             // The same bars as the history list, but not hidden until the pointer comes near,
@@ -467,6 +468,9 @@ pub fn view(
                 .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible);
             if let Some(offset) = requested.or(split.then_some(pane.offset)) {
                 area = area.vertical_scroll_offset(offset);
+            }
+            if split {
+                area = area.horizontal_scroll_offset(pane.hscroll.get());
             }
             let output = area.show_viewport(ui, |ui, viewport| {
                 let origin = ui.max_rect().min;
@@ -536,13 +540,24 @@ pub fn view(
                     }
                 });
             });
+            sideways.push(output.state.clamped_offset().x);
             reported.push((
                 output.state.clamped_offset().y,
                 Vec2::new(output.inner_rect.width(), output.inner_rect.height()),
             ));
         });
     }
-    // Whichever side was scrolled leads.
+    // Whichever side was scrolled sideways leads, and the other follows on the next frame.
+    if split
+        && let Some(moved) = sideways
+            .iter()
+            .copied()
+            .find(|x| (x - pane.hscroll.get()).abs() > 0.5)
+    {
+        pane.hscroll.set(moved);
+        ui.ctx().request_repaint();
+    }
+    // Whichever side was scrolled up or down leads.
     let (offset, mut size) = reported
         .iter()
         .copied()

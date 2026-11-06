@@ -86,6 +86,8 @@ pub struct DiffPane {
     pub layout: RefCell<(f32, usize, Vec<f32>)>,
     /// The widest line in columns, once known: the diff scrolls sideways by this much.
     pub max_cols: Cell<Option<usize>>,
+    /// Where the sides of a split diff are scrolled to sideways; they move together.
+    pub hscroll: Cell<f32>,
     pub selection: BTreeSet<(usize, usize)>,
     pub anchor: Option<(usize, usize)>,
 }
@@ -103,6 +105,7 @@ impl Default for DiffPane {
             scroll_to: Cell::new(None),
             layout: RefCell::new((-1.0, 0, Vec::new())),
             max_cols: Cell::new(None),
+            hscroll: Cell::new(0.0),
             selection: BTreeSet::new(),
             anchor: None,
         }
@@ -116,6 +119,7 @@ impl DiffPane {
         self.rows.clear();
         self.layout.get_mut().0 = -1.0;
         self.max_cols.set(None);
+        self.hscroll.set(0.0);
         self.highlights = None;
         self.loading = false;
         self.selection.clear();
@@ -126,6 +130,7 @@ impl DiffPane {
         self.rows.clear();
         self.layout.get_mut().0 = -1.0;
         self.max_cols.set(None);
+        self.hscroll.set(0.0);
         let Some(diff) = &self.diff else { return };
         for (index, hunk) in diff.hunks.iter().enumerate() {
             self.rows.push(DiffRow::Hunk(index));
