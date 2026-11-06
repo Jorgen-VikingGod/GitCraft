@@ -1057,6 +1057,10 @@ fn settings(ctx: &Context, cx: &Cx) {
             });
             ui.add_space(4.0);
             ui.separator();
+            // Always show the bar, so that it is clear there is more below.
+            let bars = &mut ui.spacing_mut().scroll;
+            bars.dormant_handle_opacity = bars.active_handle_opacity;
+            bars.dormant_background_opacity = bars.active_background_opacity;
             scroll("settings")
                 .auto_shrink([false, true])
                 .max_height((window.y * 0.85 - 110.0).max(160.0))
