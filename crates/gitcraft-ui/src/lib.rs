@@ -29,6 +29,8 @@ pub fn run() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_app_id("gitcraft")
             .with_title("GitCraft")
+            // The system draws the title bar and border, whatever the platform offers.
+            .with_decorations(true)
             .with_inner_size([saved.window_width, saved.window_height])
             .with_min_inner_size([640.0, 400.0]),
         ..eframe::NativeOptions::default()

@@ -228,34 +228,38 @@ fn search_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab, rect: Rect) {
     );
     let id = Id::unique("search_box");
     let field = Rect::from_min_max(
-        Pos2::new(rect.left() + 30.0, rect.top() + 4.0),
-        Pos2::new(rect.right() - 92.0, rect.bottom() - 4.0),
+        Pos2::new(rect.left() + 30.0, rect.top() + 6.5),
+        Pos2::new(rect.right() - 92.0, rect.bottom() - 1.5),
     );
     super::widgets::region(ui, field, |ui| {
-        let (response, changed) = bare_edit(
-            ui,
-            id,
-            &tab.search_input,
-            "Search commits (Ctrl+F)",
-            field.width(),
-            look.ui(13.0),
-        );
-        if cx.app.focus_search.take() {
-            ui.memory_mut(|memory| memory.request_focus(id));
-            if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), id) {
-                let end = tab.search_input.chars().count();
-                state
-                    .cursor
-                    .set_char_range(Some(CCursorRange::two(CCursor::new(0), CCursor::new(end))));
-                state.store(ui.ctx(), id);
+        // Centred, so that the hint text sits in the middle of the box, not at its top.
+        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+            let (response, changed) = bare_edit(
+                ui,
+                id,
+                &tab.search_input,
+                "Search commits (Ctrl+F)",
+                field.width(),
+                look.ui(13.0),
+            );
+            if cx.app.focus_search.take() {
+                ui.memory_mut(|memory| memory.request_focus(id));
+                if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), id) {
+                    let end = tab.search_input.chars().count();
+                    state.cursor.set_char_range(Some(CCursorRange::two(
+                        CCursor::new(0),
+                        CCursor::new(end),
+                    )));
+                    state.store(ui.ctx(), id);
+                }
             }
-        }
-        if let Some(text) = changed {
-            cx.send(Message::SearchInput(text));
-        }
-        if response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter)) {
-            cx.send(Message::SearchSubmit);
-        }
+            if let Some(text) = changed {
+                cx.send(Message::SearchInput(text));
+            }
+            if response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter)) {
+                cx.send(Message::SearchSubmit);
+            }
+        });
     });
     let mode = Rect::from_min_max(
         Pos2::new(rect.right() - 90.0, rect.top() + 3.0),
