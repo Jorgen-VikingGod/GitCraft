@@ -73,7 +73,7 @@ and can be resolved in the built-in conflict resolver.
 | Ctrl/⌘ + Enter | Commit |
 | Ctrl/⌘ + + / − / 0 | Zoom |
 | F5 or Ctrl/⌘ + R | Refresh repository |
-| ↑ ↓ PgUp PgDn | Move through commits |
+| ↑ ↓ PgUp PgDn | Move through commits, or through the files of the list you clicked last |
 
 In the interactive rebase editor, ↑ ↓ moves the focus, Alt + ↑ ↓ moves the commit, and
 <kbd>p</kbd> <kbd>r</kbd> <kbd>e</kbd> <kbd>s</kbd> <kbd>f</kbd> <kbd>d</kbd> set its action.
@@ -119,10 +119,11 @@ cargo packager --release --formats deb,appimage     # output goes to target/pack
 | --- | --- | --- |
 | Linux | `deb,appimage` | `.deb`, `.AppImage` |
 | macOS | `dmg` | `.dmg` |
-| Windows | `nsis` | NSIS installer `.exe` |
+| Windows | `wix` | `.msi` installer |
 
-Installers must be built on their own OS; `.github/workflows/rust.yml` builds all of them and attaches
-them to the workflow run. The builds are unsigned, apart from the ad-hoc signature that
+Installers must be built on their own OS. `.github/workflows/release.yml` builds all of them when a
+release is published and attaches them to it (it can also be started by hand from the Actions tab).
+The builds are unsigned, apart from the ad-hoc signature that
 Apple Silicon requires, so add code-signing for public releases. `git` must be installed on the user's
 machine (the `.deb` depends on it).
 
