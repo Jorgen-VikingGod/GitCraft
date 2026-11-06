@@ -458,8 +458,10 @@ pub fn view(
     let mut reported: Vec<(f32, Vec2)> = Vec::new();
     for (side, rect) in panes {
         region(ui, rect, |ui| {
-            // Solid bars, so that each pane shows its own sideways bar all the time.
-            ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
+            // The same bars as the history list, but not hidden until the pointer comes near,
+            // so that each pane shows its own sideways bar.
+            let bars = &mut ui.spacing_mut().scroll;
+            bars.dormant_handle_opacity = bars.active_handle_opacity;
             let mut area = scroll(("diff", repo, key as u8, side as u8))
                 .scroll([true, true])
                 .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible);
