@@ -94,7 +94,7 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
         popups::form(&ctx, &cx, form);
     }
     if let Some(menu) = &app.menu {
-        popups::menu(&ctx, &cx, menu);
+        popups::menu(ui, &cx, menu);
     }
     popups::toasts(&ctx, &cx);
     cx.finish()

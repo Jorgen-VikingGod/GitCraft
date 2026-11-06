@@ -247,8 +247,10 @@ impl Look {
         }
     }
 
-    /// Makes egui's own widgets (text fields, scroll bars, checkboxes) follow the palette.
+    /// Styles egui's own widgets (buttons, text fields, menus, scroll bars) from the palette,
+    /// so that they look the same in every part of the window.
     pub fn apply(&self, ctx: &egui::Context) {
+        use egui::{CornerRadius, Stroke, TextStyle, Vec2};
         let c = &self.c;
         let mut visuals = if self.dark {
             egui::Visuals::dark()
@@ -257,58 +259,91 @@ impl Look {
         };
         visuals.override_text_color = Some(c.text);
         visuals.panel_fill = c.bg;
-        visuals.window_fill = c.bg;
+        visuals.window_fill = c.panel;
         visuals.extreme_bg_color = c.input;
         visuals.faint_bg_color = c.panel;
-        visuals.window_stroke = egui::Stroke::new(1.0, c.border);
+        visuals.window_stroke = Stroke::new(1.0, c.border);
+        visuals.window_corner_radius = CornerRadius::same(10);
+        visuals.menu_corner_radius = CornerRadius::same(8);
+        visuals.popup_shadow = egui::epaint::Shadow {
+            offset: [0, 8],
+            blur: 24,
+            spread: 0,
+            color: c.shadow,
+        };
         visuals.hyperlink_color = c.accent;
         visuals.selection.bg_fill = c.selection;
-        visuals.selection.stroke = egui::Stroke::new(1.0, c.accent);
-        visuals.text_cursor.stroke = egui::Stroke::new(1.5, c.accent);
-        let widgets = &mut visuals.widgets;
-        for state in [
-            &mut widgets.noninteractive,
-            &mut widgets.inactive,
-            &mut widgets.hovered,
-            &mut widgets.active,
-            &mut widgets.open,
-        ] {
-            state.corner_radius = egui::CornerRadius::same(5);
-        }
-        widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, c.border);
-        widgets.inactive.bg_fill = c.input;
-        widgets.inactive.weak_bg_fill = c.input;
-        widgets.inactive.bg_stroke = egui::Stroke::new(1.0, c.border);
-        widgets.inactive.fg_stroke = egui::Stroke::new(1.0, c.text);
-        widgets.hovered.bg_fill = c.hover_strong;
-        widgets.hovered.weak_bg_fill = c.hover_strong;
-        widgets.hovered.bg_stroke = egui::Stroke::new(1.0, c.border);
-        widgets.hovered.fg_stroke = egui::Stroke::new(1.0, c.text);
-        widgets.active.bg_fill = c.accent_soft;
-        widgets.active.weak_bg_fill = c.accent_soft;
-        widgets.active.bg_stroke = egui::Stroke::new(1.0, c.accent);
-        ctx.set_visuals(visuals);
+        visuals.selection.stroke = Stroke::new(1.0, c.accent);
+        visuals.text_cursor.stroke = Stroke::new(1.5, c.accent);
+        let hover_fill = mix(c.input, c.text, 0.09);
+        let round = CornerRadius::same(5);
+        let w = &mut visuals.widgets;
+        w.noninteractive.bg_stroke = Stroke::new(1.0, c.border);
+        w.noninteractive.fg_stroke = Stroke::new(1.0, c.text);
+        w.noninteractive.corner_radius = round;
+        w.inactive.bg_fill = c.input;
+        w.inactive.weak_bg_fill = c.input;
+        w.inactive.bg_stroke = Stroke::new(1.0, c.border);
+        w.inactive.fg_stroke = Stroke::new(1.0, c.text);
+        w.inactive.corner_radius = round;
+        w.hovered.bg_fill = hover_fill;
+        w.hovered.weak_bg_fill = hover_fill;
+        w.hovered.bg_stroke = Stroke::new(1.0, mix(c.border, c.text, 0.35));
+        w.hovered.fg_stroke = Stroke::new(1.0, c.text);
+        w.hovered.corner_radius = round;
+        w.active.bg_fill = mix(c.input, c.accent, 0.3);
+        w.active.weak_bg_fill = mix(c.input, c.accent, 0.3);
+        w.active.bg_stroke = Stroke::new(1.0, c.accent);
+        w.active.fg_stroke = Stroke::new(1.0, c.text);
+        w.active.corner_radius = round;
+        w.open.bg_fill = hover_fill;
+        w.open.weak_bg_fill = hover_fill;
+        w.open.bg_stroke = Stroke::new(1.0, c.border);
+        w.open.corner_radius = round;
+
+        let (size, code) = (self.text_size, CODE_SIZE);
         ctx.all_styles_mut(|style| {
-            style.spacing.item_spacing = egui::vec2(6.0, 4.0);
-            style.spacing.scroll.bar_width = 8.0;
-            style.spacing.scroll.floating = true;
-            style.spacing.scroll.floating_width = 5.0;
-            style.spacing.scroll.floating_allocated_width = 8.0;
+            style.visuals = visuals.clone();
+            style.text_styles = [
+                (
+                    TextStyle::Heading,
+                    FontId::new(16.0, FontFamily::Proportional),
+                ),
+                (TextStyle::Body, FontId::new(size, FontFamily::Proportional)),
+                (
+                    TextStyle::Button,
+                    FontId::new(size, FontFamily::Proportional),
+                ),
+                (
+                    TextStyle::Small,
+                    FontId::new(11.0, FontFamily::Proportional),
+                ),
+                (
+                    TextStyle::Monospace,
+                    FontId::new(code, FontFamily::Monospace),
+                ),
+            ]
+            .into();
+            let s = &mut style.spacing;
+            s.item_spacing = Vec2::new(6.0, 5.0);
+            s.button_padding = Vec2::new(8.0, 4.0);
+            s.interact_size = Vec2::new(40.0, 22.0);
+            s.combo_width = 190.0;
+            s.menu_margin = 4.into();
+            s.window_margin = 12.into();
+            s.scroll.bar_width = 8.0;
+            s.scroll.floating = true;
+            s.scroll.floating_width = 5.0;
+            s.scroll.floating_allocated_width = 8.0;
             style.interaction.selectable_labels = false;
-            style.text_styles.insert(
-                egui::TextStyle::Body,
-                FontId::new(self.text_size, FontFamily::Proportional),
-            );
-            style.text_styles.insert(
-                egui::TextStyle::Button,
-                FontId::new(self.text_size, FontFamily::Proportional),
-            );
-            style.text_styles.insert(
-                egui::TextStyle::Monospace,
-                FontId::new(CODE_SIZE, FontFamily::Monospace),
-            );
         });
     }
+}
+
+/// `a` moved `t` of the way towards `b`, opaque.
+pub fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
+    let lerp = |x: u8, y: u8| (f32::from(x) + (f32::from(y) - f32::from(x)) * t).round() as u8;
+    Color32::from_rgb(lerp(a.r(), b.r()), lerp(a.g(), b.g()), lerp(a.b(), b.b()))
 }
 
 #[cfg(test)]

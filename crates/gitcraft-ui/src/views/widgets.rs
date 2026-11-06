@@ -168,73 +168,51 @@ fn dim(color: Color32, enabled: bool) -> Color32 {
 }
 
 fn brighter(color: Color32) -> Color32 {
-    let lift = |v: u8| (f32::from(v) * 1.08).min(255.0) as u8;
-    Color32::from_rgba_unmultiplied(lift(color.r()), lift(color.g()), lift(color.b()), color.a())
+    crate::theme::mix(color, Color32::WHITE, 0.14)
 }
 
-/// The standard small button. True when it was clicked.
+/// The standard small button, drawn by egui so that it reacts like every other widget.
+/// True when it was clicked.
 pub fn button(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: bool) -> bool {
     let c = &look.c;
-    let font = look.ui(12.0);
-    let width = text_width(ui, label, &font) + 20.0;
-    let sense = if enabled {
-        Sense::click()
-    } else {
-        Sense::hover()
-    };
-    let (rect, response) = ui.allocate_exact_size(vec2(width, SMALL_BUTTON), sense);
-    let lit = enabled && (response.hovered() || response.is_pointer_button_down_on());
-    let (background, border, color) = match kind {
-        Kind::Normal => (
-            if lit { c.hover_strong } else { c.panel },
-            Some(c.border),
-            c.text,
-        ),
-        Kind::Primary => {
-            let fill = if lit { brighter(c.accent) } else { c.accent };
-            (fill, Some(fill), Color32::WHITE)
+    let text = RichText::new(label).size(12.0);
+    ui.scope(|ui| {
+        let solid = match kind {
+            Kind::Primary => Some(c.accent),
+            Kind::Danger => Some(c.danger),
+            _ => None,
+        };
+        let widgets = &mut ui.style_mut().visuals.widgets;
+        if let Some(fill) = solid {
+            for state in [
+                &mut widgets.inactive,
+                &mut widgets.hovered,
+                &mut widgets.active,
+            ] {
+                state.fg_stroke.color = Color32::WHITE;
+                state.bg_stroke = Stroke::NONE;
+            }
+            widgets.inactive.weak_bg_fill = fill;
+            widgets.hovered.weak_bg_fill = brighter(fill);
+            widgets.active.weak_bg_fill = crate::theme::mix(fill, Color32::BLACK, 0.15);
         }
-        Kind::Danger => {
-            let fill = if lit { brighter(c.danger) } else { c.danger };
-            (fill, Some(fill), Color32::WHITE)
+        let mut button = egui::Button::new(text).min_size(vec2(0.0, SMALL_BUTTON));
+        match kind {
+            Kind::Ghost => button = button.frame_when_inactive(false),
+            Kind::GhostDanger => {
+                button = egui::Button::new(text_colored(label, c.danger))
+                    .min_size(vec2(0.0, SMALL_BUTTON))
+                    .frame_when_inactive(false);
+            }
+            _ => {}
         }
-        Kind::Ghost => (
-            if lit {
-                c.hover_strong
-            } else {
-                Color32::TRANSPARENT
-            },
-            None,
-            c.text,
-        ),
-        Kind::GhostDanger => (
-            if lit {
-                c.hover_strong
-            } else {
-                Color32::TRANSPARENT
-            },
-            None,
-            c.danger,
-        ),
-    };
-    let painter = ui.painter();
-    painter.rect_filled(rect, 6.0, dim(background, enabled));
-    if let Some(border) = border {
-        painter.rect_stroke(
-            rect,
-            6.0,
-            Stroke::new(1.0, dim(border, enabled)),
-            StrokeKind::Inside,
-        );
-    }
-    painter.text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        label,
-        font,
-        dim(color, enabled),
-    );
-    enabled && response.clicked()
+        ui.add_enabled(enabled, button).clicked()
+    })
+    .inner
+}
+
+fn text_colored(label: &str, color: Color32) -> RichText {
+    RichText::new(label).size(12.0).color(color)
 }
 
 pub fn btn(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
@@ -617,21 +595,12 @@ pub fn bar(ui: &mut Ui, height: f32, color: Color32, pad: f32, add: impl FnOnce(
 }
 
 /// A borderless label button that lights up under the pointer.
-pub fn tool_text(ui: &mut Ui, look: &Look, label: &str, size: f32) -> Response {
-    let font = look.ui(size);
-    let width = text_width(ui, label, &font) + 16.0;
-    let (rect, response) = ui.allocate_exact_size(vec2(width, 22.0), Sense::click());
-    if response.hovered() {
-        ui.painter().rect_filled(rect, 6.0, look.c.hover);
-    }
-    ui.painter().text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        label,
-        font,
-        look.c.text,
-    );
-    response
+pub fn tool_text(ui: &mut Ui, label: &str, size: f32) -> Response {
+    ui.add(
+        egui::Button::new(RichText::new(label).size(size))
+            .frame_when_inactive(false)
+            .min_size(vec2(0.0, 22.0)),
+    )
 }
 
 // ------------------------------------------------------------------ frames

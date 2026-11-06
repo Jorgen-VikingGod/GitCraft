@@ -1134,3 +1134,48 @@ async fn start_page_lists_recent_repositories() {
     assert!(screen.has("demo-repo"));
     assert!(screen.has("Open a repository…"));
 }
+
+#[tokio::test]
+async fn menus_open_submenus_under_the_pointer_and_run_entries() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "merge side");
+    drive(&mut app, Message::CursorMoved(Pos2::new(500.0, 150.0))).await;
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::Commit { sha, focus: None }),
+    )
+    .await;
+    let screen = Screen::new();
+    let shown = screen.show(&app);
+    assert!(shown.has("New branch here…"), "the menu is drawn");
+    assert!(
+        !shown.has("Hard: discard all changes"),
+        "submenus start closed"
+    );
+
+    let at = shown.find("Reset main to here").unwrap().center();
+    screen.frame(&app, vec![Event::PointerMoved(at)]);
+    let shown = screen.show(&app);
+    assert!(
+        shown.has("Hard: discard all changes"),
+        "hovering a submenu opens it"
+    );
+
+    let child = shown.find("Hard: discard all changes").unwrap().center();
+    let press = |pressed| Event::PointerButton {
+        pos: child,
+        button: PointerButton::Primary,
+        pressed,
+        modifiers: Modifiers::NONE,
+    };
+    screen.frame(&app, vec![Event::PointerMoved(child)]);
+    screen.frame(&app, vec![press(true)]);
+    let messages = screen.frame(&app, vec![press(false)]).messages;
+    assert!(
+        messages
+            .iter()
+            .any(|message| matches!(message, Message::FromMenu(_))),
+        "clicking an entry in a submenu runs it: {messages:?}"
+    );
+}

@@ -195,8 +195,15 @@ impl Shell {
     fn take_shot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
+        // GITCRAFT_SHOT_MENU=1 also opens the repository menu, to see how menus look.
+        if shot.frames == 20 && std::env::var_os("GITCRAFT_SHOT_MENU").is_some() {
+            let at = egui::Pos2::new(420.0, 110.0);
+            self.app.cursor = at;
+            self.handle(Message::OpenMenu(crate::actions::MenuRequest::Repository));
+            return;
+        }
         ctx.request_repaint_after(Duration::from_millis(100));
-        if shot.frames > 30 && !shot.asked && self.app.current().is_some_and(|tab| !tab.loading) {
+        if shot.frames > 60 && !shot.asked && self.app.current().is_some_and(|tab| !tab.loading) {
             shot.asked = true;
             let (file, close) = (shot.file.clone(), ctx.clone());
             ctx.request_screenshot(move |image| {

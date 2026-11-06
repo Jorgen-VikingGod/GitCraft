@@ -18,14 +18,13 @@ use crate::command::Command;
 use crate::logic::{plural, short_sha};
 
 pub fn menu_bar(ui: &mut Ui, cx: &Cx) {
-    let look = cx.look();
     bar(ui, 26.0, cx.c().toolbar, 4.0, |ui| {
         for (label, request) in [
             ("File", MenuRequest::BarFile),
             ("View", MenuRequest::BarView),
             ("Help", MenuRequest::BarHelp),
         ] {
-            if tool_text(ui, look, label, 13.0).clicked() {
+            if tool_text(ui, label, 13.0).clicked() {
                 cx.send(crate::app::Message::OpenMenu(request));
             }
         }
