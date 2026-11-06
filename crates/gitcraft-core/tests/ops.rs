@@ -1253,3 +1253,77 @@ async fn watcher_sees_git_changes_of_a_linked_worktree() {
         "{event:?}"
     );
 }
+
+#[tokio::test]
+async fn pull_overwrite_replaces_the_branch_and_can_keep_a_backup() {
+    let f = Fixture::with_history();
+    let remote = f.root.join("overwrite-remote.git");
+    raw_git(
+        &f.root,
+        &[
+            "init",
+            "-q",
+            "--bare",
+            "-b",
+            "main",
+            remote.to_str().unwrap(),
+        ],
+    );
+    ops::add_remote(&f.repo, "origin", remote.to_str().unwrap())
+        .await
+        .unwrap();
+    ops::push(&f.repo, "origin", Some("main"), true, false, false, None)
+        .await
+        .unwrap();
+    let clone_dir = PathBuf::from(
+        ops::clone(
+            f.root.to_str().unwrap(),
+            remote.to_str().unwrap(),
+            Some("other"),
+            None,
+        )
+        .await
+        .unwrap(),
+    );
+    f.identity(&clone_dir);
+    let remote_tip = commit_at(&clone_dir, "r.txt", "remote\n", "remote work");
+    raw_git(&clone_dir, &["push", "-q"]);
+
+    // Diverged: a local commit, and an uncommitted change on top.
+    let local_tip = f.commit("l.txt", "local\n", "local work");
+    f.write("a.txt", "dirty\n");
+    let result = ops::pull_overwrite(&f.repo, Some("origin"), Some("main"), true, None)
+        .await
+        .unwrap();
+    assert!(result.ok);
+    assert_eq!(f.git(&["rev-parse", "HEAD"]).trim(), remote_tip);
+    assert!(
+        !f.exists("l.txt"),
+        "the local commit is gone from the branch"
+    );
+    assert_ne!(
+        f.read("a.txt"),
+        "dirty\n",
+        "and so is the uncommitted change"
+    );
+    let backup = format!("backup/main-{}", &local_tip[..7]);
+    assert!(result.message.contains(&backup), "{}", result.message);
+    assert_eq!(f.git(&["rev-parse", &backup]).trim(), local_tip);
+
+    // Without a backup, and from the upstream when nothing is named.
+    let local_again = f.commit("m.txt", "more\n", "more local work");
+    let result = ops::pull_overwrite(&f.repo, None, None, false, None)
+        .await
+        .unwrap();
+    assert!(result.ok);
+    assert_eq!(f.git(&["rev-parse", "HEAD"]).trim(), remote_tip);
+    let branches = f.git(&["branch", "--list", "backup/*"]);
+    assert!(!branches.contains(&local_again[..7]), "no backup was made");
+
+    // A detached HEAD has no branch to overwrite.
+    f.git(&["switch", "-q", "--detach"]);
+    assert!(matches!(
+        ops::pull_overwrite(&f.repo, Some("origin"), Some("main"), false, None).await,
+        Err(Error::Invalid(_))
+    ));
+}

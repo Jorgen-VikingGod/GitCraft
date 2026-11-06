@@ -1,380 +1,421 @@
 //! Window furniture: menu bar, tabs, toolbar, operation banner, status bar and the start page.
 
+use egui::text::{CCursor, CCursorRange};
+use egui::{
+    Align, Align2, Color32, Frame, Id, Key, Layout, Margin, Pos2, Rect, ScrollArea, Sense, Stroke,
+    StrokeKind, Ui, vec2,
+};
 use gitcraft_core::model::Operation;
-use iced::widget::{
-    Column, button, column, container, mouse_area, pick_list, row, scrollable, space, text,
-    text_input,
-};
-use iced::{Center, Color, Element, Length, Theme};
 
-use super::icon::icon;
-use super::style;
 use super::widgets::{
-    btn, danger_text, hline, icon_button, muted_text, primary, scrolled, single, spacer,
+    bar, bar_with, bare_edit, btn, choice, danger_text, hline, icon_button, muted, paint_text,
+    primary, scroll, text, text_width, tool_text,
 };
+use super::{Cx, icon};
 use crate::actions::{Action, MenuRequest};
-use crate::app::{App, Message, RepoTab, SearchMode, View};
+use crate::app::{RepoTab, SearchMode, View};
 use crate::command::Command;
 use crate::logic::{plural, short_sha};
 
-pub fn menu_bar(app: &App) -> Element<'_, Message> {
-    let look = &app.look;
-    let entry = |label, request| {
-        button(text(label).size(13))
-            .padding([3, 8])
-            .on_press(Message::OpenMenu(request))
-            .style(style::tool(look))
-    };
-    container(row![
-        entry("File", MenuRequest::BarFile),
-        entry("View", MenuRequest::BarView),
-        entry("Help", MenuRequest::BarHelp)
-    ])
-    .padding([1, 2])
-    .width(Length::Fill)
-    .style(style::fill(look.c.toolbar))
-    .into()
-}
-
-fn tab_view<'a>(app: &'a App, index: usize, tab: &'a RepoTab) -> Element<'a, Message> {
-    let look = &app.look;
-    let c = &look.c;
-    let active = index == app.active;
-    let color = if active { c.text } else { c.text_muted };
-    let mut line = row![
-        icon("repo", 13.0, color),
-        single(tab.name.as_str(), 13)
-            .font(look.semibold)
-            .color(color)
-    ]
-    .spacing(6)
-    .align_y(Center)
-    .padding(iced::Padding {
-        top: 0.0,
-        bottom: 0.0,
-        left: 12.0,
-        right: 6.0,
+pub fn menu_bar(ui: &mut Ui, cx: &Cx) {
+    if cx.app.csd {
+        super::frame::title_bar(ui, cx);
+        return;
+    }
+    bar(ui, 26.0, cx.c().toolbar, 4.0, |ui| {
+        for (label, request) in [
+            ("File", MenuRequest::BarFile),
+            ("View", MenuRequest::BarView),
+            ("Help", MenuRequest::BarHelp),
+        ] {
+            if tool_text(ui, label, 13.0).clicked() {
+                cx.send(crate::app::Message::OpenMenu(request));
+            }
+        }
     });
+}
+
+fn tab_width(ui: &Ui, cx: &Cx, tab: &RepoTab) -> f32 {
+    let look = cx.look();
+    let mut width =
+        12.0 + 13.0 + 6.0 + text_width(ui, &tab.name, &look.ui(13.0)) + 6.0 + 20.0 + 6.0;
     if let Some(branch) = tab.current_branch() {
-        line = line.push(single(branch.to_owned(), 11).color(c.text_muted));
+        width += 6.0 + text_width(ui, branch, &look.ui(11.0));
     }
-    let close = || {
-        button(container(icon("x", 12.0, color)).center(Length::Fill))
-            .width(20)
-            .height(20)
-            .padding(0)
-            .on_press(Message::Close(index))
-            .style(style::ghost(look, color))
-    };
-    // Inactive tabs only show their close button under the pointer, so keep room for it.
-    line = if active {
-        line.push(close())
-    } else {
-        line.push(space().width(20))
-    };
-    // The active tab has the page's background and an accent line along its top.
-    let top: Element<'a, Message> = if active {
-        container(space())
-            .width(Length::Fill)
-            .height(2)
-            .style(style::fill(c.accent))
-            .into()
-    } else {
-        space().height(2).into()
-    };
-    let background = if active { c.bg } else { c.titlebar };
-    let body = column![
-        top,
-        container(line).height(Length::Fill).center_y(Length::Fill)
-    ]
-    .width(Length::Shrink);
-    let surface = container(body)
-        .height(Length::Fill)
-        .max_width(260)
-        .clip(true)
-        .style(style::fill(background));
-    let shown: Element<'a, Message> = if active {
-        surface.into()
-    } else {
-        let tint = container(row![space::horizontal(), close()].align_y(Center).padding(
-            iced::Padding {
-                right: 6.0,
-                top: 2.0,
-                ..iced::Padding::ZERO
-            },
-        ))
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_y(Length::Fill)
-        .style(style::fill(c.hover));
-        iced::widget::hover(surface, tint)
-    };
-    row![
-        mouse_area(shown)
-            .on_press(Message::Activate(index))
-            .on_middle_press(Message::Close(index))
-            .on_right_press(Message::OpenMenu(MenuRequest::Tab(index))),
-        container(space())
-            .width(1)
-            .height(Length::Fill)
-            .style(style::fill(c.border)),
-    ]
-    .height(Length::Fill)
-    .into()
+    width.min(260.0)
 }
 
-pub fn tab_bar(app: &App) -> Element<'_, Message> {
-    let look = &app.look;
+fn tab_view(ui: &mut Ui, cx: &Cx, index: usize, tab: &RepoTab) {
+    let look = cx.look();
     let c = &look.c;
-    let brand = container(
-        row![
-            icon("merge", 16.0, c.accent),
-            single("GitCraft", 13).font(look.bold).color(c.accent)
-        ]
-        .spacing(6)
-        .align_y(Center),
-    )
-    .padding([0, 12])
-    .height(Length::Fill)
-    .center_y(Length::Fill);
-    let mut tabs = row![].height(Length::Fill);
-    for (index, tab) in app.tabs.iter().enumerate() {
-        tabs = tabs.push(tab_view(app, index, tab));
+    let active = index == cx.app.active;
+    let width = tab_width(ui, cx, tab);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 35.0), Sense::click());
+    let hovered = ui.rect_contains_pointer(rect);
+    let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+    painter.rect_filled(rect, 0.0, if active { c.bg } else { c.titlebar });
+    if active {
+        painter.rect_filled(
+            Rect::from_min_size(rect.min, vec2(rect.width(), 2.0)),
+            0.0,
+            c.accent,
+        );
+    } else if hovered {
+        painter.rect_filled(rect, 0.0, c.hover);
     }
-    let line = row![
-        brand,
-        scrollable(tabs)
-            .height(Length::Fill)
-            .direction(scrollable::Direction::Horizontal(
-                scrollable::Scrollbar::new().width(0).scroller_width(0)
-            )),
-        container(icon_button(look, "plus", 16.0, Some(Message::OpenDialog)))
-            .center_y(Length::Fill)
-            .padding([0, 4]),
-        spacer(),
-        container(icon_button(
-            look,
-            "settings",
-            16.0,
-            Some(Message::OpenSettings)
-        ))
-        .center_y(Length::Fill)
-        .padding([0, 6]),
-    ]
-    .height(35);
-    column![container(line).style(style::fill(c.titlebar)), hline(look)].into()
+    let color = if active { c.text } else { c.text_muted };
+    let mid = rect.center().y + 1.0;
+    icon::paint(
+        ui,
+        "repo",
+        Rect::from_center_size(Pos2::new(rect.left() + 18.5, mid), vec2(13.0, 13.0)),
+        color,
+    );
+    let close = Rect::from_center_size(Pos2::new(rect.right() - 16.0, mid), vec2(20.0, 20.0));
+    let text_area = painter.with_clip_rect(Rect::from_min_max(
+        rect.min,
+        Pos2::new(close.left() - 2.0, rect.max.y),
+    ));
+    let mut x = rect.left() + 31.0;
+    x += paint_text(
+        &text_area,
+        Pos2::new(x, mid),
+        &tab.name,
+        look.ui(13.0),
+        color,
+    ) + 6.0;
+    if let Some(branch) = tab.current_branch() {
+        paint_text(
+            &text_area,
+            Pos2::new(x, mid),
+            branch,
+            look.ui(11.0),
+            c.text_muted,
+        );
+    }
+    // Inactive tabs only show their close button under the pointer.
+    let mut closed = false;
+    if active || hovered {
+        let button = ui.interact(close, response.id.with("close"), Sense::click());
+        if button.hovered() {
+            painter.rect_filled(close, 6.0, c.hover_strong);
+        }
+        icon::paint(
+            ui,
+            "x",
+            Rect::from_center_size(close.center(), vec2(12.0, 12.0)),
+            color,
+        );
+        closed = button.clicked();
+    }
+    ui.painter().line_segment(
+        [rect.right_top(), rect.right_bottom()],
+        Stroke::new(1.0, c.border),
+    );
+    if closed || response.middle_clicked() {
+        cx.send(crate::app::Message::Close(index));
+    } else if response.clicked() {
+        cx.send(crate::app::Message::Activate(index));
+    } else if response.secondary_clicked() {
+        cx.send(crate::app::Message::OpenMenu(MenuRequest::Tab(index)));
+    }
 }
 
-fn tool_button<'a>(
-    app: &'a App,
-    name: &'static str,
-    label: &'a str,
+pub fn tab_bar(ui: &mut Ui, cx: &Cx) {
+    use crate::app::Message;
+    let look = cx.look();
+    let c = &look.c;
+    bar(ui, 35.0, c.titlebar, 0.0, |ui| {
+        ui.add_space(12.0);
+        icon::icon(ui, "merge", 16.0, c.accent);
+        text(ui, "GitCraft", 13.0, c.accent);
+        ui.add_space(8.0);
+        let reserve = 90.0;
+        ScrollArea::horizontal()
+            .id_salt("tabs")
+            .max_width((ui.available_width() - reserve).max(60.0))
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+            .show(ui, |ui| {
+                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                ui.horizontal(|ui| {
+                    for (index, tab) in cx.app.tabs.iter().enumerate() {
+                        tab_view(ui, cx, index, tab);
+                    }
+                });
+            });
+        if icon_button(ui, look, "plus", 16.0, true) {
+            cx.send(Message::OpenDialog);
+        }
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.add_space(6.0);
+            if icon_button(ui, look, "settings", 16.0, true) {
+                cx.send(Message::OpenSettings);
+            }
+        });
+    });
+    hline(ui, look);
+}
+
+fn tool_button(
+    ui: &mut Ui,
+    cx: &Cx,
+    at: Pos2,
+    name: &str,
+    label: &str,
     count: i64,
-    message: Option<Message>,
-) -> Element<'a, Message> {
-    let look = &app.look;
+    enabled: bool,
+) -> bool {
+    let look = cx.look();
     let c = &look.c;
-    let enabled = message.is_some();
+    let rect = Rect::from_min_size(at, vec2(52.0, 44.0));
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
+    let response = ui.interact(rect, Id::unique(("tool", label)), sense);
+    if enabled && response.hovered() {
+        ui.painter().rect_filled(rect, 6.0, c.hover);
+    }
     let color = if enabled {
         c.text
     } else {
-        Color { a: 0.45, ..c.text }
+        c.text.gamma_multiply(0.45)
     };
-    let body = column![icon(name, 18.0, color), text(label).size(11).color(color)]
-        .spacing(2)
-        .align_x(Center);
-    let main = button(container(body).center(Length::Fill))
-        .width(52)
-        .height(44)
-        .padding(0)
-        .on_press_maybe(message)
-        .style(style::tool(look));
-    if count <= 0 {
-        return main.into();
+    icon::paint(
+        ui,
+        name,
+        Rect::from_center_size(
+            Pos2::new(rect.center().x, rect.top() + 15.0),
+            vec2(18.0, 18.0),
+        ),
+        color,
+    );
+    ui.painter().text(
+        Pos2::new(rect.center().x, rect.top() + 34.0),
+        Align2::CENTER_CENTER,
+        label,
+        look.ui(11.0),
+        color,
+    );
+    if count > 0 {
+        let corner = Pos2::new(rect.right() - 4.0, rect.top() + 2.0);
+        let width = (text_width(ui, &count.to_string(), &look.ui(10.0)) + 12.0).max(16.0);
+        let pill = Rect::from_min_size(Pos2::new(corner.x - width, corner.y), vec2(width, 14.0));
+        ui.painter().rect_filled(pill, 7.0, c.accent);
+        ui.painter().text(
+            pill.center(),
+            Align2::CENTER_CENTER,
+            count,
+            look.ui(10.0),
+            Color32::WHITE,
+        );
     }
-    let accent = c.accent;
-    let pill = container(text(count.to_string()).size(10).color(Color::WHITE))
-        .padding([0, 4])
-        .style(move |_: &Theme| container::Style {
-            background: Some(iced::Background::Color(accent)),
-            border: iced::border::rounded(8),
-            ..container::Style::default()
-        });
-    iced::widget::stack![
-        main,
-        container(pill).align_right(52).padding(iced::Padding {
-            top: 2.0,
-            right: 4.0,
-            bottom: 0.0,
-            left: 0.0
-        })
-    ]
-    .into()
+    enabled && response.clicked()
 }
 
-pub fn toolbar(app: &App) -> Element<'_, Message> {
-    let look = &app.look;
+fn search_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab, rect: Rect) {
+    use crate::app::Message;
+    let look = cx.look();
     let c = &look.c;
-    let Some(tab) = app.current() else {
-        return column![
-            container(row![
-                tool_button(app, "repo", "Open", 0, Some(Message::OpenDialog)),
-                tool_button(
-                    app,
-                    "pull",
-                    "Clone",
-                    0,
-                    Some(Message::Action(Action::Clone))
-                ),
-            ])
-            .padding([4, 12])
-            .width(Length::Fill)
-            .style(style::fill(c.toolbar)),
-            hline(look),
-        ]
-        .into();
-    };
-    let idle = app.busy.is_none();
-    let when_idle = |message: Message| idle.then_some(message);
-    let branch = tab.status.as_ref().map(|status| &status.branch);
-    let mut info = row![].spacing(4);
-    match branch {
-        Some(b) if b.detached => {
-            info = info.push(
-                single(
-                    format!("detached at {}", b.oid.as_deref().map_or("", short_sha)),
-                    12,
-                )
-                .color(c.text_muted),
+    ui.painter().rect_filled(rect, 8.0, c.input);
+    ui.painter()
+        .rect_stroke(rect, 8.0, Stroke::new(1.0, c.border), StrokeKind::Inside);
+    icon::paint(
+        ui,
+        "search",
+        Rect::from_center_size(
+            Pos2::new(rect.left() + 17.0, rect.center().y),
+            vec2(14.0, 14.0),
+        ),
+        c.text_muted,
+    );
+    let id = Id::unique("search_box");
+    let field = Rect::from_min_max(
+        Pos2::new(rect.left() + 30.0, rect.top() + 6.5),
+        Pos2::new(rect.right() - 92.0, rect.bottom() - 1.5),
+    );
+    super::widgets::region(ui, field, |ui| {
+        // Centred, so that the hint text sits in the middle of the box, not at its top.
+        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+            let (response, changed) = bare_edit(
+                ui,
+                id,
+                &tab.search_input,
+                "Search commits (Ctrl+F)",
+                field.width(),
+                look.ui(13.0),
             );
+            if cx.app.focus_search.take() {
+                ui.memory_mut(|memory| memory.request_focus(id));
+                if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), id) {
+                    let end = tab.search_input.chars().count();
+                    state.cursor.set_char_range(Some(CCursorRange::two(
+                        CCursor::new(0),
+                        CCursor::new(end),
+                    )));
+                    state.store(ui.ctx(), id);
+                }
+            }
+            if let Some(text) = changed {
+                cx.send(Message::SearchInput(text));
+            }
+            if response.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter)) {
+                cx.send(Message::SearchSubmit);
+            }
+        });
+    });
+    let mode = Rect::from_min_max(
+        Pos2::new(rect.right() - 90.0, rect.top() + 3.0),
+        Pos2::new(rect.right() - 4.0, rect.bottom() - 3.0),
+    );
+    super::widgets::region(ui, mode, |ui| {
+        let options: Vec<(String, String)> = SearchMode::ALL
+            .iter()
+            .map(|mode| (mode.key().to_owned(), mode.to_string()))
+            .collect();
+        if let Some(key) = choice(ui, "search_mode", &options, tab.search_mode.key(), 76.0)
+            && let Some(mode) = SearchMode::ALL.into_iter().find(|mode| mode.key() == key)
+        {
+            cx.send(Message::SearchModeChanged(mode));
         }
+    });
+}
+
+pub fn toolbar(ui: &mut Ui, cx: &Cx) {
+    use crate::app::Message;
+    let look = cx.look();
+    let c = &look.c;
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 51.0), Sense::hover());
+    super::widgets::fill(ui, rect, c.toolbar);
+    let top = rect.top() + 3.5;
+    let Some(tab) = cx.app.current() else {
+        if tool_button(
+            ui,
+            cx,
+            Pos2::new(rect.left() + 12.0, top),
+            "repo",
+            "Open",
+            0,
+            true,
+        ) {
+            cx.send(Message::OpenDialog);
+        }
+        if tool_button(
+            ui,
+            cx,
+            Pos2::new(rect.left() + 66.0, top),
+            "pull",
+            "Clone",
+            0,
+            true,
+        ) {
+            cx.send(Message::Action(Action::Clone));
+        }
+        hline(ui, look);
+        return;
+    };
+    let idle = cx.app.busy.is_none();
+    let branch = tab.status.as_ref().map(|status| &status.branch);
+    let left = rect.left() + 12.0;
+    let buttons: [(&str, &str, i64, Option<Message>); 6] = [
+        (
+            "fetch",
+            "Fetch",
+            0,
+            Some(Message::Run(Command::Fetch {
+                remote: None,
+                tags: false,
+            })),
+        ),
+        (
+            "pull",
+            "Pull",
+            branch.map_or(0, |b| b.behind),
+            Some(Message::Action(Action::Pull)),
+        ),
+        (
+            "push",
+            "Push",
+            branch.map_or(0, |b| b.ahead),
+            Some(Message::Action(Action::Push(None))),
+        ),
+        ("stash", "Stash", 0, Some(Message::Action(Action::Stash))),
+        (
+            "branch",
+            "Branch",
+            0,
+            Some(Message::Action(Action::NewBranch {
+                start: None,
+                label: None,
+            })),
+        ),
+        ("more", "More", 0, None),
+    ];
+    for (index, (name, label, count, message)) in buttons.into_iter().enumerate() {
+        let group_gap = if index >= 3 { 14.0 } else { 0.0 };
+        let at = Pos2::new(left + index as f32 * 54.0 + group_gap, top);
+        let (message, enabled) = match message {
+            Some(message) => (message, idle),
+            None => (Message::OpenMenu(MenuRequest::Repository), true),
+        };
+        if tool_button(ui, cx, at, name, label, count, enabled) {
+            cx.send(message);
+        }
+    }
+    let search = Rect::from_min_size(
+        Pos2::new(rect.right() - 12.0 - 340.0, rect.center().y - 15.0),
+        vec2(340.0, 30.0),
+    );
+    search_box(ui, cx, tab, search);
+
+    // The repository's name and branch, centred between the buttons and the search box.
+    let centre = Rect::from_min_max(
+        Pos2::new(left + 6.0 * 54.0 + 14.0 + 14.0, rect.top()),
+        Pos2::new(search.left() - 14.0, rect.bottom()),
+    );
+    let clip = ui
+        .painter()
+        .with_clip_rect(centre.intersect(ui.clip_rect()));
+    clip.text(
+        Pos2::new(centre.center().x, rect.center().y - 8.0),
+        Align2::CENTER_CENTER,
+        &tab.name,
+        look.ui(13.0),
+        c.text,
+    );
+    let info = match branch {
+        Some(b) if b.detached => format!("detached at {}", b.oid.as_deref().map_or("", short_sha)),
         Some(b) => {
-            info = info.push(
-                single(b.head.clone().unwrap_or_else(|| "…".to_owned()), 12).color(c.text_muted),
-            );
-            if let Some(upstream) = &b.upstream {
-                info = info.push(single(format!("→ {upstream}"), 12).color(c.text_faint));
+            let name = b.head.clone().unwrap_or_else(|| "…".to_owned());
+            match &b.upstream {
+                Some(upstream) => format!("{name} → {upstream}"),
+                None => name,
             }
         }
-        None => info = info.push(single("…", 12).color(c.text_muted)),
-    }
-    let search = container(
-        row![
-            icon("search", 14.0, c.text_muted),
-            text_input("Search commits (Ctrl+F)", &tab.search_input)
-                .id(app.search_box.clone())
-                .on_input(Message::SearchInput)
-                .on_submit(Message::SearchSubmit)
-                .size(13)
-                .padding(0)
-                .width(Length::Fill)
-                .style(style::bare_input(look)),
-            pick_list(
-                SearchMode::ALL,
-                Some(tab.search_mode),
-                Message::SearchModeChanged
-            )
-            .text_size(12)
-            .padding([2, 4])
-            .style(style::plain_pick_list(look))
-            .menu_style(style::menu(look)),
-        ]
-        .spacing(6)
-        .align_y(Center),
-    )
-    .padding(iced::Padding {
-        top: 0.0,
-        bottom: 0.0,
-        left: 10.0,
-        right: 4.0,
-    })
-    .width(340)
-    .height(30)
-    .center_y(30)
-    .style(style::search_frame(look));
-    column![
-        container(
-            row![
-                row![
-                    tool_button(
-                        app,
-                        "fetch",
-                        "Fetch",
-                        0,
-                        when_idle(Message::Run(Command::Fetch {
-                            remote: None,
-                            tags: false
-                        }))
-                    ),
-                    tool_button(
-                        app,
-                        "pull",
-                        "Pull",
-                        branch.map_or(0, |b| b.behind),
-                        when_idle(Message::Action(Action::Pull))
-                    ),
-                    tool_button(
-                        app,
-                        "push",
-                        "Push",
-                        branch.map_or(0, |b| b.ahead),
-                        when_idle(Message::Action(Action::Push(None)))
-                    ),
-                ]
-                .spacing(2),
-                row![
-                    tool_button(
-                        app,
-                        "stash",
-                        "Stash",
-                        0,
-                        when_idle(Message::Action(Action::Stash))
-                    ),
-                    tool_button(
-                        app,
-                        "branch",
-                        "Branch",
-                        0,
-                        when_idle(Message::Action(Action::NewBranch {
-                            start: None,
-                            label: None
-                        }))
-                    ),
-                    tool_button(
-                        app,
-                        "more",
-                        "More",
-                        0,
-                        Some(Message::OpenMenu(MenuRequest::Repository))
-                    ),
-                ]
-                .spacing(2),
-                container(
-                    column![single(tab.name.as_str(), 13).font(look.bold), info].align_x(Center)
-                )
-                .center_x(Length::Fill)
-                .clip(true),
-                search,
-            ]
-            .spacing(14)
-            .align_y(Center),
-        )
-        .padding([0, 12])
-        .height(51)
-        .center_y(51)
-        .width(Length::Fill)
-        .style(style::fill(c.toolbar)),
-        hline(look),
-    ]
-    .into()
+        None => "…".to_owned(),
+    };
+    clip.text(
+        Pos2::new(centre.center().x, rect.center().y + 8.0),
+        Align2::CENTER_CENTER,
+        info,
+        look.ui(12.0),
+        c.text_muted,
+    );
+    hline(ui, look);
 }
 
 /// Shown while a merge, rebase, cherry-pick or revert is stopped half-way.
-pub fn operation_banner<'a>(app: &'a App, tab: &'a RepoTab) -> Option<Element<'a, Message>> {
-    let look = &app.look;
+pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    use crate::app::Message;
+    let look = cx.look();
     let c = &look.c;
-    let status = tab.status.as_ref()?;
-    let operation = status.operation.as_ref()?;
+    let Some(status) = tab.status.as_ref() else {
+        return;
+    };
+    let Some(operation) = status.operation.as_ref() else {
+        return;
+    };
     let conflicts = status.conflicts.len();
     let mut title = match operation {
         Operation::Merge { .. } => "Merge in progress".to_owned(),
@@ -415,174 +456,183 @@ pub fn operation_banner<'a>(app: &'a App, tab: &'a RepoTab) -> Option<Element<'a
     } else {
         "All conflicts resolved. Continue to finish.".to_owned()
     };
-    let symbol = if conflicts > 0 {
-        icon("alert", 16.0, c.danger)
-    } else {
-        icon("merge", 16.0, c.warning)
-    };
-    let mut line = row![
-        symbol,
-        column![
-            text(title).size(13).font(look.semibold),
-            muted_text(look, hint, 12)
-        ]
-        .width(Length::Fill)
-    ]
-    .spacing(10)
-    .align_y(Center);
-    if conflicts > 0 {
-        line = line.push(btn(
-            look,
-            "Show conflicts",
-            Some(Message::SetView(View::Changes)),
-        ));
-    }
-    if !matches!(operation, Operation::Merge { .. }) {
-        line = line.push(btn(look, "Skip", Some(Message::Run(Command::Skip))));
-    }
-    line = line.push(danger_text(
-        look,
-        "Abort",
-        Some(Message::Action(Action::Abort)),
-    ));
-    line = line.push(primary(
-        look,
-        "Continue",
-        (conflicts == 0).then_some(Message::Run(Command::Continue)),
-    ));
-    Some(
-        column![
-            container(line)
-                .padding([6, 12])
-                .width(Length::Fill)
-                .style(style::fill(c.warning_bg)),
-            hline(look)
-        ]
-        .into(),
-    )
+    Frame::new()
+        .fill(c.warning_bg)
+        .inner_margin(Margin::symmetric(12, 6))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
+            ui.horizontal(|ui| {
+                if conflicts > 0 {
+                    icon::icon(ui, "alert", 16.0, c.danger);
+                } else {
+                    icon::icon(ui, "merge", 16.0, c.warning);
+                }
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 1.0;
+                    text(ui, title, 13.0, c.text);
+                    muted(ui, look, hint, 12.0);
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if primary(ui, look, "Continue", conflicts == 0) {
+                        cx.send(Message::Run(Command::Continue));
+                    }
+                    if danger_text(ui, look, "Abort", true) {
+                        cx.send(Message::Action(Action::Abort));
+                    }
+                    if !matches!(operation, Operation::Merge { .. }) && btn(ui, look, "Skip", true)
+                    {
+                        cx.send(Message::Run(Command::Skip));
+                    }
+                    if conflicts > 0 && btn(ui, look, "Show conflicts", true) {
+                        cx.send(Message::SetView(View::Changes));
+                    }
+                });
+            });
+        });
+    hline(ui, look);
 }
 
-pub fn status_bar(app: &App) -> Element<'_, Message> {
-    let look = &app.look;
+pub fn status_bar(ui: &mut Ui, cx: &Cx) {
+    use crate::app::Message;
+    let app = cx.app;
+    let look = cx.look();
     let c = &look.c;
-    let mut line = row![].spacing(10).align_y(Center);
-    if let Some((_, label)) = &app.busy {
-        line = line.push(single(format!("{label}…"), 12).font(look.semibold));
-        if !app.progress_line.is_empty() {
-            line = line.push(
-                container(
-                    single(app.progress_line.as_str(), 12)
-                        .font(look.mono)
-                        .color(c.text_muted),
-                )
-                .clip(true),
-            );
-        }
-        if app.cancel.is_some() {
-            line = line.push(
-                button(text("Cancel").size(11))
-                    .padding([0, 6])
-                    .on_press(Message::Cancel)
-                    .style(style::ghost(look, c.text)),
-            );
-        }
-    } else {
-        let path = app
-            .current()
-            .map_or("No repository open", |tab| tab.path.as_str());
-        line = line.push(container(single(path, 12).color(c.text_muted)).clip(true));
-    }
-    line = line.push(spacer());
-    if let Some(tab) = app.current() {
-        let more = if tab.has_more { "+" } else { "" };
-        line = line
-            .push(single(format!("{}{more} commits", tab.commits.len()), 12).color(c.text_muted));
-    }
-    let success = c.success;
-    line = line.push(
-        container(space())
-            .width(8)
-            .height(8)
-            .style(move |_: &Theme| container::Style {
-                background: Some(iced::Background::Color(success)),
-                border: iced::border::rounded(4),
-                ..container::Style::default()
-            }),
+    hline(ui, look);
+    let corner = if app.csd && !app.maximized { 10 } else { 0 };
+    let radius = egui::CornerRadius {
+        sw: corner,
+        se: corner,
+        ..egui::CornerRadius::ZERO
+    };
+    bar_with(ui, 23.0, c.titlebar, radius, 12.0, |ui| {
+        ui.spacing_mut().item_spacing.x = 10.0;
+        let right = app.current().map(|tab| {
+            let more = if tab.has_more { "+" } else { "" };
+            format!("{}{more} commits", tab.commits.len())
+        });
+        let reserve = right
+            .as_ref()
+            .map_or(30.0, |label| text_width(ui, label, &look.ui(12.0)) + 40.0);
+        let room = (ui.available_width() - reserve).max(40.0);
+        ui.scope(|ui| {
+            ui.set_max_width(room);
+            if let Some((_, label)) = &app.busy {
+                text(ui, format!("{label}…"), 12.0, c.text);
+                if !app.progress_line.is_empty() {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new(&app.progress_line)
+                                .size(12.0)
+                                .monospace()
+                                .color(c.text_muted),
+                        )
+                        .truncate(),
+                    );
+                }
+                if app.cancel.is_some()
+                    && super::widgets::button(ui, look, "Cancel", super::widgets::Kind::Ghost, true)
+                {
+                    cx.send(Message::Cancel);
+                }
+            } else {
+                let path = app
+                    .current()
+                    .map_or("No repository open", |tab| tab.path.as_str());
+                text(ui, path, 12.0, c.text_muted);
+            }
+        });
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let (dot, _) = ui.allocate_exact_size(vec2(8.0, 8.0), Sense::hover());
+            ui.painter().circle_filled(dot.center(), 4.0, c.success);
+            if let Some(label) = right {
+                text(ui, label, 12.0, c.text_muted);
+            }
+        });
+    });
+}
+
+pub fn welcome(ui: &mut Ui, cx: &Cx) {
+    use crate::app::Message;
+    let look = cx.look();
+    let c = &look.c;
+    let full = ui.available_rect_before_wrap();
+    super::widgets::fill(ui, full, c.bg);
+    let width = full.width().min(620.0);
+    let page = Rect::from_min_size(
+        Pos2::new(full.center().x - width / 2.0, full.top() + 40.0),
+        vec2(width, full.height() - 40.0),
     );
-    column![
-        hline(look),
-        container(line)
-            .padding([0, 12])
-            .height(23)
-            .center_y(23)
-            .width(Length::Fill)
-            .clip(true)
-            .style(style::fill(c.titlebar))
-    ]
-    .into()
-}
-
-pub fn welcome(app: &App) -> Element<'_, Message> {
-    let look = &app.look;
-    let c = &look.c;
-    let mut recent: Column<'_, Message> = column![].spacing(2);
-    for repo in &app.recent {
-        let exists = repo.exists.unwrap_or(true);
-        let label = row![
-            icon("repo", 16.0, c.text_muted),
-            column![
-                single(repo.name.as_str(), 13).font(look.semibold),
-                single(repo.path.as_str(), 12).color(c.text_muted)
-            ],
-        ]
-        .spacing(10)
-        .align_y(Center)
-        .padding([5, 10]);
-        let open = button(label)
-            .width(Length::Fill)
-            .padding(0)
-            .on_press_maybe(exists.then(|| Message::OpenPath(repo.path.clone())))
-            .style(style::tool(look));
-        recent = recent.push(
-            row![
-                open,
-                icon_button(look, "x", 13.0, Some(Message::Forget(repo.path.clone())))
-            ]
-            .spacing(4)
-            .align_y(Center),
-        );
-    }
-    let large = |label: &'static str, message: Message, primary: bool| {
-        let base =
-            button(container(text(label).size(13).font(look.semibold)).center_y(Length::Fill))
-                .height(30)
-                .padding([0, 14])
-                .on_press(message);
-        if primary {
-            base.style(style::button_primary(look))
-        } else {
-            base.style(style::button(look))
+    super::widgets::region(ui, page, |ui| {
+        ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+        ui.horizontal(|ui| {
+            icon::icon(ui, "merge", 26.0, c.accent);
+            text(ui, "GitCraft", 22.0, c.accent);
+        });
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            if super::widgets::primary(ui, look, "Open a repository…", true) {
+                cx.send(Message::OpenDialog);
+            }
+            if btn(ui, look, "Clone…", true) {
+                cx.send(Message::Action(Action::Clone));
+            }
+            if btn(ui, look, "New…", true) {
+                cx.send(Message::Action(Action::Init));
+            }
+        });
+        if cx.app.recent.is_empty() {
+            return;
         }
-    };
-    let mut page = column![
-        row![
-            icon("merge", 26.0, c.accent),
-            text("GitCraft").size(22).font(look.bold).color(c.accent)
-        ]
-        .spacing(10)
-        .align_y(Center),
-        row![
-            large("Open a repository…", Message::OpenDialog, true),
-            large("Clone…", Message::Action(Action::Clone), false),
-            large("New…", Message::Action(Action::Init), false),
-        ]
-        .spacing(8),
-    ]
-    .spacing(16)
-    .max_width(620);
-    if !app.recent.is_empty() {
-        page = page.push(text("RECENT").size(11).font(look.bold).color(c.text_muted));
-        page = page.push(scrolled(look, recent).height(Length::Fill));
-    }
-    container(page).padding(40).center_x(Length::Fill).into()
+        ui.add_space(8.0);
+        text(ui, "RECENT", 11.0, c.text_muted);
+        scroll("recent").show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 2.0;
+            for repo in &cx.app.recent {
+                let exists = repo.exists.unwrap_or(true);
+                let (rect, response) =
+                    ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::click());
+                if exists && response.hovered() {
+                    ui.painter().rect_filled(rect, 6.0, c.hover);
+                }
+                let color = if exists { c.text } else { c.text_faint };
+                icon::paint(
+                    ui,
+                    "repo",
+                    egui::Rect::from_center_size(
+                        Pos2::new(rect.left() + 18.0, rect.center().y),
+                        vec2(16.0, 16.0),
+                    ),
+                    c.text_muted,
+                );
+                let painter = ui.painter().with_clip_rect(rect.shrink2(vec2(0.0, 0.0)));
+                paint_text(
+                    &painter,
+                    Pos2::new(rect.left() + 36.0, rect.top() + 12.0),
+                    &repo.name,
+                    look.ui(13.0),
+                    color,
+                );
+                paint_text(
+                    &painter,
+                    Pos2::new(rect.left() + 36.0, rect.top() + 28.0),
+                    &repo.path,
+                    look.ui(12.0),
+                    c.text_muted,
+                );
+                let forget = Rect::from_center_size(
+                    Pos2::new(rect.right() - 18.0, rect.center().y),
+                    vec2(26.0, 26.0),
+                );
+                let forget_response =
+                    ui.interact(forget, response.id.with("forget"), Sense::click());
+                super::widgets::icon_in(ui, look, &forget_response, forget, "x", 13.0, true);
+                if forget_response.clicked() {
+                    cx.send(Message::Forget(repo.path.clone()));
+                } else if exists && response.clicked() {
+                    cx.send(Message::OpenPath(repo.path.clone()));
+                }
+            }
+        });
+    });
 }

@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
+use egui::Color32;
 use gitcraft_core::model::FileDiff;
-use iced::Color;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{
     Color as SyntaxColor, ScopeSelectors, StyleModifier, Theme, ThemeItem, ThemeSettings,
@@ -21,16 +21,16 @@ static LIGHT_THEME: LazyLock<Theme> = LazyLock::new(|| syntax_theme(&crate::them
 static DARK_THEME: LazyLock<Theme> = LazyLock::new(|| syntax_theme(&crate::theme::DARK));
 
 /// Coloured runs per (hunk, line): colour and byte range within the line's text.
-pub type Highlights = HashMap<(usize, usize), Vec<(Color, std::ops::Range<usize>)>>;
+pub type Highlights = HashMap<(usize, usize), Vec<(Color32, std::ops::Range<usize>)>>;
 
-fn syntax_color(color: Color) -> SyntaxColor {
-    let [r, g, b, a] = color.into_rgba8();
+fn syntax_color(color: Color32) -> SyntaxColor {
+    let [r, g, b, a] = color.to_array();
     SyntaxColor { r, g, b, a }
 }
 
 /// Maps language scopes onto the app's syntax colours.
 fn syntax_theme(c: &crate::theme::Colors) -> Theme {
-    let rules: [(&str, Color); 9] = [
+    let rules: [(&str, Color32); 9] = [
         ("comment", c.hl_comment),
         ("string, constant.other.symbol", c.hl_string),
         (
@@ -127,7 +127,7 @@ pub fn highlight(diff: &FileDiff, dark: bool) -> Option<Arc<Highlights>> {
                 let end = (at + piece.len()).min(line.text.len());
                 if end > at {
                     let c = style.foreground;
-                    runs.push((Color::from_rgb8(c.r, c.g, c.b), at..end));
+                    runs.push((Color32::from_rgb(c.r, c.g, c.b), at..end));
                 }
                 at += piece.len();
             }

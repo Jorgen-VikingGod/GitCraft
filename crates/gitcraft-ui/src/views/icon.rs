@@ -1,10 +1,9 @@
 //! The app's 24×24 outline icons.
 
 use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
-use iced::widget::svg;
-use iced::{Color, Element};
+use egui::{Color32, Image, Rect, Ui, Vec2};
 
 const PATHS: [(&str, &str); 36] = [
     (
@@ -108,24 +107,46 @@ const PATHS: [(&str, &str); 36] = [
     ("menu", "M3 6h18M3 12h18M3 18h18"),
 ];
 
-static HANDLES: LazyLock<HashMap<&'static str, svg::Handle>> = LazyLock::new(|| {
+/// The SVG of each icon, strokes in white so that a tint gives the colour.
+type Icons = HashMap<&'static str, (&'static str, Arc<[u8]>)>;
+
+static ICONS: LazyLock<Icons> = LazyLock::new(|| {
     PATHS
         .iter()
         .map(|(name, path)| {
             let markup = format!(
-                "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' \
+                "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' \
                  stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='{path}'/></svg>"
             );
-            (*name, svg::Handle::from_memory(markup.into_bytes()))
+            let uri: &'static str = Box::leak(format!("bytes://icon-{name}.svg").into_boxed_str());
+            (*name, (uri, Arc::from(markup.into_bytes())))
         })
         .collect()
 });
 
-pub fn icon<'a, Message: 'a>(name: &str, size: f32, color: Color) -> Element<'a, Message> {
-    let handle = HANDLES.get(name).unwrap_or_else(|| &HANDLES["x"]).clone();
-    svg(handle)
-        .width(size)
-        .height(size)
-        .style(move |_, _| svg::Style { color: Some(color) })
-        .into()
+fn image(name: &str, color: Color32) -> Image<'static> {
+    let (uri, bytes) = ICONS.get(name).unwrap_or_else(|| &ICONS["x"]);
+    Image::from_bytes(*uri, egui::load::Bytes::from(bytes.clone())).tint(color)
+}
+
+/// Draws an icon into `rect`.
+pub fn paint(ui: &Ui, name: &str, rect: Rect, color: Color32) {
+    image(name, color).paint_at(ui, rect);
+}
+
+/// An icon as a widget of its own: `size` points square.
+pub fn icon(ui: &mut Ui, name: &str, size: f32, color: Color32) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), egui::Sense::hover());
+    paint(ui, name, rect, color);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_icon_has_markup_and_unknown_ones_fall_back() {
+        assert_eq!(ICONS.len(), PATHS.len());
+        assert!(ICONS["fetch"].1.starts_with(b"<svg"));
+    }
 }

@@ -2,13 +2,11 @@
 
 use std::collections::HashMap;
 
-use iced::widget::text_editor;
-
 use crate::app::Message;
 
 pub enum FieldKind {
     Text(String),
-    Area(text_editor::Content),
+    Area(String),
     Check(bool),
     Select {
         options: Vec<(String, String)>,
@@ -36,7 +34,7 @@ impl Field {
     }
     pub fn area(key: &'static str, label: &str, value: &str) -> Self {
         Self {
-            kind: FieldKind::Area(text_editor::Content::with_text(value)),
+            kind: FieldKind::Area(value.to_owned()),
             ..Self::text(key, label, "")
         }
     }
@@ -72,7 +70,7 @@ impl Field {
     fn is_filled(&self) -> bool {
         match &self.kind {
             FieldKind::Text(value) => !value.trim().is_empty(),
-            FieldKind::Area(content) => !content.text().trim().is_empty(),
+            FieldKind::Area(value) => !value.trim().is_empty(),
             FieldKind::Check(_) | FieldKind::Select { .. } => true,
         }
     }
@@ -151,10 +149,10 @@ impl Form {
                 FieldKind::Text(value) => {
                     values.texts.insert(field.key, value.clone());
                 }
-                FieldKind::Area(content) => {
+                FieldKind::Area(value) => {
                     values
                         .texts
-                        .insert(field.key, content.text().trim_end_matches('\n').to_owned());
+                        .insert(field.key, value.trim_end_matches('\n').to_owned());
                 }
                 FieldKind::Check(value) => {
                     values.checks.insert(field.key, *value);

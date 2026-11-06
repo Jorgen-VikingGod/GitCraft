@@ -1,11 +1,10 @@
-# Tests GitCraft on Linux, macOS and Windows and builds the installers.
-# Installers are attached to the workflow run as artifacts.
+# Checks GitCraft on Linux, macOS and Windows: format, lints and tests.
+# The installers are built by release.yml, when a release is published.
 name: Rust
 
 on:
   push:
-    branches: [main, rust-migration]
-    tags: ['v*']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -15,10 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-22.04, formats: 'deb,appimage' }
-          - { os: ubuntu-24.04-arm, formats: 'deb,appimage' }
-          - { os: macos-latest, formats: 'dmg' }
-          - { os: windows-latest, formats: 'nsis' }
+          - { os: ubuntu-22.04 }
+          - { os: macos-latest }
+          - { os: windows-latest }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -31,6 +29,12 @@ jobs:
             target
           key: rust-${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: rust-${{ matrix.os }}-
+      - name: Linux build tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libxkbcommon-dev libwayland-dev libx11-dev \
+            libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev
       - name: Lint
         if: runner.os == 'Linux'
         run: |
@@ -38,21 +42,3 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace --no-fail-fast
-      - name: Build the installers
-        working-directory: crates/gitcraft-ui
-        env:
-          APPIMAGE_EXTRACT_AND_RUN: '1' # runners have no FUSE
-        run: |
-          cargo install cargo-packager --locked --version 0.11.8
-          cargo packager --release --formats ${{ matrix.formats }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gitcraft-${{ matrix.os }}
-          path: |
-            target/release/gitcraft
-            target/release/gitcraft.exe
-            target/packages/*.deb
-            target/packages/*.AppImage
-            target/packages/*.dmg
-            target/packages/*.exe
-          if-no-files-found: error

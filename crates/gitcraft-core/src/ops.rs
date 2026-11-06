@@ -466,6 +466,104 @@ pub async fn pull(
     may_conflict(repo, &args, with_progress(progress)).await
 }
 
+/// Makes the current branch equal to a remote branch: fetches it, then resets to it, which
+/// discards local commits and uncommitted changes. With `backup`, the old tip is first kept
+/// as a branch named `backup/<branch>-<short sha>`, and its name is in the result.
+/// Without a remote and branch, the branch's upstream is used.
+pub async fn pull_overwrite(
+    repo: &str,
+    remote: Option<&str>,
+    branch: Option<&str>,
+    backup: bool,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let head = git_unchecked(repo, &["symbolic-ref", "--short", "-q", "HEAD"]).await?;
+    let current = head.out().trim().to_owned();
+    if head.code != 0 || current.is_empty() {
+        return invalid("Check out a branch to overwrite it");
+    }
+    let (remote, branch) = match (remote, branch) {
+        (Some(remote), Some(branch)) => {
+            (check_ref(remote)?.to_owned(), check_ref(branch)?.to_owned())
+        }
+        _ => {
+            let upstream = git_unchecked(
+                repo,
+                &[
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{upstream}",
+                ],
+            )
+            .await?;
+            let upstream = upstream.out().trim().to_owned();
+            match upstream.split_once('/') {
+                Some((remote, branch)) if upstream_exists(&upstream) => {
+                    (remote.to_owned(), branch.to_owned())
+                }
+                _ => return invalid("Choose a remote and a branch to overwrite from"),
+            }
+        }
+    };
+    let tracking = format!("refs/remotes/{remote}/{branch}");
+    // An explicit refspec, so that the remote-tracking branch is updated whatever the config says.
+    let refspec = format!("+refs/heads/{branch}:{tracking}");
+    run(
+        repo,
+        &["fetch", "--progress", &remote, &refspec],
+        with_progress(progress),
+    )
+    .await?;
+    if git_unchecked(
+        repo,
+        &[
+            "rev-parse",
+            "--verify",
+            "-q",
+            &format!("{tracking}^{{commit}}"),
+        ],
+    )
+    .await?
+    .code
+        != 0
+    {
+        return invalid(format!("The remote has no branch {branch}"));
+    }
+    let mut message = format!("{current} now matches {remote}/{branch}.");
+    if backup {
+        let short = git(repo, &["rev-parse", "--short", "HEAD"]).await?;
+        let name = format!("backup/{current}-{}", short.out().trim());
+        // The same commit may already have a backup from an earlier overwrite.
+        let exists = git_unchecked(
+            repo,
+            &["rev-parse", "--verify", "-q", &format!("refs/heads/{name}")],
+        )
+        .await?
+        .code
+            == 0;
+        if !exists {
+            git(repo, &["branch", &name, "HEAD"]).await?;
+        }
+        message.push_str(&format!(" The previous state is kept as {name}."));
+    }
+    git(repo, &["reset", "--hard", &tracking]).await?;
+    Ok(OpResult {
+        ok: true,
+        conflicts: false,
+        message,
+        operation: None,
+        files: None,
+    })
+}
+
+/// Whether `rev-parse` gave a real upstream, not its own error text.
+fn upstream_exists(text: &str) -> bool {
+    !text.is_empty() && !text.contains(' ') && !text.starts_with('@')
+}
+
 pub async fn push(
     repo: &str,
     remote: &str,

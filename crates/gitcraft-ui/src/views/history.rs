@@ -1,22 +1,18 @@
 //! The virtualised commit list with its graph, above the details of the selection.
 
+use egui::{Align, Align2, Layout, Pos2, Rect, Sense, Stroke, Ui, vec2};
 use gitcraft_core::model::{Commit, RefLabel};
-use iced::widget::text::Wrapping;
-use iced::widget::{canvas, column, container, mouse_area, row, scrollable, space, text};
-use iced::{Background, Center, Color, Element, Length, Theme};
 
-use super::details;
 use super::graph_cell::{GraphCell, width_for};
-use super::icon::icon;
-use super::style;
 use super::widgets::{
-    btn, heading, hline, hoverable, placeholder, segmented, single, spacer, splitter,
+    badge_paint, badge_width, btn, fill, hline, paint_strong, paint_text, placeholder, region,
+    scroll, segmented, split_y, splitter, text,
 };
+use super::{Cx, details, icon};
 use crate::actions::{MenuRequest, RefTarget};
-use crate::app::{App, Message, ROW_HEIGHT, RepoTab, Splitter, View};
+use crate::app::{Message, ROW_HEIGHT, RepoTab, Splitter, View};
 use crate::command::Command;
 use crate::logic::{plural, short_date, short_sha};
-use crate::theme::Look;
 
 /// Rows drawn beyond the visible ones, so that a small scroll never shows a gap.
 const OVERSCAN: usize = 4;
@@ -24,15 +20,39 @@ const AUTHOR_WIDTH: f32 = 150.0;
 const DATE_WIDTH: f32 = 120.0;
 const SHA_WIDTH: f32 = 76.0;
 
-pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
-    let look = &app.look;
+pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    let look = cx.look();
+    let c = &look.c;
+    let area = ui.max_rect();
+    let (top, rest) = split_y(
+        area,
+        cx.app.settings.history_height.min(area.height() - 60.0),
+    );
+    let (grip, bottom) = split_y(rest, super::widgets::GRIP);
+    region(ui, top, |ui| {
+        fill(ui, top, c.bg);
+        top_pane(ui, cx, tab);
+    });
+    splitter(ui, cx, grip, Splitter::History);
+    region(ui, bottom, |ui| {
+        if tab.compare.is_some() {
+            details::compare(ui, cx, tab);
+        } else if tab.selected.is_some() {
+            details::commit(ui, cx, tab);
+        } else {
+            placeholder(ui, look, "Select a commit to see its details");
+        }
+    });
+}
+
+fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    let look = cx.look();
     let c = &look.c;
     let graph_width = if tab.search.is_some() {
         10.0
     } else {
         width_for(tab.graph_lanes)
     };
-    let mut top = column![];
     if let Some(search) = &tab.search {
         let summary = if search.loading {
             "Searching…".to_owned()
@@ -44,141 +64,96 @@ pub fn view<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
                 search.mode.key()
             )
         };
-        top = top.push(column![
-            container(
-                row![
-                    icon("search", 13.0, c.text_muted),
-                    text(summary).size(12),
-                    spacer(),
-                    btn(look, "Clear search", Some(Message::SearchClear))
-                ]
-                .spacing(6)
-                .align_y(Center),
-            )
-            .padding([4, 10])
-            .width(Length::Fill)
-            .style(style::fill(c.accent_soft)),
-            hline(look),
-        ]);
-    } else if tab.change_count() > 0 {
-        let dot = container(space()).width(9).height(9).style({
-            let color = c.text_muted;
-            move |_: &Theme| container::Style {
-                border: iced::Border {
-                    color,
-                    width: 2.0,
-                    radius: 5.0.into(),
-                },
-                ..container::Style::default()
-            }
+        super::widgets::bar(ui, 29.0, c.accent_soft, 10.0, |ui| {
+            icon::icon(ui, "search", 13.0, c.text_muted);
+            text(ui, summary, 12.0, c.text);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if btn(ui, look, "Clear search", true) {
+                    cx.send(Message::SearchClear);
+                }
+            });
         });
-        top = top.push(column![
-            mouse_area(hoverable(
-                look,
-                container(
-                    row![
-                        container(dot).width(graph_width).center_x(graph_width),
-                        text("Uncommitted changes")
-                            .size(13)
-                            .font(look.italic)
-                            .color(c.text_muted)
-                            .width(Length::Fill),
-                        single(plural(tab.change_count(), "file"), 13)
-                            .font(look.italic)
-                            .color(c.text_muted),
-                    ]
-                    .align_y(Center)
-                    .height(ROW_HEIGHT)
-                    .padding(iced::Padding {
-                        top: 0.0,
-                        bottom: 0.0,
-                        left: 0.0,
-                        right: 12.0
-                    }),
-                )
-                .width(Length::Fill),
-                0.0
-            ))
-            .on_press(Message::SetView(View::Changes)),
-            hline(look),
-        ]);
-    }
-    let mut header = row![
-        container(heading(look, "Description")).padding(iced::Padding {
-            left: graph_width,
-            ..iced::Padding::ZERO
-        })
-    ]
-    .spacing(12)
-    .align_y(Center);
-    if tab.search.is_none() {
-        header = header.push(segmented(
-            look,
-            (
-                "All branches",
-                tab.all_branches,
-                Message::SetBranchFilter(true),
-            ),
-            (
-                "Current branch",
-                !tab.all_branches,
-                Message::SetBranchFilter(false),
-            ),
-        ));
-    }
-    header = header
-        .push(spacer())
-        .push(
-            container(heading(look, "Author"))
-                .width(AUTHOR_WIDTH)
-                .padding([0, 8]),
-        )
-        .push(
-            container(heading(look, "Date"))
-                .width(DATE_WIDTH)
-                .padding([0, 8]),
-        )
-        .push(
-            container(heading(look, "Commit"))
-                .width(SHA_WIDTH)
-                .padding(iced::Padding {
-                    top: 0.0,
-                    bottom: 0.0,
-                    left: 4.0,
-                    right: 10.0,
-                }),
+        hline(ui, look);
+    } else if tab.change_count() > 0 {
+        let (rect, response) =
+            ui.allocate_exact_size(vec2(ui.available_width(), ROW_HEIGHT), Sense::click());
+        if response.hovered() {
+            ui.painter().rect_filled(rect, 0.0, c.hover);
+        }
+        ui.painter().circle_stroke(
+            Pos2::new(rect.left() + graph_width / 2.0, rect.center().y),
+            4.0,
+            Stroke::new(2.0, c.text_muted),
         );
-    top = top
-        .push(
-            container(header)
-                .height(25)
-                .center_y(25)
-                .width(Length::Fill)
-                .style(style::fill(c.panel)),
-        )
-        .push(hline(look))
-        .push(list(app, tab, graph_width));
-
-    let bottom: Element<'a, Message> = if tab.compare.is_some() {
-        details::compare(app, tab)
-    } else if tab.selected.is_some() {
-        details::commit(app, tab)
-    } else {
-        placeholder(look, "Select a commit to see its details")
-    };
-    column![
-        container(top)
-            .height(app.settings.history_height)
-            .width(Length::Fill)
-            .style(style::fill(c.bg)),
-        splitter(app, Splitter::History),
-        container(bottom).height(Length::Fill).width(Length::Fill),
-    ]
-    .into()
+        paint_text(
+            ui.painter(),
+            Pos2::new(rect.left() + graph_width, rect.center().y),
+            "Uncommitted changes",
+            look.ui(13.0),
+            c.text_muted,
+        );
+        ui.painter().text(
+            Pos2::new(rect.right() - 12.0, rect.center().y),
+            Align2::RIGHT_CENTER,
+            plural(tab.change_count(), "file"),
+            look.ui(13.0),
+            c.text_muted,
+        );
+        if response.clicked() {
+            cx.send(Message::SetView(View::Changes));
+        }
+        hline(ui, look);
+    }
+    header(ui, cx, tab, graph_width);
+    hline(ui, look);
+    list(ui, cx, tab, graph_width);
 }
 
-fn list<'a>(app: &'a App, tab: &'a RepoTab, graph_width: f32) -> Element<'a, Message> {
-    let look = &app.look;
+fn header(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
+    let look = cx.look();
+    let c = &look.c;
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 25.0), Sense::hover());
+    fill(ui, rect, c.panel);
+    let mid = rect.center().y;
+    let right = rect.right();
+    let sha_x = right - SHA_WIDTH + 4.0;
+    let date_x = right - SHA_WIDTH - DATE_WIDTH + 8.0;
+    let author_x = right - SHA_WIDTH - DATE_WIDTH - AUTHOR_WIDTH + 8.0;
+    for (title, x) in [("COMMIT", sha_x), ("DATE", date_x), ("AUTHOR", author_x)] {
+        paint_text(
+            ui.painter(),
+            Pos2::new(x, mid),
+            title,
+            look.ui(11.0),
+            c.text_muted,
+        );
+    }
+    let description = paint_text(
+        ui.painter(),
+        Pos2::new(rect.left() + graph_width, mid),
+        "DESCRIPTION",
+        look.ui(11.0),
+        c.text_muted,
+    );
+    if tab.search.is_none() {
+        let slot = Rect::from_min_size(
+            Pos2::new(
+                rect.left() + graph_width + description + 12.0,
+                rect.top() + 1.5,
+            ),
+            vec2(260.0, 22.0),
+        );
+        region(ui, slot, |ui| {
+            let active = usize::from(!tab.all_branches);
+            if let Some(chosen) = segmented(ui, look, ["All branches", "Current branch"], active) {
+                cx.send(Message::SetBranchFilter(chosen == 0));
+            }
+        });
+    }
+}
+
+fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
+    let look = cx.look();
     let commits = tab.visible();
     if commits.is_empty() {
         let note = if tab.loading {
@@ -188,247 +163,228 @@ fn list<'a>(app: &'a App, tab: &'a RepoTab, graph_width: f32) -> Element<'a, Mes
         } else {
             "No commits yet"
         };
-        return placeholder(look, note);
+        placeholder(ui, look, note);
+        return;
     }
     let total = commits.len();
-    // The window's height is a safe upper bound: the list's own is only known after it scrolled.
-    let count = (app.window.height / app.scale() / ROW_HEIGHT) as usize + 2 * OVERSCAN + 1;
-    let first = ((tab.offset / ROW_HEIGHT) as usize)
-        .saturating_sub(OVERSCAN)
-        .min(total.saturating_sub(count));
-    let visible = &commits[first..(first + count).min(total)];
     let head = tab.refs.head.as_deref();
-
-    let mut items: Vec<Element<'a, Message>> = Vec::with_capacity(visible.len() + 3);
-    items.push(space().height(first as f32 * ROW_HEIGHT).into());
-    for commit in visible {
-        let selected = tab.selected.as_deref() == Some(commit.sha.as_str());
-        let compared = tab
-            .compare
-            .as_ref()
-            .is_some_and(|c| c.base == commit.sha || c.target == commit.sha);
-        items.push(commit_row(
-            look,
-            commit,
-            selected && !compared,
-            compared,
-            Some(commit.sha.as_str()) == head,
-            graph_width,
-        ));
+    let more = tab.has_more && tab.search.is_none();
+    let mut area = scroll(("history", &tab.path));
+    if let Some(offset) = tab.scroll_to.take() {
+        // A position past the end would bounce back, showing nothing on the way.
+        let longest = total as f32 * ROW_HEIGHT + if more { 44.0 } else { 0.0 };
+        area = area.vertical_scroll_offset(offset.clamp(0.0, (longest - tab.viewport).max(0.0)));
     }
-    let below = total.saturating_sub(first + visible.len());
-    items.push(space().height(below as f32 * ROW_HEIGHT).into());
-    if tab.has_more && tab.search.is_none() {
-        let label = if tab.loading {
-            "Loading…"
-        } else {
-            "Load more commits"
-        };
-        items.push(
-            container(btn(
-                look,
-                label,
-                (!tab.loading).then_some(Message::LoadMore),
-            ))
-            .center_x(Length::Fill)
-            .padding(8)
-            .into(),
-        );
+    let output = area.show_viewport(ui, |ui, viewport| {
+        let origin = ui.max_rect().min;
+        let width = ui.max_rect().width();
+        let footer = if more { 44.0 } else { 0.0 };
+        ui.set_height(total as f32 * ROW_HEIGHT + footer);
+        let first = ((viewport.min.y / ROW_HEIGHT) as usize)
+            .saturating_sub(OVERSCAN)
+            .min(total);
+        let end = (((viewport.max.y / ROW_HEIGHT).ceil() as usize) + OVERSCAN).min(total);
+        for (index, commit) in commits.iter().enumerate().take(end).skip(first) {
+            let rect = Rect::from_min_size(
+                origin + vec2(0.0, index as f32 * ROW_HEIGHT),
+                vec2(width, ROW_HEIGHT),
+            );
+            let selected = tab.selected.as_deref() == Some(commit.sha.as_str());
+            let compared = tab
+                .compare
+                .as_ref()
+                .is_some_and(|c| c.base == commit.sha || c.target == commit.sha);
+            commit_row(
+                ui,
+                cx,
+                rect,
+                commit,
+                selected && !compared,
+                compared,
+                Some(commit.sha.as_str()) == head,
+                graph_width,
+            );
+        }
+        if more {
+            let slot = Rect::from_min_size(
+                origin + vec2(0.0, total as f32 * ROW_HEIGHT),
+                vec2(width, footer),
+            );
+            region(ui, slot, |ui| {
+                ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                    ui.add_space(10.0);
+                    let label = if tab.loading {
+                        "Loading…"
+                    } else {
+                        "Load more commits"
+                    };
+                    if btn(ui, look, label, !tab.loading) {
+                        cx.send(Message::LoadMore);
+                    }
+                });
+            });
+        }
+    });
+    let offset = output.state.clamped_offset().y;
+    let height = output.inner_rect.height();
+    if (offset - tab.offset).abs() > 0.5 || (height - tab.viewport).abs() > 0.5 {
+        cx.send(Message::Scrolled(offset, height));
     }
-    scrollable(column(items).width(Length::Fill))
-        .id(tab.list.clone())
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .direction(scrollable::Direction::Vertical(style::scrollbar()))
-        .style(style::scrollable(look))
-        .on_scroll(|viewport| {
-            Message::Scrolled(viewport.absolute_offset().y, viewport.bounds().height)
-        })
-        .into()
 }
 
-/// The rounded labels for branches and tags.
-pub fn badge<'a>(look: &Look, label: &RefLabel) -> Element<'a, Message> {
-    let c = &look.c;
-    let (background, color, name) = match label.kind.as_str() {
-        "tag" => (c.badge_tag_bg, c.badge_tag_text, "tag"),
-        "remote" => (c.badge_remote_bg, c.badge_remote_text, "cloud"),
-        "head" => (c.badge_head_bg, c.badge_head_text, "commit"),
-        _ if label.current => (c.badge_local_bg, c.badge_local_text, "check"),
-        _ => (c.badge_local_bg, c.badge_local_text, "branch"),
-    };
-    let font = if label.current {
-        look.bold
-    } else {
-        look.semibold
-    };
-    let border = if label.current {
-        color
-    } else {
-        Color::TRANSPARENT
-    };
-    container(
-        row![
-            icon(name, 11.0, color),
-            text(label.name.clone())
-                .size(11)
-                .font(font)
-                .color(color)
-                .wrapping(Wrapping::None)
-        ]
-        .spacing(3)
-        .align_y(Center),
-    )
-    .padding([0, 6])
-    .height(18)
-    .center_y(18)
-    .style(move |_: &Theme| container::Style {
-        background: Some(Background::Color(background)),
-        border: iced::Border {
-            color: border,
-            width: 1.0,
-            radius: 9.0.into(),
-        },
-        ..container::Style::default()
-    })
-    .into()
-}
-
-fn row_badge<'a>(look: &Look, label: &'a RefLabel, commit: &'a Commit) -> Element<'a, Message> {
+fn row_badge(ui: &mut Ui, cx: &Cx, label: &RefLabel, commit: &Commit, rect: Rect) {
     let target = match label.kind.as_str() {
         "local" => Some(RefTarget::Local(label.name.clone())),
         "remote" => Some(RefTarget::Remote(label.name.clone())),
         "tag" => Some(RefTarget::Tag(label.name.clone())),
         _ => None,
     };
-    let mut area = mouse_area(badge(look, label))
-        .on_press(Message::Select(commit.sha.clone()))
-        .on_right_press(Message::OpenMenu(MenuRequest::Commit {
+    badge_paint(ui, cx.look(), label, rect);
+    let response = ui.interact(
+        rect,
+        ui.scope_id()
+            .with(("badge", &commit.sha, &label.name, &label.kind)),
+        Sense::click(),
+    );
+    let checkout = |kind: &'static str| {
+        Message::Run(Command::Checkout {
+            reference: label.name.clone(),
+            kind,
+        })
+    };
+    if response.double_clicked() && label.kind == "local" && !label.current {
+        cx.send(checkout("local"));
+    } else if response.double_clicked() && label.kind == "remote" {
+        cx.send(checkout("remote"));
+    } else if response.clicked() {
+        cx.send(Message::Select(commit.sha.clone()));
+    } else if response.secondary_clicked() {
+        cx.send(Message::OpenMenu(MenuRequest::Commit {
             sha: commit.sha.clone(),
             focus: target,
         }));
-    if label.kind == "local" && !label.current {
-        area = area.on_double_click(Message::Run(Command::Checkout {
-            reference: label.name.clone(),
-            kind: "local",
-        }));
-    } else if label.kind == "remote" {
-        area = area.on_double_click(Message::Run(Command::Checkout {
-            reference: label.name.clone(),
-            kind: "remote",
-        }));
     }
-    area.into()
 }
 
-fn commit_row<'a>(
-    look: &Look,
-    commit: &'a Commit,
+#[allow(clippy::too_many_arguments)]
+fn commit_row(
+    ui: &mut Ui,
+    cx: &Cx,
+    rect: Rect,
+    commit: &Commit,
     selected: bool,
     compared: bool,
     is_head: bool,
     graph_width: f32,
-) -> Element<'a, Message> {
+) {
+    let look = cx.look();
     let c = &look.c;
     let (main, secondary) = if selected {
         (c.selection_text, c.selection_text)
     } else {
         (c.text, c.text_muted)
     };
-    let mut line = row![].height(ROW_HEIGHT).align_y(Center);
-    if let Some(graph) = &commit.graph {
-        let background = if selected { c.selection } else { c.bg };
-        line = line.push(
-            canvas(GraphCell {
-                row: graph,
-                lanes: c.lanes,
-                background,
-                merge: commit.parents.len() > 1,
-                head: is_head,
-            })
-            .width(graph_width)
-            .height(ROW_HEIGHT),
-        );
-    } else {
-        line = line.push(space().width(graph_width));
-    }
-    let mut subject_row = row![].spacing(6).align_y(Center);
-    let mut badges = row![].spacing(4).align_y(Center);
-    let mut has_badges = false;
-    for label in commit.refs.iter().flatten() {
-        badges = badges.push(row_badge(look, label, commit));
-        has_badges = true;
-    }
-    if has_badges {
-        subject_row = subject_row.push(badges);
-    }
-    let subject = text(commit.subject.as_str())
-        .size(13)
-        .color(main)
-        .wrapping(Wrapping::None)
-        .font(if is_head { look.semibold } else { look.font });
-    subject_row = subject_row.push(subject);
-    line = line
-        .push(container(subject_row).width(Length::Fill).clip(true))
-        .push(
-            container(
-                text(commit.author.as_str())
-                    .size(13)
-                    .color(secondary)
-                    .wrapping(Wrapping::None),
-            )
-            .width(AUTHOR_WIDTH)
-            .padding([0, 8])
-            .clip(true),
-        )
-        .push(
-            container(
-                text(short_date(commit.time))
-                    .size(13)
-                    .color(secondary)
-                    .wrapping(Wrapping::None),
-            )
-            .width(DATE_WIDTH)
-            .padding([0, 8])
-            .clip(true),
-        )
-        .push(
-            container(
-                text(short_sha(&commit.sha))
-                    .size(12)
-                    .font(look.mono)
-                    .color(secondary)
-                    .wrapping(Wrapping::None),
-            )
-            .width(SHA_WIDTH)
-            .padding(iced::Padding {
-                top: 0.0,
-                bottom: 0.0,
-                left: 4.0,
-                right: 10.0,
-            }),
-        );
-    let background = if selected {
-        Some(c.selection)
+    let response = ui.interact(
+        rect,
+        ui.scope_id().with(("commit", &commit.sha)),
+        Sense::click(),
+    );
+    if selected {
+        fill(ui, rect, c.selection);
     } else if compared {
-        Some(c.accent_soft)
+        fill(ui, rect, c.accent_soft);
+    } else if ui.rect_contains_pointer(rect) {
+        fill(ui, rect, c.hover);
+    }
+    let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+    let mid = rect.center().y;
+    if let Some(graph) = &commit.graph {
+        GraphCell {
+            row: graph,
+            lanes: c.lanes,
+            background: if selected { c.selection } else { c.bg },
+            merge: commit.parents.len() > 1,
+            head: is_head,
+        }
+        .paint(&painter, rect.min);
+    }
+    let sha_x = rect.right() - SHA_WIDTH + 4.0;
+    let date_x = rect.right() - SHA_WIDTH - DATE_WIDTH + 8.0;
+    let author_x = rect.right() - SHA_WIDTH - DATE_WIDTH - AUTHOR_WIDTH + 8.0;
+    paint_text(
+        &painter,
+        Pos2::new(sha_x, mid),
+        short_sha(&commit.sha),
+        look.mono(12.0),
+        secondary,
+    );
+    let date = painter.with_clip_rect(Rect::from_min_max(
+        Pos2::new(date_x - 8.0, rect.top()),
+        Pos2::new(sha_x, rect.bottom()),
+    ));
+    paint_text(
+        &date,
+        Pos2::new(date_x, mid),
+        &short_date(commit.time),
+        look.ui(13.0),
+        secondary,
+    );
+    let author = painter.with_clip_rect(Rect::from_min_max(
+        Pos2::new(author_x - 8.0, rect.top()),
+        Pos2::new(date_x - 8.0, rect.bottom()),
+    ));
+    paint_text(
+        &author,
+        Pos2::new(author_x, mid),
+        &commit.author,
+        look.ui(13.0),
+        secondary,
+    );
+
+    let subject_area = Rect::from_min_max(
+        Pos2::new(rect.left() + graph_width, rect.top()),
+        Pos2::new(author_x - 8.0, rect.bottom()),
+    );
+    let subject_painter = painter.with_clip_rect(subject_area.intersect(painter.clip_rect()));
+    let mut x = subject_area.left();
+    for label in commit.refs.iter().flatten() {
+        let width = badge_width(ui, look, label);
+        if x + width > subject_area.right() {
+            break;
+        }
+        let badge = Rect::from_min_size(Pos2::new(x, mid - 9.0), vec2(width, 18.0));
+        row_badge(ui, cx, label, commit, badge);
+        x += width + 4.0;
+    }
+    if commit.refs.as_ref().is_some_and(|refs| !refs.is_empty()) {
+        x += 2.0;
+    }
+    if is_head {
+        paint_strong(
+            &subject_painter,
+            Pos2::new(x, mid),
+            &commit.subject,
+            look.ui(13.0),
+            main,
+        );
     } else {
-        None
-    };
-    let body = container(line)
-        .width(Length::Fill)
-        .style(style::maybe_fill(background));
-    let shown: Element<'a, Message> = if selected {
-        body.into()
-    } else {
-        hoverable(look, body, 0.0)
-    };
-    mouse_area(shown)
-        .on_press(Message::Select(commit.sha.clone()))
-        .on_double_click(Message::ActivateCommit(commit.sha.clone()))
-        .on_right_press(Message::OpenMenu(MenuRequest::Commit {
+        paint_text(
+            &subject_painter,
+            Pos2::new(x, mid),
+            &commit.subject,
+            look.ui(13.0),
+            main,
+        );
+    }
+
+    if response.double_clicked() {
+        cx.send(Message::ActivateCommit(commit.sha.clone()));
+    } else if response.clicked() {
+        cx.send(Message::Select(commit.sha.clone()));
+    } else if response.secondary_clicked() {
+        cx.send(Message::OpenMenu(MenuRequest::Commit {
             sha: commit.sha.clone(),
             focus: None,
-        }))
-        .into()
+        }));
+    }
 }

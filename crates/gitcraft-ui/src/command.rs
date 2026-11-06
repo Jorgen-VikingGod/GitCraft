@@ -16,8 +16,11 @@ pub enum Command {
     Pull {
         remote: Option<String>,
         branch: Option<String>,
+        /// "merge", "rebase", "ff-only", or "overwrite" to make the branch equal the remote's.
         mode: String,
         autostash: bool,
+        /// With "overwrite": keep the old tip as a backup branch.
+        backup: bool,
     },
     Push {
         remote: String,
@@ -188,6 +191,7 @@ impl Command {
             } => format!("Fetching {remote}"),
             Self::Fetch { .. } => "Fetching".into(),
             Self::Pull { mode, .. } if mode == "rebase" => "Pulling (rebase)".into(),
+            Self::Pull { mode, .. } if mode == "overwrite" => "Overwriting from remote".into(),
             Self::Pull { .. } => "Pulling".into(),
             Self::Push { .. } => "Pushing".into(),
             Self::StashPush { .. } => "Stashing".into(),
@@ -250,6 +254,7 @@ impl Command {
     pub fn success(&self) -> Option<String> {
         Some(match self {
             Self::Fetch { .. } => "Fetch complete".into(),
+            Self::Pull { mode, .. } if mode == "overwrite" => "Branch overwritten".into(),
             Self::Pull { .. } => "Pull complete".into(),
             Self::Push { .. } => "Push complete".into(),
             Self::StashPush { paths: Some(_), .. } => "Files stashed".into(),
@@ -329,6 +334,18 @@ impl Command {
                 branch,
                 mode,
                 autostash,
+                backup,
+            } if mode == "overwrite" => {
+                let _ = autostash;
+                ops::pull_overwrite(repo, remote.as_deref(), branch.as_deref(), backup, report)
+                    .await
+            }
+            Self::Pull {
+                remote,
+                branch,
+                mode,
+                autostash,
+                backup: _,
             } => {
                 ops::pull(
                     repo,

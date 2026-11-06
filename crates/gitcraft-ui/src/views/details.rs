@@ -1,95 +1,90 @@
 //! What's below the history: a commit, a comparison, or a stash, each with a file list and a diff.
 
+use egui::{Align, Align2, Color32, Label, Layout, Margin, RichText, Sense, Ui, vec2};
 use gitcraft_core::model::FileChange;
-use iced::widget::text::Wrapping;
-use iced::widget::{Column, column, container, mouse_area, row, space, text, text_editor};
-use iced::{Background, Center, Color, Element, Length, Theme};
 
-use super::diff;
-use super::history::badge;
-use super::style;
 use super::widgets::{
-    btn, danger_text, file_row, heading, hline, muted_text, placeholder, primary, scrolled, single,
-    spacer, splitter,
+    GRIP, badge, btn, danger_text, file_row, fill, heading, hline, mono, muted, placeholder,
+    primary, region, scroll, split_x, splitter, text,
 };
+use super::{Cx, diff};
 use crate::actions::{Action, MenuRequest};
-use crate::app::{App, Message, PaneKey, RepoTab, Splitter};
+use crate::app::{Message, PaneKey, RepoTab, Splitter};
 use crate::command::Command;
 use crate::logic::{full_date, initials, name_hue, plural, short_sha};
-use crate::theme::Look;
 
-fn files<'a>(
-    app: &'a App,
-    list: &'a [FileChange],
+fn files(
+    ui: &mut Ui,
+    cx: &Cx,
+    id: &str,
+    list: &[FileChange],
     selected: Option<&str>,
-    rev: Option<&'a str>,
-    empty: &'a str,
-) -> Element<'a, Message> {
-    let look = &app.look;
+    rev: Option<&str>,
+    empty: &str,
+) {
     if list.is_empty() {
-        return container(
-            text(empty)
-                .size(13)
-                .font(look.italic)
-                .color(look.c.text_muted),
-        )
-        .padding([10, 14])
-        .into();
+        ui.add_space(10.0);
+        ui.horizontal(|ui| {
+            ui.add_space(14.0);
+            ui.label(
+                RichText::new(empty)
+                    .size(13.0)
+                    .italics()
+                    .color(cx.c().text_muted),
+            );
+        });
+        return;
     }
-    let mut rows: Column<'a, Message> = column![].width(Length::Fill);
-    for file in list {
-        let mut area = mouse_area(file_row(
-            look,
-            file,
-            selected == Some(file.path.as_str()),
-            None,
-        ))
-        .on_press(Message::PickFile(file.path.clone()));
-        if let Some(rev) = rev {
-            area = area.on_right_press(Message::OpenMenu(MenuRequest::File {
-                area: None,
-                path: file.path.clone(),
-                rev: Some(rev.to_owned()),
-            }));
+    scroll(("files", id)).show(ui, |ui| {
+        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+        for file in list {
+            let row = file_row(ui, cx, file, selected == Some(file.path.as_str()), None);
+            if row.row.clicked() {
+                cx.send(Message::PickFile(file.path.clone()));
+            } else if row.row.secondary_clicked()
+                && let Some(rev) = rev
+            {
+                cx.send(Message::OpenMenu(MenuRequest::File {
+                    area: None,
+                    path: file.path.clone(),
+                    rev: Some(rev.to_owned()),
+                }));
+            }
         }
-        rows = rows.push(area);
-    }
-    scrolled(look, rows).height(Length::Fill).into()
+    });
 }
 
-fn with_diff<'a>(
-    app: &'a App,
-    tab: &'a RepoTab,
-    left: Element<'a, Message>,
-    empty: &'a str,
-) -> Element<'a, Message> {
-    let width = app.window.width / app.scale()
-        - app.settings.sidebar_width
-        - app.settings.details_width
-        - 10.0;
-    row![
-        container(left)
-            .width(app.settings.details_width)
-            .height(Length::Fill)
-            .clip(true)
-            .style(style::fill(app.look.c.panel)),
-        splitter(app, Splitter::Details),
-        container(diff::view(
-            app,
+fn with_diff(ui: &mut Ui, cx: &Cx, tab: &RepoTab, empty: &str, left: impl FnOnce(&mut Ui)) {
+    let c = cx.c();
+    let area = ui.max_rect();
+    let width = cx
+        .app
+        .settings
+        .details_width
+        .min(area.width() - 200.0)
+        .max(120.0);
+    let (list, rest) = split_x(area, width);
+    let (grip, right) = split_x(rest, GRIP);
+    region(ui, list, |ui| {
+        fill(ui, list, c.panel);
+        left(ui);
+    });
+    splitter(ui, cx, grip, Splitter::Details);
+    region(ui, right, |ui| {
+        diff::view(
+            ui,
+            cx,
             &tab.commit_pane,
             PaneKey::Commit,
             None,
             empty,
             None,
-            width
-        ))
-        .width(Length::Fill)
-        .height(Length::Fill),
-    ]
-    .into()
+            right.width(),
+        );
+    });
 }
 
-fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color {
+fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color32 {
     let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
     let section = hue / 60.0;
     let x = chroma * (1.0 - (section % 2.0 - 1.0).abs());
@@ -102,176 +97,199 @@ fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color {
         _ => (chroma, 0.0, x),
     };
     let m = lightness - chroma / 2.0;
-    Color::from_rgb(r + m, g + m, b + m)
+    let byte = |v: f32| ((v + m) * 255.0).round() as u8;
+    Color32::from_rgb(byte(r), byte(g), byte(b))
 }
 
-fn avatar<'a>(look: &Look, name: &str) -> Element<'a, Message> {
+fn avatar(ui: &mut Ui, cx: &Cx, name: &str) {
     let color = hsl(name_hue(name) as f32, 0.55, 0.45);
-    container(
-        text(initials(name))
-            .size(12)
-            .font(look.bold)
-            .color(Color::WHITE),
-    )
-    .center(32)
-    .style(move |_: &Theme| container::Style {
-        background: Some(Background::Color(color)),
-        border: iced::border::rounded(16),
-        ..container::Style::default()
-    })
-    .into()
+    let (rect, _) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
+    ui.painter().circle_filled(rect.center(), 16.0, color);
+    ui.painter().text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        initials(name),
+        cx.look().ui(12.0),
+        Color32::WHITE,
+    );
 }
 
 /// How tall the part above the file list may get: just over half of the pane.
-fn meta_height(app: &App) -> f32 {
-    let pane = app.window.height / app.scale() - app.settings.history_height - 150.0;
+fn meta_height(cx: &Cx) -> f32 {
+    let app = cx.app;
+    let pane = app.window.y - app.settings.history_height - 150.0;
     (pane * 0.55).max(120.0)
 }
 
-pub fn commit<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
-    let look = &app.look;
+fn fact(ui: &mut Ui, cx: &Cx, label: &str, value: impl FnOnce(&mut Ui)) {
+    ui.horizontal_top(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        let (rect, _) = ui.allocate_exact_size(vec2(62.0, 16.0), Sense::hover());
+        ui.painter().text(
+            rect.left_center(),
+            Align2::LEFT_CENTER,
+            label,
+            cx.look().ui(12.0),
+            cx.c().text_muted,
+        );
+        value(ui);
+    });
+}
+
+pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    let look = cx.look();
     let c = &look.c;
     if let Some(error) = &tab.detail_error {
-        return container(text(error.as_str()).size(13).color(c.danger))
-            .center(Length::Fill)
-            .into();
+        fill(ui, ui.max_rect(), c.bg);
+        let rect = ui.max_rect();
+        ui.painter().text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            error,
+            look.ui(13.0),
+            c.danger,
+        );
+        return;
     }
     let Some(detail) = &tab.detail else {
-        return placeholder(look, "Loading…");
+        placeholder(ui, look, "Loading…");
+        return;
     };
-    let fact = |label: &'a str, value: Element<'a, Message>| {
-        row![
-            container(text(label).size(12).font(look.semibold).color(c.text_muted)).width(62),
-            container(value).width(Length::Fill)
-        ]
-    };
-    let mut parents = row![].spacing(6);
-    if detail.parents.is_empty() {
-        parents = parents.push(text("(root commit)").size(12).font(look.mono));
-    }
-    for parent in &detail.parents {
-        parents = parents.push(
-            mouse_area(
-                single(short_sha(parent), 12)
-                    .font(look.mono)
-                    .color(c.accent),
-            )
-            .on_press(Message::ShowCommit(parent.clone())),
-        );
-    }
-    let mut meta = column![
-        row![
-            avatar(look, &detail.author),
-            column![
-                text(detail.author.as_str()).size(13).font(look.semibold),
-                text(format!("<{}>", detail.email))
-                    .size(13)
-                    .color(c.text_muted),
-                text(full_date(detail.time)).size(12).color(c.text_muted),
-            ]
-            .width(Length::Fill),
-        ]
-        .spacing(10)
-        .align_y(Center),
-    ]
-    .spacing(8)
-    .width(Length::Fill);
-    if !detail.refs.is_empty() {
-        let mut labels = row![].spacing(4);
-        for label in &detail.refs {
-            labels = labels.push(badge(look, label));
-        }
-        meta = meta.push(labels.wrap());
-    }
-    meta = meta
-        .push(
-            text_editor(&tab.message)
-                .on_action(Message::MessageAction)
-                .size(13)
-                .padding(0)
-                .height(Length::Shrink)
-                .style(style::plain_editor(look)),
-        )
-        .push(fact(
-            "SHA",
-            mouse_area(
-                text(detail.sha.as_str())
-                    .size(12)
-                    .font(look.mono)
-                    .color(c.accent)
-                    .wrapping(Wrapping::Glyph),
-            )
-            .on_press(Message::Copy(detail.sha.clone()))
-            .into(),
-        ))
-        .push(fact(
-            if detail.parents.len() > 1 {
-                "Parents"
-            } else {
-                "Parent"
-            },
-            parents.into(),
-        ));
-    if detail.committer != detail.author || detail.commit_time != detail.time {
-        meta = meta.push(fact(
-            "Committer",
-            text(format!(
-                "{}, {}",
-                detail.committer,
-                full_date(detail.commit_time)
-            ))
-            .size(12)
-            .font(look.mono)
-            .into(),
-        ));
-    }
-    let suffix = if detail.parents.len() > 1 {
-        " (compared to first parent)"
-    } else {
-        ""
-    };
-    let left = column![
-        container(scrolled(look, container(meta).padding([12, 14])).height(Length::Shrink))
-            .max_height(meta_height(app)),
-        hline(look),
-        container(heading(
-            look,
-            &format!("{} changed", plural(detail.files.len(), "file"))
-        ))
-        .padding(iced::Padding {
-            top: 8.0,
-            bottom: 4.0,
-            left: 14.0,
-            right: 14.0
-        }),
-        if suffix.is_empty() {
-            Element::from(space().height(0))
-        } else {
-            container(muted_text(look, suffix.trim(), 12))
-                .padding([0, 14])
-                .into()
-        },
-        files(
-            app,
-            &detail.files,
-            tab.selected_file.as_deref(),
-            Some(&detail.sha),
-            "No files"
-        ),
-    ];
     let empty = if detail.files.is_empty() {
         "This commit has no file changes"
     } else {
         "Select a file to see its changes"
     };
-    with_diff(app, tab, left.into(), empty)
+    with_diff(ui, cx, tab, empty, |ui| {
+        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+        scroll(("meta", &detail.sha))
+            .auto_shrink([false, true])
+            .max_height(meta_height(cx))
+            .show(ui, |ui| {
+                egui::Frame::new()
+                    .inner_margin(Margin::symmetric(14, 12))
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.spacing_mut().item_spacing = vec2(6.0, 8.0);
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 10.0;
+                            avatar(ui, cx, &detail.author);
+                            ui.vertical(|ui| {
+                                ui.spacing_mut().item_spacing.y = 1.0;
+                                text(ui, detail.author.as_str(), 13.0, c.text);
+                                muted(ui, look, format!("<{}>", detail.email), 13.0);
+                                muted(ui, look, full_date(detail.time), 12.0);
+                            });
+                        });
+                        if !detail.refs.is_empty() {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
+                                for label in &detail.refs {
+                                    badge(ui, look, label);
+                                }
+                            });
+                        }
+                        ui.add(
+                            Label::new(RichText::new(detail.message.as_str()).size(13.0))
+                                .selectable(true)
+                                .wrap(),
+                        );
+                        fact(ui, cx, "SHA", |ui| {
+                            let response = ui.add(
+                                Label::new(
+                                    RichText::new(detail.sha.as_str())
+                                        .size(12.0)
+                                        .monospace()
+                                        .color(c.accent),
+                                )
+                                .wrap()
+                                .sense(Sense::click()),
+                            );
+                            if response.clicked() {
+                                cx.send(Message::Copy(detail.sha.clone()));
+                            }
+                        });
+                        fact(
+                            ui,
+                            cx,
+                            if detail.parents.len() > 1 {
+                                "Parents"
+                            } else {
+                                "Parent"
+                            },
+                            |ui| {
+                                ui.spacing_mut().item_spacing.x = 6.0;
+                                if detail.parents.is_empty() {
+                                    mono(ui, "(root commit)", 12.0, c.text);
+                                }
+                                for parent in &detail.parents {
+                                    let response = ui.add(
+                                        Label::new(
+                                            RichText::new(short_sha(parent))
+                                                .size(12.0)
+                                                .monospace()
+                                                .color(c.accent),
+                                        )
+                                        .sense(Sense::click()),
+                                    );
+                                    if response.clicked() {
+                                        cx.send(Message::ShowCommit(parent.clone()));
+                                    }
+                                }
+                            },
+                        );
+                        if detail.committer != detail.author || detail.commit_time != detail.time {
+                            fact(ui, cx, "Committer", |ui| {
+                                ui.add(
+                                    Label::new(
+                                        RichText::new(format!(
+                                            "{}, {}",
+                                            detail.committer,
+                                            full_date(detail.commit_time)
+                                        ))
+                                        .size(12.0)
+                                        .monospace(),
+                                    )
+                                    .wrap(),
+                                );
+                            });
+                        }
+                    });
+            });
+        hline(ui, look);
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            ui.add_space(14.0);
+            heading(
+                ui,
+                look,
+                &format!("{} changed", plural(detail.files.len(), "file")),
+            );
+        });
+        ui.add_space(4.0);
+        if detail.parents.len() > 1 {
+            ui.horizontal(|ui| {
+                ui.add_space(14.0);
+                muted(ui, look, "(compared to first parent)", 12.0);
+            });
+        }
+        files(
+            ui,
+            cx,
+            &detail.sha,
+            &detail.files,
+            tab.selected_file.as_deref(),
+            Some(&detail.sha),
+            "No files",
+        );
+    });
 }
 
-pub fn compare<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
-    let look = &app.look;
+pub fn compare(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    let look = cx.look();
     let c = &look.c;
     let Some(state) = &tab.compare else {
-        return placeholder(look, "");
+        return;
     };
     let subject = |sha: &str| {
         tab.commits
@@ -279,62 +297,63 @@ pub fn compare<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
             .find(|commit| commit.sha == sha)
             .map_or_else(String::new, |commit| commit.subject.clone())
     };
-    let line = |prefix: &'static str, sha: &str| {
-        row![
-            single(prefix, 12).color(c.text_muted),
-            single(short_sha(sha).to_owned(), 12).font(look.mono),
-            container(single(subject(sha), 12).color(c.text_muted)).clip(true),
-        ]
-        .spacing(6)
-    };
-    let mut meta = column![
-        text("Comparing commits").size(13).font(look.semibold),
-        line("", &state.base),
-        line("→", &state.target),
-    ]
-    .spacing(4)
-    .padding([12, 14]);
-    if let Some(result) = &state.result {
-        meta = meta.push(muted_text(
-            look,
-            format!(
-                "{} only in target, {} only in base",
-                plural(result.target_only as usize, "commit"),
-                result.base_only
-            ),
-            12,
-        ));
-    }
-    if let Some(error) = &state.error {
-        meta = meta.push(text(error.as_str()).size(12).color(c.danger));
-    }
-    meta = meta.push(
-        row![
-            btn(look, "Swap", Some(Message::CompareSwap)),
-            btn(look, "Close", Some(Message::CompareClose))
-        ]
-        .spacing(6),
-    );
-    let list = state
-        .result
-        .as_ref()
-        .map_or(&[][..], |result| &result.files);
-    let left = column![
-        meta,
-        hline(look),
+    with_diff(ui, cx, tab, "Select a file to see its changes", |ui| {
+        ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
+        egui::Frame::new()
+            .inner_margin(Margin::symmetric(14, 12))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                text(ui, "Comparing commits", 13.0, c.text);
+                for (prefix, sha) in [("", &state.base), ("→", &state.target)] {
+                    ui.horizontal(|ui| {
+                        muted(ui, look, prefix, 12.0);
+                        mono(ui, short_sha(sha), 12.0, c.text);
+                        muted(ui, look, subject(sha), 12.0);
+                    });
+                }
+                if let Some(result) = &state.result {
+                    muted(
+                        ui,
+                        look,
+                        format!(
+                            "{} only in target, {} only in base",
+                            plural(result.target_only as usize, "commit"),
+                            result.base_only
+                        ),
+                        12.0,
+                    );
+                }
+                if let Some(error) = &state.error {
+                    text(ui, error.as_str(), 12.0, c.danger);
+                }
+                ui.horizontal(|ui| {
+                    if btn(ui, look, "Swap", true) {
+                        cx.send(Message::CompareSwap);
+                    }
+                    if btn(ui, look, "Close", true) {
+                        cx.send(Message::CompareClose);
+                    }
+                });
+            });
+        hline(ui, look);
+        let list = state
+            .result
+            .as_ref()
+            .map_or(&[][..], |result| &result.files);
         files(
-            app,
+            ui,
+            cx,
+            "compare",
             list,
             state.selected.as_deref(),
             Some(&state.target),
-            "No differences"
-        )
-    ];
-    with_diff(app, tab, left.into(), "Select a file to see its changes")
+            "No differences",
+        );
+    });
 }
 
-pub fn stash<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
-    let look = &app.look;
+pub fn stash(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    let look = cx.look();
     let found = tab.stash.as_ref().and_then(|open| {
         tab.refs
             .stashes
@@ -343,47 +362,51 @@ pub fn stash<'a>(app: &'a App, tab: &'a RepoTab) -> Element<'a, Message> {
             .map(|stash| (open, stash))
     });
     let Some((open, stash)) = found else {
-        return placeholder(look, "Stash not found");
+        placeholder(ui, look, "Stash not found");
+        return;
     };
-    let name = stash.name.clone();
-    let left = column![
-        column![
-            text(stash.message.as_str()).size(13).font(look.semibold),
-            muted_text(
-                look,
-                format!("{} · {}", stash.name, full_date(stash.time)),
-                12
-            ),
-            row![
-                primary(
+    with_diff(ui, cx, tab, "Select a file to see its changes", |ui| {
+        egui::Frame::new()
+            .inner_margin(Margin::symmetric(14, 12))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
+                text(ui, stash.message.as_str(), 13.0, look.c.text);
+                muted(
+                    ui,
                     look,
-                    "Apply",
-                    Some(Message::Run(Command::StashApply {
-                        name: name.clone(),
-                        pop: false
-                    }))
-                ),
-                btn(
-                    look,
-                    "Pop",
-                    Some(Message::Run(Command::StashApply {
-                        name: name.clone(),
-                        pop: true
-                    }))
-                ),
-                spacer(),
-                danger_text(
-                    look,
-                    "Drop…",
-                    Some(Message::Action(Action::DropStash(name)))
-                ),
-            ]
-            .spacing(6),
-        ]
-        .spacing(6)
-        .padding([12, 14]),
-        hline(look),
-        files(app, &open.files, open.selected.as_deref(), None, "No files"),
-    ];
-    with_diff(app, tab, left.into(), "Select a file to see its changes")
+                    format!("{} · {}", stash.name, full_date(stash.time)),
+                    12.0,
+                );
+                ui.horizontal(|ui| {
+                    if primary(ui, look, "Apply", true) {
+                        cx.send(Message::Run(Command::StashApply {
+                            name: stash.name.clone(),
+                            pop: false,
+                        }));
+                    }
+                    if btn(ui, look, "Pop", true) {
+                        cx.send(Message::Run(Command::StashApply {
+                            name: stash.name.clone(),
+                            pop: true,
+                        }));
+                    }
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if danger_text(ui, look, "Drop…", true) {
+                            cx.send(Message::Action(Action::DropStash(stash.name.clone())));
+                        }
+                    });
+                });
+            });
+        hline(ui, look);
+        files(
+            ui,
+            cx,
+            "stash",
+            &open.files,
+            open.selected.as_deref(),
+            None,
+            "No files",
+        );
+    });
 }

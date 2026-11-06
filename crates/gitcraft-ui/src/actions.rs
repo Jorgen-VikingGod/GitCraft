@@ -1,8 +1,10 @@
 //! User-facing commands with their dialogs, and all context menus.
 
+use egui::Pos2;
 use gitcraft_core::model::{Commit, CommitDetail, LocalBranch, Remote};
 use gitcraft_core::{ops, queries};
-use iced::{Point, Task};
+
+use crate::task::Task;
 
 use crate::app::{App, Area, Message, RepoTab, ToastKind, View};
 use crate::command::Command;
@@ -234,6 +236,7 @@ impl App {
                     branch: values.opt("branch"),
                     mode: values.text("mode"),
                     autostash: values.check("autostash"),
+                    backup: values.check("backup"),
                 })
                 .field(remote_field(&remotes, up_remote.as_deref()))
                 .field(Field::text("branch", "Remote branch", &name))
@@ -245,9 +248,15 @@ impl App {
                         ("merge", "Merge (create a merge commit if needed)"),
                         ("rebase", "Rebase (replay local commits on top)"),
                         ("ff-only", "Fast-forward only"),
+                        ("overwrite", "Overwrite local branch with the remote branch"),
                     ]),
                 ))
-                .field(Field::check("autostash", "Stash and reapply local changes", self.settings.pull_autostash));
+                .field(Field::check("autostash", "Stash and reapply local changes", self.settings.pull_autostash))
+                .field(Field::check(
+                    "backup",
+                    "Overwrite only: keep a backup branch of the current state",
+                    self.settings.pull_backup,
+                ));
                 if let Some(branch) = branch {
                     form = form.message(&format!("Pull into {}", branch.name));
                 }
@@ -990,7 +999,7 @@ impl App {
         }
     }
 
-    pub fn show_commit_menu(&mut self, request: MenuRequest, commit: &Commit, at: Point) {
+    pub fn show_commit_menu(&mut self, request: MenuRequest, commit: &Commit, at: Pos2) {
         let MenuRequest::Commit { focus, .. } = request else {
             return;
         };
@@ -1310,18 +1319,19 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             act(Action::UndoLast),
         ));
     }
+    // Also at the top level, as it is one of the most common history edits.
+    items.push(MenuItem::entry_if(
+        "Squash into parent…",
+        has_parent,
+        act(Action::Squash {
+            sha: sha.clone(),
+            fixup: false,
+        }),
+    ));
     items.push(MenuItem::sub(
         "Edit commit",
         vec![
             MenuItem::entry("Edit message…", act(Action::EditMessage(sha.clone()))),
-            MenuItem::entry_if(
-                "Squash into parent…",
-                has_parent,
-                act(Action::Squash {
-                    sha: sha.clone(),
-                    fixup: false,
-                }),
-            ),
             MenuItem::entry_if(
                 "Fixup into parent (discard message)…",
                 has_parent,

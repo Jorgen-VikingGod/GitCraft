@@ -1,82 +1,74 @@
-//! GitCraft's own look, in light and dark. The OS only decides which of the two
-//! applies and which font is used; that is the only part read through native-theme.
+//! GitCraft's own look, in light and dark. The OS only decides which of the two applies.
 
-use iced::font::{Style as FontStyle, Weight};
-use iced::theme::Palette;
-use iced::{Color, Font, Theme};
-use native_theme_iced::native_theme::SystemTheme;
-use native_theme_iced::native_theme::theme::ColorMode;
-use native_theme_iced::{ResolvedTheme, font_family};
+use egui::{Color32, FontFamily, FontId};
+use native_theme::SystemTheme;
+use native_theme::theme::ColorMode;
 
-const fn hex(rgb: u32) -> Color {
-    Color {
-        r: ((rgb >> 16) & 0xff) as f32 / 255.0,
-        g: ((rgb >> 8) & 0xff) as f32 / 255.0,
-        b: (rgb & 0xff) as f32 / 255.0,
-        a: 1.0,
-    }
+const fn hex(rgb: u32) -> Color32 {
+    Color32::from_rgb((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8)
 }
 
-const fn rgba(r: u8, g: u8, b: u8, a: f32) -> Color {
-    Color {
-        r: r as f32 / 255.0,
-        g: g as f32 / 255.0,
-        b: b as f32 / 255.0,
-        a,
-    }
+/// `alpha` is 0 to 1; the colour is straight (not premultiplied), as CSS writes it.
+const fn rgba(r: u8, g: u8, b: u8, alpha: f32) -> Color32 {
+    Color32::from_rgba_premultiplied(
+        (r as f32 * alpha + 0.5) as u8,
+        (g as f32 * alpha + 0.5) as u8,
+        (b as f32 * alpha + 0.5) as u8,
+        (alpha * 255.0 + 0.5) as u8,
+    )
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Colors {
-    pub bg: Color,
-    pub panel: Color,
-    pub sidebar: Color,
-    pub titlebar: Color,
-    pub toolbar: Color,
-    pub input: Color,
-    pub border: Color,
-    pub text: Color,
-    pub text_muted: Color,
-    pub text_faint: Color,
-    pub hover: Color,
-    pub hover_strong: Color,
-    pub selection: Color,
-    pub selection_text: Color,
-    pub accent: Color,
-    pub accent_soft: Color,
-    pub success: Color,
-    pub warning: Color,
-    pub danger: Color,
-    pub warning_bg: Color,
-    pub backdrop: Color,
-    pub shadow: Color,
-    pub diff_add_bg: Color,
-    pub diff_add_text: Color,
-    pub diff_del_bg: Color,
-    pub diff_del_text: Color,
-    pub diff_hunk_bg: Color,
-    pub diff_filler: Color,
-    pub diff_selected: Color,
-    pub conflict_ours: Color,
-    pub conflict_theirs: Color,
-    pub badge_local_bg: Color,
-    pub badge_local_text: Color,
-    pub badge_remote_bg: Color,
-    pub badge_remote_text: Color,
-    pub badge_tag_bg: Color,
-    pub badge_tag_text: Color,
-    pub badge_head_bg: Color,
-    pub badge_head_text: Color,
-    pub lanes: [Color; 8],
-    pub hl_keyword: Color,
-    pub hl_string: Color,
-    pub hl_number: Color,
-    pub hl_comment: Color,
-    pub hl_title: Color,
-    pub hl_type: Color,
-    pub hl_attr: Color,
-    pub hl_meta: Color,
-    pub hl_variable: Color,
+    pub bg: Color32,
+    pub panel: Color32,
+    pub sidebar: Color32,
+    pub titlebar: Color32,
+    pub toolbar: Color32,
+    pub input: Color32,
+    pub border: Color32,
+    pub text: Color32,
+    pub text_muted: Color32,
+    pub text_faint: Color32,
+    pub hover: Color32,
+    pub hover_strong: Color32,
+    pub selection: Color32,
+    pub selection_text: Color32,
+    pub accent: Color32,
+    pub accent_soft: Color32,
+    pub success: Color32,
+    pub warning: Color32,
+    pub danger: Color32,
+    pub warning_bg: Color32,
+    pub backdrop: Color32,
+    pub shadow: Color32,
+    pub diff_add_bg: Color32,
+    pub diff_add_text: Color32,
+    pub diff_del_bg: Color32,
+    pub diff_del_text: Color32,
+    pub diff_hunk_bg: Color32,
+    pub diff_filler: Color32,
+    pub diff_selected: Color32,
+    pub conflict_ours: Color32,
+    pub conflict_theirs: Color32,
+    pub badge_local_bg: Color32,
+    pub badge_local_text: Color32,
+    pub badge_remote_bg: Color32,
+    pub badge_remote_text: Color32,
+    pub badge_tag_bg: Color32,
+    pub badge_tag_text: Color32,
+    pub badge_head_bg: Color32,
+    pub badge_head_text: Color32,
+    pub lanes: [Color32; 8],
+    pub hl_keyword: Color32,
+    pub hl_string: Color32,
+    pub hl_number: Color32,
+    pub hl_comment: Color32,
+    pub hl_title: Color32,
+    pub hl_type: Color32,
+    pub hl_attr: Color32,
+    pub hl_meta: Color32,
+    pub hl_variable: Color32,
 }
 
 pub const LIGHT: Colors = Colors {
@@ -203,141 +195,172 @@ pub const DARK: Colors = Colors {
 
 #[derive(Debug, Clone)]
 pub struct Look {
-    pub theme: Theme,
     pub c: Colors,
     pub dark: bool,
     pub text_size: f32,
-    pub font: Font,
-    pub semibold: Font,
-    pub bold: Font,
-    pub italic: Font,
-    pub mono: Font,
-    pub mono_bold: Font,
     /// Width of one character of diff text, for working out where lines wrap.
     pub char_width: f32,
 }
 
-fn leaked(name: &str) -> &'static str {
-    Box::leak(name.to_owned().into_boxed_str())
-}
+pub const CODE_SIZE: f32 = 12.5;
 
 impl Look {
-    fn build(dark: bool, font: Font, mono: Font) -> Self {
-        let c = if dark { DARK } else { LIGHT };
-        let theme = Theme::custom(
-            "GitCraft",
-            Palette {
-                background: c.bg,
-                text: c.text,
-                primary: c.accent,
-                success: c.success,
-                warning: c.warning,
-                danger: c.danger,
-            },
-        );
+    fn build(dark: bool) -> Self {
         Self {
-            theme,
-            c,
+            c: if dark { DARK } else { LIGHT },
             dark,
             text_size: 13.0,
-            font,
-            // Many families have no semibold face, and asking for one can switch typeface.
-            semibold: Font {
-                weight: Weight::Bold,
-                ..font
-            },
-            bold: Font {
-                weight: Weight::Bold,
-                ..font
-            },
-            italic: Font {
-                style: FontStyle::Italic,
-                ..font
-            },
-            mono,
-            mono_bold: Font {
-                weight: Weight::Bold,
-                ..mono
-            },
-            char_width: measure_char_width(mono),
+            char_width: CODE_SIZE * 0.6,
         }
     }
 
-    /// "system", "light" or "dark". A failed OS read means light, with default fonts.
+    /// "system", "light" or "dark". A failed OS read means light.
     pub fn for_setting(choice: &str) -> Self {
-        let system = SystemTheme::from_system().ok();
-        let os_dark = system
-            .as_ref()
+        let os_dark = SystemTheme::from_system()
+            .ok()
             .is_some_and(|system| matches!(system.mode, ColorMode::Dark));
-        let dark = match choice {
+        Self::build(match choice {
             "light" => false,
             "dark" => true,
             _ => os_dark,
-        };
-        let font = system.as_ref().map_or(Font::DEFAULT, |system| {
-            let resolved: &ResolvedTheme = if system.mode.is_dark() {
-                &system.dark
-            } else {
-                &system.light
-            };
-            named_font(font_family(resolved))
-        });
-        // The OS often reports just "Monospace", which is no family: looking it up gives a
-        // proportional font, and diffs would stop lining up.
-        let mono = Font::MONOSPACE;
-        Self::build(dark, font, mono)
+        })
     }
 
     /// Doesn't depend on the machine, for tests.
     pub fn preset(dark: bool) -> Self {
-        Self::build(dark, Font::DEFAULT, Font::MONOSPACE)
+        Self::build(dark)
     }
-}
 
-/// Generic names such as "Sans" aren't families either, so they get the default font.
-fn named_font(name: &str) -> Font {
-    match name.to_ascii_lowercase().as_str() {
-        "" | "sans" | "sans serif" | "sans-serif" | "system-ui" | "serif" | "monospace" => {
-            Font::DEFAULT
+    pub fn ui(&self, size: f32) -> FontId {
+        FontId::new(size, FontFamily::Proportional)
+    }
+
+    pub fn mono(&self, size: f32) -> FontId {
+        FontId::new(size, FontFamily::Monospace)
+    }
+
+    /// Measures the code font once there is a context to measure with.
+    pub fn measure(&mut self, ctx: &egui::Context) {
+        let width = ctx.fonts_mut(|fonts| fonts.glyph_width(&self.mono(CODE_SIZE), '0'));
+        if width > 1.0 {
+            self.char_width = width;
         }
-        _ => Font::with_name(leaked(name)),
+    }
+
+    /// Styles egui's own widgets (buttons, text fields, menus, scroll bars) from the palette,
+    /// so that they look the same in every part of the window.
+    pub fn apply(&self, ctx: &egui::Context) {
+        use egui::{CornerRadius, Stroke, TextStyle, Vec2};
+        let c = &self.c;
+        let mut visuals = if self.dark {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        };
+        visuals.override_text_color = Some(c.text);
+        visuals.panel_fill = c.bg;
+        visuals.window_fill = c.panel;
+        visuals.extreme_bg_color = c.input;
+        visuals.faint_bg_color = c.panel;
+        visuals.window_stroke = Stroke::new(1.0, c.border);
+        visuals.window_corner_radius = CornerRadius::same(10);
+        visuals.menu_corner_radius = CornerRadius::same(8);
+        visuals.popup_shadow = egui::epaint::Shadow {
+            offset: [0, 8],
+            blur: 24,
+            spread: 0,
+            color: c.shadow,
+        };
+        visuals.hyperlink_color = c.accent;
+        visuals.selection.bg_fill = c.selection;
+        visuals.selection.stroke = Stroke::new(1.0, c.accent);
+        visuals.text_cursor.stroke = Stroke::new(1.5, c.accent);
+        let hover_fill = mix(c.input, c.text, 0.09);
+        let round = CornerRadius::same(5);
+        let w = &mut visuals.widgets;
+        w.noninteractive.bg_stroke = Stroke::new(1.0, c.border);
+        w.noninteractive.fg_stroke = Stroke::new(1.0, c.text);
+        w.noninteractive.corner_radius = round;
+        w.inactive.bg_fill = c.input;
+        w.inactive.weak_bg_fill = c.input;
+        w.inactive.bg_stroke = Stroke::new(1.0, c.border);
+        w.inactive.fg_stroke = Stroke::new(1.0, c.text);
+        w.inactive.corner_radius = round;
+        w.hovered.bg_fill = hover_fill;
+        w.hovered.weak_bg_fill = hover_fill;
+        w.hovered.bg_stroke = Stroke::new(1.0, mix(c.border, c.text, 0.35));
+        w.hovered.fg_stroke = Stroke::new(1.0, c.text);
+        w.hovered.corner_radius = round;
+        w.active.bg_fill = mix(c.input, c.accent, 0.3);
+        w.active.weak_bg_fill = mix(c.input, c.accent, 0.3);
+        w.active.bg_stroke = Stroke::new(1.0, c.accent);
+        w.active.fg_stroke = Stroke::new(1.0, c.text);
+        w.active.corner_radius = round;
+        w.open.bg_fill = hover_fill;
+        w.open.weak_bg_fill = hover_fill;
+        w.open.bg_stroke = Stroke::new(1.0, c.border);
+        w.open.corner_radius = round;
+
+        let (size, code) = (self.text_size, CODE_SIZE);
+        ctx.all_styles_mut(|style| {
+            style.visuals = visuals.clone();
+            style.text_styles = [
+                (
+                    TextStyle::Heading,
+                    FontId::new(16.0, FontFamily::Proportional),
+                ),
+                (TextStyle::Body, FontId::new(size, FontFamily::Proportional)),
+                (
+                    TextStyle::Button,
+                    FontId::new(size, FontFamily::Proportional),
+                ),
+                (
+                    TextStyle::Small,
+                    FontId::new(11.0, FontFamily::Proportional),
+                ),
+                (
+                    TextStyle::Monospace,
+                    FontId::new(code, FontFamily::Monospace),
+                ),
+            ]
+            .into();
+            let s = &mut style.spacing;
+            s.item_spacing = Vec2::new(6.0, 5.0);
+            s.button_padding = Vec2::new(8.0, 4.0);
+            s.interact_size = Vec2::new(40.0, 22.0);
+            s.combo_width = 190.0;
+            s.menu_margin = 4.into();
+            s.window_margin = 12.into();
+            s.scroll.bar_width = 8.0;
+            s.scroll.floating = true;
+            s.scroll.floating_width = 5.0;
+            s.scroll.floating_allocated_width = 8.0;
+            style.interaction.selectable_labels = false;
+        });
     }
 }
 
-fn measure_char_width(font: Font) -> f32 {
-    use iced::advanced::text::{self, Paragraph as _};
-    type Paragraph = <iced::Renderer as text::Renderer>::Paragraph;
-    const SAMPLE: &str = "0000000000000000000000000000000000000000";
-    let paragraph = Paragraph::with_text(text::Text {
-        content: SAMPLE,
-        bounds: iced::Size::INFINITE,
-        size: crate::theme::CODE_SIZE.into(),
-        line_height: text::LineHeight::default(),
-        font,
-        align_x: text::Alignment::Default,
-        align_y: iced::alignment::Vertical::Top,
-        shaping: text::Shaping::Basic,
-        wrapping: text::Wrapping::None,
-    });
-    let width = paragraph.min_width() / SAMPLE.len() as f32;
-    if width > 1.0 { width } else { CODE_SIZE * 0.6 }
+/// `a` moved `t` of the way towards `b`, opaque.
+pub fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
+    let lerp = |x: u8, y: u8| (f32::from(x) + (f32::from(y) - f32::from(x)) * t).round() as u8;
+    Color32::from_rgb(lerp(a.r(), b.r()), lerp(a.g(), b.g()), lerp(a.b(), b.b()))
 }
-
-pub const CODE_SIZE: f32 = 12.5;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn generic_font_names_are_not_looked_up_as_families() {
-        assert_eq!(named_font("Sans"), Font::DEFAULT);
-        assert_eq!(named_font("monospace"), Font::DEFAULT);
-        assert_eq!(named_font("Cantarell"), Font::with_name("Cantarell"));
+    fn code_is_always_monospaced() {
+        assert_eq!(
+            Look::preset(true).mono(12.0).family,
+            egui::FontFamily::Monospace
+        );
     }
 
     #[test]
-    fn code_is_always_monospaced() {
-        assert_eq!(Look::for_setting("dark").mono, Font::MONOSPACE);
+    fn colours_keep_their_alpha() {
+        assert_eq!(rgba(0, 0, 0, 0.5).a(), 128);
+        assert_eq!(hex(0x102a63), Color32::from_rgb(0x10, 0x2a, 0x63));
     }
 }
