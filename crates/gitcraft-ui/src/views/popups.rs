@@ -1,16 +1,15 @@
 //! Things drawn above the page: forms, context menus and toasts.
 
-use iced::widget::text::Wrapping;
-use iced::widget::{
-    button, checkbox, column, container, mouse_area, opaque, pick_list, pin, row, space, stack,
-    text, text_editor, text_input,
+use egui::{
+    Align, Align2, Area, Color32, Context, Id, Layout, Margin, Order, Pos2, Rect, Sense, Stroke,
+    Ui, vec2,
 };
-use iced::{Center, Color, Element, Length, Theme};
 
-use super::icon::icon;
-use super::style;
-use super::widgets::{self, icon_button, scrolled, spacer};
-use crate::app::{App, Message, Toast, ToastKind};
+use super::widgets::{
+    Kind, area_edit, btn, button, check, choice, floating, icon_button, line_edit, text,
+};
+use super::{Cx, icon};
+use crate::app::{Message, Toast, ToastKind};
 use crate::form::{FieldKind, Form};
 use crate::menu::{Menu, MenuItem};
 
@@ -20,154 +19,113 @@ const MENU_ROW: f32 = 27.0;
 const MENU_HEADER: f32 = 23.0;
 const MENU_SEPARATOR: f32 = 9.0;
 const MENU_PADDING: f32 = 4.0;
-const MENU_BORDER: f32 = 1.0;
 
-fn backdrop<'a>(
-    look: &crate::theme::Look,
-    content: Element<'a, Message>,
-    on_press: Option<Message>,
-) -> Element<'a, Message> {
-    let tinted = container(opaque(content))
-        .center_x(Length::Fill)
-        .height(Length::Fill)
-        .style(style::fill(look.c.backdrop));
-    let mut area = mouse_area(tinted);
-    if let Some(on_press) = on_press {
-        area = area.on_press(on_press);
-    }
-    opaque(area)
-}
-
-/// A dimmed backdrop for a large tool, centred. Clicks outside do nothing, so work isn't lost by accident.
-pub fn modal<'a>(look: &crate::theme::Look, content: Element<'a, Message>) -> Element<'a, Message> {
-    opaque(
-        container(opaque(content))
-            .center(Length::Fill)
-            .style(style::fill(look.c.backdrop)),
-    )
-}
-
-#[derive(Clone, PartialEq, Eq)]
-struct Choice {
-    value: String,
-    label: String,
-}
-
-impl std::fmt::Display for Choice {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.label)
-    }
-}
-
-pub fn form<'a>(app: &'a App, form: &'a Form) -> Element<'a, Message> {
-    let look = &app.look;
+pub fn form(ctx: &Context, cx: &Cx, form: &Form) {
+    let look = cx.look();
+    let c = &look.c;
     let size = look.text_size;
-    let mut body = column![text(form.title.as_str()).size(16).font(look.semibold)].spacing(12);
-    if let Some(message) = &form.message {
-        body = body.push(text(message.as_str()).size(size).color(look.c.text_muted));
+    let window = cx.app.window;
+    let id = Id::unique("form");
+    let area = egui::Modal::default_area(id).anchor(Align2::CENTER_TOP, vec2(0.0, window.y * 0.12));
+    let response = egui::Modal::new(id)
+        .area(area)
+        .backdrop_color(c.backdrop)
+        .frame(floating(look, 10).inner_margin(Margin::symmetric(20, 18)))
+        .show(ctx, |ui| {
+            ui.set_width(440.0);
+            ui.spacing_mut().item_spacing = vec2(8.0, 12.0);
+            egui::ScrollArea::vertical()
+                .max_height((window.y * 0.8 - 40.0).max(160.0))
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    ui.set_width(440.0);
+                    text(ui, form.title.as_str(), 16.0, c.text);
+                    if let Some(message) = &form.message {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(message.as_str())
+                                    .size(size)
+                                    .color(c.text_muted),
+                            )
+                            .wrap(),
+                        );
+                    }
+                    for (index, field) in form.fields.iter().enumerate() {
+                        form_field(ui, cx, index, field);
+                    }
+                    ui.horizontal(|ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.spacing_mut().item_spacing.x = 8.0;
+                            let kind = if form.danger {
+                                Kind::Danger
+                            } else {
+                                Kind::Primary
+                            };
+                            if button(ui, look, &form.ok, kind, form.can_submit()) {
+                                cx.send(Message::FormSubmit);
+                            }
+                            if btn(ui, look, "Cancel", true) {
+                                cx.send(Message::FormCancel);
+                            }
+                        });
+                    });
+                });
+        });
+    if response.backdrop_response.clicked() {
+        cx.send(Message::FormCancel);
     }
-    for (index, field) in form.fields.iter().enumerate() {
-        let label = || {
-            text(field.label.as_str())
-                .size(12)
-                .font(look.semibold)
-                .color(look.c.text_muted)
-        };
-        let control: Element<'a, Message> = match &field.kind {
-            FieldKind::Text(value) => column![
-                label(),
-                text_input(&field.placeholder, value)
-                    .on_input(move |text| Message::FormText(index, text))
-                    .on_submit(Message::FormSubmit)
-                    .size(size)
-                    .padding([6, 8])
-                    .style(style::text_input(look)),
-            ]
-            .spacing(4)
-            .into(),
-            FieldKind::Area(content) => column![
-                label(),
-                text_editor(content)
-                    .on_action(move |action| Message::FormArea(index, action))
-                    .height(120)
-                    .size(size)
-                    .padding([6, 8])
-                    .style(style::text_editor(look)),
-            ]
-            .spacing(4)
-            .into(),
-            FieldKind::Check(value) => checkbox(*value)
-                .label(field.label.as_str())
-                .text_size(size)
-                .size(14)
-                .spacing(8)
-                .on_toggle(move |checked| Message::FormCheck(index, checked))
-                .style(style::checkbox(look))
-                .into(),
-            FieldKind::Select { options, value } => {
-                let choices: Vec<Choice> = options
-                    .iter()
-                    .map(|(value, label)| Choice {
-                        value: value.clone(),
-                        label: label.clone(),
-                    })
-                    .collect();
-                let selected = choices
-                    .iter()
-                    .find(|choice| choice.value == *value)
-                    .cloned();
-                column![
-                    label(),
-                    pick_list(
-                        choices,
-                        selected,
-                        move |choice: Choice| Message::FormSelect(index, choice.value)
-                    )
-                    .width(Length::Fill)
-                    .text_size(size)
-                    .padding([6, 8])
-                    .style(style::pick_list(look))
-                    .menu_style(style::menu(look)),
-                ]
-                .spacing(4)
-                .into()
+}
+
+fn form_field(ui: &mut Ui, cx: &Cx, index: usize, field: &crate::form::Field) {
+    let look = cx.look();
+    let c = &look.c;
+    let size = look.text_size;
+    let label = |ui: &mut Ui| text(ui, field.label.as_str(), 12.0, c.text_muted);
+    match &field.kind {
+        FieldKind::Text(value) => {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            label(ui);
+            let (response, changed) = line_edit(
+                ui,
+                ("form", index),
+                value,
+                &field.placeholder,
+                ui.available_width(),
+                look.ui(size),
+            );
+            if let Some(text) = changed {
+                cx.send(Message::FormText(index, text));
             }
-        };
-        body = body.push(control);
-    }
-    let submit = form.can_submit().then_some(Message::FormSubmit);
-    let large = |label: &'a str, message: Option<Message>, kind: u8| {
-        let base =
-            button(container(text(label).size(size).font(look.semibold)).center_y(Length::Fill))
-                .height(30)
-                .padding([0, 14])
-                .on_press_maybe(message);
-        match kind {
-            0 => base.style(style::button(look)),
-            1 => base.style(style::button_primary(look)),
-            _ => base.style(style::button_danger(look)),
+            if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+                cx.send(Message::FormSubmit);
+            }
         }
-    };
-    body = body.push(
-        row![
-            spacer(),
-            large("Cancel", Some(Message::FormCancel), 0),
-            large(form.ok.as_str(), submit, if form.danger { 2 } else { 1 })
-        ]
-        .spacing(8),
-    );
-    let height = app.window.height / app.scale();
-    let dialog =
-        container(scrolled(look, container(body).padding([18, 20])).height(Length::Shrink))
-            .width(480)
-            .max_height((height * 0.8).max(200.0))
-            .style(style::floating(look, 10.0));
-    // Forms sit in the upper part of the window, not in its middle.
-    backdrop(
-        look,
-        column![space().height(height * 0.12), dialog].into(),
-        Some(Message::FormCancel),
-    )
+        FieldKind::Area(value) => {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            label(ui);
+            if let Some(text) = area_edit(ui, ("form", index), value, "", 120.0, look.ui(size)) {
+                cx.send(Message::FormArea(index, text));
+            }
+        }
+        FieldKind::Check(value) => {
+            if let Some(checked) = check(ui, *value, &field.label, true) {
+                cx.send(Message::FormCheck(index, checked));
+            }
+        }
+        FieldKind::Select { options, value } => {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            label(ui);
+            if let Some(chosen) = choice(
+                ui,
+                ("form", index),
+                options,
+                value,
+                ui.available_width() - 20.0,
+            ) {
+                cx.send(Message::FormSelect(index, chosen));
+            }
+        }
+    }
 }
 
 fn height_of(items: &[MenuItem]) -> f32 {
@@ -179,11 +137,13 @@ fn height_of(items: &[MenuItem]) -> f32 {
             _ => MENU_ROW,
         })
         .sum();
-    rows + 2.0 * (MENU_PADDING + MENU_BORDER)
+    rows + 2.0 * (MENU_PADDING + 1.0)
 }
 
 /// As wide as the longest entry, as a menu sized to its content would be.
-fn width_of(items: &[MenuItem]) -> f32 {
+fn width_of(ctx: &Context, cx: &Cx, items: &[MenuItem]) -> f32 {
+    let font = cx.look().ui(13.0);
+    let painter = ctx.layer_painter(egui::LayerId::new(Order::Foreground, Id::unique("measure")));
     let longest = items
         .iter()
         .map(|item| {
@@ -192,40 +152,48 @@ fn width_of(items: &[MenuItem]) -> f32 {
             } else {
                 0.0
             };
-            item.label()
-                .map_or(0.0, |label| label.chars().count() as f32 * 6.7)
-                + extra
+            let width = item.label().map_or(0.0, |label| {
+                painter
+                    .layout_no_wrap(label.to_owned(), font.clone(), Color32::PLACEHOLDER)
+                    .size()
+                    .x
+            });
+            width + extra
         })
         .fold(0.0, f32::max);
-    (longest + 24.0 + 2.0 * (MENU_PADDING + MENU_BORDER)).clamp(MENU_MIN_WIDTH, MENU_MAX_WIDTH)
+    (longest + 24.0 + 2.0 * (MENU_PADDING + 1.0)).clamp(MENU_MIN_WIDTH, MENU_MAX_WIDTH)
 }
 
-fn panel<'a>(app: &'a App, items: &'a [MenuItem], top_level: bool) -> Element<'a, Message> {
-    let look = &app.look;
+fn panel(
+    ui: &mut Ui,
+    cx: &Cx,
+    items: &[MenuItem],
+    open_sub: Option<usize>,
+    top_level: bool,
+    width: f32,
+) {
+    let look = cx.look();
     let c = &look.c;
-    let mut list = column![].width(Length::Fill);
+    ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+    let inner = width - 2.0 * (MENU_PADDING + 1.0);
     for (index, item) in items.iter().enumerate() {
         match item {
             MenuItem::Separator => {
-                list = list.push(
-                    container(widgets::hline(look))
-                        .height(MENU_SEPARATOR)
-                        .center_y(MENU_SEPARATOR)
-                        .padding([0, 6]),
+                let (rect, _) = ui.allocate_exact_size(vec2(inner, MENU_SEPARATOR), Sense::hover());
+                ui.painter().hline(
+                    rect.x_range().shrink(6.0),
+                    rect.center().y,
+                    Stroke::new(1.0, c.border),
                 );
             }
             MenuItem::Header(label) => {
-                list = list.push(
-                    container(single_clip(
-                        widgets::heading(look, label).font(look.bold).into(),
-                    ))
-                    .height(MENU_HEADER)
-                    .padding(iced::Padding {
-                        top: 6.0,
-                        bottom: 2.0,
-                        left: 12.0,
-                        right: 12.0,
-                    }),
+                let (rect, _) = ui.allocate_exact_size(vec2(inner, MENU_HEADER), Sense::hover());
+                ui.painter().with_clip_rect(rect).text(
+                    Pos2::new(rect.left() + 12.0, rect.center().y + 2.0),
+                    Align2::LEFT_CENTER,
+                    label.to_uppercase(),
+                    look.ui(11.0),
+                    c.text_muted,
                 );
             }
             MenuItem::Entry {
@@ -233,96 +201,136 @@ fn panel<'a>(app: &'a App, items: &'a [MenuItem], top_level: bool) -> Element<'a
                 message,
                 danger,
             } => {
-                let wrapped = message
-                    .clone()
-                    .map(|message| Message::FromMenu(Box::new(message)));
-                let entry = button(
-                    container(text(label.as_str()).size(13).wrapping(Wrapping::None))
-                        .center_y(Length::Fill)
-                        .clip(true),
-                )
-                .width(Length::Fill)
-                .height(MENU_ROW)
-                .padding([0, 12])
-                .on_press_maybe(wrapped)
-                .style(style::menu_entry(look, *danger, false));
-                let mut area = mouse_area(entry);
-                if top_level {
-                    area = area.on_enter(Message::MenuHover(None));
+                let enabled = message.is_some();
+                let sense = if enabled {
+                    Sense::click()
+                } else {
+                    Sense::hover()
+                };
+                let (rect, response) = ui.allocate_exact_size(vec2(inner, MENU_ROW), sense);
+                let lit = enabled && response.hovered();
+                let highlight = if *danger { c.danger } else { c.accent };
+                if lit {
+                    ui.painter().rect_filled(rect, 5.0, highlight);
                 }
-                list = list.push(area);
+                let color = if lit {
+                    Color32::WHITE
+                } else if !enabled {
+                    c.text_faint
+                } else if *danger {
+                    c.danger
+                } else {
+                    c.text
+                };
+                ui.painter().with_clip_rect(rect).text(
+                    Pos2::new(rect.left() + 12.0, rect.center().y),
+                    Align2::LEFT_CENTER,
+                    label,
+                    look.ui(13.0),
+                    color,
+                );
+                if top_level && response.hovered() && open_sub.is_some() {
+                    cx.send(Message::MenuHover(None));
+                }
+                if response.clicked()
+                    && let Some(message) = message
+                {
+                    cx.send(Message::FromMenu(Box::new(message.clone())));
+                }
             }
             MenuItem::Sub { label, .. } => {
-                let open = app.menu.as_ref().and_then(|menu| menu.open_sub) == Some(index);
-                let arrow = if open { Color::WHITE } else { c.text_muted };
-                let line = row![
-                    container(text(label.as_str()).size(13).wrapping(Wrapping::None))
-                        .width(Length::Fill)
-                        .clip(true),
-                    icon("chevron-right", 12.0, arrow),
-                ]
-                .align_y(Center)
-                .height(Length::Fill);
-                let entry = button(line)
-                    .width(Length::Fill)
-                    .height(MENU_ROW)
-                    .padding([0, 12])
-                    .on_press(Message::MenuHover(Some(index)))
-                    .style(style::menu_entry(look, false, open));
-                list = list.push(mouse_area(entry).on_enter(Message::MenuHover(Some(index))));
+                let open = open_sub == Some(index);
+                let (rect, response) =
+                    ui.allocate_exact_size(vec2(inner, MENU_ROW), Sense::click());
+                let lit = open || response.hovered();
+                if lit {
+                    ui.painter().rect_filled(rect, 5.0, c.accent);
+                }
+                ui.painter().with_clip_rect(rect).text(
+                    Pos2::new(rect.left() + 12.0, rect.center().y),
+                    Align2::LEFT_CENTER,
+                    label,
+                    look.ui(13.0),
+                    if lit { Color32::WHITE } else { c.text },
+                );
+                icon::paint(
+                    ui,
+                    "chevron-right",
+                    Rect::from_center_size(
+                        Pos2::new(rect.right() - 14.0, rect.center().y),
+                        vec2(12.0, 12.0),
+                    ),
+                    if lit { Color32::WHITE } else { c.text_muted },
+                );
+                if (response.hovered() || response.clicked()) && open_sub != Some(index) {
+                    cx.send(Message::MenuHover(Some(index)));
+                }
             }
         }
     }
-    // The padding keeps highlighted rows clear of the rounded corners.
-    container(list)
-        .width(width_of(items))
-        .padding(MENU_PADDING)
-        .style(style::floating(look, 8.0))
-        .into()
 }
 
-fn single_clip(content: Element<'_, Message>) -> Element<'_, Message> {
-    container(content).clip(true).into()
-}
+pub fn menu(ctx: &Context, cx: &Cx, menu: &Menu) {
+    let look = cx.look();
+    let window = cx.app.window;
+    // Anything outside the menu closes it, and does nothing else.
+    Area::new(Id::unique("menu_backdrop"))
+        .order(Order::Foreground)
+        .fixed_pos(Pos2::ZERO)
+        .show(ctx, |ui| {
+            let response = ui.allocate_response(window, Sense::click());
+            if response.clicked() || response.secondary_clicked() {
+                cx.send(Message::CloseMenu);
+            }
+        });
 
-pub fn menu<'a>(app: &'a App, menu: &'a Menu) -> Element<'a, Message> {
-    let scale = app.scale();
-    let (width, height) = (app.window.width / scale, app.window.height / scale);
-    let (main_width, main_height) = (width_of(&menu.items), height_of(&menu.items));
+    let main_width = width_of(ctx, cx, &menu.items);
+    let main_height = height_of(&menu.items);
     // Stay on screen, with a small margin.
-    let x = menu.at.x.min(width - main_width - 4.0).max(4.0);
-    let y = menu.at.y.min(height - main_height - 4.0).max(4.0);
-    let outside = mouse_area(container(space()).width(Length::Fill).height(Length::Fill))
-        .on_press(Message::CloseMenu)
-        .on_right_press(Message::CloseMenu);
-    let mut layers: Vec<Element<'a, Message>> = vec![
-        outside.into(),
-        pin(panel(app, &menu.items, true)).x(x).y(y).into(),
-    ];
+    let origin = Pos2::new(
+        menu.at.x.min(window.x - main_width - 4.0).max(4.0),
+        menu.at.y.min(window.y - main_height - 4.0).max(4.0),
+    );
+    Area::new(Id::unique("menu_panel"))
+        .order(Order::Foreground)
+        .fixed_pos(origin)
+        .show(ctx, |ui| {
+            floating(look, 8)
+                .inner_margin(Margin::same(MENU_PADDING as i8))
+                .show(ui, |ui| {
+                    panel(ui, cx, &menu.items, menu.open_sub, true, main_width);
+                });
+        });
+
     if let Some(index) = menu.open_sub
         && let Some(MenuItem::Sub { children, .. }) = menu.items.get(index)
     {
-        let child_width = width_of(children);
-        let above = height_of(&menu.items[..index]) - 2.0 * (MENU_PADDING + MENU_BORDER);
+        let child_width = width_of(ctx, cx, children);
+        let above = height_of(&menu.items[..index]) - 2.0 * (MENU_PADDING + 1.0);
         // Opens to the left when there's no room on the right.
-        let child_x = if x + main_width + child_width > width - 4.0 {
-            (x - child_width + 2.0).max(4.0)
+        let child_x = if origin.x + main_width + child_width > window.x - 4.0 {
+            (origin.x - child_width + 2.0).max(4.0)
         } else {
-            x + main_width - 2.0
+            origin.x + main_width - 2.0
         };
-        let child_y = (y + above).min(height - height_of(children) - 4.0).max(4.0);
-        layers.push(
-            pin(panel(app, children, false))
-                .x(child_x)
-                .y(child_y)
-                .into(),
-        );
+        let child_y = (origin.y + above)
+            .min(window.y - height_of(children) - 4.0)
+            .max(4.0);
+        Area::new(Id::unique("menu_sub"))
+            .order(Order::Foreground)
+            .fixed_pos(Pos2::new(child_x, child_y))
+            .show(ctx, |ui| {
+                floating(look, 8)
+                    .inner_margin(Margin::same(MENU_PADDING as i8))
+                    .show(ui, |ui| {
+                        panel(ui, cx, children, None, false, child_width);
+                    });
+            });
     }
-    opaque(stack(layers).width(Length::Fill).height(Length::Fill))
 }
 
-fn toast_view<'a>(app: &'a App, toast: &'a Toast) -> Element<'a, Message> {
-    let look = &app.look;
+fn toast_view(ui: &mut Ui, cx: &Cx, toast: &Toast) {
+    let look = cx.look();
     let c = &look.c;
     let bar = match toast.kind {
         ToastKind::Error => c.danger,
@@ -330,58 +338,79 @@ fn toast_view<'a>(app: &'a App, toast: &'a Toast) -> Element<'a, Message> {
         ToastKind::Success => c.success,
         ToastKind::Info => c.accent,
     };
-    let mut body = column![text(toast.message.as_str()).size(13).font(look.semibold)]
-        .spacing(6)
-        .width(Length::Fill);
-    if let Some(detail) = toast.detail.as_ref().filter(|detail| !detail.is_empty()) {
-        let short: String = detail.chars().take(600).collect();
-        body = body.push(text(short).size(11).font(look.mono).color(c.text_muted));
-    }
-    let strip = container(space())
-        .width(4)
-        .height(Length::Fill)
-        .style(move |_: &Theme| container::Style {
-            background: Some(iced::Background::Color(bar)),
-            border: iced::border::rounded(iced::border::left(8.0)),
-            ..container::Style::default()
-        });
-    let line = row![
+    let frame = floating(look, 8).inner_margin(Margin::ZERO);
+    let shown = frame.show(ui, |ui| {
+        ui.set_width(420.0);
+        let start = ui.cursor().min;
+        egui::Frame::new()
+            .inner_margin(Margin {
+                left: 14,
+                right: 8,
+                top: 10,
+                bottom: 10,
+            })
+            .show(ui, |ui| {
+                ui.set_width(398.0);
+                ui.spacing_mut().item_spacing = vec2(8.0, 6.0);
+                ui.horizontal_top(|ui| {
+                    ui.vertical(|ui| {
+                        ui.set_width(350.0);
+                        ui.spacing_mut().item_spacing.y = 6.0;
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(toast.message.as_str())
+                                    .size(13.0)
+                                    .color(c.text),
+                            )
+                            .wrap(),
+                        );
+                        if let Some(detail) =
+                            toast.detail.as_ref().filter(|detail| !detail.is_empty())
+                        {
+                            let short: String = detail.chars().take(600).collect();
+                            ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(short)
+                                        .size(11.0)
+                                        .monospace()
+                                        .color(c.text_muted),
+                                )
+                                .wrap(),
+                            );
+                        }
+                    });
+                    if icon_button(ui, look, "x", 13.0, true) {
+                        cx.send(Message::DismissToast(toast.id));
+                    }
+                });
+            });
+        start
+    });
+    let rect = shown.response.rect;
+    let strip = Rect::from_min_size(rect.min, vec2(4.0, rect.height()));
+    ui.painter().rect_filled(
         strip,
-        container(
-            row![
-                body,
-                icon_button(look, "x", 13.0, Some(Message::DismissToast(toast.id)))
-            ]
-            .spacing(8)
-        )
-        .padding(iced::Padding {
-            top: 10.0,
-            bottom: 10.0,
-            left: 10.0,
-            right: 8.0
-        }),
-    ]
-    .height(Length::Shrink);
-    container(line)
-        .width(420)
-        .style(style::floating(look, 8.0))
-        .into()
+        egui::CornerRadius {
+            nw: 8,
+            sw: 8,
+            ne: 0,
+            se: 0,
+        },
+        bar,
+    );
 }
 
-pub fn toasts(app: &App) -> Element<'_, Message> {
-    let mut list = column![].spacing(8);
-    for toast in &app.toasts {
-        list = list.push(toast_view(app, toast));
+pub fn toasts(ctx: &Context, cx: &Cx) {
+    if cx.app.toasts.is_empty() {
+        return;
     }
-    // Only the toasts themselves take clicks: this layer is otherwise transparent to the page.
-    container(list)
-        .align_left(Length::Fill)
-        .align_bottom(Length::Fill)
-        .padding(iced::Padding {
-            top: 0.0,
-            right: 0.0,
-            bottom: 36.0,
-            left: 16.0,
-        })
-        .into()
+    Area::new(Id::unique("toasts"))
+        .order(Order::Tooltip)
+        .anchor(Align2::LEFT_BOTTOM, vec2(16.0, -36.0))
+        .show(ctx, |ui| {
+            ui.spacing_mut().item_spacing.y = 8.0;
+            for toast in &cx.app.toasts {
+                toast_view(ui, cx, toast);
+            }
+        });
 }

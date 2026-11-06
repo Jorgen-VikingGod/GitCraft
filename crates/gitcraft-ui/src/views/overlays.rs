@@ -1,27 +1,22 @@
 //! Full-window tools: reflog, blame, file history, conflict resolver, interactive rebase, settings.
 
+use egui::{
+    Align, Align2, Color32, Context, Frame, Id, Layout, Margin, Pos2, Rect, Sense, Stroke,
+    StrokeKind, Ui, vec2,
+};
 use gitcraft_core::model::{BlameLine, Commit, ConflictChunk, ReflogEntry};
-use iced::widget::text::Wrapping;
-use iced::widget::{
-    Column, button, checkbox, column, container, mouse_area, pick_list, row, scrollable, space,
-    text, text_editor, text_input,
-};
-use iced::{Background, Center, Color, Element, Length, Theme, mouse};
 
-use super::diff;
-use super::icon::icon;
-use super::popups::modal;
-use super::style;
 use super::widgets::{
-    btn, hline, icon_button, muted_text, placeholder, primary, single, spacer, toggle,
+    area_edit, bar, btn, card, check, choice, fill, floating, heading, line_edit, muted,
+    paint_text, placeholder, primary, region, scroll, split_x, split_y, text, text_width, toggle,
 };
+use super::{Cx, diff, icon};
 use crate::actions::{Action, MenuRequest};
 use crate::app::{
-    App, BLAME_ROW_HEIGHT, ConflictState, DiffPane, Message, Overlay, PaneKey, REBASE_ROW_HEIGHT,
+    BLAME_ROW_HEIGHT, ConflictState, DiffPane, Message, Overlay, PaneKey, REBASE_ROW_HEIGHT,
     RebaseState,
 };
 use crate::logic::{Choice, has_conflict_markers, plural, short_date, short_sha};
-use crate::theme::Look;
 
 const REBASE_ACTIONS: [(&str, &str, &str); 6] = [
     ("pick", "p", "Use the commit"),
@@ -40,76 +35,74 @@ const REBASE_ACTIONS: [(&str, &str, &str); 6] = [
     ("drop", "d", "Remove the commit"),
 ];
 
-fn dialog<'a>(
-    app: &'a App,
-    title: &'static str,
-    subtitle: String,
-    extra: Option<Element<'a, Message>>,
-    body: Element<'a, Message>,
-) -> Element<'a, Message> {
-    let look = &app.look;
-    let scale = app.scale();
-    let (width, height) = (app.window.width / scale, app.window.height / scale);
-    let mut header = row![
-        column![
-            text(title).size(16).font(look.bold),
-            muted_text(look, subtitle, look.text_size)
-        ]
-        .width(Length::Fill)
-    ]
-    .spacing(8)
-    .align_y(Center);
-    if let Some(extra) = extra {
-        header = header.push(extra);
-    }
-    header = header.push(btn(look, "Close", Some(Message::OverlayClose)));
-    modal(
-        look,
-        container(column![
-            container(header).padding([10, 14]),
-            hline(look),
-            container(body).height(Length::Fill).width(Length::Fill)
-        ])
-        .width((width - 60.0).max(300.0))
-        .height((height - 50.0).max(200.0))
-        .style(style::dialog(look))
-        .into(),
-    )
+/// The frame of a large tool: a title bar with a Close button, and room for `body`.
+fn dialog(
+    ctx: &Context,
+    cx: &Cx,
+    title: &str,
+    subtitle: &str,
+    extra: Option<&dyn Fn(&mut Ui)>,
+    body: impl FnOnce(&mut Ui, Rect),
+) {
+    let look = cx.look();
+    let c = &look.c;
+    let window = cx.app.window;
+    let (width, height) = ((window.x - 60.0).max(300.0), (window.y - 50.0).max(200.0));
+    egui::Modal::new(Id::unique("overlay"))
+        .backdrop_color(c.backdrop)
+        .frame(floating(look, 12).inner_margin(Margin::ZERO))
+        .show(ctx, |ui| {
+            ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
+            let (_, rect) = ui.allocate_space(vec2(width, height));
+            let (head, rest) = split_y(rect, 52.0);
+            region(ui, head, |ui| {
+                bar(ui, 52.0, Color32::TRANSPARENT, 14.0, |ui| {
+                    ui.vertical(|ui| {
+                        ui.spacing_mut().item_spacing.y = 1.0;
+                        text(ui, title, 16.0, c.text);
+                        if !subtitle.is_empty() {
+                            muted(ui, look, subtitle, look.text_size);
+                        }
+                    });
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if btn(ui, look, "Close", true) {
+                            cx.send(Message::OverlayClose);
+                        }
+                        if let Some(extra) = extra {
+                            extra(ui);
+                        }
+                    });
+                });
+            });
+            let (line, content) = split_y(rest, 1.0);
+            fill(ui, line, c.border);
+            region(ui, content, |ui| body(ui, content));
+        });
 }
 
-fn scrolled<'a>(look: &Look, content: Column<'a, Message>) -> Element<'a, Message> {
-    scrollable(content.width(Length::Fill))
-        .height(Length::Fill)
-        .direction(scrollable::Direction::Vertical(style::scrollbar()))
-        .style(style::scrollable(look))
-        .into()
-}
-
-pub fn view<'a>(app: &'a App, overlay: &'a Overlay) -> Element<'a, Message> {
+pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
     match overlay {
-        Overlay::Settings => settings(app),
+        Overlay::Settings => settings(ctx, cx),
         Overlay::Reflog {
             entries,
             loading,
             error,
-        } => reflog(app, entries, *loading, error.as_deref()),
+        } => reflog(ctx, cx, entries, *loading, error.as_deref()),
         Overlay::Blame {
             path,
             rev,
             lines,
             loading,
             error,
-            offset,
-            viewport,
             hovered,
         } => blame(
-            app,
+            ctx,
+            cx,
             path,
             rev.as_deref(),
             lines,
             *loading,
             error.as_deref(),
-            (*offset, *viewport),
             hovered.as_deref(),
         ),
         Overlay::FileHistory {
@@ -120,7 +113,8 @@ pub fn view<'a>(app: &'a App, overlay: &'a Overlay) -> Element<'a, Message> {
             loading,
             error,
         } => file_history(
-            app,
+            ctx,
+            cx,
             path,
             commits,
             selected.as_deref(),
@@ -128,504 +122,626 @@ pub fn view<'a>(app: &'a App, overlay: &'a Overlay) -> Element<'a, Message> {
             *loading,
             error.as_deref(),
         ),
-        Overlay::Conflict(state) => conflict(app, state),
-        Overlay::Rebase(state) => rebase(app, state),
+        Overlay::Conflict(state) => conflict(ctx, cx, state),
+        Overlay::Rebase(state) => rebase(ctx, cx, state),
     }
 }
 
-fn reflog<'a>(
-    app: &'a App,
-    entries: &'a [ReflogEntry],
-    loading: bool,
-    error: Option<&'a str>,
-) -> Element<'a, Message> {
-    let look = &app.look;
-    let size = look.text_size;
-    let body: Element<'a, Message> = if loading {
-        placeholder(look, "Loading…")
-    } else if let Some(error) = error {
-        placeholder(look, error)
-    } else if entries.is_empty() {
-        placeholder(look, "The reflog is empty")
-    } else {
-        let mut rows: Column<'a, Message> = column![];
-        for entry in entries {
-            let line = row![
-                single(entry.selector.as_str(), size)
-                    .font(look.mono)
-                    .width(90),
-                single(short_sha(&entry.sha), size)
-                    .font(look.mono)
-                    .width(66),
-                container(muted_text(look, entry.action.as_str(), size).wrapping(Wrapping::None))
-                    .width(Length::FillPortion(2))
-                    .clip(true),
-                container(single(entry.subject.as_str(), size))
-                    .width(Length::FillPortion(3))
-                    .clip(true),
-                single(short_date(entry.time), size).width(112),
-                btn(look, "Show", Some(Message::ShowCommit(entry.sha.clone()))),
-                btn(
-                    look,
-                    "Branch…",
-                    Some(Message::Action(Action::NewBranch {
-                        start: Some(entry.sha.clone()),
-                        label: None
-                    }))
-                ),
-            ]
-            .spacing(8)
-            .align_y(Center)
-            .padding([2, 12]);
-            rows = rows.push(
-                mouse_area(line)
-                    .on_double_click(Message::ShowCommit(entry.sha.clone()))
-                    .on_right_press(Message::OpenMenu(MenuRequest::Commit {
-                        sha: entry.sha.clone(),
-                        focus: None,
-                    })),
-            );
-        }
-        scrolled(look, rows)
-    };
+fn reflog(ctx: &Context, cx: &Cx, entries: &[ReflogEntry], loading: bool, error: Option<&str>) {
+    let look = cx.look();
     dialog(
-        app,
+        ctx,
+        cx,
         "Reflog",
-        "Every position HEAD has been at. Right-click an entry for all commit actions.".to_owned(),
+        "Every position HEAD has been at. Right-click an entry for all commit actions.",
         None,
-        body,
-    )
+        |ui, _| {
+            if loading {
+                placeholder(ui, look, "Loading…");
+            } else if let Some(error) = error {
+                placeholder(ui, look, error);
+            } else if entries.is_empty() {
+                placeholder(ui, look, "The reflog is empty");
+            } else {
+                scroll("reflog").show(ui, |ui| {
+                    ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                    for entry in entries {
+                        reflog_row(ui, cx, entry);
+                    }
+                });
+            }
+        },
+    );
+}
+
+fn reflog_row(ui: &mut Ui, cx: &Cx, entry: &ReflogEntry) {
+    let look = cx.look();
+    let c = &look.c;
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::click());
+    if response.hovered() {
+        fill(ui, rect, c.hover);
+    }
+    let mid = rect.center().y;
+    let size = look.text_size;
+    let buttons = 150.0;
+    let flex = (rect.width() - 12.0 - 90.0 - 66.0 - 112.0 - buttons - 5.0 * 8.0).max(100.0);
+    let (action_w, subject_w) = (flex * 0.4, flex * 0.6);
+    let mut x = rect.left() + 12.0;
+    let clipped = |x: f32, width: f32| {
+        ui.painter().with_clip_rect(Rect::from_min_size(
+            Pos2::new(x, rect.top()),
+            vec2(width, rect.height()),
+        ))
+    };
+    paint_text(
+        &clipped(x, 90.0),
+        Pos2::new(x, mid),
+        &entry.selector,
+        look.mono(size),
+        c.text,
+    );
+    x += 98.0;
+    paint_text(
+        &clipped(x, 66.0),
+        Pos2::new(x, mid),
+        short_sha(&entry.sha),
+        look.mono(size),
+        c.text,
+    );
+    x += 74.0;
+    paint_text(
+        &clipped(x, action_w),
+        Pos2::new(x, mid),
+        &entry.action,
+        look.ui(size),
+        c.text_muted,
+    );
+    x += action_w + 8.0;
+    paint_text(
+        &clipped(x, subject_w),
+        Pos2::new(x, mid),
+        &entry.subject,
+        look.ui(size),
+        c.text,
+    );
+    x += subject_w + 8.0;
+    paint_text(
+        &clipped(x, 112.0),
+        Pos2::new(x, mid),
+        &short_date(entry.time),
+        look.ui(size),
+        c.text,
+    );
+    let slot = Rect::from_min_max(
+        Pos2::new(rect.right() - buttons - 8.0, rect.top()),
+        Pos2::new(rect.right() - 8.0, rect.bottom()),
+    );
+    let mut pressed = false;
+    region(ui, slot, |ui| {
+        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+            if btn(ui, look, "Show", true) {
+                cx.send(Message::ShowCommit(entry.sha.clone()));
+                pressed = true;
+            }
+            if btn(ui, look, "Branch…", true) {
+                cx.send(Message::Action(Action::NewBranch {
+                    start: Some(entry.sha.clone()),
+                    label: None,
+                }));
+                pressed = true;
+            }
+        });
+    });
+    if pressed {
+        return;
+    }
+    if response.double_clicked() {
+        cx.send(Message::ShowCommit(entry.sha.clone()));
+    } else if response.secondary_clicked() {
+        cx.send(Message::OpenMenu(MenuRequest::Commit {
+            sha: entry.sha.clone(),
+            focus: None,
+        }));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
-fn blame<'a>(
-    app: &'a App,
-    path: &'a str,
-    rev: Option<&'a str>,
-    lines: &'a [BlameLine],
+fn blame(
+    ctx: &Context,
+    cx: &Cx,
+    path: &str,
+    rev: Option<&str>,
+    lines: &[BlameLine],
     loading: bool,
-    error: Option<&'a str>,
-    scroll: (f32, f32),
-    hovered: Option<&'a str>,
-) -> Element<'a, Message> {
-    let look = &app.look;
-    let size = 12.0;
+    error: Option<&str>,
+    hovered: Option<&str>,
+) {
+    let look = cx.look();
     let subtitle = match rev {
         Some(rev) => format!("{path} @ {}", short_sha(rev)),
         None => path.to_owned(),
     };
-    let extra = btn(
-        look,
-        "File history",
-        Some(Message::OpenFileHistory(path.to_owned())),
-    );
-    let body: Element<'a, Message> = if loading {
-        placeholder(look, "Loading…")
-    } else if let Some(error) = error {
-        placeholder(look, error)
-    } else {
-        let (offset, viewport) = scroll;
+    let extra = |ui: &mut Ui| {
+        if btn(ui, look, "File history", true) {
+            cx.send(Message::OpenFileHistory(path.to_owned()));
+        }
+    };
+    dialog(ctx, cx, "Blame", &subtitle, Some(&extra), |ui, _| {
+        if loading {
+            placeholder(ui, look, "Loading…");
+            return;
+        }
+        if let Some(error) = error {
+            placeholder(ui, look, error);
+            return;
+        }
         let (min, max) = lines.iter().fold((i64::MAX, i64::MIN), |(lo, hi), line| {
             (lo.min(line.time), hi.max(line.time))
         });
         let span = (max - min).max(1) as f32;
-        let count =
-            (viewport.max(app.window.height / app.scale()) / BLAME_ROW_HEIGHT) as usize + 13;
-        let first = ((offset / BLAME_ROW_HEIGHT) as usize)
-            .saturating_sub(6)
-            .min(lines.len().saturating_sub(count));
-        let end = (first + count).min(lines.len());
-        let mut rows: Vec<Element<'a, Message>> =
-            vec![space().height(first as f32 * BLAME_ROW_HEIGHT).into()];
-        for (index, line) in lines[first..end].iter().enumerate() {
-            let at = first + index;
-            let starts = at == 0 || lines[at - 1].sha != line.sha;
-            let age = (line.time - min) as f32 / span;
-            let bar = Color {
-                a: 0.15 + age * 0.85,
-                ..look.c.accent
-            };
-            let gutter: Element<'a, Message> = if starts {
-                row![
-                    single(short_sha(&line.sha), size).font(look.mono).width(60),
-                    container(single(line.author.as_str(), size))
-                        .width(110)
-                        .clip(true),
-                    single(short_date(line.time), size).width(106),
-                ]
-                .spacing(4)
-                .into()
-            } else {
-                space().width(284).into()
-            };
-            let background = (hovered == Some(line.sha.as_str())).then_some(look.c.hover);
-            let content = row![
-                container(space())
-                    .width(3)
-                    .height(BLAME_ROW_HEIGHT)
-                    .style(move |_: &Theme| container::Style {
-                        background: Some(Background::Color(bar)),
-                        ..container::Style::default()
-                    }),
-                container(gutter).width(290).clip(true),
-                muted_text(look, line.line.to_string(), size)
-                    .font(look.mono)
-                    .width(44),
-                single(line.text.as_str(), 13.0).font(look.mono),
-            ]
-            .spacing(4)
-            .align_y(Center);
-            let mut area = mouse_area(
-                container(content)
-                    .width(Length::Fill)
-                    .height(BLAME_ROW_HEIGHT)
-                    .clip(true)
-                    .style(move |_: &Theme| container::Style {
-                        background: background.map(Background::Color),
-                        ..container::Style::default()
-                    }),
-            )
-            .on_enter(Message::BlameHover(line.sha.clone()));
-            // All zeros means the line isn't committed yet, so there's no commit to show.
-            if line.sha.bytes().any(|b| b != b'0') {
-                area = area.on_press(Message::ShowCommit(line.sha.clone()));
+        scroll("blame").show_viewport(ui, |ui, viewport| {
+            let origin = ui.max_rect().min;
+            let width = ui.max_rect().width();
+            ui.set_height(lines.len() as f32 * BLAME_ROW_HEIGHT);
+            let first = ((viewport.min.y / BLAME_ROW_HEIGHT) as usize).saturating_sub(6);
+            let end = (((viewport.max.y / BLAME_ROW_HEIGHT).ceil() as usize) + 6).min(lines.len());
+            for at in first..end {
+                let rect = Rect::from_min_size(
+                    origin + vec2(0.0, at as f32 * BLAME_ROW_HEIGHT),
+                    vec2(width, BLAME_ROW_HEIGHT),
+                );
+                blame_row(ui, cx, rect, lines, at, min, span, hovered);
             }
-            rows.push(area.into());
-        }
-        rows.push(
-            space()
-                .height((lines.len() - end) as f32 * BLAME_ROW_HEIGHT)
-                .into(),
-        );
-        scrollable(column(rows).width(Length::Fill))
-            .height(Length::Fill)
-            .direction(scrollable::Direction::Vertical(style::scrollbar()))
-            .style(style::scrollable(look))
-            .on_scroll(|v| Message::BlameScrolled(v.absolute_offset().y, v.bounds().height))
-            .into()
-    };
-    dialog(app, "Blame", subtitle, Some(extra), body)
-}
-
-fn file_history<'a>(
-    app: &'a App,
-    path: &'a str,
-    commits: &'a [Commit],
-    selected: Option<&'a str>,
-    pane: &'a DiffPane,
-    loading: bool,
-    error: Option<&'a str>,
-) -> Element<'a, Message> {
-    let look = &app.look;
-    let size = look.text_size;
-    let mut items: Column<'a, Message> = column![];
-    if loading {
-        items = items.push(container(muted_text(look, "Loading…", size)).padding(10));
-    } else if let Some(error) = error {
-        items = items.push(container(text(error).size(size)).padding(10));
-    }
-    for commit in commits {
-        let chosen = selected == Some(commit.sha.as_str());
-        let status = commit.file.as_ref().map_or("", |file| file.status.as_str());
-        let mut body = column![
-            single(commit.subject.as_str(), size),
-            muted_text(
-                look,
-                format!(
-                    "{status}  {} · {} · {}",
-                    commit.author,
-                    short_date(commit.time),
-                    short_sha(&commit.sha)
-                ),
-                size - 1.0
-            )
-            .wrapping(Wrapping::None),
-        ]
-        .spacing(1);
-        if let Some(orig) = commit
-            .file
-            .as_ref()
-            .and_then(|file| file.orig_path.as_ref())
-        {
-            body = body.push(muted_text(look, format!("renamed from {orig}"), size - 1.0));
-        }
-        let background = chosen.then_some(look.c.selection);
-        items = items.push(
-            mouse_area(
-                container(body)
-                    .padding([5, 10])
-                    .width(Length::Fill)
-                    .clip(true)
-                    .style(move |_: &Theme| container::Style {
-                        background: background.map(Background::Color),
-                        ..container::Style::default()
-                    }),
-            )
-            .on_press(Message::FileHistorySelect(commit.sha.clone())),
-        );
-    }
-    let current = selected.and_then(|sha| commits.iter().find(|commit| commit.sha == sha));
-    let actions: Option<Element<'a, Message>> = current.map(|commit| {
-        let target = commit
-            .file
-            .as_ref()
-            .map_or(path, |file| file.path.as_str())
-            .to_owned();
-        let can_blame = commit.file.as_ref().is_none_or(|file| file.status != "D");
-        row![
-            btn(
-                look,
-                "Show in history",
-                Some(Message::ShowCommit(commit.sha.clone()))
-            ),
-            btn(
-                look,
-                "Blame at this commit",
-                can_blame.then(|| Message::OpenBlame(target, Some(commit.sha.clone())))
-            ),
-        ]
-        .spacing(6)
-        .into()
+        });
     });
-    let body = row![
-        container(scrolled(look, items))
-            .width(360)
-            .height(Length::Fill),
-        container(diff::view(
-            app,
-            pane,
-            PaneKey::Overlay,
-            None,
-            "Select a commit",
-            actions,
-            app.window.width / app.scale() - 420.0
-        ))
-        .width(Length::Fill)
-        .height(Length::Fill),
-    ];
-    dialog(app, "File history", path.to_owned(), None, body.into())
 }
 
-fn conflict<'a>(app: &'a App, state: &'a ConflictState) -> Element<'a, Message> {
-    let look = &app.look;
-    let size = look.text_size;
-    let body: Element<'a, Message> = if let Some(error) = &state.error {
-        placeholder(look, error.as_str())
-    } else if let Some(data) = &state.data {
-        let resolve = |side: Option<&str>| {
-            Message::Action(Action::ConflictResolve {
-                path: state.path.clone(),
-                side: side.map(str::to_owned),
-            })
-        };
-        let count = state.conflict_count();
-        let mut summary = plural(count, "conflict");
-        if count > 0 {
-            summary.push_str(&format!(" · {} unresolved", state.unresolved()));
-        }
-        let mut bar = row![text(summary).size(size), spacer()]
-            .spacing(6)
-            .align_y(Center)
-            .padding([6, 12]);
-        if count > 0 {
-            bar = bar
-                .push(btn(
-                    look,
-                    "All ours",
-                    Some(Message::ConflictChooseAll(Choice::Ours)),
-                ))
-                .push(btn(
-                    look,
-                    "All theirs",
-                    Some(Message::ConflictChooseAll(Choice::Theirs)),
-                ));
-        }
-        bar = bar
-            .push(btn(look, "Use our file", Some(resolve(Some("ours")))))
-            .push(btn(look, "Use their file", Some(resolve(Some("theirs")))));
+#[allow(clippy::too_many_arguments)]
+fn blame_row(
+    ui: &mut Ui,
+    cx: &Cx,
+    rect: Rect,
+    lines: &[BlameLine],
+    at: usize,
+    min: i64,
+    span: f32,
+    hovered: Option<&str>,
+) {
+    let look = cx.look();
+    let c = &look.c;
+    let line = &lines[at];
+    let committed = line.sha.bytes().any(|b| b != b'0');
+    let response = ui.interact(rect, ui.scope_id().with(("blame", at)), Sense::click());
+    if hovered == Some(line.sha.as_str()) {
+        fill(ui, rect, c.hover);
+    }
+    if response.hovered() && hovered != Some(line.sha.as_str()) {
+        cx.send(Message::BlameHover(line.sha.clone()));
+    }
+    let age = (line.time - min) as f32 / span;
+    ui.painter().rect_filled(
+        Rect::from_min_size(rect.min, vec2(3.0, rect.height())),
+        0.0,
+        c.accent.gamma_multiply(0.15 + age * 0.85),
+    );
+    let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+    let mid = rect.center().y;
+    let starts = at == 0 || lines[at - 1].sha != line.sha;
+    if starts {
+        paint_text(
+            &painter,
+            Pos2::new(rect.left() + 7.0, mid),
+            short_sha(&line.sha),
+            look.mono(12.0),
+            c.text,
+        );
+        let author = painter.with_clip_rect(Rect::from_min_size(
+            Pos2::new(rect.left() + 71.0, rect.top()),
+            vec2(110.0, rect.height()),
+        ));
+        paint_text(
+            &author,
+            Pos2::new(rect.left() + 71.0, mid),
+            &line.author,
+            look.ui(12.0),
+            c.text,
+        );
+        paint_text(
+            &painter,
+            Pos2::new(rect.left() + 185.0, mid),
+            &short_date(line.time),
+            look.ui(12.0),
+            c.text,
+        );
+    }
+    paint_text(
+        &painter,
+        Pos2::new(rect.left() + 297.0, mid),
+        &line.line.to_string(),
+        look.mono(12.0),
+        c.text_muted,
+    );
+    paint_text(
+        &painter,
+        Pos2::new(rect.left() + 345.0, mid),
+        &line.text,
+        look.mono(13.0),
+        c.text,
+    );
+    // All zeros means the line isn't committed yet, so there's no commit to show.
+    if committed && response.clicked() {
+        cx.send(Message::ShowCommit(line.sha.clone()));
+    }
+}
 
-        let mut chunks: Column<'a, Message> = column![].spacing(10).padding(12);
-        if count == 0 {
-            let note = if data.working.is_none() {
-                "The file was deleted on one side. Keep one side, or mark it as resolved to keep the current state."
-            } else {
-                "No conflict markers found (binary file, or the markers were already removed). Edit the result below if needed, then mark the file as resolved."
-            };
-            chunks = chunks.push(muted_text(look, note, size)).push(btn(
-                look,
-                "Mark as resolved",
-                Some(resolve(None)),
-            ));
-        }
-        let code = |lines: &[String]| {
-            let joined = lines.join("\n");
-            text(if joined.is_empty() {
-                "(empty)".to_owned()
-            } else {
-                joined
-            })
-            .size(12.5)
-            .font(look.mono)
-        };
-        let mut index = 0;
-        for (at, chunk) in data.chunks.iter().enumerate() {
-            let ConflictChunk::Conflict { ours, theirs, .. } = chunk else {
-                continue;
-            };
-            let choice = state.choices.get(index).copied().flatten();
-            let which = index;
-            index += 1;
-            let choose = |label: &'static str, option: Choice| {
-                toggle(
-                    look,
-                    label,
-                    choice == Some(option),
-                    Message::ConflictChoose(which, option),
-                )
-            };
-            let mut block = column![
-                row![
-                    text(format!("Conflict {}", which + 1))
-                        .size(size)
-                        .font(look.semibold),
-                    spacer(),
-                    choose("Ours", Choice::Ours),
-                    choose("Theirs", Choice::Theirs),
-                    choose("Ours + theirs", Choice::OursTheirs),
-                    choose("Theirs + ours", Choice::TheirsOurs),
-                ]
-                .spacing(4)
-                .align_y(Center),
-            ]
-            .spacing(6);
-            if let Some(ConflictChunk::Common { lines }) =
-                at.checked_sub(1).and_then(|before| data.chunks.get(before))
-            {
-                let tail: Vec<String> = lines.iter().rev().take(3).rev().cloned().collect();
-                if !tail.is_empty() {
-                    block = block.push(muted_text(look, tail.join("\n"), 12.5).font(look.mono));
+#[allow(clippy::too_many_arguments)]
+fn file_history(
+    ctx: &Context,
+    cx: &Cx,
+    path: &str,
+    commits: &[Commit],
+    selected: Option<&str>,
+    pane: &DiffPane,
+    loading: bool,
+    error: Option<&str>,
+) {
+    let look = cx.look();
+    let c = &look.c;
+    dialog(ctx, cx, "File history", path, None, |ui, rect| {
+        let (list, right) = split_x(rect, 360.0);
+        region(ui, list, |ui| {
+            scroll("file_history").show(ui, |ui| {
+                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                if loading {
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        muted(ui, look, "Loading…", look.text_size);
+                    });
+                } else if let Some(error) = error {
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        text(ui, error, look.text_size, c.text);
+                    });
                 }
+                for commit in commits {
+                    history_item(ui, cx, commit, selected == Some(commit.sha.as_str()));
+                }
+            });
+        });
+        let current = selected.and_then(|sha| commits.iter().find(|commit| commit.sha == sha));
+        let actions = |ui: &mut Ui| {
+            let Some(commit) = current else { return };
+            let target = commit
+                .file
+                .as_ref()
+                .map_or(path, |file| file.path.as_str())
+                .to_owned();
+            let can_blame = commit.file.as_ref().is_none_or(|file| file.status != "D");
+            if btn(ui, look, "Blame at this commit", can_blame) {
+                cx.send(Message::OpenBlame(target, Some(commit.sha.clone())));
             }
-            let taken = |ours_side: bool| match choice {
-                Some(Choice::Ours) => ours_side,
-                Some(Choice::Theirs) => !ours_side,
-                Some(_) => true,
-                None => false,
-            };
-            let side = |label: &'a str, lines: &[String], tint: Color, picked: bool| {
-                let frame = if picked { look.c.accent } else { look.c.border };
-                container(column![muted_text(look, label, size - 1.0), code(lines)].spacing(3))
-                    .padding(6)
-                    .width(Length::FillPortion(1))
-                    .style(move |_: &Theme| container::Style {
-                        background: Some(Background::Color(tint)),
-                        border: iced::Border {
-                            color: frame,
-                            width: 1.0,
-                            radius: 6.0.into(),
-                        },
-                        ..container::Style::default()
-                    })
-            };
-            block = block.push(
-                row![
-                    side(&data.ours_label, ours, look.c.conflict_ours, taken(true)),
-                    side(
-                        &data.theirs_label,
-                        theirs,
-                        look.c.conflict_theirs,
-                        taken(false)
-                    )
-                ]
-                .spacing(6),
+            if btn(ui, look, "Show in history", true) {
+                cx.send(Message::ShowCommit(commit.sha.clone()));
+            }
+        };
+        region(ui, right, |ui| {
+            diff::view(
+                ui,
+                cx,
+                pane,
+                PaneKey::Overlay,
+                None,
+                "Select a commit",
+                Some(&actions),
+                right.width(),
             );
-            chunks = chunks.push(
-                container(block)
-                    .padding(8)
-                    .width(Length::Fill)
-                    .style(style::card(look)),
-            );
-        }
-        let content = state.result.text();
-        let mut head = row![text("Result").size(size).font(look.semibold)].spacing(6);
-        if state.edited {
-            head = head.push(muted_text(look, "· edited by hand", size));
-        }
-        if has_conflict_markers(&content) {
-            head = head.push(single("· contains conflict markers", size).color(look.c.warning));
-        }
-        column![
-            bar,
-            hline(look),
-            container(scrolled(look, chunks)).height(Length::FillPortion(3)),
-            hline(look),
-            container(
-                column![
-                    head,
-                    text_editor(&state.result)
-                        .on_action(Message::ConflictEdit)
-                        .height(Length::Fill)
-                        .font(look.mono)
-                        .size(12.5)
-                        .style(style::text_editor(look)),
-                ]
-                .spacing(4)
-            )
-            .padding([6, 12])
-            .height(Length::FillPortion(2)),
-            hline(look),
-            container(
-                row![
-                    muted_text(
+        });
+        ui.painter().vline(
+            right.left() - 0.5,
+            right.y_range(),
+            Stroke::new(1.0, c.border),
+        );
+    });
+}
+
+fn history_item(ui: &mut Ui, cx: &Cx, commit: &Commit, chosen: bool) {
+    let look = cx.look();
+    let c = &look.c;
+    let size = look.text_size;
+    let status = commit.file.as_ref().map_or("", |file| file.status.as_str());
+    let orig = commit
+        .file
+        .as_ref()
+        .and_then(|file| file.orig_path.as_ref());
+    let height = if orig.is_some() { 56.0 } else { 42.0 };
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
+    if chosen {
+        fill(ui, rect, c.selection);
+    } else if response.hovered() {
+        fill(ui, rect, c.hover);
+    }
+    let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+    paint_text(
+        &painter,
+        Pos2::new(rect.left() + 10.0, rect.top() + 14.0),
+        &commit.subject,
+        look.ui(size),
+        c.text,
+    );
+    paint_text(
+        &painter,
+        Pos2::new(rect.left() + 10.0, rect.top() + 30.0),
+        &format!(
+            "{status}  {} · {} · {}",
+            commit.author,
+            short_date(commit.time),
+            short_sha(&commit.sha)
+        ),
+        look.ui(size - 1.0),
+        c.text_muted,
+    );
+    if let Some(orig) = orig {
+        paint_text(
+            &painter,
+            Pos2::new(rect.left() + 10.0, rect.top() + 45.0),
+            &format!("renamed from {orig}"),
+            look.ui(size - 1.0),
+            c.text_muted,
+        );
+    }
+    if response.clicked() {
+        cx.send(Message::FileHistorySelect(commit.sha.clone()));
+    }
+}
+
+fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
+    let look = cx.look();
+    let c = &look.c;
+    let size = look.text_size;
+    dialog(
+        ctx,
+        cx,
+        "Resolve conflict",
+        &state.path,
+        None,
+        |ui, rect| {
+            if let Some(error) = &state.error {
+                placeholder(ui, look, error);
+                return;
+            }
+            let Some(data) = &state.data else {
+                placeholder(ui, look, "Loading…");
+                return;
+            };
+            let resolve = |side: Option<&str>| {
+                Message::Action(Action::ConflictResolve {
+                    path: state.path.clone(),
+                    side: side.map(str::to_owned),
+                })
+            };
+            let count = state.conflict_count();
+            let footer = 46.0;
+            let toolbar = 36.0;
+            let flexible = (rect.height() - toolbar - footer - 3.0).max(60.0);
+            let (top, rest) = split_y(rect, toolbar);
+            let (line1, rest) = split_y(rest, 1.0);
+            let (chunks_area, rest) = split_y(rest, flexible * 0.6);
+            let (line2, rest) = split_y(rest, 1.0);
+            let (result_area, rest) = split_y(rest, flexible * 0.4);
+            let (line3, footer_area) = split_y(rest, 1.0);
+            for line in [line1, line2, line3] {
+                fill(ui, line, c.border);
+            }
+
+            region(ui, top, |ui| {
+                bar(ui, toolbar, Color32::TRANSPARENT, 12.0, |ui| {
+                    let mut summary = plural(count, "conflict");
+                    if count > 0 {
+                        summary.push_str(&format!(" · {} unresolved", state.unresolved()));
+                    }
+                    text(ui, summary, size, c.text);
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if btn(ui, look, "Use their file", true) {
+                            cx.send(resolve(Some("theirs")));
+                        }
+                        if btn(ui, look, "Use our file", true) {
+                            cx.send(resolve(Some("ours")));
+                        }
+                        if count > 0 {
+                            if btn(ui, look, "All theirs", true) {
+                                cx.send(Message::ConflictChooseAll(Choice::Theirs));
+                            }
+                            if btn(ui, look, "All ours", true) {
+                                cx.send(Message::ConflictChooseAll(Choice::Ours));
+                            }
+                        }
+                    });
+                });
+            });
+
+            region(ui, chunks_area, |ui| {
+                scroll("conflict_chunks").show(ui, |ui| {
+                Frame::new().inner_margin(Margin::same(12)).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.spacing_mut().item_spacing = vec2(6.0, 10.0);
+                    if count == 0 {
+                        let note = if data.working.is_none() {
+                            "The file was deleted on one side. Keep one side, or mark it as resolved to keep the current state."
+                        } else {
+                            "No conflict markers found (binary file, or the markers were already removed). Edit the result below if needed, then mark the file as resolved."
+                        };
+                        muted(ui, look, note, size);
+                        if btn(ui, look, "Mark as resolved", true) {
+                            cx.send(resolve(None));
+                        }
+                    }
+                    let mut index = 0;
+                    for (at, chunk) in data.chunks.iter().enumerate() {
+                        let ConflictChunk::Conflict { ours, theirs, .. } = chunk else {
+                            continue;
+                        };
+                        let choice = state.choices.get(index).copied().flatten();
+                        let which = index;
+                        index += 1;
+                        let before = at.checked_sub(1).and_then(|before| data.chunks.get(before));
+                        conflict_card(ui, cx, data, which, choice, before, ours, theirs);
+                    }
+                });
+            });
+            });
+
+            region(ui, result_area, |ui| {
+                Frame::new()
+                    .inner_margin(Margin::symmetric(12, 6))
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
+                        ui.horizontal(|ui| {
+                            text(ui, "Result", size, c.text);
+                            if state.edited {
+                                muted(ui, look, "· edited by hand", size);
+                            }
+                            if has_conflict_markers(&state.result) {
+                                text(ui, "· contains conflict markers", size, c.warning);
+                            }
+                        });
+                        let height = (result_area.height() - 40.0).max(40.0);
+                        if let Some(edited) = area_edit(
+                            ui,
+                            "conflict_result",
+                            &state.result,
+                            "",
+                            height,
+                            look.mono(12.5),
+                        ) {
+                            cx.send(Message::ConflictEdit(edited));
+                        }
+                    });
+            });
+
+            region(ui, footer_area, |ui| {
+                bar(ui, footer, Color32::TRANSPARENT, 12.0, |ui| {
+                    muted(
+                        ui,
                         look,
                         "Saving writes the result to the file and stages it.",
-                        size
-                    ),
-                    spacer(),
-                    btn(look, "Cancel", Some(Message::OverlayClose)),
-                    primary(
-                        look,
-                        "Save & mark resolved",
-                        data.working.is_some().then_some(Message::ConflictSave)
-                    ),
-                ]
-                .spacing(6)
-                .align_y(Center)
-            )
-            .padding([8, 12]),
-        ]
-        .into()
-    } else {
-        placeholder(look, "Loading…")
-    };
-    dialog(app, "Resolve conflict", state.path.clone(), None, body)
+                        size,
+                    );
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if primary(ui, look, "Save & mark resolved", data.working.is_some()) {
+                            cx.send(Message::ConflictSave);
+                        }
+                        if btn(ui, look, "Cancel", true) {
+                            cx.send(Message::OverlayClose);
+                        }
+                    });
+                });
+            });
+        },
+    );
 }
 
-fn action_button<'a>(
-    look: &Look,
-    index: usize,
-    action: &'static str,
-    current: &'static str,
-) -> Element<'a, Message> {
-    let label = REBASE_ACTIONS
-        .iter()
-        .find(|entry| entry.0 == action)
-        .map_or(action, |entry| entry.1);
-    button(
-        text(label.to_uppercase())
-            .size(look.text_size - 2.0)
-            .font(look.mono),
-    )
-    .padding([1, 6])
-    .on_press(Message::RebaseSetAction(index, action))
-    .style(style::toggle(look, action == current))
-    .into()
-}
-
-fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
-    let look = &app.look;
+#[allow(clippy::too_many_arguments)]
+fn conflict_card(
+    ui: &mut Ui,
+    cx: &Cx,
+    data: &gitcraft_core::model::ConflictVersions,
+    which: usize,
+    choice: Option<Choice>,
+    before: Option<&ConflictChunk>,
+    ours: &[String],
+    theirs: &[String],
+) {
+    let look = cx.look();
+    let c = &look.c;
     let size = look.text_size;
-    let branch = app
+    card(look).inner_margin(Margin::same(8)).show(ui, |ui| {
+        ui.set_width(ui.available_width());
+        ui.spacing_mut().item_spacing = vec2(4.0, 6.0);
+        ui.horizontal(|ui| {
+            text(ui, format!("Conflict {}", which + 1), size, c.text);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                for (label, option) in [
+                    ("Theirs + ours", Choice::TheirsOurs),
+                    ("Ours + theirs", Choice::OursTheirs),
+                    ("Theirs", Choice::Theirs),
+                    ("Ours", Choice::Ours),
+                ] {
+                    if toggle(ui, look, label, choice == Some(option)) {
+                        cx.send(Message::ConflictChoose(which, option));
+                    }
+                }
+            });
+        });
+        if let Some(ConflictChunk::Common { lines }) = before {
+            let tail: Vec<String> = lines.iter().rev().take(3).rev().cloned().collect();
+            if !tail.is_empty() {
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new(tail.join("\n"))
+                            .size(12.5)
+                            .monospace()
+                            .color(c.text_muted),
+                    )
+                    .truncate(),
+                );
+            }
+        }
+        let taken = |ours_side: bool| match choice {
+            Some(Choice::Ours) => ours_side,
+            Some(Choice::Theirs) => !ours_side,
+            Some(_) => true,
+            None => false,
+        };
+        ui.columns(2, |columns| {
+            for (column, label, lines, tint, picked) in [
+                (0, &data.ours_label, ours, c.conflict_ours, taken(true)),
+                (
+                    1,
+                    &data.theirs_label,
+                    theirs,
+                    c.conflict_theirs,
+                    taken(false),
+                ),
+            ] {
+                let ui = &mut columns[column];
+                Frame::new()
+                    .fill(tint)
+                    .stroke(Stroke::new(1.0, if picked { c.accent } else { c.border }))
+                    .corner_radius(6)
+                    .inner_margin(Margin::same(6))
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.spacing_mut().item_spacing.y = 3.0;
+                        muted(ui, look, label.as_str(), size - 1.0);
+                        let joined = lines.join("\n");
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(if joined.is_empty() {
+                                    "(empty)".to_owned()
+                                } else {
+                                    joined
+                                })
+                                .size(12.5)
+                                .monospace(),
+                            )
+                            .wrap(),
+                        );
+                    });
+            }
+        });
+    });
+}
+
+fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
+    let look = cx.look();
+    let c = &look.c;
+    let size = look.text_size;
+    let branch = cx
+        .app
         .current()
         .and_then(|tab| tab.current_branch())
         .unwrap_or("HEAD");
@@ -633,257 +749,393 @@ fn rebase<'a>(app: &'a App, state: &'a RebaseState) -> Element<'a, Message> {
         "Rewrite {branch} on top of {}. Commits are applied from top to bottom.",
         state.base_label
     );
-    let list: Element<'a, Message> = if state.loading {
-        placeholder(look, "Loading commits…")
-    } else if let Some(error) = &state.error {
-        placeholder(look, error.as_str())
-    } else if state.steps.is_empty() {
-        placeholder(look, "No commits between the base and HEAD.")
-    } else {
-        let mut rows: Column<'a, Message> = column![];
-        for (index, step) in state.steps.iter().enumerate() {
-            let mut actions = row![].spacing(2);
-            for (action, _, _) in REBASE_ACTIONS {
-                actions = actions.push(action_button(look, index, action, step.action));
-            }
-            let handle = mouse_area(
-                container(icon("grip", 14.0, look.c.text_muted))
-                    .width(20)
-                    .center_x(20),
-            )
-            .on_press(Message::RebaseDragStart(index))
-            .interaction(mouse::Interaction::Grab);
-            let subject: Element<'a, Message> = if step.action == "reword" {
-                text_input("Commit message", &step.message)
-                    .on_input(move |value| Message::RebaseMessage(index, value))
-                    .size(size)
-                    .style(style::text_input(look))
-                    .into()
-            } else if step.action == "drop" {
-                container(
-                    muted_text(look, step.commit.subject.as_str(), size).wrapping(Wrapping::None),
-                )
-                .clip(true)
-                .into()
-            } else {
-                container(single(step.commit.subject.as_str(), size))
-                    .clip(true)
-                    .into()
-            };
-            let line = row![
-                handle,
-                actions,
-                single(short_sha(&step.commit.sha), size)
-                    .font(look.mono)
-                    .width(66),
-                container(subject).width(Length::Fill),
-                container(single(step.commit.author.as_str(), size))
-                    .width(140)
-                    .clip(true),
-                icon_button(
-                    look,
-                    "arrow-up",
-                    14.0,
-                    (index > 0).then_some(Message::RebaseMove(index, -1))
-                ),
-                icon_button(
-                    look,
-                    "arrow-down",
-                    14.0,
-                    (index + 1 < state.steps.len()).then_some(Message::RebaseMove(index, 1))
-                ),
-            ]
-            .spacing(8)
-            .align_y(Center)
-            .padding([0, 12])
-            .height(REBASE_ROW_HEIGHT);
-            let background = (state.focused == index).then_some(look.c.selection);
-            rows = rows.push(
-                mouse_area(container(line).width(Length::Fill).style(move |_: &Theme| {
-                    container::Style {
-                        background: background.map(Background::Color),
-                        ..container::Style::default()
-                    }
-                }))
-                .on_press(Message::RebaseFocus(index)),
+    dialog(
+        ctx,
+        cx,
+        "Interactive rebase",
+        &subtitle,
+        None,
+        |ui, rect| {
+            let problem = state.problem().filter(|_| !state.loading);
+            let legend_height = 6.0 * 14.0 + 12.0;
+            let footer = 46.0;
+            let (list, rest) = split_y(
+                rect,
+                (rect.height() - legend_height - footer - 2.0).max(40.0),
             );
+            let (line1, rest) = split_y(rest, 1.0);
+            let (legend, rest) = split_y(rest, legend_height);
+            let (line2, footer_area) = split_y(rest, 1.0);
+            fill(ui, line1, c.border);
+            fill(ui, line2, c.border);
+
+            region(ui, list, |ui| {
+                if state.loading {
+                    placeholder(ui, look, "Loading commits…");
+                } else if let Some(error) = &state.error {
+                    placeholder(ui, look, error);
+                } else if state.steps.is_empty() {
+                    placeholder(ui, look, "No commits between the base and HEAD.");
+                } else {
+                    scroll("rebase_steps").show(ui, |ui| {
+                        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                        for (index, step) in state.steps.iter().enumerate() {
+                            rebase_row(ui, cx, state, index, step);
+                        }
+                    });
+                }
+            });
+
+            region(ui, legend, |ui| {
+                ui.add_space(4.0);
+                for (action, key, hint) in REBASE_ACTIONS {
+                    ui.horizontal(|ui| {
+                        ui.add_space(12.0);
+                        muted(ui, look, format!("{key}  {action}: {hint}"), size - 2.0);
+                    });
+                }
+            });
+
+            region(ui, footer_area, |ui| {
+                bar(ui, footer, Color32::TRANSPARENT, 12.0, |ui| {
+                    ui.spacing_mut().item_spacing.x = 8.0;
+                    if let Some(on) = check(
+                        ui,
+                        state.autostash,
+                        "Stash local changes automatically",
+                        true,
+                    ) {
+                        cx.send(Message::RebaseAutostash(on));
+                    }
+                    text(ui, problem.unwrap_or(""), size, c.danger);
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if primary(
+                            ui,
+                            look,
+                            "Start rebase",
+                            problem.is_none() && !state.loading,
+                        ) {
+                            cx.send(Message::RebaseStart);
+                        }
+                        if btn(ui, look, "Cancel", true) {
+                            cx.send(Message::OverlayClose);
+                        }
+                        if btn(ui, look, "Reset", !state.unchanged()) {
+                            cx.send(Message::RebaseReset);
+                        }
+                    });
+                });
+            });
+        },
+    );
+}
+
+fn rebase_row(
+    ui: &mut Ui,
+    cx: &Cx,
+    state: &RebaseState,
+    index: usize,
+    step: &crate::app::RebaseStepState,
+) {
+    let look = cx.look();
+    let c = &look.c;
+    let size = look.text_size;
+    let (rect, response) = ui.allocate_exact_size(
+        vec2(ui.available_width(), REBASE_ROW_HEIGHT),
+        Sense::click(),
+    );
+    if state.focused == index {
+        fill(ui, rect, c.selection);
+    }
+    let mid = rect.center().y;
+
+    // The grip: drag it up or down to move the commit.
+    let grip_rect = Rect::from_center_size(
+        Pos2::new(rect.left() + 22.0, mid),
+        vec2(20.0, REBASE_ROW_HEIGHT),
+    );
+    let grip = ui.interact(grip_rect, response.id.with("grip"), Sense::drag());
+    icon::paint(
+        ui,
+        "grip",
+        Rect::from_center_size(grip_rect.center(), vec2(14.0, 14.0)),
+        c.text_muted,
+    );
+    let drag_key = response.id.with("dragged");
+    if grip.hovered() || grip.dragged() {
+        ui.ctx().set_cursor_icon(if grip.dragged() {
+            egui::CursorIcon::Grabbing
+        } else {
+            egui::CursorIcon::Grab
+        });
+    }
+    if grip.drag_started() {
+        cx.send(Message::RebaseFocus(index));
+    }
+    if grip.dragged() {
+        ui.data_mut(|data| {
+            let total = data.get_temp::<f32>(drag_key).unwrap_or(0.0) + grip.drag_delta().y;
+            data.insert_temp(drag_key, total);
+        });
+        ui.painter().rect_stroke(
+            rect.shrink(1.0),
+            4.0,
+            Stroke::new(1.5, c.accent),
+            StrokeKind::Inside,
+        );
+    }
+    if grip.drag_stopped() {
+        let total = ui.data_mut(|data| data.remove_temp::<f32>(drag_key).unwrap_or(0.0));
+        let rows = (total / REBASE_ROW_HEIGHT).round() as isize;
+        if rows != 0 {
+            cx.send(Message::RebaseMove(index, rows));
         }
-        scrolled(look, rows)
-    };
-    let mut legend = column![].spacing(1).padding([4, 12]);
-    for (action, key, hint) in REBASE_ACTIONS {
-        legend = legend.push(muted_text(
-            look,
-            format!("{key}  {action}: {hint}"),
-            size - 2.0,
-        ));
     }
-    let problem = state.problem().filter(|_| !state.loading);
-    let footer = row![
-        checkbox(state.autostash)
-            .label("Stash local changes automatically")
-            .text_size(size)
-            .on_toggle(Message::RebaseAutostash)
-            .style(style::checkbox(look)),
-        text(problem.unwrap_or("")).size(size).color(look.c.danger),
-        spacer(),
-        btn(
-            look,
-            "Reset",
-            (!state.unchanged()).then_some(Message::RebaseReset)
-        ),
-        btn(look, "Cancel", Some(Message::OverlayClose)),
-        primary(
-            look,
-            "Start rebase",
-            (problem.is_none() && !state.loading).then_some(Message::RebaseStart)
-        ),
-    ]
-    .spacing(8)
-    .align_y(Center)
-    .padding([8, 12]);
-    let body = column![
-        container(list).height(Length::Fill),
-        hline(look),
-        legend,
-        hline(look),
-        footer
-    ];
-    dialog(app, "Interactive rebase", subtitle, None, body.into())
+
+    // The actions.
+    let mut x = rect.left() + 40.0;
+    for (action, key, _) in REBASE_ACTIONS {
+        let label = key.to_uppercase();
+        let width = text_width(ui, &label, &look.mono(size - 2.0)) + 12.0;
+        let button = Rect::from_min_size(Pos2::new(x, mid - 10.0), vec2(width, 20.0));
+        let on = step.action == action;
+        let response = ui.interact(button, response.id.with(("action", action)), Sense::click());
+        let fill_color = if on {
+            c.accent
+        } else if response.hovered() {
+            c.hover_strong
+        } else {
+            c.panel
+        };
+        ui.painter().rect_filled(button, 5.0, fill_color);
+        if !on {
+            ui.painter()
+                .rect_stroke(button, 5.0, Stroke::new(1.0, c.border), StrokeKind::Inside);
+        }
+        ui.painter().text(
+            button.center(),
+            Align2::CENTER_CENTER,
+            &label,
+            look.mono(size - 2.0),
+            if on { Color32::WHITE } else { c.text },
+        );
+        if response.clicked() {
+            cx.send(Message::RebaseSetAction(index, action));
+        }
+        x += width + 2.0;
+    }
+    x += 10.0;
+    let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+    paint_text(
+        &painter,
+        Pos2::new(x, mid),
+        short_sha(&step.commit.sha),
+        look.mono(size),
+        c.text,
+    );
+    x += 74.0;
+
+    let right = rect.right() - 12.0 - 2.0 * 26.0 - 2.0 * 8.0;
+    let author_x = right - 140.0;
+    let subject_width = (author_x - 8.0 - x).max(40.0);
+    let subject_area =
+        Rect::from_min_size(Pos2::new(x, rect.top()), vec2(subject_width, rect.height()));
+    if step.action == "reword" {
+        region(
+            ui,
+            Rect::from_center_size(subject_area.center(), vec2(subject_width, 26.0)),
+            |ui| {
+                let (_, changed) = line_edit(
+                    ui,
+                    ("rebase_message", index),
+                    &step.message,
+                    "Commit message",
+                    subject_width,
+                    look.ui(size),
+                );
+                if let Some(message) = changed {
+                    cx.send(Message::RebaseMessage(index, message));
+                }
+            },
+        );
+    } else {
+        let color = if step.action == "drop" {
+            c.text_muted
+        } else {
+            c.text
+        };
+        paint_text(
+            &painter.with_clip_rect(subject_area),
+            Pos2::new(x, mid),
+            &step.commit.subject,
+            look.ui(size),
+            color,
+        );
+    }
+    paint_text(
+        &painter.with_clip_rect(Rect::from_min_size(
+            Pos2::new(author_x, rect.top()),
+            vec2(140.0, rect.height()),
+        )),
+        Pos2::new(author_x, mid),
+        &step.commit.author,
+        look.ui(size),
+        c.text,
+    );
+    let ups = Rect::from_center_size(Pos2::new(right + 21.0, mid), vec2(26.0, 26.0));
+    let downs = Rect::from_center_size(Pos2::new(right + 21.0 + 34.0, mid), vec2(26.0, 26.0));
+    for (area, name, delta, enabled) in [
+        (ups, "arrow-up", -1, index > 0),
+        (downs, "arrow-down", 1, index + 1 < state.steps.len()),
+    ] {
+        let sense = if enabled {
+            Sense::click()
+        } else {
+            Sense::hover()
+        };
+        let response = ui.interact(area, response.id.with(name), sense);
+        super::widgets::icon_in(ui, look, &response, area, name, 14.0, enabled);
+        if enabled && response.clicked() {
+            cx.send(Message::RebaseMove(index, delta));
+        }
+    }
+    if response.clicked() {
+        cx.send(Message::RebaseFocus(index));
+    }
 }
 
-#[derive(Clone, PartialEq, Eq)]
-struct ThemeChoice(&'static str, &'static str);
-
-impl std::fmt::Display for ThemeChoice {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.1)
-    }
-}
-
-const THEMES: [ThemeChoice; 3] = [
-    ThemeChoice("system", "Follow system"),
-    ThemeChoice("light", "Light"),
-    ThemeChoice("dark", "Dark"),
+const THEMES: [(&str, &str); 3] = [
+    ("system", "Follow system"),
+    ("light", "Light"),
+    ("dark", "Dark"),
 ];
 
-fn settings(app: &App) -> Element<'_, Message> {
-    let look = &app.look;
+fn settings(ctx: &Context, cx: &Cx) {
+    let look = cx.look();
+    let c = &look.c;
     let size = look.text_size;
-    let values = &app.settings;
-    let heading = |title: &'static str| {
-        container(super::widgets::heading(look, title)).padding(iced::Padding {
-            top: 10.0,
-            ..iced::Padding::ZERO
-        })
-    };
-    let line = |label: &'static str, control: Element<'static, Message>| {
-        row![text(label).size(size).width(Length::Fill), control].align_y(Center)
-    };
-    let chosen = THEMES
-        .iter()
-        .find(|choice| choice.0 == values.theme)
-        .cloned();
-    let number = |value: String, message: fn(String) -> Message| -> Element<'static, Message> {
-        text_input("", &value)
-            .on_input(message)
-            .size(size)
-            .width(90)
-            .style(style::text_input(look))
-            .into()
-    };
-    let check = |label: &'static str, value: bool, message: fn(bool) -> Message| {
-        checkbox(value)
-            .label(label)
-            .text_size(size)
-            .on_toggle(message)
-            .style(style::checkbox(look))
-    };
-    let shortcut = |keys: &'static str, what: &'static str| {
-        row![single(keys, size).width(170), muted_text(look, what, size)]
-    };
-    let body = column![
-        heading("Appearance"),
-        line(
-            "Theme",
-            pick_list(THEMES, chosen, |choice: ThemeChoice| Message::SetTheme(
-                choice.0.to_owned()
-            ))
-            .text_size(size)
-            .style(style::pick_list(look))
-            .menu_style(style::menu(look))
-            .into()
-        ),
-        heading("Diffs"),
-        line(
-            "Layout",
-            row![
-                toggle(
-                    look,
-                    "Unified",
-                    !values.diff_split,
-                    Message::SetSplit(false)
-                ),
-                toggle(
-                    look,
-                    "Side by side",
-                    values.diff_split,
-                    Message::SetSplit(true)
-                )
-            ]
-            .spacing(4)
-            .into()
-        ),
-        line(
-            "Context lines",
-            number(values.diff_context.to_string(), Message::SetContext)
-        ),
-        check(
-            "Ignore whitespace changes",
-            values.ignore_whitespace,
-            Message::SetIgnoreWhitespace
-        ),
-        check(
-            "Syntax highlighting",
-            values.syntax_highlight,
-            Message::SetSyntax
-        ),
-        heading("Repository"),
-        line(
-            "Commits loaded at a time",
-            number(values.log_limit.to_string(), Message::SetLogLimit)
-        ),
-        check(
-            "Fetch when opening a repository",
-            values.fetch_on_open,
-            Message::SetFetchOnOpen
-        ),
-        check(
-            "Keep a commit-graph file for faster history",
-            values.commit_graph,
-            Message::SetCommitGraph
-        ),
-        heading("Keyboard shortcuts"),
-        shortcut("Ctrl/⌘ + 1 / 2", "All commits / Local changes"),
-        shortcut("Ctrl/⌘ + F", "Search commits"),
-        shortcut("Ctrl/⌘ + T or O", "Open repository"),
-        shortcut("Ctrl/⌘ + W", "Close tab"),
-        shortcut("Ctrl/⌘ + Enter", "Commit"),
-        shortcut("Ctrl/⌘ + + / − / 0", "Zoom"),
-        shortcut("F5 / Ctrl/⌘ + R", "Refresh repository"),
-        shortcut("↑ ↓ PgUp PgDn", "Move through commits"),
-    ]
-    .spacing(8)
-    .padding(16)
-    .max_width(560);
-    dialog(
-        app,
-        "Settings",
-        String::new(),
-        None,
-        scrollable(container(body).center_x(Length::Fill))
-            .direction(scrollable::Direction::Vertical(style::scrollbar()))
-            .style(style::scrollable(look))
-            .into(),
-    )
+    let values = &cx.app.settings;
+    dialog(ctx, cx, "Settings", "", None, |ui, rect| {
+        let column = Rect::from_center_size(
+            Pos2::new(rect.center().x, rect.center().y),
+            vec2(rect.width().min(560.0), rect.height()),
+        );
+        region(ui, column, |ui| {
+            scroll("settings").show(ui, |ui| {
+                Frame::new().inner_margin(Margin::same(16)).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+                    let section = |ui: &mut Ui, title: &str| {
+                        ui.add_space(10.0);
+                        heading(ui, look, title);
+                    };
+                    let line = |ui: &mut Ui, label: &str, control: &mut dyn FnMut(&mut Ui)| {
+                        ui.horizontal(|ui| {
+                            text(ui, label, size, c.text);
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| control(ui));
+                        });
+                    };
+                    section(ui, "Appearance");
+                    line(ui, "Theme", &mut |ui| {
+                        let options: Vec<(String, String)> = THEMES
+                            .iter()
+                            .map(|(value, label)| ((*value).to_owned(), (*label).to_owned()))
+                            .collect();
+                        if let Some(chosen) = choice(ui, "theme", &options, &values.theme, 150.0) {
+                            cx.send(Message::SetTheme(chosen));
+                        }
+                    });
+                    section(ui, "Diffs");
+                    line(ui, "Layout", &mut |ui| {
+                        if toggle(ui, look, "Side by side", values.diff_split) {
+                            cx.send(Message::SetSplit(true));
+                        }
+                        if toggle(ui, look, "Unified", !values.diff_split) {
+                            cx.send(Message::SetSplit(false));
+                        }
+                    });
+                    line(ui, "Context lines", &mut |ui| {
+                        let (_, changed) = line_edit(
+                            ui,
+                            "context",
+                            &values.diff_context.to_string(),
+                            "",
+                            90.0,
+                            look.ui(size),
+                        );
+                        if let Some(text) = changed {
+                            cx.send(Message::SetContext(text));
+                        }
+                    });
+                    if let Some(on) = check(
+                        ui,
+                        values.ignore_whitespace,
+                        "Ignore whitespace changes",
+                        true,
+                    ) {
+                        cx.send(Message::SetIgnoreWhitespace(on));
+                    }
+                    if let Some(on) =
+                        check(ui, values.syntax_highlight, "Syntax highlighting", true)
+                    {
+                        cx.send(Message::SetSyntax(on));
+                    }
+                    section(ui, "Repository");
+                    line(ui, "Commits loaded at a time", &mut |ui| {
+                        let (_, changed) = line_edit(
+                            ui,
+                            "log_limit",
+                            &values.log_limit.to_string(),
+                            "",
+                            90.0,
+                            look.ui(size),
+                        );
+                        if let Some(text) = changed {
+                            cx.send(Message::SetLogLimit(text));
+                        }
+                    });
+                    if let Some(on) = check(
+                        ui,
+                        values.fetch_on_open,
+                        "Fetch when opening a repository",
+                        true,
+                    ) {
+                        cx.send(Message::SetFetchOnOpen(on));
+                    }
+                    if let Some(on) = check(
+                        ui,
+                        values.commit_graph,
+                        "Keep a commit-graph file for faster history",
+                        true,
+                    ) {
+                        cx.send(Message::SetCommitGraph(on));
+                    }
+                    section(ui, "Keyboard shortcuts");
+                    for (keys, what) in [
+                        ("Ctrl/⌘ + 1 / 2", "All commits / Local changes"),
+                        ("Ctrl/⌘ + F", "Search commits"),
+                        ("Ctrl/⌘ + T or O", "Open repository"),
+                        ("Ctrl/⌘ + W", "Close tab"),
+                        ("Ctrl/⌘ + Enter", "Commit"),
+                        ("Ctrl/⌘ + + / − / 0", "Zoom"),
+                        ("F5 / Ctrl/⌘ + R", "Refresh repository"),
+                        ("↑ ↓ PgUp PgDn", "Move through commits"),
+                    ] {
+                        ui.horizontal(|ui| {
+                            let (slot, _) =
+                                ui.allocate_exact_size(vec2(170.0, 16.0), Sense::hover());
+                            ui.painter().text(
+                                slot.left_center(),
+                                Align2::LEFT_CENTER,
+                                keys,
+                                look.ui(size),
+                                c.text,
+                            );
+                            muted(ui, look, what, size);
+                        });
+                    }
+                });
+            });
+        });
+    });
 }

@@ -1,6 +1,6 @@
 //! Context menus: plain data, so that what a menu offers can be tested without drawing it.
 
-use iced::Point;
+use egui::Pos2;
 
 use crate::app::Message;
 
@@ -68,13 +68,13 @@ impl MenuItem {
 }
 
 pub struct Menu {
-    pub at: Point,
+    pub at: Pos2,
     pub items: Vec<MenuItem>,
     pub open_sub: Option<usize>,
 }
 
 impl Menu {
-    pub fn new(at: Point, items: Vec<MenuItem>) -> Self {
+    pub fn new(at: Pos2, items: Vec<MenuItem>) -> Self {
         Self {
             at,
             items,

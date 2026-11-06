@@ -1,20 +1,18 @@
 //! Application state, messages and the update loop.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use egui::{Key, Modifiers, Pos2, Vec2};
 use gitcraft_core::model::*;
 use gitcraft_core::parsers::Selection;
 use gitcraft_core::runner::Progress;
 use gitcraft_core::store::RepoStore;
 use gitcraft_core::watcher::{self, WatchEvent};
 use gitcraft_core::{Error, ops, queries, repos};
-use iced::futures::{SinkExt, Stream};
-use iced::widget::{Id, operation, scrollable, text_editor};
-use iced::{Element, Point, Size, Subscription, Task, Theme, keyboard, theme, window};
 
 use crate::actions::{Action, MenuRequest};
 use crate::command::Command;
@@ -23,8 +21,8 @@ use crate::highlight::{self, Highlights};
 use crate::logic::{self, Choice, plural, short_sha};
 use crate::menu::{Menu, MenuItem};
 use crate::settings::Settings;
+use crate::task::{Handle, Task};
 use crate::theme::Look;
-use crate::views;
 
 /// Height of one commit row; lists are virtualised on this.
 pub const ROW_HEIGHT: f32 = 26.0;
@@ -78,8 +76,9 @@ pub struct DiffPane {
     pub loading: bool,
     pub token: u64,
     pub offset: f32,
-    pub viewport: Size,
-    pub scroll: Id,
+    pub viewport: Vec2,
+    /// A scroll position the view should jump to the next time it is drawn.
+    pub scroll_to: Cell<Option<f32>>,
     /// Row tops for a width and row count: see the diff view.
     pub layout: RefCell<(f32, usize, Vec<f32>)>,
     pub selection: BTreeSet<(usize, usize)>,
@@ -95,8 +94,8 @@ impl Default for DiffPane {
             loading: false,
             token: 0,
             offset: 0.0,
-            viewport: Size::new(800.0, 400.0),
-            scroll: Id::unique(),
+            viewport: Vec2::new(800.0, 400.0),
+            scroll_to: Cell::new(None),
             layout: RefCell::new((-1.0, 0, Vec::new())),
             selection: BTreeSet::new(),
             anchor: None,
@@ -238,10 +237,10 @@ pub struct RepoTab {
     pub detail_error: Option<String>,
     pub selected_file: Option<String>,
     pub commit_pane: DiffPane,
-    pub message: text_editor::Content,
     pub offset: f32,
     pub viewport: f32,
-    pub list: Id,
+    /// A scroll position the history list should jump to the next time it is drawn.
+    pub scroll_to: Cell<Option<f32>>,
     pub search: Option<SearchState>,
     pub search_input: String,
     pub search_mode: SearchMode,
@@ -252,7 +251,7 @@ pub struct RepoTab {
     pub pick_anchor: Option<String>,
     pub changes_pane: DiffPane,
     pub summary: String,
-    pub body: text_editor::Content,
+    pub body: String,
     pub amend: bool,
     pub committing: bool,
     pub filter: String,
@@ -280,10 +279,9 @@ impl RepoTab {
             detail_error: None,
             selected_file: None,
             commit_pane: DiffPane::default(),
-            message: text_editor::Content::new(),
             offset: 0.0,
             viewport: 300.0,
-            list: Id::unique(),
+            scroll_to: Cell::new(None),
             search: None,
             search_input: String::new(),
             search_mode: SearchMode::Message,
@@ -294,7 +292,7 @@ impl RepoTab {
             pick_anchor: None,
             changes_pane: DiffPane::default(),
             summary: String::new(),
-            body: text_editor::Content::new(),
+            body: String::new(),
             amend: false,
             committing: false,
             filter: String::new(),
@@ -368,7 +366,7 @@ pub struct ConflictState {
     pub data: Option<ConflictVersions>,
     pub error: Option<String>,
     pub choices: Vec<Option<Choice>>,
-    pub result: text_editor::Content,
+    pub result: String,
     pub edited: bool,
 }
 
@@ -401,7 +399,6 @@ pub struct RebaseState {
     pub error: Option<String>,
     pub autostash: bool,
     pub focused: usize,
-    pub drag: Option<(usize, f32)>,
 }
 
 impl RebaseState {
@@ -461,8 +458,6 @@ pub enum Overlay {
         lines: Vec<BlameLine>,
         loading: bool,
         error: Option<String>,
-        offset: f32,
-        viewport: f32,
         hovered: Option<String>,
     },
     FileHistory {
@@ -493,6 +488,13 @@ pub struct Toast {
     expires: Instant,
 }
 
+/// What `update` asks the window to do.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Effect {
+    Copy(String),
+    Quit,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Splitter {
     Sidebar,
@@ -513,14 +515,16 @@ pub struct App {
     pub overlay: Option<Overlay>,
     pub busy: Option<(u64, String)>,
     /// Stops the running operation, when it's one that can safely stop.
-    pub cancel: Option<iced::task::Handle>,
+    pub cancel: Option<Handle>,
     pub progress_line: String,
-    pub cursor: Point,
-    pub window: Size,
-    pub modifiers: keyboard::Modifiers,
+    pub cursor: Pos2,
+    pub window: Vec2,
+    pub modifiers: Modifiers,
     pub collapsed: HashSet<String>,
-    pub search_box: Id,
-    drag: Option<(Splitter, Point, f32)>,
+    /// Set when the search box should take the keyboard; the view clears it.
+    pub focus_search: Cell<bool>,
+    /// Things only the shell can do, such as the clipboard; it drains them after each update.
+    pub effects: Vec<Effect>,
     next_id: u64,
     pub(crate) config_dir: PathBuf,
     pub(crate) store: RepoStore,
@@ -547,12 +551,11 @@ pub enum Message {
     ShowCommit(String),
     ActivateCommit(String),
     DetailLoaded(String, String, Answer<CommitDetail>),
-    MessageAction(text_editor::Action),
     PickFile(String),
     Scrolled(f32, f32),
     DiffLoaded(String, PaneKey, u64, Answer<Option<FileDiff>>),
     HighlightsLoaded(String, PaneKey, u64, Option<Arc<Highlights>>),
-    DiffScrolled(PaneKey, f32, Size),
+    DiffScrolled(PaneKey, f32, Vec2),
     DiffLineClicked(PaneKey, usize, usize),
     HunkAction(usize, &'static str),
     ToggleSplit,
@@ -571,7 +574,7 @@ pub enum Message {
     FilePicked(Area, String),
     FileActivated(Area, String),
     SummaryInput(String),
-    BodyAction(text_editor::Action),
+    BodyInput(String),
     AmendToggled(bool),
     HeadMessageLoaded(String, Answer<String>),
     TemplateLoaded(String, Answer<String>),
@@ -594,12 +597,12 @@ pub enum Message {
     Done(String, u64, Command, Answer<OpResult>),
     Action(Action),
     OpenMenu(MenuRequest),
-    MenuResolved(MenuRequest, Point, Answer<Commit>),
+    MenuResolved(MenuRequest, Pos2, Answer<Commit>),
     MenuHover(Option<usize>),
     CloseMenu,
     FromMenu(Box<Message>),
     FormText(usize, String),
-    FormArea(usize, text_editor::Action),
+    FormArea(usize, String),
     FormCheck(usize, bool),
     FormSelect(usize, String),
     FormSubmit,
@@ -609,7 +612,6 @@ pub enum Message {
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenBlame(String, Option<String>),
     BlameLoaded(Answer<Vec<BlameLine>>),
-    BlameScrolled(f32, f32),
     BlameHover(String),
     OpenFileHistory(String),
     FileHistoryLoaded(Answer<Vec<Commit>>),
@@ -618,7 +620,7 @@ pub enum Message {
     ConflictLoaded(Answer<ConflictVersions>),
     ConflictChoose(usize, Choice),
     ConflictChooseAll(Choice),
-    ConflictEdit(text_editor::Action),
+    ConflictEdit(String),
     ConflictSave,
     OpenRebase(Option<String>),
     RebaseLoaded(Answer<Vec<Commit>>),
@@ -627,7 +629,6 @@ pub enum Message {
     RebaseBodyLoaded(String, Answer<String>),
     RebaseMove(usize, isize),
     RebaseFocus(usize),
-    RebaseDragStart(usize),
     RebaseAutostash(bool),
     RebaseReset,
     RebaseStart,
@@ -647,13 +648,14 @@ pub enum Message {
     OpenFile(String),
     Instance(String),
     Watched(String, WatchEvent),
-    Key(keyboard::Key, keyboard::Modifiers),
-    ModifiersChanged(keyboard::Modifiers),
-    CursorMoved(Point),
-    PointerReleased,
-    SplitterPressed(Splitter),
-    WindowResized(Size),
-    CloseRequested(window::Id),
+    Key(Key, Modifiers),
+    ModifiersChanged(Modifiers),
+    CursorMoved(Pos2),
+    /// A splitter was dragged by this many points.
+    Resize(Splitter, f32),
+    ResizeDone,
+    WindowResized(Vec2),
+    CloseRequested,
     Tick,
     DismissToast(u64),
     Quit,
@@ -691,7 +693,7 @@ impl App {
         Self {
             look,
             collapsed: settings.collapsed.iter().cloned().collect(),
-            window: Size::new(settings.window_width, settings.window_height),
+            window: Vec2::new(settings.window_width, settings.window_height),
             settings,
             tabs: Vec::new(),
             active: 0,
@@ -703,10 +705,10 @@ impl App {
             busy: None,
             cancel: None,
             progress_line: String::new(),
-            cursor: Point::ORIGIN,
-            modifiers: keyboard::Modifiers::empty(),
-            search_box: Id::unique(),
-            drag: None,
+            cursor: Pos2::ZERO,
+            modifiers: Modifiers::NONE,
+            focus_search: Cell::new(false),
+            effects: Vec::new(),
             next_id: 1,
             config_dir: store.dir(),
             store,
@@ -720,19 +722,15 @@ impl App {
         }
     }
 
-    pub fn theme(&self) -> Theme {
-        self.look.theme.clone()
-    }
-
-    pub fn style(&self, _theme: &Theme) -> theme::Style {
-        theme::Style {
-            background_color: self.look.c.bg,
-            text_color: self.look.c.text,
-        }
-    }
-
     pub fn scale(&self) -> f32 {
         self.settings.zoom
+    }
+
+    /// Reads the theme setting again, keeping what was measured on screen.
+    fn restyle(&mut self) {
+        let char_width = self.look.char_width;
+        self.look = Look::for_setting(&self.settings.theme);
+        self.look.char_width = char_width;
     }
 
     pub fn current(&self) -> Option<&RepoTab> {
@@ -745,45 +743,6 @@ impl App {
 
     fn tab_mut(&mut self, path: &str) -> Option<&mut RepoTab> {
         self.tabs.iter_mut().find(|tab| tab.path == path)
-    }
-
-    pub fn subscription(&self) -> Subscription<Message> {
-        let mut parts: Vec<Subscription<Message>> = self
-            .tabs
-            .iter()
-            .map(|tab| Subscription::run_with(tab.path.clone(), watch_stream))
-            .collect();
-        parts.push(keyboard::listen().filter_map(|event| match event {
-            keyboard::Event::KeyPressed { key, modifiers, .. } => {
-                Some(Message::Key(key, modifiers))
-            }
-            keyboard::Event::ModifiersChanged(modifiers) => {
-                Some(Message::ModifiersChanged(modifiers))
-            }
-            keyboard::Event::KeyReleased { .. } => None,
-        }));
-        // Global, because dialogs capture mouse events on their way to the page below.
-        parts.push(iced::event::listen_with(|event, _, _| match event {
-            iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
-                Some(Message::CursorMoved(position))
-            }
-            iced::Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
-                Some(Message::PointerReleased)
-            }
-            _ => None,
-        }));
-        parts.push(window::resize_events().map(|(_, size)| Message::WindowResized(size)));
-        parts.push(window::close_requests().map(Message::CloseRequested));
-        parts.push(native_theme_iced::theme_changes().map(|_| Message::ThemeChanged));
-        parts.push(Subscription::run(crate::instance::listen).map(Message::Instance));
-        if !self.toasts.is_empty() {
-            parts.push(iced::time::every(Duration::from_millis(500)).map(|_| Message::Tick));
-        }
-        Subscription::batch(parts)
-    }
-
-    pub fn view(&self) -> Element<'_, Message> {
-        views::root(self)
     }
 
     pub fn toast(&mut self, kind: ToastKind, message: impl Into<String>, detail: Option<String>) {
@@ -855,12 +814,7 @@ impl App {
                 }
                 self.active = index;
                 self.save_settings();
-                let tab = &self.tabs[index];
-                Task::batch([
-                    scroll_to(tab, tab.offset),
-                    scroll_pane(&tab.commit_pane, tab.commit_pane.offset),
-                    scroll_pane(&tab.changes_pane, tab.changes_pane.offset),
-                ])
+                Task::none()
             }
             Message::Close(index) => {
                 if index < self.tabs.len() {
@@ -940,15 +894,12 @@ impl App {
                 };
                 tab.all_branches = all;
                 tab.loading = true;
-                tab.offset = 0.0;
-                Task::batch([
-                    scroll_to(tab, 0.0),
-                    load_log(tab.path.clone(), tab.log_limit, all),
-                ])
+                scroll_to(tab, 0.0);
+                load_log(tab.path.clone(), tab.log_limit, all)
             }
             Message::Select(sha) => {
                 // Ctrl/Cmd+click compares the selected commit with the clicked one.
-                if self.modifiers.command() {
+                if self.modifiers.command {
                     let selected = self.current().and_then(|tab| tab.selected.clone());
                     if let Some(selected) = selected.filter(|selected| *selected != sha) {
                         return Task::done(Message::CompareStart(selected, sha));
@@ -968,8 +919,10 @@ impl App {
                 tab.compare = None;
                 tab.search = None;
                 let index = tab.commits.iter().position(|commit| commit.sha == sha);
-                let reveal = index.map_or_else(Task::none, |index| self.reveal(index));
-                Task::batch([self.select(sha), reveal])
+                if let Some(index) = index {
+                    self.reveal(index);
+                }
+                self.select(sha)
             }
             Message::ActivateCommit(sha) => {
                 let Some(tab) = self.current() else {
@@ -996,15 +949,6 @@ impl App {
                 }
             }
             Message::DetailLoaded(path, sha, result) => self.detail_loaded(&path, &sha, result),
-            Message::MessageAction(action) => {
-                // Selectable and copyable, but not editable.
-                if !action.is_edit()
-                    && let Some(tab) = self.current_mut()
-                {
-                    tab.message.perform(action);
-                }
-                Task::none()
-            }
             Message::PickFile(path) => self.pick_file(path),
             Message::Scrolled(offset, height) => {
                 if let Some(tab) = self.current_mut() {
@@ -1035,7 +979,7 @@ impl App {
                 Task::none()
             }
             Message::DiffLineClicked(key, hunk, line) => {
-                let shift = self.modifiers.shift();
+                let shift = self.modifiers.shift;
                 let repo = self
                     .current()
                     .map(|tab| tab.path.clone())
@@ -1078,12 +1022,12 @@ impl App {
                 if !had_results {
                     return Task::none();
                 }
-                tab.offset = 0.0;
-                scroll_to(tab, 0.0)
+                scroll_to(tab, 0.0);
+                Task::none()
             }
             Message::SearchFocus => {
-                let id = self.search_box.clone();
-                Task::batch([operation::focus(id.clone()), operation::select_all(id)])
+                self.focus_search.set(true);
+                Task::none()
             }
             Message::SearchDone(repo, query, result) => self.search_done(&repo, &query, result),
             Message::CompareStart(base, target) => self.compare_start(base, target),
@@ -1116,9 +1060,9 @@ impl App {
                 }
                 Task::none()
             }
-            Message::BodyAction(action) => {
+            Message::BodyInput(text) => {
                 if let Some(tab) = self.current_mut() {
-                    tab.body.perform(action);
+                    tab.body = text;
                 }
                 Task::none()
             }
@@ -1127,7 +1071,7 @@ impl App {
                     return Task::none();
                 };
                 tab.amend = amend;
-                if !amend || !tab.summary.is_empty() || !tab.body.text().trim().is_empty() {
+                if !amend || !tab.summary.is_empty() || !tab.body.trim().is_empty() {
                     return Task::none();
                 }
                 let path = tab.path.clone();
@@ -1144,11 +1088,11 @@ impl App {
                     Ok(message) => {
                         if let Some(tab) = self.tab_mut(&repo)
                             && tab.summary.is_empty()
-                            && tab.body.text().trim().is_empty()
+                            && tab.body.trim().is_empty()
                         {
                             let (summary, body) = logic::split_message(&message);
                             tab.summary = summary;
-                            tab.body = text_editor::Content::with_text(&body);
+                            tab.body = body;
                         }
                     }
                     Err(error) => self.toast(ToastKind::Error, error, None),
@@ -1163,7 +1107,7 @@ impl App {
                     return Task::none();
                 }
                 tab.committing = true;
-                let message = logic::commit_message(&tab.summary, &tab.body.text());
+                let message = logic::commit_message(&tab.summary, &tab.body);
                 let amend = tab.amend;
                 Task::done(Message::Run(Command::Commit { message, amend }))
             }
@@ -1259,14 +1203,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::FormArea(index, action) => {
-                if let Some(FieldKind::Area(content)) = self
+            Message::FormArea(index, text) => {
+                if let Some(FieldKind::Area(value)) = self
                     .form
                     .as_mut()
                     .and_then(|form| form.fields.get_mut(index))
                     .map(|field| &mut field.kind)
                 {
-                    content.perform(action);
+                    *value = text;
                 }
                 Task::none()
             }
@@ -1340,16 +1284,6 @@ impl App {
                 }
                 Task::none()
             }
-            Message::BlameScrolled(y, height) => {
-                if let Some(Overlay::Blame {
-                    offset, viewport, ..
-                }) = &mut self.overlay
-                {
-                    *offset = y;
-                    *viewport = height;
-                }
-                Task::none()
-            }
             Message::BlameHover(sha) => {
                 if let Some(Overlay::Blame { hovered, .. }) = &mut self.overlay {
                     *hovered = Some(sha);
@@ -1370,9 +1304,7 @@ impl App {
                                 .filter(|chunk| matches!(chunk, ConflictChunk::Conflict { .. }))
                                 .count();
                             state.choices = vec![None; count];
-                            state.result = text_editor::Content::with_text(
-                                data.working.as_deref().unwrap_or(""),
-                            );
+                            state.result = data.working.clone().unwrap_or_default();
                             state.data = Some(data);
                         }
                         Err(message) => state.error = Some(message),
@@ -1384,10 +1316,10 @@ impl App {
                 self.conflict_choose(Some(index), choice, false)
             }
             Message::ConflictChooseAll(choice) => self.conflict_choose(None, choice, false),
-            Message::ConflictEdit(action) => {
+            Message::ConflictEdit(text) => {
                 if let Some(Overlay::Conflict(state)) = &mut self.overlay {
-                    state.edited |= action.is_edit();
-                    state.result.perform(action);
+                    state.edited |= state.result != text;
+                    state.result = text;
                 }
                 Task::none()
             }
@@ -1446,14 +1378,6 @@ impl App {
                 }
                 Task::none()
             }
-            Message::RebaseDragStart(index) => {
-                let y = self.cursor.y;
-                if let Some(Overlay::Rebase(state)) = &mut self.overlay {
-                    state.drag = Some((index, y));
-                    state.focused = index;
-                }
-                Task::none()
-            }
             Message::RebaseAutostash(value) => {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.autostash = value;
@@ -1473,13 +1397,13 @@ impl App {
             }
             Message::SetTheme(choice) => {
                 self.settings.theme = choice;
-                self.look = Look::for_setting(&self.settings.theme);
+                self.restyle();
                 self.save_settings();
                 Task::none()
             }
             Message::ThemeChanged => {
-                native_theme_iced::native_theme::detect::invalidate_caches();
-                self.look = Look::for_setting(&self.settings.theme);
+                native_theme::detect::invalidate_caches();
+                self.restyle();
                 Task::none()
             }
             Message::SetSplit(split) => {
@@ -1533,7 +1457,8 @@ impl App {
             }
             Message::Copy(text) => {
                 self.toast(ToastKind::Success, "Copied to clipboard", None);
-                iced::clipboard::write(text)
+                self.effects.push(Effect::Copy(text));
+                Task::none()
             }
             Message::Reveal(path) => {
                 if let Err(error) = opener::reveal(&path) {
@@ -1578,52 +1503,32 @@ impl App {
                 );
                 Task::none()
             }
-            Message::Key(key, modifiers) => self.key(&key, modifiers),
+            Message::Key(key, modifiers) => self.key(key, modifiers),
             Message::ModifiersChanged(modifiers) => {
                 self.modifiers = modifiers;
                 Task::none()
             }
             Message::CursorMoved(position) => {
                 self.cursor = position;
-                if let Some((splitter, start, size)) = self.drag {
-                    self.drag_splitter(splitter, start, size, position);
-                }
                 Task::none()
             }
-            Message::PointerReleased => {
-                if self.drag.take().is_some() {
-                    self.save_settings();
-                }
-                let y = self.cursor.y;
-                if let Some(Overlay::Rebase(state)) = &mut self.overlay
-                    && let Some((from, start)) = state.drag.take()
-                {
-                    let rows = ((y - start) / REBASE_ROW_HEIGHT).round() as isize;
-                    let last = state.steps.len().saturating_sub(1) as isize;
-                    let to = (from as isize + rows).clamp(0, last) as usize;
-                    state.move_step(from, to);
-                }
+            Message::Resize(splitter, delta) => {
+                self.resize(splitter, delta);
                 Task::none()
             }
-            Message::SplitterPressed(splitter) => {
-                let size = match splitter {
-                    Splitter::Sidebar => self.settings.sidebar_width,
-                    Splitter::History => self.settings.history_height,
-                    Splitter::Details => self.settings.details_width,
-                    Splitter::Changes => self.settings.changes_width,
-                };
-                self.drag = Some((splitter, self.cursor, size));
+            Message::ResizeDone => {
+                self.save_settings();
                 Task::none()
             }
             Message::WindowResized(size) => {
                 self.window = size;
-                self.settings.window_width = size.width;
-                self.settings.window_height = size.height;
+                self.settings.window_width = size.x * self.settings.zoom;
+                self.settings.window_height = size.y * self.settings.zoom;
                 Task::none()
             }
-            Message::CloseRequested(id) => {
+            Message::CloseRequested => {
                 self.save_settings();
-                window::close(id)
+                Task::none()
             }
             Message::Tick => {
                 let now = Instant::now();
@@ -1636,7 +1541,8 @@ impl App {
             }
             Message::Quit => {
                 self.save_settings();
-                iced::exit()
+                self.effects.push(Effect::Quit);
+                Task::none()
             }
         }
     }
@@ -1716,17 +1622,23 @@ impl App {
         (self.settings.history_height - 60.0).max(ROW_HEIGHT)
     }
 
-    fn drag_splitter(&mut self, splitter: Splitter, start: Point, size: f32, position: Point) {
-        let (dx, dy) = (position.x - start.x, position.y - start.y);
+    fn resize(&mut self, splitter: Splitter, delta: f32) {
+        let settings = &mut self.settings;
         match splitter {
-            Splitter::Sidebar => self.settings.sidebar_width = (size + dx).clamp(160.0, 600.0),
+            Splitter::Sidebar => {
+                settings.sidebar_width = (settings.sidebar_width + delta).clamp(160.0, 600.0);
+            }
             Splitter::History => {
-                self.settings.history_height = (size + dy).clamp(120.0, 2000.0);
+                settings.history_height = (settings.history_height + delta).clamp(120.0, 2000.0);
                 let height = self.history_list_height();
                 self.tabs.iter_mut().for_each(|tab| tab.viewport = height);
             }
-            Splitter::Details => self.settings.details_width = (size + dx).clamp(220.0, 900.0),
-            Splitter::Changes => self.settings.changes_width = (size + dx).clamp(260.0, 900.0),
+            Splitter::Details => {
+                settings.details_width = (settings.details_width + delta).clamp(220.0, 900.0);
+            }
+            Splitter::Changes => {
+                settings.changes_width = (settings.changes_width + delta).clamp(260.0, 900.0);
+            }
         }
     }
 
@@ -1786,7 +1698,6 @@ impl App {
                 .map(|commit| commit.sha.clone());
             tab.selected = None;
             tab.detail = None;
-            tab.message = text_editor::Content::new();
             if let Some(first) = first.filter(|_| is_current) {
                 return self.select(first);
             }
@@ -1831,7 +1742,6 @@ impl App {
                     .cloned();
                 tab.selected_file =
                     keep.or_else(|| detail.files.first().map(|file| file.path.clone()));
-                tab.message = text_editor::Content::with_text(&detail.message);
                 tab.detail = Some(detail);
                 self.reload_commit_pane()
             }
@@ -2011,7 +1921,7 @@ impl App {
                     pane.highlights = None;
                     pane.offset = 0.0;
                     pane.rebuild_rows(split);
-                    task = scroll_pane(pane, 0.0);
+                    pane.scroll_to.set(Some(0.0));
                     if syntax && let Some(diff) = pane.diff.clone() {
                         let repo = repo.to_owned();
                         let colours = Task::perform(
@@ -2027,7 +1937,7 @@ impl App {
                                 Message::HighlightsLoaded(repo.clone(), key, token, highlights)
                             },
                         );
-                        task = Task::batch([task, colours]);
+                        task = colours;
                     }
                 }
             }
@@ -2129,9 +2039,8 @@ impl App {
             Ok(results) => {
                 let first = results.first().map(|commit| commit.sha.clone());
                 search.results = results;
-                tab.offset = 0.0;
-                let top = scroll_to(tab, 0.0);
-                Task::batch([top, first.map_or_else(Task::none, |sha| self.select(sha))])
+                scroll_to(tab, 0.0);
+                first.map_or_else(Task::none, |sha| self.select(sha))
             }
             Err(error) => {
                 search.results.clear();
@@ -2259,27 +2168,34 @@ impl App {
         self.busy = Some((id, command.label()));
         self.progress_line.clear();
         let cancellable = command.cancellable();
-        let task = Task::stream(iced::stream::channel(64, async move |mut output| {
-            let (sender, mut lines) = tokio::sync::mpsc::unbounded_channel();
-            let progress: Progress = Arc::new(move |line| {
-                let _ = sender.send(line);
-            });
-            let result = {
-                let work = command.clone().run(&repo, Some(progress));
-                tokio::pin!(work);
-                loop {
-                    tokio::select! {
-                        result = &mut work => break result,
-                        Some(line) = lines.recv() => {
-                            let _ = output.send(Message::Progress(id, line)).await;
-                        }
+        let (sender, lines) = tokio::sync::mpsc::unbounded_channel();
+        let progress: Progress = Arc::new(move |line| {
+            let _ = sender.send(line);
+        });
+        let work = Box::pin(async move {
+            let result = command.clone().run(&repo, Some(progress)).await;
+            (repo, command, result)
+        });
+        type Work = std::pin::Pin<
+            Box<
+                dyn std::future::Future<Output = (String, Command, Result<OpResult, Error>)> + Send,
+            >,
+        >;
+        // Progress lines come first, then the result; dropping the stream kills the process.
+        let task = Task::stream(futures::stream::unfold(
+            Some((work as Work, lines)),
+            move |state| async move {
+                let (mut work, mut lines) = state?;
+                tokio::select! {
+                    (repo, command, result) = &mut work => {
+                        Some((Message::Done(repo, id, command, answer(result)), None))
+                    }
+                    Some(line) = lines.recv() => {
+                        Some((Message::Progress(id, line), Some((work, lines))))
                     }
                 }
-            };
-            let _ = output
-                .send(Message::Done(repo, id, command, answer(result)))
-                .await;
-        }));
+            },
+        ));
         let (task, handle) = task.abortable();
         self.cancel = cancellable.then_some(handle);
         task
@@ -2325,7 +2241,7 @@ impl App {
                     tab.committing = false;
                     if succeeded {
                         tab.summary.clear();
-                        tab.body = text_editor::Content::new();
+                        tab.body.clear();
                         tab.amend = false;
                     }
                 }
@@ -2393,8 +2309,6 @@ impl App {
             lines: Vec::new(),
             loading: true,
             error: None,
-            offset: 0.0,
-            viewport: 600.0,
             hovered: None,
         });
         Task::perform(
@@ -2479,7 +2393,7 @@ impl App {
             data: None,
             error: None,
             choices: Vec::new(),
-            result: text_editor::Content::new(),
+            result: String::new(),
             edited: false,
         })));
         Task::perform(
@@ -2525,8 +2439,7 @@ impl App {
                 .for_each(|slot| *slot = Some(choice)),
         }
         if let Some(data) = &state.data {
-            state.result =
-                text_editor::Content::with_text(&logic::build_result(&data.chunks, &state.choices));
+            state.result = logic::build_result(&data.chunks, &state.choices);
         }
         state.edited = false;
         Task::none()
@@ -2536,7 +2449,7 @@ impl App {
         let Some(Overlay::Conflict(state)) = &self.overlay else {
             return Task::none();
         };
-        let content = state.result.text();
+        let content = state.result.clone();
         let command = Command::Resolve {
             path: state.path.clone(),
             content: Some(content.clone()),
@@ -2576,7 +2489,6 @@ impl App {
             error: None,
             autostash: true,
             focused: 0,
-            drag: None,
         })));
         Task::perform(
             async move { answer(queries::rebase_candidates(&repo, base.as_deref()).await) },
@@ -2647,9 +2559,9 @@ impl App {
     // ----------------------------------------------------------- keyboard
 
     /// Scrolls just far enough to bring a row into view.
-    fn reveal(&mut self, index: usize) -> Task<Message> {
+    fn reveal(&mut self, index: usize) {
         let Some(tab) = self.current_mut() else {
-            return Task::none();
+            return;
         };
         let top = index as f32 * ROW_HEIGHT;
         let target = if top < tab.offset {
@@ -2657,16 +2569,13 @@ impl App {
         } else if top + ROW_HEIGHT > tab.offset + tab.viewport {
             top + ROW_HEIGHT - tab.viewport
         } else {
-            return Task::none();
+            return;
         };
-        tab.offset = target;
-        scroll_to(tab, target)
+        scroll_to(tab, target);
     }
 
-    fn key(&mut self, key: &keyboard::Key, modifiers: keyboard::Modifiers) -> Task<Message> {
-        use keyboard::Key::{Character, Named};
-        use keyboard::key::Named as N;
-        if matches!(key.as_ref(), Named(N::Escape)) {
+    fn key(&mut self, key: Key, modifiers: Modifiers) -> Task<Message> {
+        if key == Key::Escape {
             if self.menu.take().is_some() {
                 return Task::none();
             }
@@ -2687,25 +2596,21 @@ impl App {
                 .steps
                 .get(focused)
                 .is_some_and(|step| step.action == "reword");
-            return match key.as_ref() {
-                Named(N::ArrowUp) if modifiers.alt() => {
-                    Task::done(Message::RebaseMove(focused, -1))
-                }
-                Named(N::ArrowDown) if modifiers.alt() => {
-                    Task::done(Message::RebaseMove(focused, 1))
-                }
-                Named(N::ArrowUp) => Task::done(Message::RebaseFocus(focused.saturating_sub(1))),
-                Named(N::ArrowDown) => Task::done(Message::RebaseFocus(
+            return match key {
+                Key::ArrowUp if modifiers.alt => Task::done(Message::RebaseMove(focused, -1)),
+                Key::ArrowDown if modifiers.alt => Task::done(Message::RebaseMove(focused, 1)),
+                Key::ArrowUp => Task::done(Message::RebaseFocus(focused.saturating_sub(1))),
+                Key::ArrowDown => Task::done(Message::RebaseFocus(
                     (focused + 1).min(state.steps.len().saturating_sub(1)),
                 )),
-                Character(letter) if !editing && !modifiers.command() => {
+                letter if !editing && !modifiers.command => {
                     let action = match letter {
-                        "p" => "pick",
-                        "r" => "reword",
-                        "e" => "edit",
-                        "s" => "squash",
-                        "f" => "fixup",
-                        "d" => "drop",
+                        Key::P => "pick",
+                        Key::R => "reword",
+                        Key::E => "edit",
+                        Key::S => "squash",
+                        Key::F => "fixup",
+                        Key::D => "drop",
                         _ => return Task::none(),
                     };
                     Task::done(Message::RebaseSetAction(focused, action))
@@ -2713,25 +2618,20 @@ impl App {
                 _ => Task::none(),
             };
         }
-        match key.as_ref() {
-            Named(N::F5) => return Task::done(Message::Refresh),
-            Character("r") if modifiers.command() => return Task::done(Message::Refresh),
-            Character("o" | "t") if modifiers.command() => return Task::done(Message::OpenDialog),
-            Character("w") if modifiers.command() => {
-                return Task::done(Message::Close(self.active));
-            }
-            Character(",") if modifiers.command() => return Task::done(Message::OpenSettings),
-            Character("f") if modifiers.command() => return Task::done(Message::SearchFocus),
-            Character("1") if modifiers.command() => {
-                return Task::done(Message::SetView(View::History));
-            }
-            Character("2") if modifiers.command() => {
-                return Task::done(Message::SetView(View::Changes));
-            }
-            Character("=" | "+") if modifiers.command() => return Task::done(Message::Zoom(1.1)),
-            Character("-") if modifiers.command() => return Task::done(Message::Zoom(1.0 / 1.1)),
-            Character("0") if modifiers.command() => return Task::done(Message::Zoom(0.0)),
-            Named(N::Enter) if modifiers.command() => return Task::done(Message::CommitNow),
+        let command = modifiers.command;
+        match key {
+            Key::F5 => return Task::done(Message::Refresh),
+            Key::R if command => return Task::done(Message::Refresh),
+            Key::O | Key::T if command => return Task::done(Message::OpenDialog),
+            Key::W if command => return Task::done(Message::Close(self.active)),
+            Key::Comma if command => return Task::done(Message::OpenSettings),
+            Key::F if command => return Task::done(Message::SearchFocus),
+            Key::Num1 if command => return Task::done(Message::SetView(View::History)),
+            Key::Num2 if command => return Task::done(Message::SetView(View::Changes)),
+            Key::Equals | Key::Plus if command => return Task::done(Message::Zoom(1.1)),
+            Key::Minus if command => return Task::done(Message::Zoom(1.0 / 1.1)),
+            Key::Num0 if command => return Task::done(Message::Zoom(0.0)),
+            Key::Enter if command => return Task::done(Message::CommitNow),
             _ => {}
         }
         if self.overlay.is_some() {
@@ -2750,18 +2650,18 @@ impl App {
             .selected
             .as_ref()
             .and_then(|sha| commits.iter().position(|commit| commit.sha == *sha));
-        let target = match key.as_ref() {
-            Named(N::ArrowDown) => current.map_or(0, |i| (i + 1).min(last)),
-            Named(N::ArrowUp) => current.map_or(0, |i| i.saturating_sub(1)),
-            Named(N::PageDown) => current.map_or(0, |i| (i + page).min(last)),
-            Named(N::PageUp) => current.map_or(0, |i| i.saturating_sub(page)),
-            Named(N::Home) => 0,
-            Named(N::End) => last,
+        let target = match key {
+            Key::ArrowDown => current.map_or(0, |i| (i + 1).min(last)),
+            Key::ArrowUp => current.map_or(0, |i| i.saturating_sub(1)),
+            Key::PageDown => current.map_or(0, |i| (i + page).min(last)),
+            Key::PageUp => current.map_or(0, |i| i.saturating_sub(page)),
+            Key::Home => 0,
+            Key::End => last,
             _ => return Task::none(),
         };
         let sha = commits[target].sha.clone();
-        let reveal = self.reveal(target);
-        Task::batch([self.select(sha), reveal])
+        self.reveal(target);
+        self.select(sha)
     }
 
     pub(crate) fn menu_at_cursor(&mut self, items: Vec<MenuItem>) {
@@ -2817,14 +2717,14 @@ fn ensure_focus(tab: &mut RepoTab) {
 }
 
 /// Ctrl toggles, Shift selects a range from the anchor, a plain click selects one file.
-fn pick_file_in(tab: &mut RepoTab, area: Area, path: String, modifiers: keyboard::Modifiers) {
+fn pick_file_in(tab: &mut RepoTab, area: Area, path: String, modifiers: Modifiers) {
     let list: Vec<String> = tab
         .files_in(area)
         .into_iter()
         .map(|file| file.path)
         .collect();
     let same_area = tab.picked.0 == area;
-    let paths = if modifiers.command() && same_area {
+    let paths = if modifiers.command && same_area {
         let mut paths = tab.picked.1.clone();
         if let Some(at) = paths.iter().position(|picked| *picked == path) {
             paths.remove(at);
@@ -2835,7 +2735,7 @@ fn pick_file_in(tab: &mut RepoTab, area: Area, path: String, modifiers: keyboard
     } else if let Some((from, to)) = tab
         .pick_anchor
         .as_ref()
-        .filter(|_| modifiers.shift() && same_area)
+        .filter(|_| modifiers.shift && same_area)
         .and_then(|anchor| {
             Some((
                 list.iter().position(|p| p == anchor)?,
@@ -2886,24 +2786,10 @@ fn click_line(pane: &mut DiffPane, hunk: usize, line: usize, shift: bool) {
     pane.anchor = Some((hunk, line));
 }
 
-fn scroll_pane(pane: &DiffPane, offset: f32) -> Task<Message> {
-    operation::scroll_to(
-        pane.scroll.clone(),
-        scrollable::AbsoluteOffset {
-            x: Some(0.0),
-            y: Some(offset),
-        },
-    )
-}
-
-fn scroll_to(tab: &RepoTab, offset: f32) -> Task<Message> {
-    operation::scroll_to(
-        tab.list.clone(),
-        scrollable::AbsoluteOffset {
-            x: None,
-            y: Some(offset),
-        },
-    )
+/// Asks the history list to jump to a position the next time it is drawn.
+fn scroll_to(tab: &mut RepoTab, offset: f32) {
+    tab.offset = offset;
+    tab.scroll_to.set(Some(offset));
 }
 
 fn load_status(path: String) -> Task<Message> {
@@ -2945,33 +2831,27 @@ fn load_all(path: String, limit: usize, all: bool) -> Task<Message> {
     ])
 }
 
-#[allow(clippy::ptr_arg)] // Subscription::run_with needs exactly fn(&String).
-fn watch_stream(path: &String) -> impl Stream<Item = Message> + use<> {
-    let repo = path.clone();
-    iced::stream::channel(16, async move |mut output| {
-        let (sender, mut events) = tokio::sync::mpsc::unbounded_channel();
-        let handle = watcher::watch(&repo, move |event| {
-            let _ = sender.send(event);
-        })
-        .await;
-        match handle {
-            Ok(_handle) => {
-                while let Some(event) = events.recv().await {
-                    if output
-                        .send(Message::Watched(repo.clone(), event))
-                        .await
-                        .is_err()
-                    {
-                        break;
-                    }
+/// Reports changes in a repository until the future is dropped. A failure to start
+/// watching is reported once.
+pub async fn watch(repo: String, send: impl Fn(Message) -> bool) {
+    let (sender, mut events) = tokio::sync::mpsc::unbounded_channel();
+    let handle = watcher::watch(&repo, move |event| {
+        let _ = sender.send(event);
+    })
+    .await;
+    match handle {
+        Ok(_handle) => {
+            while let Some(event) = events.recv().await {
+                if !send(Message::Watched(repo.clone(), event)) {
+                    break;
                 }
             }
-            Err(error) => {
-                let event = WatchEvent::Error(error.to_string());
-                let _ = output.send(Message::Watched(repo.clone(), event)).await;
-            }
         }
-    })
+        Err(error) => {
+            let event = WatchEvent::Error(error.to_string());
+            send(Message::Watched(repo, event));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -3044,26 +2924,11 @@ mod tests {
     #[test]
     fn picking_supports_ctrl_and_shift() {
         let mut tab = tab_with(&["a", "b", "c", "d"], &[]);
-        pick_file_in(
-            &mut tab,
-            Area::Unstaged,
-            "b".into(),
-            keyboard::Modifiers::empty(),
-        );
+        pick_file_in(&mut tab, Area::Unstaged, "b".into(), Modifiers::NONE);
         assert_eq!(tab.picked.1, ["b"]);
-        pick_file_in(
-            &mut tab,
-            Area::Unstaged,
-            "d".into(),
-            keyboard::Modifiers::SHIFT,
-        );
+        pick_file_in(&mut tab, Area::Unstaged, "d".into(), Modifiers::SHIFT);
         assert_eq!(tab.picked.1, ["b", "c", "d"]);
-        pick_file_in(
-            &mut tab,
-            Area::Unstaged,
-            "c".into(),
-            keyboard::Modifiers::COMMAND,
-        );
+        pick_file_in(&mut tab, Area::Unstaged, "c".into(), Modifiers::COMMAND);
         assert_eq!(tab.picked.1, ["b", "d"]);
         assert_eq!(tab.focus, Some((Area::Unstaged, "c".to_owned())));
     }
@@ -3090,7 +2955,6 @@ mod tests {
             error: None,
             autostash: true,
             focused: 0,
-            drag: None,
         };
         state.reset();
         assert!(state.unchanged());

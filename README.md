@@ -1,7 +1,7 @@
 # GitCraft
 
 An open-source, cross-platform graphical Git client for Linux, macOS and Windows.
-GitCraft is a single native program written in Rust, with an [iced](https://iced.rs/) UI. It drives your
+GitCraft is a single native program written in Rust, with an [egui](https://www.egui.rs/) UI. It drives your
 installed `git`, so it behaves the same as git on the command line and uses your existing git setup.
 
 | Light | Dark |
@@ -131,7 +131,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 ## Architecture
 
 ```
-gitcraft-ui (iced)  ──function calls──►  gitcraft-core  ──►  git CLI (async subprocess, no shell)
+gitcraft-ui (egui) ──function calls──►  gitcraft-core  ──►  git CLI (async subprocess, no shell)
 ```
 
 | Path | Purpose |

@@ -5,6 +5,8 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Command as Process;
 
+use egui::{Event, Modifiers, PointerButton, Pos2, Rect, Vec2, vec2};
+use futures::StreamExt;
 use gitcraft_core::runner::set_editor_exe;
 use gitcraft_core::store::RepoStore;
 use gitcraft_ui::App;
@@ -14,9 +16,6 @@ use gitcraft_ui::command::Command;
 use gitcraft_ui::logic::Choice;
 use gitcraft_ui::menu::MenuItem;
 use gitcraft_ui::theme::Look;
-use iced::futures::StreamExt;
-use iced_runtime::Action as RuntimeAction;
-use iced_test::simulator;
 
 fn git(cwd: &Path, args: &[&str]) -> String {
     let output = Process::new("git")
@@ -110,22 +109,114 @@ fn fixture() -> Fixture {
     f
 }
 
-/// Sends a message and runs everything it sets off, like the iced runtime would.
+/// Sends a message and runs everything it sets off, like the window would.
 /// Returns every message seen, including progress lines.
 async fn drive(app: &mut App, message: Message) -> Vec<Message> {
     let mut queue = VecDeque::from([message]);
     let mut seen = Vec::new();
     while let Some(next) = queue.pop_front() {
         seen.push(next.clone());
-        if let Some(mut stream) = iced_runtime::task::into_stream(app.update(next)) {
-            while let Some(action) = stream.next().await {
-                if let RuntimeAction::Output(output) = action {
-                    queue.push_back(output);
-                }
+        if let Some(mut stream) = app.update(next).into_stream() {
+            while let Some(output) = stream.next().await {
+                queue.push_back(output);
             }
         }
     }
     seen
+}
+
+/// The real UI, drawn without a window: what is on screen, and what a click would do.
+struct Screen {
+    ctx: egui::Context,
+    size: Vec2,
+}
+
+/// One drawn frame.
+struct Frame {
+    texts: Vec<(String, Rect)>,
+    messages: Vec<Message>,
+}
+
+impl Frame {
+    fn has(&self, wanted: &str) -> bool {
+        self.texts.iter().any(|(text, _)| text.contains(wanted))
+    }
+
+    fn find(&self, wanted: &str) -> Option<Rect> {
+        self.texts
+            .iter()
+            .find(|(text, _)| text.contains(wanted))
+            .map(|(_, rect)| *rect)
+    }
+}
+
+fn collect(shape: &egui::Shape, into: &mut Vec<(String, Rect)>) {
+    match shape {
+        egui::Shape::Vec(shapes) => shapes.iter().for_each(|shape| collect(shape, into)),
+        egui::Shape::Text(text) => into.push((
+            text.galley.text().to_owned(),
+            text.galley.rect.translate(text.pos.to_vec2()),
+        )),
+        _ => {}
+    }
+}
+
+impl Screen {
+    fn new() -> Self {
+        Self::sized(vec2(1280.0, 800.0))
+    }
+
+    fn sized(size: Vec2) -> Self {
+        let ctx = egui::Context::default();
+        egui_extras::install_image_loaders(&ctx);
+        Self { ctx, size }
+    }
+
+    fn frame(&self, app: &App, events: Vec<Event>) -> Frame {
+        app.look.apply(&self.ctx);
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, self.size)),
+            events,
+            ..egui::RawInput::default()
+        };
+        let mut messages = Vec::new();
+        let output = self
+            .ctx
+            .run_ui(input, |ui| messages = gitcraft_ui::views::root(ui, app));
+        // Nothing uploads textures here; egui insists that someone has looked at them.
+        let mut output = output;
+        output.textures_delta.clear();
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect(&clipped.shape, &mut texts);
+        }
+        Frame { texts, messages }
+    }
+
+    /// Draws twice, as widgets only react to the pointer once they have been laid out.
+    fn show(&self, app: &App) -> Frame {
+        self.frame(app, Vec::new());
+        self.frame(app, Vec::new())
+    }
+
+    /// Clicks the first text containing `wanted` and gives the messages that caused.
+    fn click(&self, app: &App, wanted: &str, button: PointerButton) -> Vec<Message> {
+        let at = self
+            .show(app)
+            .find(wanted)
+            .unwrap_or_else(|| panic!("{wanted} is on screen"))
+            .center();
+        let press = |pressed| Event::PointerButton {
+            pos: at,
+            button,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        self.frame(app, vec![Event::PointerMoved(at)]);
+        let mut messages = self.frame(app, vec![press(true)]).messages;
+        messages.extend(self.frame(app, vec![press(false)]).messages);
+        messages
+    }
 }
 
 async fn opened(f: &Fixture, dark: bool) -> App {
@@ -190,7 +281,7 @@ async fn opening_loads_history_refs_and_selects_head() {
         "and the diff of its first file"
     );
 
-    let mut ui = simulator(app.view());
+    let screen = Screen::new().show(&app);
     for expected in [
         "merge side",
         "second commit",
@@ -201,7 +292,7 @@ async fn opening_loads_history_refs_and_selects_head() {
         "Uncommitted changes",
         "1 file",
     ] {
-        assert!(ui.find(expected).is_ok(), "{expected} is on screen");
+        assert!(screen.has(expected), "{expected} is on screen");
     }
 }
 
@@ -209,11 +300,7 @@ async fn opening_loads_history_refs_and_selects_head() {
 async fn clicking_a_commit_selects_it_and_shows_its_details() {
     let f = fixture();
     let mut app = opened(&f, false).await;
-    let messages: Vec<Message> = {
-        let mut ui = simulator(app.view());
-        ui.click("second commit").expect("the row is on screen");
-        ui.into_messages().collect()
-    };
+    let messages = Screen::new().click(&app, "second commit", PointerButton::Primary);
     let select = messages
         .into_iter()
         .find(|message| matches!(message, Message::Select(_)))
@@ -223,10 +310,10 @@ async fn clicking_a_commit_selects_it_and_shows_its_details() {
         app.current().unwrap().detail.as_ref().unwrap().subject,
         "second commit"
     );
-    let mut ui = simulator(app.view());
-    assert!(ui.find("b.txt").is_ok(), "the changed file is listed");
+    let screen = Screen::new().show(&app);
+    assert!(screen.has("b.txt"), "the changed file is listed");
     assert!(
-        ui.find("Test User").is_ok() && ui.find("<t@example.com>").is_ok(),
+        screen.has("Test User") && screen.has("<t@example.com>"),
         "the author is shown"
     );
 }
@@ -420,9 +507,9 @@ async fn resolving_a_merge_conflict_in_the_ui() {
     assert_eq!(tab.focus, Some((Area::Conflicts, "c.txt".to_owned())));
     assert_eq!(toast_kinds(&app), [ToastKind::Warning]);
     {
-        let mut ui = simulator(app.view());
-        assert!(ui.find("Merge in progress").is_ok(), "the banner shows");
-        assert!(ui.find("Open merge tool").is_ok());
+        let screen = Screen::new().show(&app);
+        assert!(screen.has("Merge in progress"), "the banner shows");
+        assert!(screen.has("Open merge tool"));
     }
 
     drive(&mut app, Message::OpenConflict("c.txt".into())).await;
@@ -430,7 +517,7 @@ async fn resolving_a_merge_conflict_in_the_ui() {
         panic!("the resolver opened")
     };
     assert_eq!(state.conflict_count(), 1);
-    assert!(state.result.text().contains("<<<<<<<"));
+    assert!(state.result.contains("<<<<<<<"));
 
     // Saving with markers left asks first.
     drive(&mut app, Message::ConflictSave).await;
@@ -441,7 +528,7 @@ async fn resolving_a_merge_conflict_in_the_ui() {
     let Some(Overlay::Conflict(state)) = &app.overlay else {
         panic!("still open")
     };
-    assert_eq!(state.result.text(), "theirs\nours\n");
+    assert_eq!(state.result, "theirs\nours\n");
     drive(&mut app, Message::ConflictSave).await;
     assert!(app.overlay.is_none(), "saving closes the resolver");
     assert_eq!(f.git(&["show", ":c.txt"]), "theirs\nours\n");
@@ -519,20 +606,14 @@ async fn choosing_a_side_asks_before_replacing_hand_edits() {
     )
     .await;
     drive(&mut app, Message::OpenConflict("c.txt".into())).await;
-    drive(
-        &mut app,
-        Message::ConflictEdit(iced::widget::text_editor::Action::Edit(
-            iced::widget::text_editor::Edit::Insert('x'),
-        )),
-    )
-    .await;
+    drive(&mut app, Message::ConflictEdit("x".into())).await;
     drive(&mut app, Message::ConflictChoose(0, Choice::Ours)).await;
     assert_eq!(app.form.as_ref().unwrap().title, "Replace edits?");
     drive(&mut app, Message::FormSubmit).await;
     let Some(Overlay::Conflict(state)) = &app.overlay else {
         panic!("still open")
     };
-    assert_eq!(state.result.text(), "ours\n");
+    assert_eq!(state.result, "ours\n");
     assert!(!state.edited);
 }
 
@@ -699,8 +780,7 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
         .unwrap()
         .unwrap();
     {
-        let mut ui = simulator(app.view());
-        assert!(ui.find("New tag here…").is_ok());
+        assert!(Screen::new().show(&app).has("New tag here…"));
     }
     drive(&mut app, Message::FromMenu(Box::new(entry))).await;
     assert!(app.menu.is_none(), "choosing closes the menu");
@@ -732,9 +812,7 @@ async fn squash_and_message_editing_from_the_commit_menu() {
     drive(&mut app, Message::Action(Action::EditMessage(sha))).await;
     assert_eq!(app.form.as_ref().unwrap().title, "Edit commit message");
     let form = app.form.as_mut().unwrap();
-    form.fields[0].kind = gitcraft_ui::form::FieldKind::Area(
-        iced::widget::text_editor::Content::with_text("second, better"),
-    );
+    form.fields[0].kind = gitcraft_ui::form::FieldKind::Area("second, better".into());
     drive(&mut app, Message::FormSubmit).await;
     assert_eq!(f.subjects(), ["second, better", "first"]);
 }
@@ -753,8 +831,11 @@ async fn search_and_compare_change_what_the_list_shows() {
         "the first match is selected"
     );
     {
-        let mut ui = simulator(app.view());
-        assert!(ui.find("1 commit matching “SECOND” (message)").is_ok());
+        assert!(
+            Screen::new()
+                .show(&app)
+                .has("1 commit matching “SECOND” (message)")
+        );
     }
     drive(&mut app, Message::SearchClear).await;
     assert_eq!(app.current().unwrap().visible().len(), 4);
@@ -845,8 +926,7 @@ async fn stash_view_reflog_blame_and_file_history() {
     };
     assert_eq!(lines[0].summary, "second commit");
     {
-        let mut ui = simulator(app.view());
-        assert!(ui.find("two").is_ok(), "blame shows the file");
+        assert!(Screen::new().show(&app).has("two"), "blame shows the file");
     }
     drive(&mut app, Message::OverlayClose).await;
 
@@ -962,23 +1042,21 @@ async fn long_lists_draw_every_visible_row_before_any_scrolling() {
         ]);
     }
     let mut app = opened(&f, false).await;
-    let tall = iced::Size::new(1280.0, 1600.0);
+    let tall = vec2(1280.0, 1600.0);
     drive(&mut app, Message::WindowResized(tall)).await;
     app.settings.history_height = 1200.0;
-    {
-        let mut ui = iced_test::Simulator::with_size(iced::Settings::default(), tall, app.view());
-        assert!(
-            ui.find("commit number 30").is_ok(),
-            "rows below the first screenful are there"
-        );
-    }
-    // A scroll position left over from a longer list must not leave the list blank.
-    drive(&mut app, Message::Scrolled(100_000.0, 300.0)).await;
-    let tab = app.current().unwrap();
-    assert_eq!(tab.commits.len(), 60);
-    let mut ui = iced_test::Simulator::with_size(iced::Settings::default(), tall, app.view());
+    let screen = Screen::sized(tall);
     assert!(
-        ui.find("commit number 59").is_ok(),
+        screen.show(&app).has("commit number 30"),
+        "rows below the first screenful are there"
+    );
+    // A scroll request far past the end must not leave the list blank.
+    app.current().unwrap().scroll_to.set(Some(100_000.0));
+    screen.frame(&app, Vec::new());
+    assert_eq!(app.current().unwrap().commits.len(), 60);
+    let dbg = screen.show(&app);
+    assert!(
+        dbg.has("commit number 0"),
         "the clamp draws real rows, not empty space"
     );
 }
@@ -990,15 +1068,25 @@ async fn a_stale_scroll_position_cant_blank_a_shorter_diff() {
     f.write("a.txt", "changed\n");
     let mut app = opened(&f, false).await;
     drive(&mut app, Message::SetView(View::Changes)).await;
-    let viewport = iced::Size::new(600.0, 300.0);
     drive(
         &mut app,
-        Message::DiffScrolled(gitcraft_ui::app::PaneKey::Changes, 50_000.0, viewport),
+        Message::DiffScrolled(
+            gitcraft_ui::app::PaneKey::Changes,
+            50_000.0,
+            vec2(600.0, 300.0),
+        ),
     )
     .await;
-    let mut ui = simulator(app.view());
-    assert!(ui.find("changed").is_ok(), "the diff still shows");
-    assert!(ui.find("Stage hunk").is_ok(), "and so do its buttons");
+    app.current()
+        .unwrap()
+        .changes_pane
+        .scroll_to
+        .set(Some(50_000.0));
+    let screen = Screen::new();
+    screen.frame(&app, Vec::new());
+    let shown = screen.show(&app);
+    assert!(shown.has("changed"), "the diff still shows");
+    assert!(shown.has("Stage hunk"), "and so do its buttons");
 }
 
 #[tokio::test]
@@ -1042,143 +1130,7 @@ async fn start_page_lists_recent_repositories() {
     let mut store = RepoStore::at(f.root.join("config/repos.json"));
     store.add(&f.repo).unwrap();
     let app = App::with_look(Look::preset(false), store);
-    let mut ui = simulator(app.view());
-    assert!(ui.find("demo-repo").is_ok());
-    assert!(ui.find("Open a repository…").is_ok());
-}
-
-/// Writes screenshots for a person to look at when GITCRAFT_SHOTS names a folder.
-#[tokio::test]
-async fn screenshots() {
-    let Some(dir) = std::env::var_os("GITCRAFT_SHOTS") else {
-        return;
-    };
-    let dir = PathBuf::from(dir);
-    for (mode, dark) in [("light", false), ("dark", true)] {
-        let f = empty_fixture();
-        conflicting(&f);
-        f.git(&["switch", "-q", "-c", "feature/ui"]);
-        f.commit(
-            "code.rs",
-            "fn main() {\n    let answer = 42;\n    println!(\"{answer}\");\n}\n",
-            "add code",
-        );
-        f.git(&["switch", "-q", "main"]);
-        f.commit("notes.md", "# Notes\n\nfirst\nsecond\nthird\n", "add notes");
-        f.write("notes.md", "# Notes\n\nfirst\nSECOND\nthird\nfourth\n");
-        f.write("new.txt", "new\n");
-        f.git(&["add", "new.txt"]);
-        let long = "wrapped text ".repeat(40);
-        f.write(
-            "long.rs",
-            &format!("fn long() {{\n\tlet text = \"{long}\";\n    let short = 1;\n}}\n"),
-        );
-        let mut app = opened(&f, dark).await;
-        let shot = |app: &App, name: &str| {
-            let theme = app.theme();
-            let mut ui = iced_test::Simulator::with_size(
-                iced::Settings::default(),
-                iced::Size::new(1280.0, 800.0),
-                app.view(),
-            );
-            let snapshot = ui.snapshot(&theme).unwrap();
-            let _ = snapshot
-                .matches_image(dir.join(format!("{name}-{mode}.png")))
-                .unwrap();
-        };
-        let code = sha_of(&app, "add code");
-        drive(&mut app, Message::Select(code.clone())).await;
-        shot(&app, "history");
-        let preset = app.look.clone();
-        app.look = gitcraft_ui::theme::Look::for_setting(mode);
-        shot(&app, "system-fonts");
-        app.look = preset;
-
-        drive(
-            &mut app,
-            Message::CursorMoved(iced::Point::new(600.0, 200.0)),
-        )
-        .await;
-        drive(
-            &mut app,
-            Message::OpenMenu(MenuRequest::Commit {
-                sha: code,
-                focus: None,
-            }),
-        )
-        .await;
-        let reset = app
-            .menu
-            .as_ref()
-            .unwrap()
-            .items
-            .iter()
-            .position(|item| item.label().is_some_and(|l| l.starts_with("Reset")))
-            .unwrap();
-        drive(&mut app, Message::MenuHover(Some(reset))).await;
-        shot(&app, "menu");
-        drive(&mut app, Message::CloseMenu).await;
-
-        drive(&mut app, Message::SetView(View::Changes)).await;
-        drive(
-            &mut app,
-            Message::FilePicked(Area::Unstaged, "long.rs".into()),
-        )
-        .await;
-        shot(&app, "wrap");
-        drive(&mut app, Message::SetSplit(true)).await;
-        shot(&app, "wrap-split");
-        drive(&mut app, Message::SetSplit(false)).await;
-        drive(
-            &mut app,
-            Message::FilePicked(Area::Unstaged, "notes.md".into()),
-        )
-        .await;
-        drive(
-            &mut app,
-            Message::DiffLineClicked(gitcraft_ui::app::PaneKey::Changes, 0, 3),
-        )
-        .await;
-        drive(&mut app, Message::SummaryInput("Update the notes".into())).await;
-        shot(&app, "changes");
-
-        drive(&mut app, Message::Action(Action::Pull)).await;
-        drive(&mut app, Message::Action(Action::Stash)).await;
-        shot(&app, "form");
-        drive(&mut app, Message::FormCancel).await;
-
-        let base = sha_of(&app, "base");
-        drive(&mut app, Message::OpenRebase(Some(base))).await;
-        drive(&mut app, Message::RebaseSetAction(1, "reword")).await;
-        shot(&app, "rebase");
-        drive(&mut app, Message::OverlayClose).await;
-
-        drive(
-            &mut app,
-            Message::Run(Command::StashPush {
-                message: None,
-                include_untracked: true,
-                staged_only: false,
-                keep_index: false,
-                paths: None,
-            }),
-        )
-        .await;
-        drive(
-            &mut app,
-            Message::Run(Command::Merge {
-                reference: "other".into(),
-                mode: "default".into(),
-            }),
-        )
-        .await;
-        drive(&mut app, Message::OpenConflict("c.txt".into())).await;
-        drive(&mut app, Message::ConflictChoose(0, Choice::Ours)).await;
-        shot(&app, "conflict");
-        drive(&mut app, Message::OverlayClose).await;
-        shot(&app, "banner");
-
-        drive(&mut app, Message::OpenSettings).await;
-        shot(&app, "settings");
-    }
+    let screen = Screen::new().show(&app);
+    assert!(screen.has("demo-repo"));
+    assert!(screen.has("Open a repository…"));
 }

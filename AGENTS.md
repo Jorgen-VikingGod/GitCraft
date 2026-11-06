@@ -6,7 +6,7 @@ Author: Jürgen Könnemann. License: MIT.
 ## Architecture
 
 ```
-gitcraft-ui (iced 0.14)  ──function calls──►  gitcraft-core  ──►  system `git` CLI (tokio subprocess, no shell)
+gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──►  system `git` CLI (tokio subprocess, no shell)
 ```
 
 - GitCraft is one native binary, `gitcraft`. There is no server, web UI or sidecar.
@@ -28,11 +28,12 @@ gitcraft-ui (iced 0.14)  ──function calls──►  gitcraft-core  ──►
 | `crates/gitcraft-core/src/store.rs`, `repos.rs`, `paths.rs` | Recent repositories and `config_dir()`; opening repositories; path handling |
 | `crates/gitcraft-core/tests/ops.rs` | Operations against real git in throwaway repositories |
 | `crates/gitcraft-ui/src/app.rs` | `App`, `Message`, and `App::update`, where all state changes happen |
+| `crates/gitcraft-ui/src/gui.rs`, `task.rs` | The eframe window: runs `Task`s on tokio, turns egui input into `Message`s, draws each frame; `Task` is the toolkit-free "work for the shell" type |
 | `crates/gitcraft-ui/src/command.rs` | `Command`: every git operation the UI can start, as data (label, success text, how to run it) |
 | `crates/gitcraft-ui/src/actions.rs` | `Action`: user-facing commands with their dialogs, and all context menus (`commit_menu_items()`) |
 | `crates/gitcraft-ui/src/form.rs`, `menu.rs` | Modal forms; context menus as plain data (`MenuItem`) |
 | `crates/gitcraft-ui/src/logic.rs` | UI decisions that need no toolkit, so they can be tested directly |
-| `crates/gitcraft-ui/src/theme.rs`, `views/style.rs`, `views/icon.rs` | Colours and fonts; widget styles; SVG icons |
+| `crates/gitcraft-ui/src/theme.rs`, `views/widgets.rs`, `views/icon.rs` | Colours and egui styling; shared widgets; SVG icons |
 | `crates/gitcraft-ui/src/views/` | Everything drawn on screen: `shell`, `sidebar`, `history`, `graph_cell`, `details`, `changes`, `diff`, `overlays`, `popups`, `widgets` |
 | `crates/gitcraft-ui/src/environment.rs`, `instance.rs`, `settings.rs` | Env for git when not started from a terminal; single-window hand-over; `settings.json` |
 | `crates/gitcraft-ui/tests/flows.rs` | Drives the real UI against real repositories |
@@ -94,20 +95,25 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 - Commit menus are built by `commit_menu_items()`. Branch, tag and remote menus reuse it so that commit
   actions (reset, cherry-pick…) are available everywhere.
 - Put decisions that need no toolkit in `logic.rs`, with a unit test.
-- Colours come from `theme.rs` and widget styles from `views/style.rs`. Don't hard-code either in a view.
-  The OS only decides light or dark and the UI font.
+- Colours come from `theme.rs` and widgets from `views/widgets.rs`. Don't hard-code colours in a view.
+  The OS only decides light or dark.
 - Icons: add SVG path data to `PATHS` in `views/icon.rs`.
 - Don't block the UI thread: slow work runs in a `Task`.
+- Views are immediate-mode egui: each frame `views::root` reads `&App` and returns the `Message`s the user's
+  input caused. Text fields edit a copy of the text and send the new value as a `Message`. Scroll jumps are
+  requested through the `scroll_to` cells, which the view consumes.
 
 **All crates:**
 - `unsafe_code` is denied in the workspace, and clippy warnings fail CI.
-- Add dependencies to the crate's `Cargo.toml` and commit `Cargo.lock`. `iced` and `native-theme-iced`
+- Add dependencies to the crate's `Cargo.toml` and commit `Cargo.lock`. `eframe`, `egui`, `egui_extras` and `native-theme`
   are pinned to exact versions.
 
 ## Gotchas
 
 - `gitcraft_core::editor::run_if_requested()` must stay the first call in `main`. Keep it working when
   touching `runner::editor_command()` or `editor.rs`. The core's tests use `gitcraft-editor-stub` in its place.
+- Set `GITCRAFT_SHOT=<file.png>` to have the app save a picture of its window once the first repository has
+  loaded, then quit (handy for looking at the UI without a screenshot tool).
 - Set `GITCRAFT_CONFIG_DIR=<dir>` when launching the app in tests. Otherwise it touches the user's real
   settings and recent repositories, and it may hand over to a running GitCraft through
   `instance.port` and exit immediately.

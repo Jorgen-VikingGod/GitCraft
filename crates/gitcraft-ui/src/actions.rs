@@ -1,8 +1,10 @@
 //! User-facing commands with their dialogs, and all context menus.
 
+use egui::Pos2;
 use gitcraft_core::model::{Commit, CommitDetail, LocalBranch, Remote};
 use gitcraft_core::{ops, queries};
-use iced::{Point, Task};
+
+use crate::task::Task;
 
 use crate::app::{App, Area, Message, RepoTab, ToastKind, View};
 use crate::command::Command;
@@ -990,7 +992,7 @@ impl App {
         }
     }
 
-    pub fn show_commit_menu(&mut self, request: MenuRequest, commit: &Commit, at: Point) {
+    pub fn show_commit_menu(&mut self, request: MenuRequest, commit: &Commit, at: Pos2) {
         let MenuRequest::Commit { focus, .. } = request else {
             return;
         };
