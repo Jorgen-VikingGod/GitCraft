@@ -66,6 +66,16 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
         (c.bg, c.titlebar)
     };
 
+    if app.csd {
+        // Underneath everything, so that no gap between panes shows what is behind the window.
+        let radius = if app.maximized { 0 } else { 10 };
+        ui.painter().rect_filled(
+            ui.ctx().content_rect(),
+            egui::CornerRadius::same(radius),
+            c.bg,
+        );
+    }
+
     Panel::top("top")
         .frame(flat(top_fill))
         .show_separator_line(false)
