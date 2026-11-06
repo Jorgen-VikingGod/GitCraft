@@ -604,6 +604,7 @@ pub enum Message {
         branch: Option<String>,
         mode: String,
         autostash: bool,
+        backup: bool,
     },
     RebaseChosen {
         onto: String,
@@ -1147,15 +1148,49 @@ impl App {
                 branch,
                 mode,
                 autostash,
+                backup,
             } => {
-                self.settings.pull_mode = mode.clone();
+                // Overwriting is never remembered as the usual strategy.
+                if mode != "overwrite" {
+                    self.settings.pull_mode = mode.clone();
+                }
                 self.settings.pull_autostash = autostash;
+                self.settings.pull_backup = backup;
                 self.save_settings();
+                if mode == "overwrite" {
+                    let source = match (&remote, &branch) {
+                        (Some(remote), Some(branch)) => format!("{remote}/{branch}"),
+                        _ => "its upstream".to_owned(),
+                    };
+                    let kept = if backup {
+                        " The current state is kept as a backup branch first."
+                    } else {
+                        " There is no backup: commits only on this branch are lost."
+                    };
+                    let command = Command::Pull {
+                        remote,
+                        branch,
+                        mode,
+                        autostash,
+                        backup,
+                    };
+                    self.form = Some(Form::confirm(
+                        "Overwrite local branch?",
+                        &format!(
+                            "The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.{kept}"
+                        ),
+                        "Overwrite",
+                        true,
+                        Message::Run(command),
+                    ));
+                    return Task::none();
+                }
                 self.run_command(Command::Pull {
                     remote,
                     branch,
                     mode,
                     autostash,
+                    backup,
                 })
             }
             Message::RebaseChosen { onto, autostash } => {

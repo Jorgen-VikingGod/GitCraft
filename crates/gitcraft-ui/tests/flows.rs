@@ -1109,7 +1109,8 @@ async fn cancelling_stops_network_operations_only() {
             remote: None,
             branch: None,
             mode: "rebase".into(),
-            autostash: true
+            autostash: true,
+            backup: false
         }
         .cancellable(),
         "a pull can stop half-way through its merge"
@@ -1328,4 +1329,64 @@ async fn the_sides_of_a_split_diff_scroll_sideways_together() {
         moved[1].left() < right.left() - 20.0,
         "and so did the right side"
     );
+}
+
+#[tokio::test]
+async fn pulling_can_overwrite_the_branch_after_asking_and_keep_a_backup() {
+    let f = fixture();
+    let remote = f.root.join("remote.git");
+    git(
+        &f.root,
+        &[
+            "init",
+            "-q",
+            "--bare",
+            "-b",
+            "main",
+            remote.to_str().unwrap(),
+        ],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    f.git(&["push", "-q", "-u", "origin", "main"]);
+    let other = f.root.join("other");
+    git(&f.root, &["clone", "-q", remote.to_str().unwrap(), "other"]);
+    for (key, value) in [("user.name", "Other"), ("user.email", "o@example.com")] {
+        git(&other, &["config", key, value]);
+    }
+    std::fs::write(other.join("r.txt"), "remote\n").unwrap();
+    git(&other, &["add", "r.txt"]);
+    git(&other, &["commit", "-q", "-m", "remote work"]);
+    git(&other, &["push", "-q"]);
+    let remote_tip = git(&other, &["rev-parse", "HEAD"]).trim().to_owned();
+    f.commit("l.txt", "local\n", "local work");
+    let local_tip = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::PullChosen {
+            remote: Some("origin".into()),
+            branch: Some("main".into()),
+            mode: "overwrite".into(),
+            autostash: false,
+            backup: true,
+        },
+    )
+    .await;
+    assert_eq!(app.form.as_ref().unwrap().title, "Overwrite local branch?");
+    assert_eq!(
+        f.git(&["rev-parse", "HEAD"]).trim(),
+        local_tip,
+        "nothing happens before the answer"
+    );
+    assert_eq!(
+        app.settings.pull_mode, "merge",
+        "overwriting isn't remembered as the usual strategy"
+    );
+
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(f.git(&["rev-parse", "HEAD"]).trim(), remote_tip);
+    let backup = format!("backup/main-{}", &local_tip[..7]);
+    assert_eq!(f.git(&["rev-parse", &backup]).trim(), local_tip);
+    assert!(toast_kinds(&app).contains(&ToastKind::Success));
 }

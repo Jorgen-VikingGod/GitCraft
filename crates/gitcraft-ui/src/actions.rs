@@ -236,6 +236,7 @@ impl App {
                     branch: values.opt("branch"),
                     mode: values.text("mode"),
                     autostash: values.check("autostash"),
+                    backup: values.check("backup"),
                 })
                 .field(remote_field(&remotes, up_remote.as_deref()))
                 .field(Field::text("branch", "Remote branch", &name))
@@ -247,9 +248,15 @@ impl App {
                         ("merge", "Merge (create a merge commit if needed)"),
                         ("rebase", "Rebase (replay local commits on top)"),
                         ("ff-only", "Fast-forward only"),
+                        ("overwrite", "Overwrite local branch with the remote branch"),
                     ]),
                 ))
-                .field(Field::check("autostash", "Stash and reapply local changes", self.settings.pull_autostash));
+                .field(Field::check("autostash", "Stash and reapply local changes", self.settings.pull_autostash))
+                .field(Field::check(
+                    "backup",
+                    "Overwrite only: keep a backup branch of the current state",
+                    self.settings.pull_backup,
+                ));
                 if let Some(branch) = branch {
                     form = form.message(&format!("Pull into {}", branch.name));
                 }

@@ -27,6 +27,8 @@ pub struct Settings {
     pub active_tab: usize,
     pub pull_mode: String,
     pub pull_autostash: bool,
+    /// Keep a backup branch when a pull overwrites the local branch.
+    pub pull_backup: bool,
     pub rebase_autostash: bool,
     pub collapsed: Vec<String>,
 }
@@ -53,6 +55,7 @@ impl Default for Settings {
             active_tab: 0,
             pull_mode: "merge".to_owned(),
             pull_autostash: false,
+            pull_backup: true,
             rebase_autostash: false,
             collapsed: Vec::new(),
         }
