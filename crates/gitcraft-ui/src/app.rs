@@ -246,6 +246,9 @@ pub struct RepoTab {
     /// The most lanes any commit needs; the graph column is this wide for every row.
     pub graph_lanes: u32,
     pub selected: Option<String>,
+    /// The branch or tag picked in the sidebar ("b:name", "r:origin/name", "t:name"), which
+    /// is the one marked as selected there; other names for the commit are only related.
+    pub selected_ref: Option<String>,
     pub detail: Option<CommitDetail>,
     pub detail_error: Option<String>,
     pub selected_file: Option<String>,
@@ -291,6 +294,7 @@ impl RepoTab {
             all_branches: true,
             graph_lanes: 1,
             selected: None,
+            selected_ref: None,
             detail: None,
             detail_error: None,
             selected_file: None,
@@ -566,6 +570,8 @@ pub enum Message {
     SetBranchFilter(bool),
     Select(String),
     ShowCommit(String),
+    /// Show the commit a branch or tag points at, and remember which name was picked.
+    ShowRef(String, String),
     ActivateCommit(String),
     DetailLoaded(String, String, Answer<CommitDetail>),
     PickFile(String),
@@ -941,6 +947,13 @@ impl App {
                     self.reveal(index);
                 }
                 self.select(sha)
+            }
+            Message::ShowRef(key, sha) => {
+                let task = self.update(Message::ShowCommit(sha));
+                if let Some(tab) = self.current_mut() {
+                    tab.selected_ref = Some(key);
+                }
+                task
             }
             Message::ActivateCommit(sha) => {
                 let Some(tab) = self.current() else {
@@ -1762,6 +1775,7 @@ impl App {
             return Task::none();
         };
         tab.selected = Some(sha.clone());
+        tab.selected_ref = None;
         tab.files_focused = false;
         tab.detail_error = None;
         let path = tab.path.clone();

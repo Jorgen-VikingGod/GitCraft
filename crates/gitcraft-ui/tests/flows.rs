@@ -1390,3 +1390,19 @@ async fn pulling_can_overwrite_the_branch_after_asking_and_keep_a_backup() {
     assert_eq!(f.git(&["rev-parse", &backup]).trim(), local_tip);
     assert!(toast_kinds(&app).contains(&ToastKind::Success));
 }
+
+#[tokio::test]
+async fn only_the_picked_name_is_the_sidebar_selection() {
+    let f = fixture();
+    // `main` and the tag v1.0 point at the same commit.
+    let mut app = opened(&f, false).await;
+    let head = sha_of(&app, "merge side");
+    drive(&mut app, Message::ShowRef("t:v1.0".into(), head.clone())).await;
+    let tab = app.current().unwrap();
+    assert_eq!(tab.selected.as_deref(), Some(head.as_str()));
+    assert_eq!(tab.selected_ref.as_deref(), Some("t:v1.0"));
+
+    // Picking a commit in the list leaves no single name as the selection.
+    drive(&mut app, Message::Select(head)).await;
+    assert_eq!(app.current().unwrap().selected_ref, None);
+}

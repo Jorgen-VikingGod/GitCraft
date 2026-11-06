@@ -144,11 +144,16 @@ fn none(ui: &mut Ui, cx: &Cx, note: &str) {
 }
 
 /// A row of the sidebar tree: the rectangle, with a hover or selection fill drawn.
-fn tree_row(ui: &mut Ui, cx: &Cx, selected: bool) -> (Rect, Response) {
+fn tree_row(ui: &mut Ui, cx: &Cx, selected: bool, related: bool) -> (Rect, Response) {
     let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 24.0), Sense::click());
     let body = rect.shrink2(vec2(4.0, 0.0));
     if selected {
         ui.painter().rect_filled(body, 5.0, cx.c().selection);
+    } else if related {
+        // Another name for the selected commit: marked, but not as the selection.
+        let c = cx.c();
+        ui.painter()
+            .rect_filled(body, 5.0, crate::theme::mix(c.sidebar, c.text, 0.13));
     } else if response.hovered() {
         hover_fill(ui, cx.look(), body, 5.0);
     }
@@ -166,7 +171,7 @@ fn folder(
 ) {
     let look = cx.look();
     let c = &look.c;
-    let (body, response) = tree_row(ui, cx, false);
+    let (body, response) = tree_row(ui, cx, false, false);
     let chevron = if cx.app.collapsed.contains(key) {
         "chevron-right"
     } else {
@@ -208,6 +213,8 @@ struct Item {
     depth: usize,
     symbol: &'static str,
     selected: bool,
+    /// Points at the selected commit too, but isn't the one that was picked.
+    related: bool,
     current: bool,
     /// Small notes at the right end: text and colour.
     badges: Vec<(String, Color32)>,
@@ -216,7 +223,7 @@ struct Item {
 fn leaf(ui: &mut Ui, cx: &Cx, item: &Item) -> Response {
     let look = cx.look();
     let c = &look.c;
-    let (body, response) = tree_row(ui, cx, item.selected);
+    let (body, response) = tree_row(ui, cx, item.selected, item.related);
     let text_color = if item.selected {
         c.selection_text
     } else {
@@ -280,7 +287,12 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let filter = tab.filter.to_lowercase();
     let matches = |name: &str| filter.is_empty() || name.to_lowercase().contains(&filter);
     let in_history = tab.view == View::History;
-    let is_selected = |sha: &str| in_history && tab.selected.as_deref() == Some(sha);
+    // For a ref: is it the one that was picked, and does it point at the selected commit too?
+    let marks = |key: &str, sha: &str| {
+        let picked = in_history && tab.selected_ref.as_deref() == Some(key);
+        let same = in_history && tab.selected.as_deref() == Some(sha);
+        (picked, same && !picked)
+    };
     let collapsed = |key: &str| cx.app.collapsed.contains(key);
 
     let (head, list_area) = split_y(area, 8.0 + 29.0 + 29.0 + 4.0 + 30.0 + 6.0);
@@ -325,9 +337,9 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     super::widgets::region(ui, list_area, |ui| {
         scroll(("sidebar", &tab.path)).show(ui, |ui| {
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-            branches(ui, cx, tab, &matches, &is_selected, &collapsed);
-            remotes(ui, cx, tab, &matches, &is_selected, &collapsed);
-            tags_and_more(ui, cx, tab, &matches, &is_selected, &collapsed);
+            branches(ui, cx, tab, &matches, &marks, &collapsed);
+            remotes(ui, cx, tab, &matches, &marks, &collapsed);
+            tags_and_more(ui, cx, tab, &matches, &marks, &collapsed);
             ui.add_space(16.0);
         });
     });
@@ -345,7 +357,7 @@ fn branches(
     cx: &Cx,
     tab: &RepoTab,
     matches: &dyn Fn(&str) -> bool,
-    is_selected: &dyn Fn(&str) -> bool,
+    marks: &dyn Fn(&str, &str) -> (bool, bool),
     collapsed: &dyn Fn(&str) -> bool,
 ) {
     let c = cx.c();
@@ -395,7 +407,8 @@ fn branches(
             label: entry.label,
             depth: entry.depth,
             symbol: if branch.current { "check" } else { "branch" },
-            selected: is_selected(&branch.sha),
+            selected: marks(&format!("b:{}", branch.name), &branch.sha).0,
+            related: marks(&format!("b:{}", branch.name), &branch.sha).1,
             current: branch.current,
             badges,
         };
@@ -403,7 +416,10 @@ fn branches(
         if response.double_clicked() {
             cx.send(checkout(&branch.name, "local"));
         } else if response.clicked() {
-            cx.send(Message::ShowCommit(branch.sha.clone()));
+            cx.send(Message::ShowRef(
+                format!("b:{}", branch.name),
+                branch.sha.clone(),
+            ));
         } else if response.secondary_clicked() {
             cx.send(Message::OpenMenu(MenuRequest::Commit {
                 sha: branch.sha.clone(),
@@ -418,7 +434,7 @@ fn remotes(
     cx: &Cx,
     tab: &RepoTab,
     matches: &dyn Fn(&str) -> bool,
-    is_selected: &dyn Fn(&str) -> bool,
+    marks: &dyn Fn(&str, &str) -> (bool, bool),
     collapsed: &dyn Fn(&str) -> bool,
 ) {
     section(
@@ -477,7 +493,8 @@ fn remotes(
                 label: entry.label,
                 depth: entry.depth + 1,
                 symbol: "branch",
-                selected: is_selected(&branch.sha),
+                selected: marks(&format!("r:{}", branch.name), &branch.sha).0,
+                related: marks(&format!("r:{}", branch.name), &branch.sha).1,
                 current: false,
                 badges: Vec::new(),
             };
@@ -485,7 +502,10 @@ fn remotes(
             if response.double_clicked() {
                 cx.send(checkout(&branch.name, "remote"));
             } else if response.clicked() {
-                cx.send(Message::ShowCommit(branch.sha.clone()));
+                cx.send(Message::ShowRef(
+                    format!("r:{}", branch.name),
+                    branch.sha.clone(),
+                ));
             } else if response.secondary_clicked() {
                 cx.send(Message::OpenMenu(MenuRequest::Commit {
                     sha: branch.sha.clone(),
@@ -501,15 +521,16 @@ fn tags_and_more(
     cx: &Cx,
     tab: &RepoTab,
     matches: &dyn Fn(&str) -> bool,
-    is_selected: &dyn Fn(&str) -> bool,
+    marks: &dyn Fn(&str, &str) -> (bool, bool),
     collapsed: &dyn Fn(&str) -> bool,
 ) {
     let c = cx.c();
-    let simple = |label: String, symbol: &'static str, selected: bool, badges| Item {
+    let simple = |label: String, symbol: &'static str, (selected, related), badges| Item {
         label,
         depth: 0,
         symbol,
         selected,
+        related,
         current: false,
         badges,
     };
@@ -527,10 +548,15 @@ fn tags_and_more(
             none(ui, cx, "No tags");
         }
         for tag in tags {
-            let item = simple(tag.name.clone(), "tag", is_selected(&tag.sha), Vec::new());
+            let item = simple(
+                tag.name.clone(),
+                "tag",
+                marks(&format!("t:{}", tag.name), &tag.sha),
+                Vec::new(),
+            );
             let response = leaf(ui, cx, &item);
             if response.clicked() {
-                cx.send(Message::ShowCommit(tag.sha.clone()));
+                cx.send(Message::ShowRef(format!("t:{}", tag.name), tag.sha.clone()));
             } else if response.secondary_clicked() {
                 cx.send(Message::OpenMenu(MenuRequest::Commit {
                     sha: tag.sha.clone(),
@@ -559,7 +585,12 @@ fn tags_and_more(
                     .stash
                     .as_ref()
                     .is_some_and(|open| open.name == stash.name);
-            let item = simple(stash.message.clone(), "stash", selected, Vec::new());
+            let item = simple(
+                stash.message.clone(),
+                "stash",
+                (selected, false),
+                Vec::new(),
+            );
             let response = leaf(ui, cx, &item);
             if response.clicked() {
                 cx.send(Message::OpenStash(stash.name.clone()));
@@ -590,7 +621,7 @@ fn tags_and_more(
         } else {
             Vec::new()
         };
-        let item = simple(module.path.clone(), "box", false, badges);
+        let item = simple(module.path.clone(), "box", (false, false), badges);
         let response = leaf(ui, cx, &item);
         if response.double_clicked() {
             cx.send(Message::OpenPath(crate::actions::join_path(
