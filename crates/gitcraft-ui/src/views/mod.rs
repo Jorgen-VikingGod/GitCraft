@@ -6,6 +6,7 @@
 mod changes;
 mod details;
 mod diff;
+mod frame;
 mod graph_cell;
 mod history;
 mod icon;
@@ -58,9 +59,15 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
     let cx = Cx::new(app);
     let c = cx.c();
     let flat = |color| Frame::NONE.fill(color);
+    // With a window of our own making, the corners are rounded and what is outside is clear.
+    let (top_fill, bottom_fill) = if app.csd {
+        (egui::Color32::TRANSPARENT, egui::Color32::TRANSPARENT)
+    } else {
+        (c.bg, c.titlebar)
+    };
 
     Panel::top("top")
-        .frame(flat(c.bg))
+        .frame(flat(top_fill))
         .show_separator_line(false)
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -72,7 +79,7 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
             }
         });
     Panel::bottom("status")
-        .frame(flat(c.titlebar))
+        .frame(flat(bottom_fill))
         .show_separator_line(false)
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -87,6 +94,7 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
     });
 
     let ctx = ui.ctx().clone();
+    frame::window_edges(ui, &cx);
     if let Some(overlay) = &app.overlay {
         overlays::show(&ctx, &cx, overlay);
     }

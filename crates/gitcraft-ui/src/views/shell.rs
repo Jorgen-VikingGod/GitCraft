@@ -8,8 +8,8 @@ use egui::{
 use gitcraft_core::model::Operation;
 
 use super::widgets::{
-    bar, bare_edit, btn, choice, danger_text, hline, icon_button, muted, paint_text, primary,
-    scroll, text, text_width, tool_text,
+    bar, bar_with, bare_edit, btn, choice, danger_text, hline, icon_button, muted, paint_text,
+    primary, scroll, text, text_width, tool_text,
 };
 use super::{Cx, icon};
 use crate::actions::{Action, MenuRequest};
@@ -18,6 +18,10 @@ use crate::command::Command;
 use crate::logic::{plural, short_sha};
 
 pub fn menu_bar(ui: &mut Ui, cx: &Cx) {
+    if cx.app.csd {
+        super::frame::title_bar(ui, cx);
+        return;
+    }
     bar(ui, 26.0, cx.c().toolbar, 4.0, |ui| {
         for (label, request) in [
             ("File", MenuRequest::BarFile),
@@ -495,7 +499,13 @@ pub fn status_bar(ui: &mut Ui, cx: &Cx) {
     let look = cx.look();
     let c = &look.c;
     hline(ui, look);
-    bar(ui, 23.0, c.titlebar, 12.0, |ui| {
+    let corner = if app.csd && !app.maximized { 10 } else { 0 };
+    let radius = egui::CornerRadius {
+        sw: corner,
+        se: corner,
+        ..egui::CornerRadius::ZERO
+    };
+    bar_with(ui, 23.0, c.titlebar, radius, 12.0, |ui| {
         ui.spacing_mut().item_spacing.x = 10.0;
         let right = app.current().map(|tab| {
             let more = if tab.has_more { "+" } else { "" };

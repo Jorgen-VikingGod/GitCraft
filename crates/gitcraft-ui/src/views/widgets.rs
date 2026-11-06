@@ -588,8 +588,20 @@ pub fn badge(ui: &mut Ui, look: &Look, label: &RefLabel) -> Response {
 
 /// A full-width strip of a fixed height, with a left-to-right row of centred items inside.
 pub fn bar(ui: &mut Ui, height: f32, color: Color32, pad: f32, add: impl FnOnce(&mut Ui)) {
+    bar_with(ui, height, color, CornerRadius::ZERO, pad, add);
+}
+
+/// A [`bar`] with rounded corners, for the edges of a window drawn by the app itself.
+pub fn bar_with(
+    ui: &mut Ui,
+    height: f32,
+    color: Color32,
+    radius: CornerRadius,
+    pad: f32,
+    add: impl FnOnce(&mut Ui),
+) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
-    fill(ui, rect, color);
+    ui.painter().rect_filled(rect, radius, color);
     let inner = rect.shrink2(vec2(pad, 0.0));
     let mut row = ui.new_child(
         UiBuilder::new()

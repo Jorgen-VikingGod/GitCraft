@@ -514,6 +514,18 @@ pub struct Toast {
 pub enum Effect {
     Copy(String),
     Quit,
+    Window(WindowAction),
+}
+
+/// What the app's own title bar asks of the window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowAction {
+    Minimize,
+    ToggleMaximize,
+    /// Start moving the window with the pointer.
+    Drag,
+    /// Start resizing from an edge or corner.
+    Resize(egui::ResizeDirection),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -541,6 +553,9 @@ pub struct App {
     pub cursor: Pos2,
     pub window: Vec2,
     pub modifiers: Modifiers,
+    /// The app draws its own title bar and window edges, as the desktop doesn't.
+    pub csd: bool,
+    pub maximized: bool,
     pub collapsed: HashSet<String>,
     /// Set when the search box should take the keyboard; the view clears it.
     pub focus_search: Cell<bool>,
@@ -683,6 +698,7 @@ pub enum Message {
     Tick,
     DismissToast(u64),
     Quit,
+    Window(WindowAction),
 }
 
 impl App {
@@ -731,6 +747,8 @@ impl App {
             progress_line: String::new(),
             cursor: Pos2::ZERO,
             modifiers: Modifiers::NONE,
+            csd: false,
+            maximized: false,
             focus_search: Cell::new(false),
             effects: Vec::new(),
             next_id: 1,
@@ -1602,6 +1620,10 @@ impl App {
             }
             Message::DismissToast(id) => {
                 self.toasts.retain(|toast| toast.id != id);
+                Task::none()
+            }
+            Message::Window(action) => {
+                self.effects.push(Effect::Window(action));
                 Task::none()
             }
             Message::Quit => {

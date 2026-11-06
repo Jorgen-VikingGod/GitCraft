@@ -114,6 +114,8 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   touching `runner::editor_command()` or `editor.rs`. The core's tests use `gitcraft-editor-stub` in its place.
 - Set `GITCRAFT_SHOT=<file.png>` to have the app save a picture of its window once the first repository has
   loaded, then quit (handy for looking at the UI without a screenshot tool).
+- On GNOME with Wayland the app draws its own title bar and window edges (`views/frame.rs`), because the
+  toolkit would otherwise draw a flat grey frame. `GITCRAFT_SYSTEM_FRAME=1` turns that off.
 - Set `GITCRAFT_CONFIG_DIR=<dir>` when launching the app in tests. Otherwise it touches the user's real
   settings and recent repositories, and it may hand over to a running GitCraft through
   `instance.port` and exit immediately.

@@ -12,7 +12,7 @@ use futures::StreamExt;
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 
-use crate::app::{App, Effect, Message};
+use crate::app::{App, Effect, Message, WindowAction};
 use crate::task::Task;
 use crate::theme::Look;
 use crate::{instance, views};
@@ -46,7 +46,12 @@ struct Shown {
 }
 
 impl Shell {
-    pub fn new(cc: &eframe::CreationContext<'_>, repo: Option<String>, look: Look) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        repo: Option<String>,
+        look: Look,
+        client_decorations: bool,
+    ) -> Self {
         egui_extras::install_image_loaders(&cc.egui_ctx);
         // The app owns zoom (Ctrl +, Ctrl -), through its settings.
         cc.egui_ctx
@@ -57,7 +62,8 @@ impl Shell {
             .build()
             .expect("the async runtime starts");
         let (outbox, inbox) = channel();
-        let (app, task) = App::boot(repo, look);
+        let (mut app, task) = App::boot(repo, look);
+        app.csd = client_decorations;
         let shell = Self {
             app,
             runtime,
@@ -112,6 +118,15 @@ impl Shell {
             match effect {
                 Effect::Copy(text) => self.ctx.copy_text(text),
                 Effect::Quit => self.ctx.send_viewport_cmd(ViewportCommand::Close),
+                Effect::Window(action) => {
+                    let maximized = self.app.maximized;
+                    self.ctx.send_viewport_cmd(match action {
+                        WindowAction::Minimize => ViewportCommand::Minimized(true),
+                        WindowAction::ToggleMaximize => ViewportCommand::Maximized(!maximized),
+                        WindowAction::Drag => ViewportCommand::StartDrag,
+                        WindowAction::Resize(edge) => ViewportCommand::BeginResize(edge),
+                    });
+                }
             }
         }
         self.dispatch(task);
@@ -155,6 +170,7 @@ impl Shell {
             )
         });
         self.app.modifiers = modifiers;
+        self.app.maximized = ctx.input(|input| input.viewport().maximized.unwrap_or(false));
         if let Some(position) = pointer {
             self.app.cursor = position;
         }
@@ -282,6 +298,10 @@ impl eframe::App for Shell {
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        if self.app.csd {
+            // The window is transparent outside the rounded corners of the title bar.
+            return [0.0; 4];
+        }
         self.app.look.c.bg.to_normalized_gamma_f32()
     }
 }
