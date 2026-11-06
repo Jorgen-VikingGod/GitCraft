@@ -1110,6 +1110,7 @@ fn settings(ctx: &Context, cx: &Cx) {
     let c = &look.c;
     let values = &cx.app.settings;
     let window = cx.app.window;
+    super::settle(ctx, "settings_frames");
     let response = egui::Modal::new(Id::unique("settings"))
         .backdrop_color(c.backdrop)
         .frame(floating(look, 12).inner_margin(Margin::symmetric(24, 20)))
@@ -1130,111 +1131,123 @@ fn settings(ctx: &Context, cx: &Cx) {
             let bars = &mut ui.spacing_mut().scroll;
             bars.dormant_handle_opacity = bars.active_handle_opacity;
             bars.dormant_background_opacity = bars.active_background_opacity;
-            scroll("settings")
-                .auto_shrink([false, true])
-                .max_height((window.y * 0.85 - 110.0).max(160.0))
-                .show(ui, |ui| {
-                    ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
-                    group(ui, cx, "Appearance", |ui| {
-                        Grid::new("appearance")
-                            .num_columns(2)
-                            .spacing([24.0, 8.0])
-                            .show(ui, |ui| {
-                                ui.label("Theme");
-                                let options: Vec<(String, String)> = THEMES
-                                    .iter()
-                                    .map(|(value, label)| {
-                                        ((*value).to_owned(), (*label).to_owned())
-                                    })
-                                    .collect();
-                                if let Some(chosen) =
-                                    choice(ui, "theme", &options, &values.theme, 170.0)
-                                {
-                                    cx.send(Message::SetTheme(chosen));
-                                }
-                                ui.end_row();
-                            });
-                    });
-                    group(ui, cx, "Diffs", |ui| {
-                        Grid::new("diffs")
-                            .num_columns(2)
-                            .spacing([24.0, 8.0])
-                            .show(ui, |ui| {
-                                ui.label("Layout");
-                                if let Some(chosen) = segmented(
-                                    ui,
-                                    look,
-                                    ["Unified", "Side by side"],
-                                    usize::from(values.diff_split),
-                                ) {
-                                    cx.send(Message::SetSplit(chosen == 1));
-                                }
-                                ui.end_row();
-                                ui.label("Context lines");
-                                let mut lines = values.diff_context;
-                                ui.add(DragValue::new(&mut lines).range(0..=100));
-                                if lines != values.diff_context {
-                                    cx.send(Message::SetContext(lines.to_string()));
-                                }
-                                ui.end_row();
-                            });
-                        if let Some(on) = check(
-                            ui,
-                            values.ignore_whitespace,
-                            "Ignore whitespace changes",
-                            true,
-                        ) {
-                            cx.send(Message::SetIgnoreWhitespace(on));
-                        }
-                        if let Some(on) =
-                            check(ui, values.syntax_highlight, "Syntax highlighting", true)
-                        {
-                            cx.send(Message::SetSyntax(on));
-                        }
-                    });
-                    group(ui, cx, "Repository", |ui| {
-                        Grid::new("repository")
-                            .num_columns(2)
-                            .spacing([24.0, 8.0])
-                            .show(ui, |ui| {
-                                ui.label("Commits loaded at a time");
-                                let mut limit = values.log_limit;
-                                ui.add(DragValue::new(&mut limit).range(100..=100_000).speed(50));
-                                if limit != values.log_limit {
-                                    cx.send(Message::SetLogLimit(limit.to_string()));
-                                }
-                                ui.end_row();
-                            });
-                        if let Some(on) = check(
-                            ui,
-                            values.fetch_on_open,
-                            "Fetch when opening a repository",
-                            true,
-                        ) {
-                            cx.send(Message::SetFetchOnOpen(on));
-                        }
-                        if let Some(on) = check(
-                            ui,
-                            values.commit_graph,
-                            "Keep a commit-graph file for faster history",
-                            true,
-                        ) {
-                            cx.send(Message::SetCommitGraph(on));
-                        }
-                    });
-                    group(ui, cx, "Keyboard shortcuts", |ui| {
-                        Grid::new("shortcuts")
-                            .num_columns(2)
-                            .spacing([24.0, 6.0])
-                            .show(ui, |ui| {
-                                for (keys, what) in SHORTCUTS {
-                                    ui.label(RichText::new(keys).monospace().size(12.0));
-                                    muted(ui, look, what, look.text_size);
-                                    ui.end_row();
-                                }
-                            });
-                    });
+            let body = |ui: &mut Ui| {
+                ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+                group(ui, cx, "Appearance", |ui| {
+                    Grid::new("appearance")
+                        .num_columns(2)
+                        .spacing([24.0, 8.0])
+                        .show(ui, |ui| {
+                            ui.label("Theme");
+                            let options: Vec<(String, String)> = THEMES
+                                .iter()
+                                .map(|(value, label)| ((*value).to_owned(), (*label).to_owned()))
+                                .collect();
+                            if let Some(chosen) =
+                                choice(ui, "theme", &options, &values.theme, 170.0)
+                            {
+                                cx.send(Message::SetTheme(chosen));
+                            }
+                            ui.end_row();
+                        });
                 });
+                group(ui, cx, "Diffs", |ui| {
+                    Grid::new("diffs")
+                        .num_columns(2)
+                        .spacing([24.0, 8.0])
+                        .show(ui, |ui| {
+                            ui.label("Layout");
+                            if let Some(chosen) = segmented(
+                                ui,
+                                look,
+                                ["Unified", "Side by side"],
+                                usize::from(values.diff_split),
+                            ) {
+                                cx.send(Message::SetSplit(chosen == 1));
+                            }
+                            ui.end_row();
+                            ui.label("Context lines");
+                            let mut lines = values.diff_context;
+                            ui.add(DragValue::new(&mut lines).range(0..=100));
+                            if lines != values.diff_context {
+                                cx.send(Message::SetContext(lines.to_string()));
+                            }
+                            ui.end_row();
+                        });
+                    if let Some(on) = check(
+                        ui,
+                        values.ignore_whitespace,
+                        "Ignore whitespace changes",
+                        true,
+                    ) {
+                        cx.send(Message::SetIgnoreWhitespace(on));
+                    }
+                    if let Some(on) =
+                        check(ui, values.syntax_highlight, "Syntax highlighting", true)
+                    {
+                        cx.send(Message::SetSyntax(on));
+                    }
+                });
+                group(ui, cx, "Repository", |ui| {
+                    Grid::new("repository")
+                        .num_columns(2)
+                        .spacing([24.0, 8.0])
+                        .show(ui, |ui| {
+                            ui.label("Commits loaded at a time");
+                            let mut limit = values.log_limit;
+                            ui.add(DragValue::new(&mut limit).range(100..=100_000).speed(50));
+                            if limit != values.log_limit {
+                                cx.send(Message::SetLogLimit(limit.to_string()));
+                            }
+                            ui.end_row();
+                        });
+                    if let Some(on) = check(
+                        ui,
+                        values.fetch_on_open,
+                        "Fetch when opening a repository",
+                        true,
+                    ) {
+                        cx.send(Message::SetFetchOnOpen(on));
+                    }
+                    if let Some(on) = check(
+                        ui,
+                        values.commit_graph,
+                        "Keep a commit-graph file for faster history",
+                        true,
+                    ) {
+                        cx.send(Message::SetCommitGraph(on));
+                    }
+                });
+                group(ui, cx, "Keyboard shortcuts", |ui| {
+                    Grid::new("shortcuts")
+                        .num_columns(2)
+                        .spacing([24.0, 6.0])
+                        .show(ui, |ui| {
+                            for (keys, what) in SHORTCUTS {
+                                ui.label(RichText::new(keys).monospace().size(12.0));
+                                muted(ui, look, what, look.text_size);
+                                ui.end_row();
+                            }
+                        });
+                });
+            };
+            // The dialog is as tall as its content, and only scrolls past 80% of the window.
+            // The content's height is remembered from the last frame (until then, a guess).
+            let measured = Id::unique("settings_content_height");
+            let content = ui
+                .data(|data| data.get_temp::<f32>(measured))
+                .unwrap_or(760.0);
+            let limit = (window.y * 0.8 - 100.0).max(80.0);
+            let height = if content > limit {
+                let shown = scroll("settings")
+                    .auto_shrink([false, true])
+                    .max_height(limit)
+                    .show(ui, body);
+                shown.content_size.y
+            } else {
+                ui.scope(body).response.rect.height()
+            };
+            ui.data_mut(|data| data.insert_temp(measured, height));
         });
     if response.backdrop_response.clicked() {
         cx.send(Message::OverlayClose);

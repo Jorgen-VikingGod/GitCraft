@@ -20,7 +20,7 @@ use std::cell::RefCell;
 
 use egui::{Frame, Panel, Ui, Vec2};
 
-use crate::app::{App, Message, RepoTab, Splitter, View};
+use crate::app::{App, Message, Overlay, RepoTab, Splitter, View};
 use crate::theme::{Colors, Look};
 
 /// What a view needs: the state to read and a place for the messages it produces.
@@ -52,6 +52,26 @@ impl<'a> Cx<'a> {
     pub fn finish(self) -> Vec<Message> {
         self.out.into_inner()
     }
+}
+
+/// egui sizes a scroll area from the content it had in the last frame, so a dialog that has
+/// just opened is a frame behind, and nothing repaints it until the pointer moves. This keeps
+/// asking for frames for a moment after the dialog (named `what`) appears.
+pub(crate) fn settle(ctx: &egui::Context, what: &str) {
+    let id = egui::Id::unique(what);
+    let seen = ctx.data_mut(|data| {
+        let seen = data.get_temp::<u8>(id).unwrap_or(0);
+        data.insert_temp(id, seen.saturating_add(1));
+        seen
+    });
+    if seen < 4 {
+        ctx.request_repaint();
+    }
+}
+
+/// Starts [`settle`] over, for when the dialog is closed.
+fn forget(ctx: &egui::Context, what: &str) {
+    ctx.data_mut(|data| data.remove_temp::<u8>(egui::Id::unique(what)));
 }
 
 /// Draws a whole frame and returns the messages it caused.
@@ -104,6 +124,12 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
     });
 
     let ctx = ui.ctx().clone();
+    if app.form.is_none() {
+        forget(&ctx, "form_frames");
+    }
+    if !matches!(app.overlay, Some(Overlay::Settings)) {
+        forget(&ctx, "settings_frames");
+    }
     frame::window_edges(ui, &cx);
     if let Some(overlay) = &app.overlay {
         overlays::show(&ctx, &cx, overlay);

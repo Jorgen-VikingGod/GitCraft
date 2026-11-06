@@ -1406,3 +1406,58 @@ async fn only_the_picked_name_is_the_sidebar_selection() {
     drive(&mut app, Message::Select(head)).await;
     assert_eq!(app.current().unwrap().selected_ref, None);
 }
+
+#[tokio::test]
+async fn a_dialog_is_as_tall_as_its_content_and_scrolls_only_past_80_percent() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Action(Action::DeleteBranch("side".into())),
+    )
+    .await;
+    // In a tall window the whole dialog is there, buttons included, below its first line.
+    let tall = Screen::sized(vec2(1280.0, 900.0));
+    tall.frame(&app, Vec::new());
+    let shown = tall.frame(&app, Vec::new());
+    let title = shown.find("Delete branch").unwrap().top();
+    let button = shown.find("Cancel").unwrap().bottom();
+    assert!(button > title + 60.0, "the buttons follow the content");
+    // In a window too short for it, the dialog is capped and scrolls: the end is out of view.
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 160.0))).await;
+    let short = Screen::sized(vec2(1280.0, 160.0));
+    short.frame(&app, Vec::new());
+    let shown = short.frame(&app, Vec::new());
+    assert!(shown.has("Delete branch"), "the start is shown");
+    assert!(
+        !shown.has("Cancel"),
+        "and the buttons are reached by scrolling"
+    );
+}
+
+#[tokio::test]
+async fn settings_fit_a_tall_window_and_scroll_in_a_short_one() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSettings).await;
+    let last = "Move through commits or files";
+
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 1600.0))).await;
+    let tall = Screen::sized(vec2(1280.0, 1600.0));
+    for _ in 0..4 {
+        tall.frame(&app, Vec::new());
+    }
+    assert!(
+        tall.frame(&app, Vec::new()).has(last),
+        "everything is there when it fits"
+    );
+
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 600.0))).await;
+    let short = Screen::sized(vec2(1280.0, 600.0));
+    for _ in 0..4 {
+        short.frame(&app, Vec::new());
+    }
+    let shown = short.frame(&app, Vec::new());
+    assert!(shown.has("Settings"), "the start is shown");
+    assert!(!shown.has(last), "and the rest is reached by scrolling");
+}

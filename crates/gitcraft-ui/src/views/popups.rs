@@ -21,6 +21,7 @@ pub fn form(ctx: &Context, cx: &Cx, form: &Form) {
     let size = look.text_size;
     let window = cx.app.window;
     let id = Id::unique("form");
+    super::settle(ctx, "form_frames");
     let area = egui::Modal::default_area(id).anchor(Align2::CENTER_TOP, vec2(0.0, window.y * 0.12));
     let response = egui::Modal::new(id)
         .area(area)
@@ -29,46 +30,73 @@ pub fn form(ctx: &Context, cx: &Cx, form: &Form) {
         .show(ctx, |ui| {
             ui.set_width(440.0);
             ui.spacing_mut().item_spacing = vec2(8.0, 12.0);
-            egui::ScrollArea::vertical()
-                .max_height((window.y * 0.8 - 40.0).max(160.0))
-                .auto_shrink([false, true])
-                .show(ui, |ui| {
-                    ui.set_width(440.0);
-                    text(ui, form.title.as_str(), 16.0, c.text);
-                    if let Some(message) = &form.message {
-                        ui.add(
-                            egui::Label::new(
-                                egui::RichText::new(message.as_str())
-                                    .size(size)
-                                    .color(c.text_muted),
-                            )
-                            .wrap(),
-                        );
-                    }
-                    for (index, field) in form.fields.iter().enumerate() {
-                        form_field(ui, cx, index, field);
-                    }
-                    ui.horizontal(|ui| {
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            ui.spacing_mut().item_spacing.x = 8.0;
-                            let kind = if form.danger {
-                                Kind::Danger
-                            } else {
-                                Kind::Primary
-                            };
-                            if button(ui, look, &form.ok, kind, form.can_submit()) {
-                                cx.send(Message::FormSubmit);
-                            }
-                            if btn(ui, look, "Cancel", true) {
-                                cx.send(Message::FormCancel);
-                            }
-                        });
+            let body = |ui: &mut Ui| {
+                ui.set_width(440.0);
+                text(ui, form.title.as_str(), 22.0, c.text);
+                if let Some(message) = &form.message {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new(message.as_str())
+                                .size(size)
+                                .color(c.text_muted),
+                        )
+                        .wrap(),
+                    );
+                }
+                for (index, field) in form.fields.iter().enumerate() {
+                    form_field(ui, cx, index, field);
+                }
+                ui.horizontal(|ui| {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.spacing_mut().item_spacing.x = 8.0;
+                        let kind = if form.danger {
+                            Kind::Danger
+                        } else {
+                            Kind::Primary
+                        };
+                        if button(ui, look, &form.ok, kind, form.can_submit()) {
+                            cx.send(Message::FormSubmit);
+                        }
+                        if btn(ui, look, "Cancel", true) {
+                            cx.send(Message::FormCancel);
+                        }
                     });
                 });
+            };
+            // The dialog is as tall as its content, and only scrolls past 80% of the window.
+            // Without a scroll area its height is exactly its content, so that is used
+            // whenever the content (with some room to spare) fits.
+            let limit = (window.y * 0.8 - 36.0).max(80.0);
+            if estimated_height(form) > limit {
+                egui::ScrollArea::vertical()
+                    .max_height(limit)
+                    .auto_shrink([false, true])
+                    .show(ui, body);
+            } else {
+                body(ui);
+            }
         });
     if response.backdrop_response.clicked() {
         cx.send(Message::FormCancel);
     }
+}
+
+/// About how tall a form is, generously, to decide whether it needs a scroll area.
+fn estimated_height(form: &Form) -> f32 {
+    let message = form.message.as_ref().map_or(0.0, |message| {
+        (message.chars().count() / 55 + 1) as f32 * 20.0
+    });
+    let fields: f32 = form
+        .fields
+        .iter()
+        .map(|field| match field.kind {
+            FieldKind::Text(_) | FieldKind::Select { .. } => 66.0,
+            FieldKind::Area(_) => 150.0,
+            FieldKind::Check(_) => 32.0,
+        })
+        .sum();
+    let rows = form.fields.len() + 3;
+    34.0 + message + fields + 40.0 + rows as f32 * 12.0
 }
 
 fn form_field(ui: &mut Ui, cx: &Cx, index: usize, field: &crate::form::Field) {
