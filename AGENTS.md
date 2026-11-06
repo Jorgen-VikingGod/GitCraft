@@ -39,7 +39,8 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-ui/tests/flows.rs` | Drives the real UI against real repositories |
 | `crates/gitcraft-core/tests/goldens/` | Recorded commit logs, read by the unit test in `graph.rs` |
 | `crates/gitcraft-ui/assets/icon.png` | App icon used for the installers |
-| `.github/workflows/rust.yml` | Lint, tests and installers on Linux, macOS and Windows |
+| `.github/workflows/rust.yml` | Lint and tests on Linux, macOS and Windows |
+| `.github/workflows/release.yml` | Installers (msi, dmg for both Mac chips, deb, AppImage), attached to a published release |
 
 ## Setup
 
@@ -61,7 +62,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --no-fail-fast
 ```
 
-Installers (only on their own OS; `--formats` is `deb,appimage`, `dmg` or `nsis`):
+Installers (only on their own OS; `--formats` is `deb,appimage`, `dmg` or `wix`):
 
 ```bash
 cargo install cargo-packager --locked --version 0.11.8

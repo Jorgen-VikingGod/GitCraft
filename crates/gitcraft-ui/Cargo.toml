@@ -44,20 +44,23 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 [lints]
 workspace = true
 
+# Installers are made with cargo-packager. The release workflow on GitHub runs this.
 [package.metadata.packager]
 product-name = "GitCraft"
 identifier = "io.github.gitcraft.desktop"
 category = "DeveloperTool"
 description = "Open-source, cross-platform Git GUI"
+homepage = "https://github.com/Jorgen-VikingGod/GitCraft"
 authors = ["Jürgen Könnemann"]
+publisher = "Jürgen Könnemann"
 copyright = "Copyright © 2026 Jürgen Könnemann"
-icons = ["assets/icon.png"]
+icons = ["assets/icon.ico", "assets/icon-512@2x.png", "assets/icon-512.png", "assets/icon-256.png", "assets/icon-128.png", "assets/icon-32.png"]
 out-dir = "../../target/packages"
-before-packaging-command = "cargo build --release -p gitcraft-ui"
+before-packaging-command = "cargo build --release --locked -p gitcraft-ui"
 binaries = [{ path = "gitcraft", main = true }]
 
 [package.metadata.packager.deb]
-depends = ["git"]
+depends = ["git", "libxkbcommon0", "libwayland-client0", "libgl1"]
 
 # Unsigned builds still need an ad-hoc signature: Apple Silicon refuses to run anything else.
 [package.metadata.packager.macos]
