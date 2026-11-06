@@ -6,12 +6,13 @@ installed `git`, so it behaves the same as git on the command line and uses your
 
 | Light | Dark |
 | --- | --- |
-| ![GitCraft in light mode: commit graph with the commit context menu and its "Reset main to here" submenu open](docs/screenshots/gitcraft-light.png) | ![GitCraft in dark mode: commit graph with the commit context menu and its "Edit commit" submenu open](docs/screenshots/gitcraft-dark.png) |
+| ![GitCraft in light mode: commit graph with the sidebar, the commit details and a diff](docs/screenshots/gitcraft-egui-light.png) | ![GitCraft in dark mode: commit graph with the sidebar, the commit details and a diff](docs/screenshots/gitcraft-egui-dark.png) |
 
 ## Features
 
 - **Commit graph**: virtual-scrolled history of all branches with lane graph, branch/tag/remote badges,
-  commit details and per-file diffs (unified or side-by-side, syntax highlighted).
+  commit details and per-file diffs (unified or side-by-side, syntax highlighted; long lines scroll
+  sideways, and each side of a side-by-side diff has its own scroll bar).
 - **Local changes**: stage/unstage/discard files, **hunks or individual lines**; commit, amend,
   commit templates; multi-select with Ctrl/Shift.
 - **Branches, tags, remotes**: sidebar with folder trees, ahead/behind counts, checkout (double-click),
@@ -31,6 +32,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
 - Repository **tabs**, recent repositories, clone, init.
 - Live refresh through file watching, **light/dark** theme, zoom, keyboard shortcuts.
+- On **GNOME with Wayland** GitCraft draws its own GNOME-style title bar and window edges (the window
+  toolkit would otherwise show a flat grey frame). Set `GITCRAFT_SYSTEM_FRAME=1` to use the toolkit's frame.
 
 ### Pull and rebase options
 
@@ -41,6 +44,12 @@ installed `git`, so it behaves the same as git on the command line and uses your
 | Merge | `git pull --no-rebase` | Creates a merge commit if both sides have new commits |
 | Rebase | `git pull --rebase` | Replays your local commits on top of the remote branch (linear history) |
 | Fast-forward only | `git pull --ff-only` | Only updates if no merge or rebase is needed; otherwise stops |
+| Overwrite local branch | `git fetch`, then `git reset --hard <remote>/<branch>` | Makes the current branch equal to the remote branch; local commits and uncommitted changes are discarded |
+
+**Overwrite local branch** asks for confirmation first. With **Overwrite only: keep a backup branch of the
+current state** (on by default) the old tip is kept as `backup/<branch>-<short sha>` before the reset, so
+committed work can be recovered; uncommitted changes are not covered by the backup. Overwrite is never
+remembered as the usual strategy.
 
 **Rebase** (context menu of a local or remote branch: *Rebase &lt;current&gt; onto …*) replays the current
 branch on top of the chosen one (`git rebase <target>`).
