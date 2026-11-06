@@ -55,12 +55,14 @@ fn dialog(
         .show(ctx, |ui| {
             ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
             let (_, rect) = ui.allocate_space(vec2(width, height));
-            let (head, rest) = split_y(rect, 52.0);
+            let (head, rest) = split_y(rect, 66.0);
             region(ui, head, |ui| {
-                bar(ui, 52.0, Color32::TRANSPARENT, 14.0, |ui| {
+                bar(ui, 66.0, Color32::TRANSPARENT, 20.0, |ui| {
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing.y = 1.0;
-                        text(ui, title, 16.0, c.text);
+                        // Centre the title and subtitle in the header.
+                        ui.add_space(if subtitle.is_empty() { 18.0 } else { 9.0 });
+                        text(ui, title, 22.0, c.text);
                         if !subtitle.is_empty() {
                             muted(ui, look, subtitle, look.text_size);
                         }
