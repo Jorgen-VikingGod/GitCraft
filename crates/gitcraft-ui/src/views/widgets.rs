@@ -174,6 +174,28 @@ fn brighter(color: Color32) -> Color32 {
 /// The standard small button, drawn by egui so that it reacts like every other widget.
 /// True when it was clicked.
 pub fn button(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: bool) -> bool {
+    enabled && button_response(ui, look, label, kind, enabled).clicked()
+}
+
+/// A [`button`] that says what it does when the pointer rests on it, also while it is off.
+pub fn button_tip(
+    ui: &mut Ui,
+    look: &Look,
+    label: &str,
+    kind: Kind,
+    enabled: bool,
+    tip: &str,
+) -> bool {
+    let response = button_response(ui, look, label, kind, enabled);
+    let response = if enabled {
+        response.on_hover_text(tip)
+    } else {
+        response.on_disabled_hover_text(tip)
+    };
+    enabled && response.clicked()
+}
+
+fn button_response(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: bool) -> Response {
     let c = &look.c;
     let text = RichText::new(label).size(12.0);
     ui.scope(|ui| {
@@ -206,7 +228,7 @@ pub fn button(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: bool) 
             }
             _ => {}
         }
-        ui.add_enabled(enabled, button).clicked()
+        ui.add_enabled(enabled, button)
     })
     .inner
 }

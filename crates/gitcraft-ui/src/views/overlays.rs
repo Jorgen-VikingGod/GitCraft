@@ -7,8 +7,9 @@ use egui::{
 use gitcraft_core::model::{BlameLine, Commit, ConflictChunk, ReflogEntry};
 
 use super::widgets::{
-    area_edit, bar, btn, card, check, choice, fill, floating, line_edit, muted, paint_text,
-    placeholder, primary, region, scroll, segmented, split_x, split_y, text, text_width, toggle,
+    Kind, area_edit, bar, btn, button_tip, card, check, choice, fill, floating, line_edit, muted,
+    paint_text, placeholder, primary, region, scroll, segmented, split_x, split_y, text,
+    text_width, toggle,
 };
 use super::{Cx, diff, icon};
 use crate::actions::{Action, MenuRequest};
@@ -757,7 +758,7 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
         None,
         |ui, rect| {
             let problem = state.problem().filter(|_| !state.loading);
-            let legend_height = 6.0 * 14.0 + 12.0;
+            let legend_height = 3.0 * 20.0 + 18.0;
             let footer = 46.0;
             let (list, rest) = split_y(
                 rect,
@@ -786,15 +787,28 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                 }
             });
 
-            region(ui, legend, |ui| {
-                ui.add_space(4.0);
-                for (action, key, hint) in REBASE_ACTIONS {
-                    ui.horizontal(|ui| {
-                        ui.add_space(12.0);
-                        muted(ui, look, format!("{key}  {action}: {hint}"), size - 2.0);
-                    });
-                }
-            });
+            // The keys, in two columns, painted at fixed positions so that nothing is cut off.
+            let column = legend.width() / 2.0;
+            for (index, (action, key, hint)) in REBASE_ACTIONS.into_iter().enumerate() {
+                let at = Pos2::new(
+                    legend.left() + 14.0 + (index / 3) as f32 * column,
+                    legend.top() + 16.0 + (index % 3) as f32 * 20.0,
+                );
+                let width = paint_text(
+                    ui.painter(),
+                    at,
+                    &key.to_uppercase(),
+                    look.mono(size - 1.0),
+                    c.accent,
+                );
+                paint_text(
+                    ui.painter(),
+                    at + vec2(width + 10.0, 0.0),
+                    &format!("{action}: {hint}"),
+                    look.ui(size - 1.0),
+                    c.text_muted,
+                );
+            }
 
             region(ui, footer_area, |ui| {
                 bar(ui, footer, Color32::TRANSPARENT, 12.0, |ui| {
@@ -807,20 +821,40 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                     ) {
                         cx.send(Message::RebaseAutostash(on));
                     }
+                    ui.label("").on_hover_text(
+                        "Uncommitted changes are stashed before the rebase and put back after it.",
+                    );
                     text(ui, problem.unwrap_or(""), size, c.danger);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if primary(
+                        let ready = problem.is_none() && !state.loading;
+                        if button_tip(
                             ui,
                             look,
                             "Start rebase",
-                            problem.is_none() && !state.loading,
+                            Kind::Primary,
+                            ready,
+                            problem.unwrap_or("Rewrite the history as planned above"),
                         ) {
                             cx.send(Message::RebaseStart);
                         }
-                        if btn(ui, look, "Cancel", true) {
+                        if button_tip(
+                            ui,
+                            look,
+                            "Cancel",
+                            Kind::Normal,
+                            true,
+                            "Close without changing anything",
+                        ) {
                             cx.send(Message::OverlayClose);
                         }
-                        if btn(ui, look, "Reset", !state.unchanged()) {
+                        if button_tip(
+                            ui,
+                            look,
+                            "Reset",
+                            Kind::Normal,
+                            !state.unchanged(),
+                            "Restore the original order and pick every commit",
+                        ) {
                             cx.send(Message::RebaseReset);
                         }
                     });
@@ -854,7 +888,9 @@ fn rebase_row(
         Pos2::new(rect.left() + 22.0, mid),
         vec2(20.0, REBASE_ROW_HEIGHT),
     );
-    let grip = ui.interact(grip_rect, response.id.with("grip"), Sense::drag());
+    let grip = ui
+        .interact(grip_rect, response.id.with("grip"), Sense::drag())
+        .on_hover_text("Drag up or down to move this commit (or Alt + ↑ / ↓)");
     icon::paint(
         ui,
         "grip",
@@ -894,12 +930,14 @@ fn rebase_row(
 
     // The actions.
     let mut x = rect.left() + 40.0;
-    for (action, key, _) in REBASE_ACTIONS {
+    for (action, key, hint) in REBASE_ACTIONS {
         let label = key.to_uppercase();
         let width = text_width(ui, &label, &look.mono(size - 2.0)) + 12.0;
         let button = Rect::from_min_size(Pos2::new(x, mid - 10.0), vec2(width, 20.0));
         let on = step.action == action;
-        let response = ui.interact(button, response.id.with(("action", action)), Sense::click());
+        let response = ui
+            .interact(button, response.id.with(("action", action)), Sense::click())
+            .on_hover_text(format!("{}: {hint}\nShortcut: {key}", capitalised(action)));
         let fill_color = if on {
             c.accent
         } else if response.hovered() {
@@ -933,6 +971,12 @@ fn rebase_row(
         look.mono(size),
         c.text,
     );
+    ui.interact(
+        Rect::from_min_size(Pos2::new(x, rect.top()), vec2(70.0, rect.height())),
+        response.id.with("sha"),
+        Sense::hover(),
+    )
+    .on_hover_text(step.commit.sha.as_str());
     x += 74.0;
 
     let right = rect.right() - 12.0 - 2.0 * 26.0 - 2.0 * 8.0;
@@ -940,6 +984,16 @@ fn rebase_row(
     let subject_width = (author_x - 8.0 - x).max(40.0);
     let subject_area =
         Rect::from_min_size(Pos2::new(x, rect.top()), vec2(subject_width, rect.height()));
+    if step.action != "reword" {
+        ui.interact(subject_area, response.id.with("subject"), Sense::hover())
+            .on_hover_text(step.commit.subject.as_str());
+    }
+    ui.interact(
+        Rect::from_min_size(Pos2::new(author_x, rect.top()), vec2(140.0, rect.height())),
+        response.id.with("author"),
+        Sense::hover(),
+    )
+    .on_hover_text(format!("{} <{}>", step.commit.author, step.commit.email));
     if step.action == "reword" {
         region(
             ui,
@@ -993,7 +1047,13 @@ fn rebase_row(
         } else {
             Sense::hover()
         };
-        let response = ui.interact(area, response.id.with(name), sense);
+        let response = ui
+            .interact(area, response.id.with(name), sense)
+            .on_hover_text(if delta < 0 {
+                "Move this commit up (Alt + ↑)"
+            } else {
+                "Move this commit down (Alt + ↓)"
+            });
         super::widgets::icon_in(ui, look, &response, area, name, 14.0, enabled);
         if enabled && response.clicked() {
             cx.send(Message::RebaseMove(index, delta));
@@ -1002,6 +1062,13 @@ fn rebase_row(
     if response.clicked() {
         cx.send(Message::RebaseFocus(index));
     }
+}
+
+fn capitalised(word: &str) -> String {
+    let mut letters = word.chars();
+    letters.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(letters).collect()
+    })
 }
 
 const THEMES: [(&str, &str); 3] = [
