@@ -1179,3 +1179,37 @@ async fn menus_open_submenus_under_the_pointer_and_run_entries() {
         "clicking an entry in a submenu runs it: {messages:?}"
     );
 }
+
+#[tokio::test]
+async fn arrow_keys_move_through_the_changed_files_not_the_commits() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.commit("b.txt", "two\n", "second");
+    f.write("a.txt", "changed a\n");
+    f.write("b.txt", "changed b\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    let selected = |app: &App| app.current().unwrap().focus.clone().unwrap().1;
+    assert_eq!(selected(&app), "a.txt");
+    let commit = app.current().unwrap().selected.clone();
+
+    drive(
+        &mut app,
+        Message::Key(egui::Key::ArrowDown, Modifiers::NONE),
+    )
+    .await;
+    assert_eq!(selected(&app), "b.txt", "Down selects the next file");
+    drive(
+        &mut app,
+        Message::Key(egui::Key::ArrowDown, Modifiers::NONE),
+    )
+    .await;
+    assert_eq!(selected(&app), "b.txt", "and stops at the end");
+    drive(&mut app, Message::Key(egui::Key::ArrowUp, Modifiers::NONE)).await;
+    assert_eq!(selected(&app), "a.txt");
+    assert_eq!(
+        app.current().unwrap().selected,
+        commit,
+        "the history selection stays put"
+    );
+}

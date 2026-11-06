@@ -39,9 +39,9 @@ pub fn region<R>(ui: &mut Ui, rect: Rect, add: impl FnOnce(&mut Ui) -> R) -> R {
     let mut child = ui.new_child(UiBuilder::new().max_rect(rect));
     child.set_clip_rect(rect.intersect(ui.clip_rect()));
     child.set_min_size(rect.size());
-    let result = add(&mut child);
-    ui.advance_cursor_after_rect(rect);
-    result
+    // The parent's cursor stays where it was: regions are placed by rectangle, and moving
+    // the cursor back would draw whatever follows on top of them.
+    add(&mut child)
 }
 
 pub fn fill(ui: &Ui, rect: Rect, color: Color32) {
@@ -470,6 +470,13 @@ pub fn file_row(
     let (rect, row) = ui.allocate_exact_size(vec2(ui.available_width(), 26.0), Sense::click());
     let body = rect.shrink2(vec2(4.0, 0.0));
     let hovered = ui.rect_contains_pointer(rect);
+    // Moving the selection with the keyboard must bring the row into view.
+    let was_selected_id = row.id.with("was_selected");
+    let was_selected = ui.data(|data| data.get_temp::<bool>(was_selected_id).unwrap_or(false));
+    if selected && !was_selected {
+        ui.scroll_to_rect(rect, None);
+    }
+    ui.data_mut(|data| data.insert_temp(was_selected_id, selected));
     if selected {
         ui.painter().rect_filled(body, 4.0, c.selection);
     } else if hovered {

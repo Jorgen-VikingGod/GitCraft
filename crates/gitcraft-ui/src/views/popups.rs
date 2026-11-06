@@ -110,13 +110,8 @@ fn form_field(ui: &mut Ui, cx: &Cx, index: usize, field: &crate::form::Field) {
         FieldKind::Select { options, value } => {
             ui.spacing_mut().item_spacing.y = 4.0;
             label(ui);
-            if let Some(chosen) = choice(
-                ui,
-                ("form", index),
-                options,
-                value,
-                ui.available_width() - 20.0,
-            ) {
+            if let Some(chosen) = choice(ui, ("form", index), options, value, ui.available_width())
+            {
                 cx.send(Message::FormSelect(index, chosen));
             }
         }

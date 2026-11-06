@@ -35,6 +35,9 @@ const REFLOG_LIMIT: usize = 500;
 
 pub type Answer<T> = Result<T, String>;
 
+/// A list of file paths, the one that is current, and how to pick another.
+type FileList = (Vec<String>, Option<String>, Box<dyn Fn(String) -> Message>);
+
 fn answer<T>(result: Result<T, Error>) -> Answer<T> {
     result.map_err(|error| error.to_string())
 }
@@ -81,6 +84,8 @@ pub struct DiffPane {
     pub scroll_to: Cell<Option<f32>>,
     /// Row tops for a width and row count: see the diff view.
     pub layout: RefCell<(f32, usize, Vec<f32>)>,
+    /// The widest line in columns, once known: the diff scrolls sideways by this much.
+    pub max_cols: Cell<Option<usize>>,
     pub selection: BTreeSet<(usize, usize)>,
     pub anchor: Option<(usize, usize)>,
 }
@@ -97,6 +102,7 @@ impl Default for DiffPane {
             viewport: Vec2::new(800.0, 400.0),
             scroll_to: Cell::new(None),
             layout: RefCell::new((-1.0, 0, Vec::new())),
+            max_cols: Cell::new(None),
             selection: BTreeSet::new(),
             anchor: None,
         }
@@ -109,6 +115,7 @@ impl DiffPane {
         self.diff = None;
         self.rows.clear();
         self.layout.get_mut().0 = -1.0;
+        self.max_cols.set(None);
         self.highlights = None;
         self.loading = false;
         self.selection.clear();
@@ -118,6 +125,7 @@ impl DiffPane {
     pub fn rebuild_rows(&mut self, split: bool) {
         self.rows.clear();
         self.layout.get_mut().0 = -1.0;
+        self.max_cols.set(None);
         let Some(diff) = &self.diff else { return };
         for (index, hunk) in diff.hunks.iter().enumerate() {
             self.rows.push(DiffRow::Hunk(index));
@@ -2637,6 +2645,9 @@ impl App {
         if self.overlay.is_some() {
             return Task::none();
         }
+        if let Some(task) = self.key_in_file_list(key) {
+            return task;
+        }
         let Some(tab) = self.current().filter(|tab| tab.view == View::History) else {
             return Task::none();
         };
@@ -2662,6 +2673,49 @@ impl App {
         let sha = commits[target].sha.clone();
         self.reveal(target);
         self.select(sha)
+    }
+
+    /// Up and Down move through the file list of the view that has one (Local Changes
+    /// or a stash), rather than through the commits.
+    fn key_in_file_list(&mut self, key: Key) -> Option<Task<Message>> {
+        let step: isize = match key {
+            Key::ArrowUp => -1,
+            Key::ArrowDown => 1,
+            _ => return None,
+        };
+        let tab = self.current()?;
+        let (paths, current, pick): FileList = match tab.view {
+            View::Changes => {
+                let (area, path) = tab.focus.clone()?;
+                let paths = tab
+                    .files_in(area)
+                    .into_iter()
+                    .map(|file| file.path)
+                    .collect();
+                (
+                    paths,
+                    Some(path),
+                    Box::new(move |path| Message::FilePicked(area, path)),
+                )
+            }
+            View::Stash => {
+                let stash = tab.stash.as_ref()?;
+                let paths = stash.files.iter().map(|file| file.path.clone()).collect();
+                (paths, stash.selected.clone(), Box::new(Message::PickFile))
+            }
+            View::History => return None,
+        };
+        let at = current.and_then(|current| paths.iter().position(|path| *path == current));
+        let target = match at {
+            Some(at) => at
+                .saturating_add_signed(step)
+                .min(paths.len().saturating_sub(1)),
+            None => 0,
+        };
+        Some(match paths.get(target) {
+            Some(path) if at != Some(target) => Task::done(pick(path.clone())),
+            _ => Task::none(),
+        })
     }
 
     pub(crate) fn menu_at_cursor(&mut self, items: Vec<MenuItem>) {

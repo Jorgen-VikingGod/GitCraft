@@ -49,59 +49,46 @@ fn columns(line: &str) -> usize {
         .sum()
 }
 
-fn wrapped_lines(line: &DiffLine, per_line: usize) -> usize {
-    columns(&line.text).div_ceil(per_line.max(1)).max(1)
-}
-
-fn unified_columns(width: f32, char_width: f32) -> usize {
-    ((width - NUMBER_WIDTH * 2.0 - SIGN_WIDTH - TEXT_MARGIN) / char_width).max(8.0) as usize
-}
-
-fn split_columns(width: f32, char_width: f32) -> usize {
-    ((width / 2.0 - NUMBER_WIDTH - SPLIT_BAR - TEXT_MARGIN) / char_width).max(8.0) as usize
-}
-
-fn row_height(diff: &FileDiff, row: &DiffRow, unified: usize, split: usize) -> f32 {
-    let lines = |hunk: usize, index: usize, per_line: usize| {
-        wrapped_lines(&diff.hunks[hunk].lines[index], per_line)
-    };
-    match *row {
+fn row_height(row: &DiffRow) -> f32 {
+    match row {
         DiffRow::Hunk(_) => HUNK_HEIGHT,
-        DiffRow::Line(hunk, index) => lines(hunk, index, unified) as f32 * DIFF_ROW_HEIGHT,
-        DiffRow::Split(hunk, left, right) => {
-            let side = |index: Option<usize>| index.map_or(1, |index| lines(hunk, index, split));
-            side(left).max(side(right)) as f32 * DIFF_ROW_HEIGHT
-        }
+        DiffRow::Line(..) | DiffRow::Split(..) => DIFF_ROW_HEIGHT,
     }
 }
 
-/// Where each row starts, plus the total at the end. Lines wrap, so this depends on the
-/// width; it's kept until the width or the rows change, as it covers the whole diff.
-fn with_tops<R>(
-    pane: &DiffPane,
-    width: f32,
-    char_width: f32,
-    use_tops: impl FnOnce(&[f32]) -> R,
-) -> R {
+/// Where each row starts, plus the total at the end. Lines don't wrap, so only the rows
+/// matter; it's kept until they change, as it covers the whole diff.
+fn with_tops<R>(pane: &DiffPane, use_tops: impl FnOnce(&[f32]) -> R) -> R {
     let mut cache = pane.layout.borrow_mut();
-    if cache.0 != width || cache.1 != pane.rows.len() {
+    if cache.0 < 0.0 || cache.1 != pane.rows.len() {
         cache.2.clear();
         let mut top = 0.0;
-        if let Some(diff) = &pane.diff {
-            let (unified, split) = (
-                unified_columns(width, char_width),
-                split_columns(width, char_width),
-            );
-            for row in &pane.rows {
-                cache.2.push(top);
-                top += row_height(diff, row, unified, split);
-            }
+        for row in &pane.rows {
+            cache.2.push(top);
+            top += row_height(row);
         }
         cache.2.push(top);
-        cache.0 = width;
+        cache.0 = 0.0;
         cache.1 = pane.rows.len();
     }
     use_tops(&cache.2)
+}
+
+/// The widest line, in columns: the diff scrolls sideways to show it.
+fn widest(pane: &DiffPane) -> usize {
+    if let Some(known) = pane.max_cols.get() {
+        return known;
+    }
+    let widest = pane.diff.as_ref().map_or(0, |diff| {
+        diff.hunks
+            .iter()
+            .flat_map(|hunk| &hunk.lines)
+            .map(|line| columns(&line.text))
+            .max()
+            .unwrap_or(0)
+    });
+    pane.max_cols.set(Some(widest));
+    widest
 }
 
 /// The first row to draw for a scroll position.
@@ -129,7 +116,6 @@ fn code(
     hunk: usize,
     index: usize,
     line: &DiffLine,
-    width: f32,
 ) -> Arc<Galley> {
     let font = FontId::monospace(CODE_SIZE);
     let format = |color: Color32| TextFormat {
@@ -139,11 +125,7 @@ fn code(
         ..TextFormat::default()
     };
     let mut job = LayoutJob {
-        wrap: TextWrapping {
-            max_width: width.max(40.0),
-            break_anywhere: true,
-            ..TextWrapping::default()
-        },
+        wrap: TextWrapping::no_max_width(),
         ..LayoutJob::default()
     };
     if line.t == '\\' {
@@ -241,15 +223,7 @@ impl Lines<'_> {
             look.c.text_muted,
         );
         let left = rect.left() + NUMBER_WIDTH * 2.0 + SIGN_WIDTH;
-        let galley = code(
-            ui,
-            look,
-            self.pane,
-            hunk,
-            index,
-            line,
-            rect.right() - left - TEXT_MARGIN,
-        );
+        let galley = code(ui, look, self.pane, hunk, index, line);
         painter.galley(Pos2::new(left, rect.top()), galley, look.c.text);
         self.click(ui, rect, hunk, index, line.t);
     }
@@ -291,20 +265,19 @@ impl Lines<'_> {
             );
         }
         let text_left = rect.left() + NUMBER_WIDTH + SPLIT_BAR + 6.0;
-        let galley = code(
-            ui,
-            look,
-            self.pane,
-            hunk,
-            index,
-            line,
-            rect.right() - text_left - (TEXT_MARGIN - 6.0),
-        );
+        let galley = code(ui, look, self.pane, hunk, index, line);
         painter.galley(Pos2::new(text_left, rect.top()), galley, c.text);
         self.click(ui, rect, hunk, index, line.t);
     }
 
-    fn hunk_header(&self, ui: &mut Ui, rect: Rect, index: usize, stage_mode: Option<&'static str>) {
+    fn hunk_header(
+        &self,
+        ui: &mut Ui,
+        rect: Rect,
+        visible_right: f32,
+        index: usize,
+        stage_mode: Option<&'static str>,
+    ) {
         let look = self.cx.look();
         let c = &look.c;
         let hunk = &self.pane.diff.as_ref().expect("rows imply a diff").hunks[index];
@@ -348,8 +321,8 @@ impl Lines<'_> {
         };
         let Some(mode) = stage_mode else { return };
         let slot = Rect::from_min_max(
-            Pos2::new(rect.left() + rect.width() / 2.0, rect.top() + 4.0),
-            Pos2::new(rect.right() - 10.0, rect.bottom() - 4.0),
+            Pos2::new((visible_right - 420.0).max(rect.left()), rect.top() + 4.0),
+            Pos2::new(visible_right - 10.0, rect.bottom() - 4.0),
         );
         region(ui, slot, |ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
@@ -459,18 +432,27 @@ pub fn view(
         .current()
         .map(|tab| tab.path.as_str())
         .unwrap_or_default();
-    let mut area = scroll(("diff", repo, key as u8));
+    let mut area =
+        scroll(("diff", repo, key as u8)).scroll_source(egui::scroll_area::ScrollSource::ALL);
+    area = area.scroll([true, true]);
     if let Some(offset) = pane.scroll_to.take() {
         // A position past the end would bounce back, showing nothing on the way.
-        let longest = with_tops(pane, available_width, look.char_width, |tops| {
-            tops.last().copied().unwrap_or(0.0)
-        });
+        let longest = with_tops(pane, |tops| tops.last().copied().unwrap_or(0.0));
         area = area.vertical_scroll_offset(offset.clamp(0.0, (longest - pane.viewport.y).max(0.0)));
     }
     let output = area.show_viewport(ui, |ui, viewport| {
         let origin = ui.max_rect().min;
-        let width = ui.max_rect().width();
-        with_tops(pane, width, look.char_width, |tops| {
+        // As wide as the longest line needs, and at least as wide as the pane.
+        let text = widest(pane) as f32 * look.char_width;
+        let needed = if split {
+            2.0 * (NUMBER_WIDTH + SPLIT_BAR + 6.0 + text + TEXT_MARGIN)
+        } else {
+            NUMBER_WIDTH * 2.0 + SIGN_WIDTH + text + TEXT_MARGIN
+        };
+        let width = needed.max(viewport.width());
+        let seen = origin.x + viewport.min.x;
+        ui.set_width(width);
+        with_tops(pane, |tops| {
             let total = tops.last().copied().unwrap_or(0.0);
             let extra =
                 if diff.truncated { 70.0 } else { 0.0 } + if note.is_some() { 34.0 } else { 0.0 };
@@ -486,7 +468,9 @@ pub fn view(
                     origin + vec2(width, tops[index + 1]),
                 );
                 match pane.rows[index] {
-                    DiffRow::Hunk(hunk) => lines.hunk_header(ui, rect, hunk, shown_mode),
+                    DiffRow::Hunk(hunk) => {
+                        lines.hunk_header(ui, rect, origin.x + viewport.max.x, hunk, shown_mode);
+                    }
                     DiffRow::Line(hunk, line) => lines.unified(ui, rect, hunk, line),
                     DiffRow::Split(hunk, left, right) => {
                         let (a, b) = super::widgets::split_x(rect, rect.width() / 2.0);
@@ -498,7 +482,7 @@ pub fn view(
             let mut y = origin.y + total;
             if diff.truncated {
                 ui.painter().text(
-                    Pos2::new(origin.x + width / 2.0, y + 35.0),
+                    Pos2::new(seen + viewport.width() / 2.0, y + 35.0),
                     Align2::CENTER_CENTER,
                     "Diff truncated — the file is too large to show completely.",
                     look.ui(13.0),
@@ -509,7 +493,7 @@ pub fn view(
             if let Some(note) = note {
                 paint_text(
                     ui.painter(),
-                    Pos2::new(origin.x + 12.0, y + 17.0),
+                    Pos2::new(seen + 12.0, y + 17.0),
                     note,
                     look.ui(12.0),
                     c.text_muted,

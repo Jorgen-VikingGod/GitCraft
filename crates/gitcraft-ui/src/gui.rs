@@ -195,11 +195,21 @@ impl Shell {
     fn take_shot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
-        // GITCRAFT_SHOT_MENU=1 also opens the repository menu, to see how menus look.
-        if shot.frames == 20 && std::env::var_os("GITCRAFT_SHOT_MENU").is_some() {
-            let at = egui::Pos2::new(420.0, 110.0);
-            self.app.cursor = at;
-            self.handle(Message::OpenMenu(crate::actions::MenuRequest::Repository));
+        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split also opens that, to see how it looks.
+        if shot.frames == 20
+            && let Some(what) = std::env::var_os("GITCRAFT_SHOT_OPEN")
+        {
+            let message = match what.to_str() {
+                Some("menu") => {
+                    self.app.cursor = egui::Pos2::new(420.0, 110.0);
+                    Message::OpenMenu(crate::actions::MenuRequest::Repository)
+                }
+                Some("pull") => Message::Action(crate::actions::Action::Pull),
+                Some("changes") => Message::SetView(crate::app::View::Changes),
+                Some("split") => Message::SetSplit(true),
+                _ => return,
+            };
+            self.handle(message);
             return;
         }
         ctx.request_repaint_after(Duration::from_millis(100));
