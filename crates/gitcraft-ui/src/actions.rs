@@ -49,13 +49,9 @@ pub enum Action {
     UndoLast,
     EditMessage(String),
     EditMessageLoaded(String, Result<String, String>),
-    Squash {
-        sha: String,
-        fixup: bool,
-    },
+    Squash(String),
     SquashBase {
         sha: String,
-        fixup: bool,
         base: Result<Option<String>, String>,
     },
     DropCommit(String),
@@ -599,7 +595,7 @@ impl App {
                 .field(Field::area("message", "Message", &message).required());
                 self.ask(form)
             }
-            Action::Squash { sha, fixup } => {
+            Action::Squash(sha) => {
                 let Some(commit) = self.commit_by_sha(&sha).cloned() else { return Task::none() };
                 if commit.parents.len() > 1 {
                     return self.warn("Merge commits cannot be edited this way");
@@ -615,26 +611,32 @@ impl App {
                             .await
                             .map(|detail| detail.parents.first().cloned())
                             .map_err(|error| error.to_string());
-                        (sha, fixup, base)
+                        (sha, base)
                     },
-                    |(sha, fixup, base)| act(Action::SquashBase { sha, fixup, base }),
+                    |(sha, base)| act(Action::SquashBase { sha, base }),
                 )
             }
-            Action::SquashBase { sha, fixup, base } => {
+            Action::SquashBase { sha, base } => {
                 let base = match base {
                     Ok(base) => base,
                     Err(error) => return self.fail("Could not edit the commit", error),
                 };
                 let subject = self.commit_by_sha(&sha).map_or_else(String::new, |commit| commit.subject.clone());
-                let verb = if fixup { "Fixup" } else { "Squash" };
-                let how = if fixup { ", discarding its message" } else { ", combining both messages" };
-                self.ask(Form::confirm(
-                    &format!("{verb} into parent"),
-                    &format!("{verb} \"{subject}\" into its parent commit{how}?"),
-                    verb,
-                    false,
-                    run(Command::QuickRebase { sha, base, action: if fixup { "fixup" } else { "squash" }, message: None }),
-                ))
+                let form = Form::new("Squash into parent", "Squash", move |values: &Values| {
+                    let action = if values.text("mode") == "fixup" { "fixup" } else { "squash" };
+                    run(Command::QuickRebase { sha: sha.clone(), base: base.clone(), action, message: None })
+                })
+                .message(&format!("Fold \"{subject}\" into its parent commit."))
+                .field(Field::select(
+                    "mode",
+                    "Commit message",
+                    "squash",
+                    options(&[
+                        ("squash", "Combine both messages"),
+                        ("fixup", "Keep the parent's message, discard this one"),
+                    ]),
+                ));
+                self.ask(form)
             }
             Action::DropCommit(sha) => {
                 let Some(commit) = self.commit_by_sha(&sha).cloned() else { return Task::none() };
@@ -1319,26 +1321,14 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             act(Action::UndoLast),
         ));
     }
-    // Also at the top level, as it is one of the most common history edits.
-    items.push(MenuItem::entry_if(
-        "Squash into parent…",
-        has_parent,
-        act(Action::Squash {
-            sha: sha.clone(),
-            fixup: false,
-        }),
-    ));
     items.push(MenuItem::sub(
         "Edit commit",
         vec![
             MenuItem::entry("Edit message…", act(Action::EditMessage(sha.clone()))),
             MenuItem::entry_if(
-                "Fixup into parent (discard message)…",
+                "Squash into parent…",
                 has_parent,
-                act(Action::Squash {
-                    sha: sha.clone(),
-                    fixup: true,
-                }),
+                act(Action::Squash(sha.clone())),
             ),
             MenuItem::danger("Drop commit…", act(Action::DropCommit(sha.clone()))),
         ],

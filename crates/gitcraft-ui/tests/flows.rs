@@ -799,12 +799,13 @@ async fn squash_and_message_editing_from_the_commit_menu() {
     let mut app = opened(&f, false).await;
 
     let sha = sha_of(&app, "third");
-    drive(
-        &mut app,
-        Message::Action(Action::Squash { sha, fixup: true }),
-    )
-    .await;
-    assert_eq!(app.form.as_ref().unwrap().title, "Fixup into parent");
+    drive(&mut app, Message::Action(Action::Squash(sha))).await;
+    assert_eq!(app.form.as_ref().unwrap().title, "Squash into parent");
+    let form = app.form.as_mut().unwrap();
+    form.fields[0].kind = gitcraft_ui::form::FieldKind::Select {
+        options: Vec::new(),
+        value: "fixup".into(),
+    };
     drive(&mut app, Message::FormSubmit).await;
     assert_eq!(f.subjects(), ["second", "first"]);
 
@@ -1463,29 +1464,23 @@ async fn settings_fit_a_tall_window_and_scroll_in_a_short_one() {
 }
 
 #[tokio::test]
-async fn the_commit_menu_has_squash_into_parent_at_the_top_level() {
+async fn squash_into_parent_is_in_the_edit_commit_submenu_only() {
     let f = fixture();
     let app = opened(&f, false).await;
     let tab = app.current().unwrap();
-    let top_level = |subject: &str| {
-        let commit = tab.commits.iter().find(|c| c.subject == subject).unwrap();
-        commit_menu_items(tab, commit, None)
-            .into_iter()
-            .find_map(|item| match item {
-                MenuItem::Entry { label, message, .. } if label == "Squash into parent…" => {
-                    Some(message)
-                }
-                _ => None,
-            })
-    };
-    let second = top_level("second commit").expect("listed outside the submenu");
-    assert!(matches!(
-        second,
-        Some(Message::Action(Action::Squash { fixup: false, .. }))
-    ));
-    let first = top_level("first commit").expect("listed for every commit");
+    let commit = tab
+        .commits
+        .iter()
+        .find(|c| c.subject == "second commit")
+        .unwrap();
+    let items = commit_menu_items(tab, commit, None);
+    assert!(!items.iter().any(|item| matches!(
+        item,
+        MenuItem::Entry { label, .. } if label.starts_with("Squash into parent")
+    )));
     assert!(
-        first.is_none(),
-        "but off for the first commit, which has no parent"
+        items
+            .iter()
+            .any(|item| matches!(item, MenuItem::Sub { label, .. } if label == "Edit commit"))
     );
 }
