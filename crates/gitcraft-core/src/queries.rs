@@ -301,7 +301,7 @@ pub async fn working_diff(
 }
 
 pub async fn refs(repo: &str) -> Result<Refs> {
-    let (remotes_out, refs_out, stash_out, sub_out) = tokio::join!(
+    let (remotes_out, refs_out, stash_out, sub_out, tree_out, top) = tokio::join!(
         git(repo, &["remote", "-v"]),
         git(
             repo,
@@ -315,15 +315,23 @@ pub async fn refs(repo: &str) -> Result<Refs> {
         ),
         git_unchecked(repo, &["stash", "list", STASH_FORMAT]),
         git_unchecked(repo, &["submodule", "status"]),
+        git_unchecked(repo, &["worktree", "list", "--porcelain"]),
+        toplevel(repo),
     );
-    let (remotes_out, refs_out, stash_out, sub_out) =
-        (remotes_out?, refs_out?, stash_out?, sub_out?);
+    let (remotes_out, refs_out, stash_out, sub_out, tree_out) =
+        (remotes_out?, refs_out?, stash_out?, sub_out?, tree_out?);
     let remotes = parsers::parse_remotes(&remotes_out.out());
     let names: Vec<String> = remotes.iter().map(|remote| remote.name.clone()).collect();
     let mut data = parsers::parse_refs(&refs_out.out(), &names);
     data.remotes = remotes;
     data.stashes = parsers::parse_stashes(&stash_out.out());
     data.submodules = parsers::parse_submodules(&sub_out.out());
+    data.worktrees = parsers::parse_worktrees(&tree_out.out());
+    if let Ok(top) = top {
+        for tree in &mut data.worktrees {
+            tree.current = tree.path == top;
+        }
+    }
     let head = git_unchecked(repo, &["rev-parse", "HEAD"]).await?;
     data.head = (head.code == 0).then(|| head.out().trim().to_owned());
     Ok(data)

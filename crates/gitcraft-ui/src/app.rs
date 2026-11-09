@@ -336,6 +336,20 @@ impl RepoTab {
             .and_then(|status| status.branch.head.as_deref())
     }
 
+    /// What the tab says about worktrees: "worktree" in a linked one, "N worktrees" in the
+    /// main one while others exist. `None` for a repository with a single working tree.
+    pub fn worktree_note(&self) -> Option<String> {
+        let trees = &self.refs.worktrees;
+        let current = trees.iter().find(|tree| tree.current)?;
+        if !current.main {
+            Some("worktree".to_owned())
+        } else if trees.len() > 1 {
+            Some(format!("{} worktrees", trees.len()))
+        } else {
+            None
+        }
+    }
+
     pub fn visible(&self) -> &[Commit] {
         self.search
             .as_ref()
@@ -759,7 +773,11 @@ impl App {
 
     pub fn title(&self) -> String {
         match self.tabs.get(self.active) {
-            Some(tab) => format!("{} - GitCraft", tab.name),
+            Some(tab) => match (tab.current_branch(), tab.worktree_note()) {
+                (Some(branch), Some(note)) => format!("{} [{branch}, {note}] - GitCraft", tab.name),
+                (None, Some(note)) => format!("{} [{note}] - GitCraft", tab.name),
+                _ => format!("{} - GitCraft", tab.name),
+            },
             None => "GitCraft".to_owned(),
         }
     }

@@ -9,7 +9,7 @@ use super::{Cx, icon};
 use crate::actions::{Action, MenuRequest, RefTarget};
 use crate::app::{Message, RepoTab, View};
 use crate::command::Command;
-use crate::logic::build_tree;
+use crate::logic::{build_tree, short_sha};
 
 const INDENT: f32 = 14.0;
 const BASE_INDENT: f32 = 8.0;
@@ -345,6 +345,13 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     });
 }
 
+/// The folder a working tree lives in, which is what tells several of them apart.
+fn tree_name(tree: &gitcraft_core::model::Worktree) -> String {
+    std::path::Path::new(&tree.path)
+        .file_name()
+        .map_or_else(|| tree.path.clone(), |n| n.to_string_lossy().into_owned())
+}
+
 fn checkout(name: &str, kind: &'static str) -> Message {
     Message::Run(Command::Checkout {
         reference: name.to_owned(),
@@ -596,6 +603,47 @@ fn tags_and_more(
                 cx.send(Message::OpenStash(stash.name.clone()));
             } else if response.secondary_clicked() {
                 cx.send(Message::OpenMenu(MenuRequest::Stash(stash.name.clone())));
+            }
+        }
+    }
+
+    // Worktrees
+    let trees: Vec<_> = tab
+        .refs
+        .worktrees
+        .iter()
+        .filter(|tree| !tree.bare)
+        .filter(|tree| matches(&tree_name(tree)) || tree.branch.as_deref().is_some_and(matches))
+        .collect();
+    section(
+        ui,
+        cx,
+        "s:worktrees",
+        "Worktrees",
+        Some(trees.len()),
+        Some(Message::Action(Action::AddWorktree(None))),
+    );
+    if !collapsed("s:worktrees") {
+        for tree in trees {
+            let mut badges = Vec::new();
+            match (&tree.branch, tree.detached) {
+                (Some(branch), _) => badges.push((branch.clone(), c.text_muted)),
+                (None, true) => badges.push((format!("@{}", short_sha(&tree.sha)), c.text_muted)),
+                _ => {}
+            }
+            if tree.locked {
+                badges.push(("locked".to_owned(), c.text_muted));
+            }
+            if tree.prunable {
+                badges.push(("missing".to_owned(), c.text_muted));
+            }
+            let mut item = simple(tree_name(tree), "worktree", (false, false), badges);
+            item.current = tree.current;
+            let response = leaf(ui, cx, &item).on_hover_text(&tree.path);
+            if response.double_clicked() && !tree.current {
+                cx.send(Message::OpenPath(tree.path.clone()));
+            } else if response.secondary_clicked() {
+                cx.send(Message::OpenMenu(MenuRequest::Worktree(tree.path.clone())));
             }
         }
     }

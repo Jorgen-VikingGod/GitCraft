@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::model::*;
+use crate::paths;
 use crate::text::{lines, mask_urls};
 
 pub const RS: char = '\x1e';
@@ -217,6 +218,42 @@ pub fn parse_remotes(out: &str) -> Vec<Remote> {
         }
     }
     remotes
+}
+
+/// Parses `git worktree list --porcelain`: one block per working tree, separated by blank lines.
+pub fn parse_worktrees(out: &str) -> Vec<Worktree> {
+    let mut trees: Vec<Worktree> = Vec::new();
+    for line in out.lines() {
+        let (key, value) = line.split_once(' ').unwrap_or((line, ""));
+        if key == "worktree" {
+            trees.push(Worktree {
+                path: paths::resolve_str(value),
+                main: trees.is_empty(),
+                ..Worktree::default()
+            });
+            continue;
+        }
+        let Some(tree) = trees.last_mut() else {
+            continue;
+        };
+        match key {
+            "HEAD" => tree.sha = value.to_owned(),
+            "branch" => {
+                tree.branch = Some(
+                    value
+                        .strip_prefix("refs/heads/")
+                        .unwrap_or(value)
+                        .to_owned(),
+                );
+            }
+            "detached" => tree.detached = true,
+            "bare" => tree.bare = true,
+            "locked" => tree.locked = true,
+            "prunable" => tree.prunable = true,
+            _ => {}
+        }
+    }
+    trees
 }
 
 pub fn parse_stashes(out: &str) -> Vec<Stash> {
@@ -1000,5 +1037,18 @@ mod tests {
         let entries = parse_reflog(out);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].subject, "subject\x0cwith\x1cseparators");
+    }
+
+    #[test]
+    fn worktree_list_porcelain() {
+        let out = "worktree /r/main\nHEAD aaa\nbranch refs/heads/main\n\n\
+                   worktree /r/feat\nHEAD bbb\nbranch refs/heads/feat/x\nlocked why\n\n\
+                   worktree /r/old\nHEAD ccc\ndetached\nprunable gone\n";
+        let trees = parse_worktrees(out);
+        assert_eq!(trees.len(), 3);
+        assert!(trees[0].main && !trees[1].main);
+        assert_eq!(trees[1].branch.as_deref(), Some("feat/x"));
+        assert!(trees[1].locked);
+        assert!(trees[2].detached && trees[2].prunable && trees[2].branch.is_none());
     }
 }

@@ -163,6 +163,23 @@ pub struct Stash {
     pub message: String,
 }
 
+/// One working tree of the repository, as listed by `git worktree list`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Worktree {
+    pub path: String,
+    pub sha: String,
+    /// The checked-out branch, without `refs/heads/`; `None` when detached or bare.
+    pub branch: Option<String>,
+    pub detached: bool,
+    pub bare: bool,
+    pub locked: bool,
+    pub prunable: bool,
+    /// The first entry: the working tree that holds the repository itself.
+    pub main: bool,
+    /// The working tree of the repository this query was run on.
+    pub current: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Submodule {
     pub sha: String,
@@ -177,6 +194,7 @@ pub struct Refs {
     pub tags: Vec<Tag>,
     pub remotes: Vec<Remote>,
     pub stashes: Vec<Stash>,
+    pub worktrees: Vec<Worktree>,
     pub submodules: Vec<Submodule>,
     pub head: Option<String>,
 }

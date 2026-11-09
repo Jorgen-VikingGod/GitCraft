@@ -42,6 +42,9 @@ fn tab_width(ui: &Ui, cx: &Cx, tab: &RepoTab) -> f32 {
     if let Some(branch) = tab.current_branch() {
         width += 6.0 + text_width(ui, branch, &look.ui(11.0));
     }
+    if let Some(note) = tab.worktree_note() {
+        width += 6.0 + text_width(ui, &note, &look.ui(11.0));
+    }
     width.min(260.0)
 }
 
@@ -85,12 +88,21 @@ fn tab_view(ui: &mut Ui, cx: &Cx, index: usize, tab: &RepoTab) {
         color,
     ) + 6.0;
     if let Some(branch) = tab.current_branch() {
-        paint_text(
+        x += paint_text(
             &text_area,
             Pos2::new(x, mid),
             branch,
             look.ui(11.0),
             c.text_muted,
+        ) + 6.0;
+    }
+    if let Some(note) = tab.worktree_note() {
+        paint_text(
+            &text_area,
+            Pos2::new(x, mid),
+            &note,
+            look.ui(11.0),
+            c.accent,
         );
     }
     // Inactive tabs only show their close button under the pointer.

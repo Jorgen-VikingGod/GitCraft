@@ -20,6 +20,9 @@ pub enum Action {
     Stash,
     StashFiles(Vec<String>),
     DropStash(String),
+    /// Adds a working tree; `start` is the branch or commit it begins at.
+    AddWorktree(Option<String>),
+    RemoveWorktree(String),
     NewBranch {
         start: Option<String>,
         label: Option<String>,
@@ -104,6 +107,7 @@ pub enum MenuRequest {
         focus: Option<RefTarget>,
     },
     Stash(String),
+    Worktree(String),
     Remote(String),
     Repository,
     /// `area` for a file in Local Changes, `rev` for a file in a commit.
@@ -332,6 +336,30 @@ impl App {
                     run(Command::StashDrop { name }),
                 ))
             }
+            Action::AddWorktree(start) => {
+                let parent = std::path::Path::new(&tab.path).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+                let suggested = join_path(&parent, &format!("{}-worktree", tab.name));
+                let based = start.as_deref().map_or_else(|| head.clone(), |s| short_sha(s).to_owned());
+                let form = Form::new("Add worktree", "Add worktree", move |values: &Values| {
+                    let branch = values.text("branch").split_whitespace().collect::<Vec<_>>().join("-");
+                    run(Command::WorktreeAdd {
+                        path: values.text("path"),
+                        start: start.clone(),
+                        new_branch: (!branch.is_empty()).then_some(branch),
+                    })
+                })
+                .message(&format!("Based on {based}"))
+                .field(Field::text("path", "Folder", &suggested).required())
+                .field(Field::text("branch", "New branch", "").hint("Leave empty to check out detached"));
+                self.ask(form)
+            }
+            Action::RemoveWorktree(path) => self.ask(Form::confirm(
+                "Remove worktree",
+                &format!("Delete the working folder \"{path}\"? Uncommitted changes in it are lost."),
+                "Remove",
+                true,
+                run(Command::WorktreeRemove { path, force: true }),
+            )),
             Action::NewBranch { start, label } => {
                 let based = label.or_else(|| start.as_deref().map(|sha| short_sha(sha).to_owned())).unwrap_or(head);
                 let form = Form::new("New branch", "Create branch", move |values: &Values| {
@@ -891,6 +919,36 @@ impl App {
                 ]);
                 Task::none()
             }
+            MenuRequest::Worktree(path) => {
+                let Some(tree) = self
+                    .current()
+                    .and_then(|tab| tab.refs.worktrees.iter().find(|tree| tree.path == *path))
+                    .cloned()
+                else {
+                    return Task::none();
+                };
+                let mut items = vec![
+                    MenuItem::entry_if(
+                        "Open in new tab",
+                        !tree.current,
+                        Message::OpenPath(tree.path.clone()),
+                    ),
+                    MenuItem::entry("Copy path", Message::Copy(tree.path.clone())),
+                ];
+                if tree.prunable {
+                    items.push(MenuItem::entry(
+                        "Prune stale worktrees",
+                        run(Command::WorktreePrune),
+                    ));
+                } else if !tree.main && !tree.current {
+                    items.push(MenuItem::danger(
+                        "Remove…",
+                        act(Action::RemoveWorktree(tree.path.clone())),
+                    ));
+                }
+                self.menu_at_cursor(items);
+                Task::none()
+            }
             MenuRequest::Remote(name) => {
                 let url = self
                     .current()
@@ -1381,6 +1439,7 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
             }),
         ),
         MenuItem::entry("Add remote…", act(Action::AddRemote)),
+        MenuItem::entry("Add worktree…", act(Action::AddWorktree(None))),
     ];
     if !tab.refs.submodules.is_empty() {
         items.push(MenuItem::entry(
