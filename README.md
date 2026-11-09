@@ -29,6 +29,7 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Interactive rebase** editor: drag to reorder, pick/reword/edit/squash/fixup/drop, keyboard shortcuts.
 - **Conflict resolver**: per-conflict ours/theirs/both choices, editable result, take whole file.
 - **Stashes**: create (incl. untracked / staged only), browse, apply, pop, drop.
+- **Worktrees**: listed in the sidebar with their branch; add, open in a new tab, remove, prune. Tabs and the window title show when a repository is a linked worktree.
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
 - Repository **tabs**, recent repositories, clone, init.
 - Live refresh through file watching, **light/dark** theme, zoom, keyboard shortcuts.
