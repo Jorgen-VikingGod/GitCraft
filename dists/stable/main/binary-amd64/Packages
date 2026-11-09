@@ -1,0 +1,17 @@
+Package: git-craft
+Architecture: amd64
+Version: 0.3.0
+Priority: optional
+Maintainer: Jürgen Könnemann
+Installed-Size: 22134
+Depends: git, libxkbcommon0, libwayland-client0, libgl1
+Filename: pool/main/gitcraft_0.3.0_amd64.deb
+Size: 9533242
+MD5sum: 2efa73b7b96e0bb603d7cf619a80a89c
+SHA1: 727e793962fd8efc3bdbf8f58cc87360f617185a
+SHA256: 89c5c47673da93574dd04f276a5f5635bcfba6ba7df4d7e6a00abb31acc1c78b
+SHA512: 4a8c01d8c9a96133036485aad01d21f08c4aab32c664a21fb12bb6d636b60c0e40da39a36e89810af54e5e43eadef6186a438470a32cffb80a5a2654d3c414aa
+Homepage: https://github.com/Jorgen-VikingGod/GitCraft
+Description: Open-source, cross-platform Git GUI
+ (none)
+

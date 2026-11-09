@@ -1,0 +1,42 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: amd64
+Codename: stable
+Components: main
+Date: Mon, 09 Nov 2026 17:17:53 +0000
+Label: GitCraft
+Origin: GitCraft
+Suite: stable
+MD5Sum:
+ ea1dbb29130be4641278bef81c583ff6              140 Release
+ 5c5fbdc5145d388e357458a931358a78              652 main/binary-amd64/Packages
+ 8621f5cc0f26b0ebd3d0eee967af7da0              496 main/binary-amd64/Packages.gz
+SHA1:
+ 8cecf15fef23a482aaa15f80cdb43abe10ae190b              140 Release
+ e5ab1f7b60307ddaa6fe6c2cdcf67825c71ff3d9              652 main/binary-amd64/Packages
+ e73f5f219a89bc014d7309506fc3ff8b576f2df7              496 main/binary-amd64/Packages.gz
+SHA256:
+ 593ea9be0bc43a3ddf58d24b9b88342a8f00250756932f2ddf683c4e7eb68155              140 Release
+ 09d792e9b667aa83dc1d709a7504c4b7e45c8eb6fa6c97f629fdf6570315ef68              652 main/binary-amd64/Packages
+ fcf9e0b6d2054773ab598e4626e4c778a1984214fdc2cd54ca8495763cbfe02c              496 main/binary-amd64/Packages.gz
+SHA512:
+ b7f18b9c87018184579b9ba5f7ebb9761b7d2b2b02fc2e592977219fe7f6cc5b5dd0aa24a93fe20ecd4448fecc18ae51e94b547a36680135dca8266170883282              140 Release
+ ac3749870b9b173d928ca7766c988cdeb1797371ff09798578c26234fc6ba1e8f2a5d18c0c6429945ff0b0b07359030b3e491a60f0302c4b049fe48611cc0322              652 main/binary-amd64/Packages
+ b239629a137fb286ffae09520f5cbd847d224e2e99f203e907dfa7e5144ca3395e8ba22835eb25fdea07a70d207f75f191170db9784a8b6108abf3810bae2145              496 main/binary-amd64/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEa0Mp+lRXlRgEK6OQ5MbaGCZ+uMgFAmryAEEACgkQ5MbaGCZ+
+uMiaTA//Tl2uTfGAaEavgF21S95IyhJ64dfaICHsAvelb4C2eeF7HFc9CXGbK/Jz
+ZvckjrXo10xZ6bj/GtjpXqAmRg4TwRdrBEXLRPFbUR3MyjhCjg0TxUDU0e4jRM/m
+RQQa+ptTGeOBoNCZJVUIOzz48UEhujYfjuBQWJRJKIDaZ5g7txOl/rxxFZZ+METp
+LgdjnNip0trbA5TY5ti8nqW1e9Ac09CJDySr6oWQdmuImsVhpyXupdCuT0XTQ6HH
+YZVzeQKFBvoGRWFCYHVQhzacU4bH9mXAM1DbS9bo7Sq9loUauUqNSM0GG0ofgmbo
+2Q37N/CeIm7o26E44r+5XLUEYWCIORJDEUJIVwpL0O3dqv6nCaQ6z7po30DS7+2n
+Uqr+HeGwb8wCjCKP9hSeQzim74H5KNELucU2PicZ62zVXI3c0yr4zMjM45t96bW/
+X8fwfqFHj2rxbQi5lRc4RIMw1MK/FJMN7TJl2gaLkVbDu7rKQinoz+c535+N07Zu
+w2p8JWQ0vWgCTS89WBdt4wDIVxI7qyTOpiWPC38T82yfRqPZ7JoO5ZE0cvXlojx5
+U+zRzpD+es8fQ2o4AqooFK98XODr//ZjDhpYYj4LdoimdAG9vhPz6xWMuOn6xj2n
+rGcHYd3VXaVscCQWv2wSThBCpT1jY0wmg4u1M7VMKLKZnlS7l94=
+=mdsh
+-----END PGP SIGNATURE-----

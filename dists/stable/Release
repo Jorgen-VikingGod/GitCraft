@@ -1,0 +1,23 @@
+Architectures: amd64
+Codename: stable
+Components: main
+Date: Mon, 09 Nov 2026 17:17:53 +0000
+Label: GitCraft
+Origin: GitCraft
+Suite: stable
+MD5Sum:
+ ea1dbb29130be4641278bef81c583ff6              140 Release
+ 5c5fbdc5145d388e357458a931358a78              652 main/binary-amd64/Packages
+ 8621f5cc0f26b0ebd3d0eee967af7da0              496 main/binary-amd64/Packages.gz
+SHA1:
+ 8cecf15fef23a482aaa15f80cdb43abe10ae190b              140 Release
+ e5ab1f7b60307ddaa6fe6c2cdcf67825c71ff3d9              652 main/binary-amd64/Packages
+ e73f5f219a89bc014d7309506fc3ff8b576f2df7              496 main/binary-amd64/Packages.gz
+SHA256:
+ 593ea9be0bc43a3ddf58d24b9b88342a8f00250756932f2ddf683c4e7eb68155              140 Release
+ 09d792e9b667aa83dc1d709a7504c4b7e45c8eb6fa6c97f629fdf6570315ef68              652 main/binary-amd64/Packages
+ fcf9e0b6d2054773ab598e4626e4c778a1984214fdc2cd54ca8495763cbfe02c              496 main/binary-amd64/Packages.gz
+SHA512:
+ b7f18b9c87018184579b9ba5f7ebb9761b7d2b2b02fc2e592977219fe7f6cc5b5dd0aa24a93fe20ecd4448fecc18ae51e94b547a36680135dca8266170883282              140 Release
+ ac3749870b9b173d928ca7766c988cdeb1797371ff09798578c26234fc6ba1e8f2a5d18c0c6429945ff0b0b07359030b3e491a60f0302c4b049fe48611cc0322              652 main/binary-amd64/Packages
+ b239629a137fb286ffae09520f5cbd847d224e2e99f203e907dfa7e5144ca3395e8ba22835eb25fdea07a70d207f75f191170db9784a8b6108abf3810bae2145              496 main/binary-amd64/Packages.gz
