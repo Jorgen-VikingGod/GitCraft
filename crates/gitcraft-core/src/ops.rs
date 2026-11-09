@@ -876,6 +876,56 @@ pub async fn stash_drop(repo: &str, name: &str) -> Result<OpResult> {
     Ok(ok(&git(repo, &["stash", "drop", name]).await?))
 }
 
+// ------------------------------------------------------------- worktrees
+
+/// Adds a working tree at `path`. With `new_branch`, that branch is created from `start`
+/// (default HEAD); otherwise `start` is checked out, detached when it is not a local branch.
+pub async fn worktree_add(
+    repo: &str,
+    path: &str,
+    start: Option<&str>,
+    new_branch: Option<&str>,
+) -> Result<OpResult> {
+    if path.trim().is_empty() {
+        return Err(Error::Validation("Choose a folder for the worktree".into()));
+    }
+    let path = check_ref(path)?;
+    let start = start.filter(|s| !s.is_empty()).map(check_ref).transpose()?;
+    let new_branch = new_branch
+        .filter(|b| !b.is_empty())
+        .map(check_ref)
+        .transpose()?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["worktree", "add"];
+    if let Some(branch) = new_branch {
+        args.extend(["-b", branch]);
+    }
+    args.push("--");
+    args.push(path);
+    args.extend(start);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+pub async fn worktree_remove(repo: &str, path: &str, force: bool) -> Result<OpResult> {
+    let path = check_ref(path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["worktree", "remove"];
+    if force {
+        args.push("--force");
+    }
+    args.push("--");
+    args.push(path);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+pub async fn worktree_prune(repo: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["worktree", "prune"]).await?))
+}
+
 // ------------------------------------------------------------- conflicts
 
 pub async fn conflict_versions(repo: &str, path: &str) -> Result<ConflictVersions> {

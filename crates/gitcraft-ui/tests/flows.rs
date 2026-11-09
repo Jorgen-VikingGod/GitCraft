@@ -885,6 +885,33 @@ async fn branch_filter_narrows_history() {
 }
 
 #[tokio::test]
+async fn worktrees_show_in_the_sidebar_data_and_the_tab_title() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    assert!(app.current().unwrap().worktree_note().is_none());
+    assert!(!app.title().contains('['));
+    let wt = f.root.join("wt-feature");
+    drive(
+        &mut app,
+        Message::Run(Command::WorktreeAdd {
+            path: wt.to_str().unwrap().to_owned(),
+            start: None,
+            new_branch: Some("feature".into()),
+        }),
+    )
+    .await;
+    let tab = app.current().unwrap();
+    assert_eq!(tab.refs.worktrees.len(), 2);
+    assert_eq!(tab.worktree_note().as_deref(), Some("2 worktrees"));
+    assert!(app.title().contains("2 worktrees"));
+
+    drive(&mut app, Message::OpenPath(wt.to_str().unwrap().to_owned())).await;
+    let tab = app.current().unwrap();
+    assert_eq!(tab.worktree_note().as_deref(), Some("worktree"));
+    assert!(app.title().contains("feature, worktree"));
+}
+
+#[tokio::test]
 async fn stash_view_reflog_blame_and_file_history() {
     let f = fixture();
     f.write("a.txt", "stashed\n");

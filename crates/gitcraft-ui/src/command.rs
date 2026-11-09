@@ -43,6 +43,16 @@ pub enum Command {
     StashDrop {
         name: String,
     },
+    WorktreeAdd {
+        path: String,
+        start: Option<String>,
+        new_branch: Option<String>,
+    },
+    WorktreeRemove {
+        path: String,
+        force: bool,
+    },
+    WorktreePrune,
     CreateBranch {
         name: String,
         start: Option<String>,
@@ -198,6 +208,9 @@ impl Command {
             Self::StashApply { pop: true, .. } => "Popping stash".into(),
             Self::StashApply { .. } => "Applying stash".into(),
             Self::StashDrop { .. } => "Dropping stash".into(),
+            Self::WorktreeAdd { .. } => "Adding worktree".into(),
+            Self::WorktreeRemove { .. } => "Removing worktree".into(),
+            Self::WorktreePrune => "Pruning worktrees".into(),
             Self::CreateBranch { .. } => "Creating branch".into(),
             Self::Checkout { reference, kind } => {
                 let name = if *kind == "commit" {
@@ -259,6 +272,9 @@ impl Command {
             Self::Push { .. } => "Push complete".into(),
             Self::StashPush { paths: Some(_), .. } => "Files stashed".into(),
             Self::StashPush { .. } => "Changes stashed".into(),
+            Self::WorktreeAdd { path, .. } => format!("Added worktree {path}"),
+            Self::WorktreeRemove { .. } => "Worktree removed".into(),
+            Self::WorktreePrune => "Stale worktrees pruned".into(),
             Self::StashApply { pop: true, .. } => "Stash popped".into(),
             Self::StashApply { .. } => "Stash applied".into(),
             Self::CreateBranch { name, .. } => format!("Created {name}"),
@@ -394,6 +410,13 @@ impl Command {
             }
             Self::StashApply { name, pop } => ops::stash_apply(repo, &name, pop).await,
             Self::StashDrop { name } => ops::stash_drop(repo, &name).await,
+            Self::WorktreeAdd {
+                path,
+                start,
+                new_branch,
+            } => ops::worktree_add(repo, &path, start.as_deref(), new_branch.as_deref()).await,
+            Self::WorktreeRemove { path, force } => ops::worktree_remove(repo, &path, force).await,
+            Self::WorktreePrune => ops::worktree_prune(repo).await,
             Self::CreateBranch {
                 name,
                 start,

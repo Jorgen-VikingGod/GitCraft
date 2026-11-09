@@ -794,6 +794,39 @@ async fn patch_roundtrip() {
 }
 
 #[tokio::test]
+async fn worktree_add_list_remove() {
+    let f = Fixture::with_history();
+    let path = f.root.join("wt");
+    let path_str = path.to_str().unwrap();
+    ops::worktree_add(&f.repo, path_str, None, Some("feature"))
+        .await
+        .unwrap();
+    let refs = queries::refs(&f.repo).await.unwrap();
+    assert_eq!(refs.worktrees.len(), 2);
+    assert!(refs.worktrees[0].main && refs.worktrees[0].current);
+    assert_eq!(refs.worktrees[1].branch.as_deref(), Some("feature"));
+    assert!(!refs.worktrees[1].current);
+    // Seen from inside the linked worktree, that one is the current one.
+    let linked = queries::refs(path_str).await.unwrap();
+    assert!(linked.worktrees[1].current && !linked.worktrees[0].current);
+    // A branch can only be checked out once.
+    assert!(
+        ops::worktree_add(
+            &f.repo,
+            f.root.join("dup").to_str().unwrap(),
+            Some("feature"),
+            None
+        )
+        .await
+        .is_err()
+    );
+    ops::worktree_remove(&f.repo, path_str, false)
+        .await
+        .unwrap();
+    assert_eq!(queries::refs(&f.repo).await.unwrap().worktrees.len(), 1);
+}
+
+#[tokio::test]
 async fn stash_selected_paths() {
     let f = Fixture::with_history();
     f.write("a.txt", "changed\n");

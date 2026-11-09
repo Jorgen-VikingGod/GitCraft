@@ -5,7 +5,7 @@ use std::sync::{Arc, LazyLock};
 
 use egui::{Color32, Image, Rect, Ui, Vec2};
 
-const PATHS: [(&str, &str); 36] = [
+const PATHS: [(&str, &str); 37] = [
     (
         "fetch",
         "M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
@@ -27,6 +27,7 @@ const PATHS: [(&str, &str); 36] = [
         "M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21V9a9 9 0 0 0 9 9",
     ),
     ("stash", "M21 8v13H3V8M1 3h22v5H1zM10 12h4"),
+    ("worktree", "M3 4h8v6H3zM13 14h8v6h-8zM7 10v7h6"),
     (
         "tag",
         "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
