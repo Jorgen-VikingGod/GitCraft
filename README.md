@@ -122,6 +122,15 @@ cargo packager --release --formats deb,appimage     # output goes to target/pack
 | macOS | `dmg` | `.dmg` |
 | Windows | `wix` | `.msi` installer |
 
+On Debian and Ubuntu (64-bit) you can install from the apt repository, which also delivers updates:
+
+```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://jorgen-vikinggod.github.io/GitCraft/gitcraft.gpg | sudo tee /etc/apt/keyrings/gitcraft.gpg >/dev/null
+echo "deb [signed-by=/etc/apt/keyrings/gitcraft.gpg] https://jorgen-vikinggod.github.io/GitCraft stable main" | sudo tee /etc/apt/sources.list.d/gitcraft.list
+sudo apt update && sudo apt install gitcraft
+```
+
 Installers must be built on their own OS. `.github/workflows/release.yml` builds all of them when a
 release is published and attaches them to it (it can also be started by hand from the Actions tab).
 The builds are unsigned, apart from the ad-hoc signature that
