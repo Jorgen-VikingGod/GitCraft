@@ -41,6 +41,10 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-ui/assets/icon.png` | App icon used for the installers |
 | `.github/workflows/rust.yml` | Lint and tests on Linux, macOS and Windows |
 | `.github/workflows/release.yml` | Installers (msi, dmg for both Mac chips, deb, AppImage), attached to a published release |
+| `.github/workflows/apt-repo.yml`, `packaging/apt/` | Signed apt repository on GitHub Pages, updated after each release |
+| `.github/dependabot.yml` | Keeps the pinned actions current |
+| `docs/distribution.md` | Installers, the apt repository and its signing key |
+| `release-notes/vX.Y.Z.md` | One file per release |
 
 ## Setup
 
@@ -104,6 +108,12 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   input caused. Text fields edit a copy of the text and send the new value as a `Message`. Scroll jumps are
   requested through the `scroll_to` cells, which the view consumes.
 
+**CI (`.github/`):**
+- Actions are pinned to a full commit with the version as a comment
+  (`actions/checkout@<sha> # v7.0.1`), and every job starts with `step-security/harden-runner` in audit
+  mode. Use the same pins as HybridSliceCraft; Dependabot moves them together.
+- Release files are attached with `gh release upload`, not a third-party release action.
+
 **All crates:**
 - `unsafe_code` is denied in the workspace, and clippy warnings fail CI.
 - Add dependencies to the crate's `Cargo.toml` and commit `Cargo.lock`. `eframe`, `egui`, `egui_extras` and `native-theme`
@@ -126,6 +136,49 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   `crates/gitcraft-ui/Cargo.toml`. A `.deb` without the icon file still builds without a warning, but the
   AppImage fails with `AppImageSquareIcon`.
 - Installers can only be built on their own OS; use the GitHub workflow for macOS and Windows.
+
+## Git, branches, releases
+
+- Work on a branch, never on `main`; changes land through pull requests on GitHub
+  (`Jorgen-VikingGod/GitCraft`). Branch names: `feature/...`, `fix/...`, `docs/...`, `release/X.Y.Z`.
+- Commit subject: what changed, in a plain sentence (`Add git worktree support`, `Publish a signed apt
+  repository on GitHub Pages`). The body explains why. Write `Closes #N` when it fixes an issue.
+- Don't touch the apt signing setup or the secrets named in `docs/distribution.md` unless asked.
+
+## Making a release
+
+A release is version `X.Y.Z`. The tag is `vX.Y.Z`, and the GitHub release is named `GitCraft X.Y.Z`.
+
+1. **Branch** `release/X.Y.Z` from an up-to-date `main`.
+2. **Write the release notes** as `release-notes/vX.Y.Z.md`, in the form of the latest one: an opening
+   line `**GitCraft X.Y.Z** ...` summing up the release, then `## Added` / `## Changed` / `## Fixed`
+   lists with short bold lead-ins, then `## Downloads`. Collect the content from
+   `git log vPREVIOUS..main` and leave out internal changes the user never sees.
+3. **Bump the version** in one commit named `Release X.Y.Z`: `version` in `[workspace.package]` of the
+   root `Cargo.toml`, `Cargo.lock` (run `cargo build` so it follows), the feature list in `README.md`
+   if the release adds a feature, and the new release notes.
+4. **Check it:** the three commands under "Test and build" pass.
+5. **Push** the branch and open a pull request named `Release X.Y.Z` into `main`.
+6. **After the merge, tag the merge commit** on `main` and push the tag:
+
+       git checkout main && git pull
+       git tag vX.Y.Z
+       git push origin vX.Y.Z
+
+7. **Publish the GitHub release** from that tag:
+
+       gh release create vX.Y.Z --title "GitCraft X.Y.Z" --notes-file release-notes/vX.Y.Z.md
+
+   This starts `release.yml` (installers) and then `apt-repo.yml`. Check that both runs finish and that
+   the files are attached to the release.
+
+Pushing, tagging and publishing are visible to everyone and start the release builds. Do steps 5 to 7
+only when the maintainer has asked for the release, and confirm before each one.
+
+## Not yet proven
+
+The installers aren't code-signed. Don't claim that a change "works on Windows/macOS" unless it was
+checked there: CI runs the tests on all three, which is not the same as using the app.
 
 ## Project rules
 
