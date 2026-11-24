@@ -225,6 +225,83 @@ pub fn clone_link(link: &str) -> Option<String> {
     safe.then_some(url)
 }
 
+/// How a git setting is entered in Settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingKind {
+    /// Free text, with a hint.
+    Text(&'static str),
+    /// One of these (value, English label); "" is "not set".
+    Choice(&'static [(&'static str, &'static str)]),
+}
+
+const YES_NO: &[(&str, &str)] = &[("", "Not set"), ("true", "Yes"), ("false", "No")];
+
+/// The git settings shown in Settings › Git, by key (lower case, as git lists them), with
+/// their English label.
+pub const GIT_SETTINGS: [(&str, &str, SettingKind); 11] = [
+    (
+        "user.name",
+        "Name",
+        SettingKind::Text("Your name, as commits show it"),
+    ),
+    ("user.email", "Email", SettingKind::Text("you@example.com")),
+    (
+        "commit.gpgsign",
+        "Sign commits",
+        SettingKind::Choice(YES_NO),
+    ),
+    (
+        "tag.gpgsign",
+        "Sign annotated tags",
+        SettingKind::Choice(YES_NO),
+    ),
+    (
+        "gpg.format",
+        "Signing with",
+        SettingKind::Choice(&[
+            ("", "Not set (GPG)"),
+            ("openpgp", "GPG"),
+            ("ssh", "An SSH key"),
+            ("x509", "X.509 (S/MIME)"),
+        ]),
+    ),
+    (
+        "user.signingkey",
+        "Signing key",
+        SettingKind::Text("A GPG key id, or an SSH key file"),
+    ),
+    (
+        "gpg.ssh.allowedsignersfile",
+        "Allowed signers file",
+        SettingKind::Text("To check SSH signatures"),
+    ),
+    (
+        "core.autocrlf",
+        "Line endings",
+        SettingKind::Choice(&[
+            ("", "Not set"),
+            ("true", "CRLF in the working tree (Windows)"),
+            ("input", "LF in commits, as written in the working tree"),
+            ("false", "Leave them as they are"),
+        ]),
+    ),
+    (
+        "init.defaultbranch",
+        "First branch of new repositories",
+        SettingKind::Text("main"),
+    ),
+    (
+        "rerere.enabled",
+        "Remember conflict resolutions (rerere)",
+        SettingKind::Choice(YES_NO),
+    ),
+    (
+        "core.hookspath",
+        "Hooks folder",
+        SettingKind::Text(".git/hooks"),
+    ),
+];
+
 /// How a signature's state is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -643,6 +720,17 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_git_setting_shown_is_one_the_core_changes() {
+        for (key, _, _) in GIT_SETTINGS {
+            assert!(gitcraft_core::queries::CONFIG_KEYS.contains(&key), "{key}");
+        }
+        assert_eq!(
+            GIT_SETTINGS.len(),
+            gitcraft_core::queries::CONFIG_KEYS.len()
+        );
+    }
 
     #[test]
     fn clone_links_give_https_urls_only() {

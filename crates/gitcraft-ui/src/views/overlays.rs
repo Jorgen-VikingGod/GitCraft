@@ -1700,6 +1700,75 @@ fn settings(ctx: &Context, cx: &Cx) {
                         cx.send(Message::SetCommitGraph(on));
                     }
                 });
+                group(ui, cx, "Git", |ui| {
+                    let state = &cx.app.git_config;
+                    let has_repo = cx.app.current().is_some();
+                    ui.horizontal(|ui| {
+                        if let Some(chosen) = segmented(
+                            ui,
+                            look,
+                            ["Everywhere", "This repository"],
+                            usize::from(state.here),
+                        ) && (chosen == 0 || has_repo)
+                        {
+                            cx.send(Message::GitConfigScope(chosen == 1));
+                        }
+                    });
+                    let hint = if state.here {
+                        "Only for this repository; empty fields use the settings for everywhere."
+                    } else {
+                        "Your settings for every repository (git config --global)."
+                    };
+                    ui.add(
+                        egui::Label::new(RichText::new(tr(hint)).size(12.0).color(c.text_muted))
+                            .wrap(),
+                    );
+                    if state.loading {
+                        placeholder(ui, look, "Loading…");
+                        return;
+                    }
+                    Grid::new("git-config")
+                        .num_columns(2)
+                        .spacing([24.0, 8.0])
+                        .show(ui, |ui| {
+                            for (key, label, kind) in crate::logic::GIT_SETTINGS {
+                                ui.label(tr(label));
+                                let value = state.shown(key);
+                                match kind {
+                                    crate::logic::SettingKind::Text(hint) => {
+                                        let (_, changed) = line_edit(
+                                            ui,
+                                            ("git-config", key),
+                                            value,
+                                            hint,
+                                            230.0,
+                                            look.ui(look.text_size),
+                                        );
+                                        if let Some(text) = changed {
+                                            cx.send(Message::GitConfigEdit(key.to_owned(), text));
+                                        }
+                                    }
+                                    crate::logic::SettingKind::Choice(options) => {
+                                        let options: Vec<(String, String)> = options
+                                            .iter()
+                                            .map(|(value, label)| {
+                                                ((*value).to_owned(), tr(label).to_owned())
+                                            })
+                                            .collect();
+                                        if let Some(chosen) =
+                                            choice(ui, ("git-config", key), &options, value, 230.0)
+                                        {
+                                            cx.send(Message::GitConfigEdit(key.to_owned(), chosen));
+                                        }
+                                    }
+                                }
+                                ui.end_row();
+                            }
+                        });
+                    if accent(ui, look, "Save git settings", !state.changed().is_empty()) {
+                        cx.send(Message::GitConfigSave);
+                    }
+                });
                 group(ui, cx, "Keyboard shortcuts", |ui| {
                     Grid::new("shortcuts")
                         .num_columns(2)

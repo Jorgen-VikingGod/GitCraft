@@ -75,6 +75,9 @@ installed `git`, so it behaves the same as git on the command line and uses your
   commits or those since a date, without submodules, blobless, or only some folders (sparse).
 - Live refresh through file watching, **light/dark** theme that follows the system, zoom, keyboard
   shortcuts, and a menu bar with the shortcuts beside each command.
+- **Git settings** in *Settings › Git*, everywhere or for one repository: name and email, commit and
+  tag signing (GPG, SSH or X.509, key, allowed signers), line endings, first branch name, rerere, hooks
+  folder.
 - **Languages**: English, German, French and Spanish (*View › Language*, or the system's language).
 - On most desktops GitCraft draws its own title bar, with the window buttons in the desktop's look and
   order (GNOME, KDE, Windows); on macOS the traffic lights sit in it, and tiling window managers keep

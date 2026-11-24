@@ -2,6 +2,7 @@
 (empty)	(leer)	(vide)	(vacío)
 (none)	(keiner)	(aucune)	(ninguno)
 (root commit)	(Wurzel-Commit)	(commit racine)	(commit raíz)
+.git/hooks	.git/hooks	.git/hooks	.git/hooks
 /src/	/src/	/src/	/src/
 1 branch	1 Branch	1 branche	1 rama
 1 commit	1 Commit	1 commit	1 commit
@@ -13,6 +14,7 @@
 1 more file	1 weitere Datei	1 autre fichier	1 archivo más
 1 pattern	1 Muster	1 motif	1 patrón
 A date, such as 2024-01-01	Ein Datum, etwa 2024-01-01	Une date, par exemple 2024-01-01	Una fecha, por ejemplo 2024-01-01
+A GPG key id, or an SSH key file	Eine GPG-Schlüssel-ID oder eine SSH-Schlüsseldatei	Un identifiant de clé GPG, ou un fichier de clé SSH	Un id de clave GPG o un archivo de clave SSH
 A locked worktree isn't pruned or removed, even when its folder is gone for a while (on a drive that isn't plugged in, say): {path}	Ein gesperrter Worktree wird weder bereinigt noch entfernt, auch wenn sein Ordner eine Weile fehlt (etwa auf einem nicht angeschlossenen Laufwerk): {path}	Un arbre de travail verrouillé n’est ni nettoyé ni supprimé, même si son dossier disparaît un moment (sur un disque débranché, par exemple) : {path}	Un árbol de trabajo bloqueado no se poda ni se elimina, aunque su carpeta falte un tiempo (en una unidad desconectada, por ejemplo): {path}
 A merge commit is taken as its changes against one parent: choose the mainline it was merged into.	Ein Merge-Commit wird als seine Änderungen gegenüber einem Elternteil übernommen: Wähle die Hauptlinie, in die er gemergt wurde.	Un commit de fusion est appliqué comme ses modifications par rapport à un parent : choisissez la ligne principale dans laquelle il a été fusionné.	Un commit de fusión se aplica como sus cambios respecto a un padre: elige la línea principal en la que se fusionó.
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
@@ -47,6 +49,7 @@ All conflicts resolved. Continue to finish.	Alle Konflikte gelöst. Zum Abschlie
 All of them; or a number, such as 50	Alle; oder eine Zahl, etwa 50	Tous ; ou un nombre, par exemple 50	Todos; o un número, por ejemplo 50
 All ours	Alles von uns	Tout le nôtre	Todo lo nuestro
 All theirs	Alles von ihnen	Tout le leur	Todo lo suyo
+Allowed signers file	Datei der zugelassenen Signierer	Fichier des signataires autorisés	Archivo de firmantes permitidos
 Also delete from all remotes	Auch auf allen Remotes löschen	Supprimer aussi de tous les dépôts distants	Eliminar también de todos los remotos
 Also delete ignored files (build output, dependencies…)	Auch ignorierte Dateien löschen (Build-Ausgaben, Abhängigkeiten…)	Supprimer aussi les fichiers ignorés (sorties de compilation, dépendances…)	Eliminar también los archivos ignorados (compilaciones, dependencias…)
 Also delete their branches on the remote	Auch ihre Branches auf dem Remote löschen	Supprimer aussi leurs branches sur le dépôt distant	Eliminar también sus ramas en el remoto
@@ -57,6 +60,7 @@ Amend a pushed commit	Bereits gepushten Commit ändern	Modifier un commit déjà
 Amend commit	Commit ergänzen	Modifier le commit	Enmendar commit
 Amend last commit	Letzten Commit ergänzen	Modifier le dernier commit	Enmendar el último commit
 Amending commit	Commit wird ergänzt	Modification du commit	Enmendando commit
+An SSH key	Einem SSH-Schlüssel	Une clé SSH	Una clave SSH
 Appearance	Darstellung	Apparence	Apariencia
 Apply	Anwenden	Appliquer	Aplicar
 Apply changes only, staged (git apply)	Nur Änderungen anwenden, vorgemerkt (git apply)	Appliquer seulement les modifications, indexées (git apply)	Aplicar solo los cambios, preparados (git apply)
@@ -202,6 +206,8 @@ Could not load diff	Diff konnte nicht geladen werden	Impossible de charger le di
 Could not load stash	Stash konnte nicht geladen werden	Impossible de charger la remise	No se pudo cargar el stash
 Could not load the commit message	Commit-Nachricht konnte nicht geladen werden	Impossible de charger le message du commit	No se pudo cargar el mensaje del commit
 Could not open the file	Datei konnte nicht geöffnet werden	Impossible d’ouvrir le fichier	No se pudo abrir el archivo
+Could not read git's settings	Die Einstellungen von git konnten nicht gelesen werden	Impossible de lire les réglages de git	No se pudieron leer los ajustes de git
+Could not save git's settings	Die Einstellungen von git konnten nicht gespeichert werden	Impossible d’enregistrer les réglages de git	No se pudieron guardar los ajustes de git
 Could not save settings: {error}	Einstellungen konnten nicht gespeichert werden: {error}	Impossible d’enregistrer les paramètres : {error}	No se pudieron guardar los ajustes: {error}
 Could not save the recent list: {error}	Liste der zuletzt geöffneten konnte nicht gespeichert werden: {error}	Impossible d’enregistrer la liste récente : {error}	No se pudo guardar la lista de recientes: {error}
 Could not show the file	Datei konnte nicht angezeigt werden	Impossible d’afficher le fichier	No se pudo mostrar el archivo
@@ -214,6 +220,7 @@ Created tag {name}	Tag {name} erstellt	Tag {name} créé	Etiqueta {name} creada
 Created {name}	{name} erstellt	{name} créée	{name} creada
 Creating branch	Branch wird erstellt	Création de la branche	Creando rama
 Creating tag	Tag wird erstellt	Création du tag	Creando etiqueta
+CRLF in the working tree (Windows)	CRLF im Arbeitsverzeichnis (Windows)	CRLF dans le répertoire de travail (Windows)	CRLF en el directorio de trabajo (Windows)
 Current branch	Aktueller Branch	Branche actuelle	Rama actual
 Dark	Dunkel	Sombre	Oscuro
 Date	Datum	Date	Fecha
@@ -284,12 +291,14 @@ Edit message…	Nachricht bearbeiten…	Modifier le message…	Editar mensaje…
 Edit remote	Remote bearbeiten	Modifier le dépôt distant	Editar remoto
 edited by hand	von Hand bearbeitet	modifié à la main	editado a mano
 Edit…	Bearbeiten…	Modifier…	Editar…
+Email	E-Mail	E-mail	Correo
 Empty: push to the URL above	Leer: an die URL oben pushen	Vide : pousser vers l’URL ci-dessus	Vacío: enviar a la URL de arriba
 End bisect	Bisect beenden	Terminer la bisection	Terminar bisección
 Ending bisect	Bisect wird beendet	Fin de la bisection	Terminando bisección
 Every file is checked out again	Alle Dateien sind wieder ausgecheckt	Tous les fichiers sont de nouveau extraits	Todos los archivos vuelven a estar extraídos
 Every position HEAD and each branch have been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD und die einzelnen Branches waren. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Chaque position où HEAD et chaque branche se sont trouvés. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que han estado HEAD y cada rama. Haz clic derecho en una entrada para todas las acciones de commit.
 Every position HEAD has been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD war. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Toutes les positions occupées par HEAD. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que ha estado HEAD. Haz clic derecho en una entrada para ver todas las acciones de commit.
+Everywhere	Überall	Partout	En todas partes
 Exit	Beenden	Quitter	Salir
 Expect a conflict in {path}.	Ein Konflikt in {path} ist zu erwarten.	Un conflit est attendu dans {path}.	Se espera un conflicto en {path}.
 Expect conflicts in {files}: {names}	Konflikte in {files} zu erwarten: {names}	Conflits attendus dans {files} : {names}	Se esperan conflictos en {files}: {names}
@@ -322,6 +331,7 @@ Filter history…	Verlauf filtern…	Filtrer l’historique…	Filtrar historial
 Filtered history: {commits} {filters}	Gefilterter Verlauf: {commits} {filters}	Historique filtré : {commits} {filters}	Historial filtrado: {commits} {filters}
 First bad commit: {commit}	Erster fehlerhafter Commit: {commit}	Premier commit cassé : {commit}	Primer commit roto: {commit}
 First branch	Erster Branch	Première branche	Primera rama
+First branch of new repositories	Erster Branch neuer Repositorys	Première branche des nouveaux dépôts	Primera rama de los repositorios nuevos
 Fixup commit for {commit} created; an interactive rebase with autosquash folds it in	Fixup-Commit für {commit} erstellt; ein interaktiver Rebase mit Autosquash fügt ihn ein	Commit fixup pour {commit} créé ; un rebase interactif avec autosquash l’intègre	Commit fixup para {commit} creado; un rebase interactivo con autosquash lo integra
 Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen	Commit fixup des modifications indexées	Commit fixup de los cambios preparados
 Fold “{subject}” into its parent commit.	„{subject}“ in den Eltern-Commit einfalten.	Fusionner « {subject} » dans son commit parent.	Integrar «{subject}» en su commit padre.
@@ -333,6 +343,8 @@ Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer
 Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
 Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
+Git	Git	Git	Git
+Git settings saved	Git-Einstellungen gespeichert	Réglages git enregistrés	Ajustes de git guardados
 Git's default, such as main	Standard von git, etwa main	Celle par défaut de git, par exemple main	La predeterminada de git, como main
 Give at least one folder or pattern, or turn sparse checkout off	Gib mindestens einen Ordner oder ein Muster an oder schalte Sparse-Checkout aus	Indiquez au moins un dossier ou un motif, ou désactivez l’extraction partielle	Indica al menos una carpeta o un patrón, o desactiva el checkout parcial
 Give both ranges, such as main..topic	Gib beide Bereiche an, etwa main..topic	Indiquez les deux plages, par exemple main..topic	Indica ambos rangos, por ejemplo main..topic
@@ -342,6 +354,7 @@ Good signature	Gültige Signatur	Signature valide	Firma válida
 Good signature by an expired key	Gültige Signatur mit abgelaufenem Schlüssel	Signature valide par une clé expirée	Firma válida con una clave caducada
 Good signature, but it has expired	Gültige Signatur, aber abgelaufen	Signature valide, mais expirée	Firma válida, pero caducada
 Good signature, key of unknown trust	Gültige Signatur, Schlüssel mit unbekanntem Vertrauen	Signature valide, clé de confiance inconnue	Firma válida, clave de confianza desconocida
+GPG	GPG	GPG	GPG
 Hard reset	Harter Reset	Réinitialisation dure	Reset duro
 Hard: discard all changes	Hart: alle Änderungen verwerfen	Dur : supprimer toutes les modifications	Duro: descartar todos los cambios
 Help	Hilfe	Aide	Ayuda
@@ -352,6 +365,7 @@ Hide Others	Andere ausblenden	Masquer les autres	Ocultar otros
 Hide {app}	{app} ausblenden	Masquer {app}	Ocultar {app}
 History of its folder	Verlauf seines Ordners	Historique de son dossier	Historial de su carpeta
 History rewritten	Verlauf neu geschrieben	Historique réécrit	Historial reescrito
+Hooks folder	Hooks-Ordner	Dossier des hooks	Carpeta de hooks
 Housekeeping git otherwise does now and then by itself. Nothing in the history or the working tree changes.	Hausarbeit, die git sonst ab und zu von selbst erledigt. Weder Verlauf noch Arbeitsverzeichnis ändern sich.	Le ménage que git fait sinon de temps en temps tout seul. Rien ne change dans l’historique ni dans le répertoire de travail.	Tareas que git hace de vez en cuando por sí solo. No cambia nada en el historial ni en el directorio de trabajo.
 How	Wie	Comment	Cómo
 Ignore	Ignorieren	Ignorer	Ignorar
@@ -391,7 +405,10 @@ Last commit undone; its changes are staged	Letzter Commit rückgängig gemacht; 
 Layout	Ansicht	Disposition	Diseño
 Leave empty to check out detached	Leer lassen, um losgelöst auszuchecken	Laisser vide pour extraire en HEAD détachée	Déjalo vacío para cambiar en modo separado
 Leave empty to check out {branch}	Leer lassen, um {branch} auszuchecken	Laisser vide pour extraire {branch}	Déjalo vacío para extraer {branch}
+Leave them as they are	So lassen, wie sie sind	Les laisser tels quels	Dejarlos como están
+LF in commits, as written in the working tree	LF in Commits, im Arbeitsverzeichnis wie geschrieben	LF dans les commits, tel qu’écrit dans le répertoire de travail	LF en los commits, tal como se escribe en el directorio de trabajo
 Light	Hell	Clair	Claro
+Line endings	Zeilenenden	Fins de ligne	Finales de línea
 Line staging is disabled while “Ignore whitespace” is on.	Zeilenweises Vormerken ist aus, solange „Leerraum ignorieren“ an ist.	L’indexation par ligne est désactivée tant que « Ignorer les espaces » est activé.	Preparar líneas está desactivado mientras «Ignorar espacios» esté activado.
 Live refresh stopped for {path}	Automatisches Aktualisieren für {path} beendet	Actualisation automatique arrêtée pour {path}	Actualización automática detenida para {path}
 Load more commits	Weitere Commits laden	Charger plus de commits	Cargar más commits
@@ -408,6 +425,7 @@ Lock worktree	Worktree sperren	Verrouiller l’arbre de travail	Bloquear árbol 
 locked	gesperrt	verrouillé	bloqueado
 Locking worktree	Worktree wird gesperrt	Verrouillage de l’arbre de travail	Bloqueando el árbol de trabajo
 Lock…	Sperren…	Verrouiller…	Bloquear…
+main	main	main	main
 main..topic	main..topic	main..topic	main..topic
 main..topic@{1}	main..topic@{1}	main..topic@{1}	main..topic@{1}
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
@@ -461,6 +479,7 @@ New tag	Neues Tag	Nouveau tag	Etiqueta nueva
 New tag here…	Neues Tag hier…	Nouveau tag ici…	Etiqueta nueva aquí…
 New worktree here…	Neuer Worktree hier…	Nouvel arbre de travail ici…	Nuevo árbol de trabajo aquí…
 New…	Neu…	Nouveau…	Nuevo…
+No	Nein	Non	No
 No branches	Keine Branches	Aucune branche	No hay ramas
 No branches to clean up	Keine Branches zum Aufräumen	Aucune branche à nettoyer	No hay ramas que limpiar
 No commits between the base and HEAD.	Keine Commits zwischen Basis und HEAD.	Aucun commit entre la base et HEAD.	No hay commits entre la base y HEAD.
@@ -480,6 +499,8 @@ No stashes	Keine Stashes	Aucune remise	No hay stashes
 No tags	Keine Tags	Aucun tag	No hay etiquetas
 No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non indexée	No hay cambios sin preparar
 No upstream	Kein Upstream	Pas d’amont	Sin upstream
+Not set	Nicht gesetzt	Non défini	Sin definir
+Not set (GPG)	Nicht gesetzt (GPG)	Non défini (GPG)	Sin definir (GPG)
 Nothing	Nichts	Rien	Nada
 Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún no hay nada preparado
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
@@ -489,6 +510,7 @@ One per line, such as /src/; empty for everything	Einer pro Zeile, etwa /src/; l
 Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
 Only commits since	Nur Commits seit	Seulement les commits depuis	Solo los commits desde
+Only for this repository; empty fields use the settings for everywhere.	Nur für dieses Repository; leere Felder nehmen die Einstellungen für überall.	Uniquement pour ce dépôt ; les champs vides reprennent les réglages valables partout.	Solo para este repositorio; los campos vacíos usan los ajustes de todas partes.
 Only in this repository	Nur in diesem Repository	Uniquement dans ce dépôt	Solo en este repositorio
 Only the files these patterns match are checked out. Change them, or check out every file again.	Nur die Dateien, auf die diese Muster passen, sind ausgecheckt. Ändere sie oder checke wieder alle Dateien aus.	Seuls les fichiers correspondant à ces motifs sont extraits. Modifiez-les, ou extrayez de nouveau tous les fichiers.	Solo se extraen los archivos que coinciden con estos patrones. Cámbialos o vuelve a extraer todos los archivos.
 Only the newest commits	Nur die neuesten Commits	Seulement les commits les plus récents	Solo los commits más recientes
@@ -575,6 +597,7 @@ Reflog	Reflog	Reflog	Reflog
 Reflog (recover lost commits)…	Reflog (verlorene Commits wiederfinden)…	Reflog (récupérer des commits perdus)…	Reflog (recuperar commits perdidos)…
 Refresh	Aktualisieren	Actualiser	Actualizar
 Refresh repository	Repository aktualisieren	Actualiser le dépôt	Actualizar el repositorio
+Remember conflict resolutions (rerere)	Konfliktlösungen merken (rerere)	Mémoriser les résolutions de conflits (rerere)	Recordar las resoluciones de conflictos (rerere)
 Remote	Remote	Dépôt distant	Remoto
 Remote branch	Remote-Branch	Branche distante	Rama remota
 Remotes	Remotes	Dépôts distants	Remotos
@@ -647,6 +670,7 @@ Save & mark resolved	Speichern & als gelöst markieren	Enregistrer et marquer co
 Save anyway	Trotzdem speichern	Enregistrer quand même	Guardar de todos modos
 Save as patch…	Als Patch speichern…	Enregistrer comme patch…	Guardar como parche…
 Save commits from here to HEAD as patches…	Commits von hier bis HEAD als Patches speichern…	Enregistrer les commits d’ici à HEAD comme patchs…	Guardar los commits desde aquí hasta HEAD como parches…
+Save git settings	Git-Einstellungen speichern	Enregistrer les réglages git	Guardar los ajustes de git
 Save local changes as patch…	Lokale Änderungen als Patch speichern…	Enregistrer les modifications locales comme patch…	Guardar los cambios locales como parche…
 Save message	Nachricht speichern	Enregistrer le message	Guardar mensaje
 Save patch	Patch speichern	Enregistrer le patch	Guardar parche
@@ -682,10 +706,14 @@ Show stashes in the history	Stashes im Verlauf zeigen	Afficher les remises dans 
 Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.	Zeigt, wie sich zwei Fassungen einer Commit-Reihe unterscheiden, etwa ein Branch vor und nach einem Rebase: welche Commits übereinstimmen, welche sich geändert haben und wie.	Montre en quoi deux versions d’une série de commits diffèrent, comme une branche avant et après un rebase : quels commits correspondent, lesquels ont changé et comment.	Muestra en qué se diferencian dos versiones de una serie de commits, como una rama antes y después de un rebase: qué commits coinciden, cuáles cambiaron y cómo.
 Shows only the commits that match every filled-in field.	Zeigt nur Commits, die zu allen ausgefüllten Feldern passen.	N’affiche que les commits qui correspondent à tous les champs remplis.	Muestra solo los commits que coinciden con todos los campos rellenados.
 Side by side	Nebeneinander	Côte à côte	En paralelo
+Sign annotated tags	Annotierte Tags signieren	Signer les tags annotés	Firmar etiquetas anotadas
+Sign commits	Commits signieren	Signer les commits	Firmar commits
 Sign off (Signed-off-by line)	Abzeichnen (Signed-off-by-Zeile)	Signer (ligne Signed-off-by)	Firmar (línea Signed-off-by)
 Signature	Signatur	Signature	Firma
 Signed by a revoked key	Mit einem widerrufenen Schlüssel signiert	Signé par une clé révoquée	Firmado con una clave revocada
 Signed, but it can't be checked here	Signiert, lässt sich hier aber nicht prüfen	Signé, mais impossible à vérifier ici	Firmado, pero no se puede comprobar aquí
+Signing key	Signaturschlüssel	Clé de signature	Clave de firma
+Signing with	Signieren mit	Signer avec	Firmar con
 Skip	Überspringen	Passer	Omitir
 Skip (can't be tested)	Überspringen (nicht testbar)	Ignorer (impossible à tester)	Omitir (no se puede probar)
 Skip commit hooks	Commit-Hooks überspringen	Ignorer les hooks de commit	Omitir los hooks de commit
@@ -784,10 +812,12 @@ There is no main or master branch to compare with.	Es gibt keinen main- oder mas
 This commit has no file changes	Dieser Commit ändert keine Dateien	Ce commit ne modifie aucun fichier	Este commit no cambia ningún archivo
 this hunk	diesen Abschnitt	ce bloc	este bloque
 This link can't be opened	Dieser Link lässt sich nicht öffnen	Ce lien ne peut pas être ouvert	Este enlace no se puede abrir
+This repository	Dieses Repository	Ce dépôt	Este repositorio
 This repository has no remote to push to or fetch from yet.	Dieses Repository hat noch kein Remote zum Pushen oder Abrufen.	Ce dépôt n’a encore aucun dépôt distant vers lequel pousser ou depuis lequel récupérer.	Este repositorio aún no tiene un remoto al que enviar o del que obtener.
 This repository has no remotes	Dieses Repository hat keine Remotes	Ce dépôt n’a aucun dépôt distant	Este repositorio no tiene remotos
 This repository has no remotes. Add one from the sidebar first.	Dieses Repository hat keine Remotes. Füge zuerst eines über die Seitenleiste hinzu.	Ce dépôt n’a aucun dépôt distant. Ajoutez-en un depuis la barre latérale.	Este repositorio no tiene remotos. Añade uno primero desde la barra lateral.
 Tidying up the repository	Repository wird aufgeräumt	Nettoyage du dépôt	Ordenando el repositorio
+To check SSH signatures	Zum Prüfen von SSH-Signaturen	Pour vérifier les signatures SSH	Para comprobar firmas SSH
 tomorrow	morgen	demain	mañana
 Track remote branch (set upstream)	Remote-Branch verfolgen (Upstream setzen)	Suivre la branche distante (définir l’amont)	Seguir la rama remota (establecer upstream)
 Tracking branch	Verfolgter Branch	Branche suivie	Rama de seguimiento
@@ -839,7 +869,12 @@ Worktree removed	Worktree entfernt	Arbre de travail retiré	Árbol de trabajo qu
 Worktree unlocked	Worktree entsperrt	Arbre de travail déverrouillé	Árbol de trabajo desbloqueado
 Worktrees	Worktrees	Arbres de travail	Árboles de trabajo
 Write the commit-graph, which speeds up the history	Den Commit-Graph schreiben, der den Verlauf beschleunigt	Écrire le commit-graph, qui accélère l’historique	Escribir el commit-graph, que acelera el historial
+X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)
+Yes	Ja	Oui	Sí
 yesterday	gestern	hier	ayer
+you@example.com	du@example.com	vous@example.com	tu@example.com
+Your name, as commits show it	Dein Name, wie Commits ihn zeigen	Votre nom, tel que les commits l’affichent	Tu nombre, como lo muestran los commits
+Your settings for every repository (git config --global).	Deine Einstellungen für alle Repositorys (git config --global).	Vos réglages pour tous les dépôts (git config --global).	Tus ajustes para todos los repositorios (git config --global).
 Zoom	Zoom	Zoom	Zoom
 Zoom in	Vergrößern	Zoom avant	Acercar
 Zoom out	Verkleinern	Zoom arrière	Alejar

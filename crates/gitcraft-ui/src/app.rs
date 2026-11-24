@@ -840,6 +840,8 @@ pub struct App {
     pub effects: Vec<Effect>,
     /// The merge or rebase target whose dialog waits for a conflict check.
     pub conflict_preview: Option<String>,
+    /// Settings › Git, as loaded and as being edited.
+    pub git_config: GitConfigState,
     next_id: u64,
     pub(crate) config_dir: PathBuf,
     pub(crate) store: RepoStore,
@@ -1044,6 +1046,12 @@ pub enum Message {
     SetLogLimit(String),
     SetFetchOnOpen(bool),
     SetConflictCheck(bool),
+    /// Settings › Git: everywhere (false) or for this repository (true).
+    GitConfigScope(bool),
+    GitConfigLoaded(bool, Answer<std::collections::BTreeMap<String, String>>),
+    GitConfigEdit(String, String),
+    GitConfigSave,
+    GitConfigSaved(Answer<()>),
     SetDateOrder(bool),
     SetAutoFetch(u32),
     /// Sent now and then by the window: fetches the repositories that are due.
@@ -1191,6 +1199,7 @@ impl App {
             found_tools: FoundTools::default(),
             effects: Vec::new(),
             conflict_preview: None,
+            git_config: GitConfigState::default(),
             next_id: 1,
             config_dir: store.dir(),
             store,
@@ -2472,13 +2481,65 @@ impl App {
             Message::RebaseStart => self.rebase_start(),
             Message::OpenSettings => {
                 self.overlay = Some(Overlay::Settings);
+                let here = self.git_config.here && self.current().is_some();
+                let config = self.load_git_config(here);
                 // Looked for again: a tool may have been installed since, and the repository
                 // may set up tools of its own.
                 let cwd = self.current().map_or_else(
                     || self.config_dir.to_string_lossy().into_owned(),
                     |tab| tab.path.clone(),
                 );
-                find_tools(cwd)
+                Task::batch([find_tools(cwd), config])
+            }
+            Message::GitConfigScope(here) => self.load_git_config(here),
+            Message::GitConfigLoaded(here, result) => {
+                if self.git_config.here == here {
+                    self.git_config.loading = false;
+                    match result {
+                        Ok(values) => self.git_config.values = values,
+                        Err(error) => self.toast(
+                            ToastKind::Error,
+                            "Could not read git's settings",
+                            Some(error),
+                        ),
+                    }
+                }
+                Task::none()
+            }
+            Message::GitConfigEdit(key, value) => {
+                self.git_config.edits.insert(key, value);
+                Task::none()
+            }
+            Message::GitConfigSave => {
+                let changed = self.git_config.changed();
+                if changed.is_empty() {
+                    return Task::none();
+                }
+                let repo = self
+                    .current()
+                    .map(|tab| tab.path.clone())
+                    .filter(|_| self.git_config.here);
+                Task::perform(
+                    async move {
+                        for (key, value) in changed {
+                            ops::set_git_config(repo.as_deref(), &key, Some(&value)).await?;
+                        }
+                        Ok(())
+                    },
+                    |result: Result<(), Error>| Message::GitConfigSaved(answer(result)),
+                )
+            }
+            Message::GitConfigSaved(result) => {
+                match result {
+                    Ok(()) => self.toast(ToastKind::Success, "Git settings saved", None),
+                    Err(error) => self.toast(
+                        ToastKind::Error,
+                        "Could not save git's settings",
+                        Some(error),
+                    ),
+                }
+                let here = self.git_config.here;
+                self.load_git_config(here)
             }
             Message::ToolsFound(found) => {
                 self.found_tools = found;
@@ -3151,6 +3212,21 @@ impl App {
             }
             None => Task::none(),
         }
+    }
+
+    /// Reads the git settings for Settings › Git, dropping what was typed but not saved.
+    fn load_git_config(&mut self, here: bool) -> Task<Message> {
+        let repo = self.current().map(|tab| tab.path.clone()).filter(|_| here);
+        self.git_config = GitConfigState {
+            here: repo.is_some(),
+            loading: true,
+            ..GitConfigState::default()
+        };
+        let here = repo.is_some();
+        Task::perform(
+            async move { answer(queries::git_config(repo.as_deref()).await) },
+            move |result| Message::GitConfigLoaded(here, result),
+        )
     }
 
     /// Counts the changes of the current tab's commits that have no count yet.
@@ -4720,6 +4796,35 @@ fn click_line(pane: &mut DiffPane, hunk: usize, line: usize, shift: bool) {
 fn scroll_to(tab: &mut RepoTab, offset: f32) {
     tab.offset = offset;
     tab.scroll_to.set(Some(offset));
+}
+
+/// The git settings shown in Settings: everywhere (`here` false) or for the current
+/// repository, as git has them, and what the user typed since.
+#[derive(Debug, Clone, Default)]
+pub struct GitConfigState {
+    pub here: bool,
+    pub values: std::collections::BTreeMap<String, String>,
+    pub edits: std::collections::BTreeMap<String, String>,
+    pub loading: bool,
+}
+
+impl GitConfigState {
+    /// What a setting shows: as typed, else as set.
+    pub fn shown(&self, key: &str) -> &str {
+        self.edits
+            .get(key)
+            .or_else(|| self.values.get(key))
+            .map_or("", String::as_str)
+    }
+
+    /// The settings typed differently from what git has.
+    pub fn changed(&self) -> Vec<(String, String)> {
+        self.edits
+            .iter()
+            .filter(|(key, value)| self.values.get(*key).map_or("", String::as_str) != value.trim())
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect()
+    }
 }
 
 /// A column of the history list.

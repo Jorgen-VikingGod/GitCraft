@@ -2045,8 +2045,8 @@ async fn settings_fit_a_tall_window_and_scroll_in_a_short_one() {
     drive(&mut app, Message::OpenSettings).await;
     let last = "Move through commits or files";
 
-    drive(&mut app, Message::WindowResized(vec2(1280.0, 1600.0))).await;
-    let tall = Screen::sized(vec2(1280.0, 1600.0));
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 2600.0))).await;
+    let tall = Screen::sized(vec2(1280.0, 2600.0));
     for _ in 0..4 {
         tall.frame(&app, Vec::new());
     }
@@ -3391,4 +3391,46 @@ async fn a_clone_link_opens_the_clone_dialog_with_its_url() {
     .await;
     assert!(app.form.is_none());
     assert!(toast_kinds(&app).contains(&ToastKind::Error));
+}
+
+#[tokio::test]
+async fn git_settings_are_changed_for_this_repository_in_settings() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSettings).await;
+    // Only ever this repository's settings here, never the user's own.
+    drive(&mut app, Message::GitConfigScope(true)).await;
+    assert!(app.git_config.here);
+    assert_eq!(app.git_config.shown("user.name"), "Test User");
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 2600.0))).await;
+    let tall = Screen::sized(vec2(1280.0, 2600.0));
+    for _ in 0..4 {
+        tall.frame(&app, Vec::new());
+    }
+    let shown = tall.frame(&app, Vec::new());
+    assert!(shown.has("Save git settings"));
+    drive(
+        &mut app,
+        Message::GitConfigEdit("user.name".into(), "Someone Else".into()),
+    )
+    .await;
+    drive(
+        &mut app,
+        Message::GitConfigEdit("rerere.enabled".into(), "true".into()),
+    )
+    .await;
+    drive(&mut app, Message::GitConfigSave).await;
+    assert_eq!(f.git(&["config", "--local", "user.name"]), "Someone Else\n");
+    assert_eq!(f.git(&["config", "--local", "rerere.enabled"]), "true\n");
+    drive(
+        &mut app,
+        Message::GitConfigEdit("rerere.enabled".into(), String::new()),
+    )
+    .await;
+    drive(&mut app, Message::GitConfigSave).await;
+    assert!(
+        f.git(&["config", "--local", "--list"])
+            .lines()
+            .all(|line| !line.starts_with("rerere."))
+    );
 }

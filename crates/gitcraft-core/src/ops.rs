@@ -292,6 +292,47 @@ pub async fn sparse_disable(repo: &str) -> Result<OpResult> {
     Ok(ok(&git(repo, &["sparse-checkout", "disable"]).await?))
 }
 
+/// Sets one of [`queries::CONFIG_KEYS`] everywhere (`repo` `None`) or for one repository;
+/// `None` or an empty value removes it, so the wider setting (or git's default) applies.
+pub async fn set_git_config(repo: Option<&str>, key: &str, value: Option<&str>) -> Result<()> {
+    let key = key.to_lowercase();
+    if !queries::CONFIG_KEYS.contains(&key.as_str()) {
+        return invalid(format!("GitCraft doesn't change {key}"));
+    }
+    let value = value.map(str::trim).filter(|value| !value.is_empty());
+    if value.is_some_and(|value| value.contains(['\n', '\r'])) {
+        return invalid("A setting must be one line");
+    }
+    let home = crate::store::home_dir().to_string_lossy().into_owned();
+    let (cwd, scope) = match repo {
+        Some(repo) => (repo.to_owned(), "--local"),
+        None => (home, "--global"),
+    };
+    let _guard = match repo {
+        Some(repo) => Some(repo_lock(repo).lock_owned().await),
+        None => None,
+    };
+    match value {
+        Some(value) => {
+            git(&cwd, &["config", scope, "--", &key, value]).await?;
+        }
+        None => {
+            // Exit code 5: it wasn't set, which is what was wanted.
+            let result = git_unchecked(&cwd, &["config", scope, "--unset-all", &key]).await?;
+            if !matches!(result.code, 0 | 5) {
+                return Err(GitError::new(
+                    &["config", "--unset-all", &key],
+                    result.code,
+                    &result.err,
+                    &result.out(),
+                )
+                .into());
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Puts the conflict markers back into files resolved during a merge, rebase or cherry-pick,
 /// so they can be resolved again (`git checkout -m`).
 pub async fn mark_conflicted(repo: &str, list: &[String]) -> Result<OpResult> {

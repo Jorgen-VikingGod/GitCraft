@@ -3168,3 +3168,51 @@ async fn maintenance_packs_and_writes_the_commit_graph() {
         ["second", "first"]
     );
 }
+
+#[tokio::test]
+async fn git_settings_are_read_and_changed_for_one_repository() {
+    let f = Fixture::with_history();
+    let local = queries::git_config(Some(&f.repo)).await.unwrap();
+    assert_eq!(
+        local.get("user.name").map(String::as_str),
+        Some("Test User")
+    );
+    ops::set_git_config(Some(&f.repo), "rerere.enabled", Some("true"))
+        .await
+        .unwrap();
+    ops::set_git_config(Some(&f.repo), "init.defaultBranch", Some("trunk"))
+        .await
+        .unwrap();
+    let local = queries::git_config(Some(&f.repo)).await.unwrap();
+    assert_eq!(
+        local.get("rerere.enabled").map(String::as_str),
+        Some("true")
+    );
+    assert_eq!(
+        local.get("init.defaultbranch").map(String::as_str),
+        Some("trunk")
+    );
+    ops::set_git_config(Some(&f.repo), "rerere.enabled", None)
+        .await
+        .unwrap();
+    ops::set_git_config(Some(&f.repo), "rerere.enabled", Some(""))
+        .await
+        .unwrap();
+    assert!(
+        !queries::git_config(Some(&f.repo))
+            .await
+            .unwrap()
+            .contains_key("rerere.enabled")
+    );
+    assert!(
+        matches!(
+            ops::set_git_config(Some(&f.repo), "core.sshCommand", Some("evil")).await,
+            Err(Error::Invalid(_))
+        ),
+        "only the listed settings"
+    );
+    assert!(matches!(
+        ops::set_git_config(Some(&f.repo), "user.name", Some("two\nlines")).await,
+        Err(Error::Invalid(_))
+    ));
+}

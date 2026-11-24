@@ -235,6 +235,42 @@ pub async fn sparse_patterns(repo: &str) -> Result<Option<Vec<String>>> {
     ))
 }
 
+/// The git settings GitCraft lets the user change.
+pub const CONFIG_KEYS: [&str; 11] = [
+    "user.name",
+    "user.email",
+    "commit.gpgsign",
+    "tag.gpgsign",
+    "gpg.format",
+    "user.signingkey",
+    "gpg.ssh.allowedsignersfile",
+    "core.autocrlf",
+    "init.defaultbranch",
+    "rerere.enabled",
+    "core.hookspath",
+];
+
+/// Those of [`CONFIG_KEYS`] that are set, everywhere (`--global`, when `repo` is `None`) or
+/// in one repository only (`--local`). Keys come back in lower case, as git spells them.
+pub async fn git_config(repo: Option<&str>) -> Result<std::collections::BTreeMap<String, String>> {
+    let home = crate::store::home_dir().to_string_lossy().into_owned();
+    let (cwd, scope) = match repo {
+        Some(repo) => (repo.to_owned(), "--local"),
+        None => (home, "--global"),
+    };
+    // Exit code 1 only means there is no such file yet.
+    let result = git_unchecked(&cwd, &["config", scope, "--list", "-z"]).await?;
+    let mut found = std::collections::BTreeMap::new();
+    for entry in result.out().split('\0').filter(|entry| !entry.is_empty()) {
+        let (key, value) = entry.split_once('\n').unwrap_or((entry, ""));
+        let key = key.to_lowercase();
+        if CONFIG_KEYS.contains(&key.as_str()) {
+            found.insert(key, value.to_owned());
+        }
+    }
+    Ok(found)
+}
+
 /// The bisect in progress, if any.
 pub async fn bisect_state(repo: &str) -> Result<Option<Bisect>> {
     let log = git_dir(repo).await?.join("BISECT_LOG");
