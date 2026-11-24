@@ -12,6 +12,7 @@
 1 pattern	1 Muster	1 motif	1 patrón
 A merge commit is taken as its changes against one parent: choose the mainline it was merged into.	Ein Merge-Commit wird als seine Änderungen gegenüber einem Elternteil übernommen: Wähle die Hauptlinie, in die er gemergt wurde.	Un commit de fusion est appliqué comme ses modifications par rapport à un parent : choisissez la ligne principale dans laquelle il a été fusionné.	Un commit de fusión se aplica como sus cambios respecto a un padre: elige la línea principal en la que se fusionó.
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
+A tag, branch or SHA	Ein Tag, Branch oder SHA	Un tag, une branche ou un SHA	Una etiqueta, rama o SHA
 Abort	Abbrechen	Annuler	Abortar
 Abort the {kind} and restore the previous state?	{kind} abbrechen und den vorherigen Zustand wiederherstellen?	Annuler l’opération ({kind}) et rétablir l’état précédent ?	¿Abortar {kind} y restaurar el estado anterior?
 Abort {kind}	{kind} abbrechen	Annuler : {kind}	Abortar {kind}
@@ -58,9 +59,12 @@ author	Autor	auteur	autor
 Author	Autor	Auteur	Autor
 Autosquash	Autosquash	Autosquash	Autosquash
 Backup deleted	Sicherung gelöscht	Sauvegarde supprimée	Copia de seguridad eliminada
+Bad	Fehlerhaft	Mauvais	Malo
 Bad signature	Ungültige Signatur	Signature invalide	Firma no válida
 Based on {based}	Basierend auf {based}	À partir de {based}	Basado en {based}
 Binary file — no text diff available	Binärdatei — kein Text-Diff verfügbar	Fichier binaire — pas de diff texte	Archivo binario: no hay diff de texto
+Bisect	Bisect	Bisection	Bisección
+Bisecting	Bisect läuft	Bisection en cours	Bisección en curso
 Blame	Blame	Annotations (blame)	Blame
 Blame at this commit	Blame bei diesem Commit	Annotations à ce commit	Blame en este commit
 Branch	Branch	Branche	Rama
@@ -234,6 +238,8 @@ Edit message…	Nachricht bearbeiten…	Modifier le message…	Editar mensaje…
 Edit remote	Remote bearbeiten	Modifier le dépôt distant	Editar remoto
 edited by hand	von Hand bearbeitet	modifié à la main	editado a mano
 Edit…	Bearbeiten…	Modifier…	Editar…
+End bisect	Bisect beenden	Terminer la bisection	Terminar bisección
+Ending bisect	Bisect wird beendet	Fin de la bisection	Terminando bisección
 Every position HEAD and each branch have been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD und die einzelnen Branches waren. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Chaque position où HEAD et chaque branche se sont trouvés. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que han estado HEAD y cada rama. Haz clic derecho en una entrada para todas las acciones de commit.
 Every position HEAD has been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD war. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Toutes les positions occupées par HEAD. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que ha estado HEAD. Haz clic derecho en una entrada para ver todas las acciones de commit.
 Exit	Beenden	Quitter	Salir
@@ -254,6 +260,7 @@ File	Datei	Fichier	Archivo
 File history	Dateiverlauf	Historique du fichier	Historial del archivo
 Files stashed	Dateien im Stash abgelegt	Fichiers remisés	Archivos guardados en el stash
 Filter branches & tags	Branches & Tags filtern	Filtrer branches et tags	Filtrar ramas y etiquetas
+First bad commit: {commit}	Erster fehlerhafter Commit: {commit}	Premier commit cassé : {commit}	Primer commit roto: {commit}
 Fixup commit for {commit} created; an interactive rebase with autosquash folds it in	Fixup-Commit für {commit} erstellt; ein interaktiver Rebase mit Autosquash fügt ihn ein	Commit fixup pour {commit} créé ; un rebase interactif avec autosquash l’intègre	Commit fixup para {commit} creado; un rebase interactivo con autosquash lo integra
 Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen	Commit fixup des modifications indexées	Commit fixup de los cambios preparados
 Fold “{subject}” into its parent commit.	„{subject}“ in den Eltern-Commit einfalten.	Fusionner « {subject} » dans son commit parent.	Integrar «{subject}» en su commit padre.
@@ -262,6 +269,8 @@ Folder name	Ordnername	Nom du dossier	Nombre de la carpeta
 Follow system	Wie das System	Comme le système	Como el sistema
 Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer la suppression, même si elle n’est pas fusionnée	Forzar la eliminación aunque no esté fusionada
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
+Good	Gut	Bon	Bueno
+Good commit	Guter Commit	Commit fonctionnel	Commit bueno
 Good signature	Gültige Signatur	Signature valide	Firma válida
 Good signature by an expired key	Gültige Signatur mit abgelaufenem Schlüssel	Signature valide par une clé expirée	Firma válida con una clave caducada
 Good signature, but it has expired	Gültige Signatur, aber abgelaufen	Signature valide, mais expirée	Firma válida, pero caducada
@@ -317,7 +326,9 @@ Local changes	Lokale Änderungen	Modifications locales	Cambios locales
 Local Changes	Lokale Änderungen	Modifications locales	Cambios locales
 locked	gesperrt	verrouillé	bloqueado
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
+Mark as bad	Als fehlerhaft markieren	Marquer comme mauvais	Marcar como malo
 Mark as conflicted again	Wieder als Konflikt markieren	Marquer à nouveau comme conflit	Marcar de nuevo como conflicto
+Mark as good	Als gut markieren	Marquer comme bon	Marcar como bueno
 Mark as resolved	Als gelöst markieren	Marquer comme résolu	Marcar como resuelto
 Marking as conflicted	Wird als Konflikt markiert	Marquage comme conflit	Marcando como conflicto
 Maximize	Maximieren	Agrandir	Maximizar
@@ -550,6 +561,7 @@ Signature	Signatur	Signature	Firma
 Signed by a revoked key	Mit einem widerrufenen Schlüssel signiert	Signé par une clé révoquée	Firmado con una clave revocada
 Signed, but it can't be checked here	Signiert, lässt sich hier aber nicht prüfen	Signé, mais impossible à vérifier ici	Firmado, pero no se puede comprobar aquí
 Skip	Überspringen	Passer	Omitir
+Skip (can't be tested)	Überspringen (nicht testbar)	Ignorer (impossible à tester)	Omitir (no se puede probar)
 Skip commit hooks	Commit-Hooks überspringen	Ignorer les hooks de commit	Omitir los hooks de commit
 Skipping	Wird übersprungen	Saut	Omitiendo
 Soft: keep all changes staged	Weich: alle Änderungen vorgemerkt behalten	Doux : garder toutes les modifications indexées	Suave: mantener todos los cambios preparados
@@ -570,6 +582,9 @@ Staged ({count})	Vorgemerkt ({count})	Indexé ({count})	Preparado ({count})
 Staging	Wird vorgemerkt	Indexation	Preparando
 Staging all	Alles wird vorgemerkt	Indexation de tout	Preparando todo
 Stale worktrees pruned	Veraltete Worktrees entfernt	Arbres de travail obsolètes nettoyés	Árboles de trabajo obsoletos eliminados
+Start	Starten	Lancer	Iniciar
+Start bisect	Bisect starten	Lancer la bisection	Iniciar bisección
+Start bisect: this commit is bad…	Bisect starten: dieser Commit ist fehlerhaft…	Lancer la bisection : ce commit est cassé…	Iniciar bisección: este commit está roto…
 Start cherry-pick	Cherry-Pick starten	Lancer le cherry-pick	Iniciar cherry-pick
 Start rebase	Rebase starten	Lancer le rebase	Iniciar rebase
 Stash	Stash	Remiser	Stash
@@ -605,6 +620,7 @@ Tag {name}	Tag {name}	Tag {name}	Etiqueta {name}
 Tags	Tags	Tags	Etiquetas
 Take this file from the stash	Diese Datei aus dem Stash holen	Récupérer ce fichier de la remise	Tomar este archivo del stash
 Taking the file from the stash	Datei wird aus dem Stash geholt	Récupération du fichier de la remise	Tomando el archivo del stash
+Test the commit checked out ({commit}), then mark it. {good} good so far.	Teste den ausgecheckten Commit ({commit}) und markiere ihn. Bisher {good} gut.	Testez le commit extrait ({commit}), puis marquez-le. {good} bons jusqu’ici.	Prueba el commit extraído ({commit}) y márcalo. {good} buenos hasta ahora.
 The branch has changed since this plan was made; open the editor again	Der Branch hat sich geändert, seit dieser Plan erstellt wurde; öffne den Editor erneut	La branche a changé depuis la création de ce plan ; rouvrez l’éditeur	La rama ha cambiado desde que se hizo este plan; vuelve a abrir el editor
 The commit can't move further that way	Der Commit lässt sich nicht weiter in diese Richtung verschieben	Le commit ne peut pas aller plus loin dans ce sens	El commit no puede moverse más en esa dirección
 The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.	Der aktuelle Branch wird auf {source} zurückgesetzt. Lokale Commits und nicht committete Änderungen werden verworfen.	La branche actuelle sera réinitialisée à {source}. Les commits locaux et les modifications non validées sont supprimés.	La rama actual se restablecerá a {source}. Se descartan los commits locales y los cambios sin commit.
@@ -702,6 +718,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
 {path} taken from the stash	{path} aus dem Stash geholt	{path} récupéré de la remise	{path} tomado del stash
+“{subject}” is broken. Name an older commit that still worked: GitCraft then checks out commits in between for you to test, until the first broken one is found.	„{subject}“ ist fehlerhaft. Nenne einen älteren Commit, der noch funktioniert hat: GitCraft checkt dann Commits dazwischen zum Testen aus, bis der erste fehlerhafte gefunden ist.	« {subject} » est cassé. Indiquez un commit plus ancien qui fonctionnait encore : GitCraft extrait alors des commits intermédiaires à tester, jusqu’à trouver le premier cassé.	«{subject}» está roto. Indica un commit anterior que aún funcionaba: GitCraft extrae commits intermedios para que los pruebes, hasta encontrar el primero roto.
 … and {count} more	… und {count} weitere	… et {count} de plus	… y {count} más
 Select all files	Alle Dateien auswählen	Sélectionner tous les fichiers	Seleccionar todos los archivos
 Tabs	Tabs	Onglets	Pestañas

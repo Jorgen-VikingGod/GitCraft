@@ -213,6 +213,57 @@ pub async fn apply_selection(
     }
 }
 
+/// Starts looking for the commit that broke something between `good` (known to work) and
+/// `bad` (known to be broken): git checks out a commit halfway between to test.
+pub async fn bisect_start(repo: &str, bad: &str, good: &str) -> Result<OpResult> {
+    let (bad, good) = (check_ref(bad)?, check_ref(good)?);
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if queries::operation_state(repo).await?.is_some() {
+        return invalid("Finish or abort the operation in progress first");
+    }
+    if queries::bisect_state(repo).await?.is_some() {
+        return invalid("A bisect is already running");
+    }
+    let status = queries::status(repo).await?;
+    if !status.staged.is_empty() || status.unstaged.iter().any(|entry| entry.status != "?") {
+        return invalid("Commit or stash your changes first: bisecting checks out other commits");
+    }
+    let ancestor = git_unchecked(repo, &["merge-base", "--is-ancestor", good, bad]).await?;
+    if ancestor.code != 0 {
+        return invalid("The good commit must be older than the bad one, on its history");
+    }
+    Ok(ok(&git(repo, &["bisect", "start", bad, good, "--"]).await?))
+}
+
+/// Marks a commit (HEAD when `None`) as good, bad or skipped; git then checks out the next one
+/// to test, or names the first bad commit.
+pub async fn bisect_mark(repo: &str, verdict: &str, sha: Option<&str>) -> Result<OpResult> {
+    if !matches!(verdict, "good" | "bad" | "skip") {
+        return invalid(format!("Unknown bisect verdict {verdict}"));
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let Some(state) = queries::bisect_state(repo).await? else {
+        return invalid("No bisect is running");
+    };
+    if state.first_bad.is_some() {
+        return invalid("The first bad commit has been found; end the bisect");
+    }
+    let mut args = vec!["bisect", verdict];
+    if let Some(sha) = sha {
+        args.push(check_ref(sha)?);
+    }
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Ends the bisect and goes back to where it started.
+pub async fn bisect_reset(repo: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["bisect", "reset"]).await?))
+}
+
 /// Puts the conflict markers back into files resolved during a merge, rebase or cherry-pick,
 /// so they can be resolved again (`git checkout -m`).
 pub async fn mark_conflicted(repo: &str, list: &[String]) -> Result<OpResult> {

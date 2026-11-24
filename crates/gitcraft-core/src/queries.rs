@@ -30,6 +30,14 @@ pub async fn common_dir(repo: &str) -> Result<PathBuf> {
     Ok(PathBuf::from(result.out().trim()))
 }
 
+/// The bisect in progress, if any.
+pub async fn bisect_state(repo: &str) -> Result<Option<Bisect>> {
+    let log = git_dir(repo).await?.join("BISECT_LOG");
+    Ok(std::fs::read_to_string(log)
+        .ok()
+        .map(|text| parsers::parse_bisect_log(&text)))
+}
+
 /// The commit HEAD points at, if there is one yet.
 pub async fn head_sha(repo: &str) -> Result<Option<String>> {
     let result = git_unchecked(repo, &["rev-parse", "--verify", "-q", "HEAD"]).await?;

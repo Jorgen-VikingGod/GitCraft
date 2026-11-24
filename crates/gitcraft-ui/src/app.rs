@@ -288,6 +288,8 @@ pub struct RepoTab {
     pub co_authors: String,
     /// What Edit › Undo and Redo would do.
     pub undo: UndoLabels,
+    /// The bisect in progress.
+    pub bisect: Option<Bisect>,
 }
 
 impl RepoTab {
@@ -333,6 +335,7 @@ impl RepoTab {
             after_commit: None,
             filter: String::new(),
             undo: UndoLabels::default(),
+            bisect: None,
             co_authors: String::new(),
             picked_commits: Vec::new(),
         }
@@ -805,6 +808,7 @@ pub enum Message {
     StatusLoaded(String, Answer<Status>),
     RefsLoaded(String, Answer<Refs>),
     UndoLoaded(String, Answer<UndoLabels>),
+    BisectLoaded(String, Answer<Option<Bisect>>),
     Undo,
     Redo,
     LogLoaded(String, Answer<(Vec<Commit>, bool)>),
@@ -1270,6 +1274,12 @@ impl App {
                 }
             }
             Message::StatusLoaded(path, result) => self.status_loaded(&path, result),
+            Message::BisectLoaded(path, result) => {
+                if let (Some(tab), Ok(bisect)) = (self.tab_mut(&path), result) {
+                    tab.bisect = bisect;
+                }
+                Task::none()
+            }
             Message::UndoLoaded(path, result) => {
                 if let (Some(tab), Ok(labels)) = (self.tab_mut(&path), result) {
                     tab.undo = labels;
@@ -4036,6 +4046,16 @@ fn load_undo(path: String) -> Task<Message> {
 
 fn load_status(path: String) -> Task<Message> {
     let undo = load_undo(path.clone());
+    let bisect = {
+        let path = path.clone();
+        Task::perform(
+            async move {
+                let result = answer(queries::bisect_state(&path).await);
+                (path, result)
+            },
+            |(path, result)| Message::BisectLoaded(path, result),
+        )
+    };
     let status = Task::perform(
         async move {
             let result = answer(queries::status(&path).await);
@@ -4043,7 +4063,7 @@ fn load_status(path: String) -> Task<Message> {
         },
         |(path, result)| Message::StatusLoaded(path, result),
     );
-    Task::batch([status, undo])
+    Task::batch([status, undo, bisect])
 }
 
 fn load_refs(path: String) -> Task<Message> {

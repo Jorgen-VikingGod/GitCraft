@@ -2378,3 +2378,51 @@ async fn an_exec_step_runs_after_its_commit() {
         Err(Error::Invalid(_))
     ));
 }
+
+#[tokio::test]
+async fn bisect_finds_the_first_bad_commit() {
+    let f = Fixture::empty();
+    let mut shas = Vec::new();
+    for n in 1..=8 {
+        let state = if n >= 6 { "broken" } else { "fine" };
+        shas.push(f.commit(
+            "state.txt",
+            format!("{state}\n{n}\n"),
+            &format!("commit {n}"),
+        ));
+    }
+    assert!(queries::bisect_state(&f.repo).await.unwrap().is_none());
+    assert!(
+        matches!(
+            ops::bisect_start(&f.repo, &shas[0], &shas[7]).await,
+            Err(Error::Invalid(_))
+        ),
+        "good must come before bad"
+    );
+    ops::bisect_start(&f.repo, &shas[7], &shas[0])
+        .await
+        .unwrap();
+    let mut rounds = 0;
+    loop {
+        let state = queries::bisect_state(&f.repo)
+            .await
+            .unwrap()
+            .expect("running");
+        if let Some(first) = state.first_bad {
+            assert_eq!(first, shas[5]);
+            break;
+        }
+        let verdict = if f.read("state.txt").starts_with("broken") {
+            "bad"
+        } else {
+            "good"
+        };
+        ops::bisect_mark(&f.repo, verdict, None).await.unwrap();
+        rounds += 1;
+        assert!(rounds < 6, "bisect should finish");
+    }
+    assert!(ops::bisect_mark(&f.repo, "good", None).await.is_err());
+    ops::bisect_reset(&f.repo).await.unwrap();
+    assert!(queries::bisect_state(&f.repo).await.unwrap().is_none());
+    assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
+}

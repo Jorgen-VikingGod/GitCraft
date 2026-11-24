@@ -298,6 +298,18 @@ pub struct CommitOptions {
     pub trailers: Vec<String>,
 }
 
+/// A bisect in progress, read from `BISECT_LOG`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Bisect {
+    /// The newest commit marked bad.
+    pub bad: Option<String>,
+    /// Commits marked good and skipped so far.
+    pub good: usize,
+    pub skipped: usize,
+    /// Set once git has found it.
+    pub first_bad: Option<String>,
+}
+
 /// What undo and redo would do, as English labels such as "Commit".
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UndoLabels {

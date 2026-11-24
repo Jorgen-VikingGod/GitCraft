@@ -42,6 +42,8 @@ pub enum Action {
     Revert(String),
     /// Asks which parent counts for a merge commit; other commits are picked right away.
     CherryPick(String),
+    /// Asks for a commit that still worked, then bisects up to this broken one.
+    BisectStart(String),
     /// Asks for a command to run after step `index` of the rebase editor.
     RebaseExec(usize),
     /// Swaps a commit with its child (`up`) or its parent.
@@ -498,6 +500,19 @@ impl App {
                 .message(&trf("Rebase {head} onto {label}?", &[("head", &head), ("label", &label)]))
                 .field(Field::check("autostash", "Stash and reapply local changes", self.settings.rebase.autostash));
                 self.ask(form)
+            }
+            Action::BisectStart(bad) => {
+                let subject = self.commit_by_sha(&bad).map_or_else(String::new, |commit| commit.subject.clone());
+                self.ask(
+                    Form::new("Start bisect", "Start", move |values: &Values| {
+                        run(Command::BisectStart { bad: bad.clone(), good: values.text("good") })
+                    })
+                    .message(&trf(
+                        "“{subject}” is broken. Name an older commit that still worked: GitCraft then checks out commits in between for you to test, until the first broken one is found.",
+                        &[("subject", &subject)],
+                    ))
+                    .field(Field::text("good", "Good commit", "").required().hint("A tag, branch or SHA")),
+                )
             }
             Action::RebaseExec(index) => {
                 let current = match &self.overlay {
@@ -1751,6 +1766,28 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             ),
         ],
     ));
+    let bisect = match &tab.bisect {
+        None => vec![MenuItem::entry(
+            "Start bisect: this commit is bad…",
+            act(Action::BisectStart(sha.clone())),
+        )],
+        Some(_) => {
+            let mark = |verdict| {
+                run(Command::BisectMark {
+                    verdict,
+                    sha: Some(sha.clone()),
+                })
+            };
+            vec![
+                MenuItem::entry("Mark as good", mark("good")),
+                MenuItem::entry("Mark as bad", mark("bad")),
+                MenuItem::entry("Skip (can't be tested)", mark("skip")),
+                MenuItem::Separator,
+                MenuItem::entry("End bisect", run(Command::BisectReset)),
+            ]
+        }
+    };
+    items.push(MenuItem::sub("Bisect", bisect));
     items.push(MenuItem::Separator);
     if let Some(head) = head.filter(|_| !is_head) {
         items.push(MenuItem::entry(

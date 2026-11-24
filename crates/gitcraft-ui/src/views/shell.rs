@@ -846,6 +846,82 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     hline(ui, look);
 }
 
+/// While bisecting: how far it got, and Good / Bad / Skip for the commit checked out.
+pub fn bisect_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    use crate::app::Message;
+    let Some(bisect) = &tab.bisect else {
+        return;
+    };
+    let look = cx.look();
+    let c = &look.c;
+    let head = tab
+        .status
+        .as_ref()
+        .and_then(|status| status.branch.oid.clone());
+    let subject = |sha: &str| {
+        tab.commits
+            .iter()
+            .find(|commit| commit.sha == sha)
+            .map_or_else(String::new, |commit| commit.subject.clone())
+    };
+    let (title, hint) = match &bisect.first_bad {
+        Some(first) => (
+            trf(
+                "First bad commit: {commit}",
+                &[("commit", short_sha(first))],
+            ),
+            subject(first),
+        ),
+        None => (
+            tr("Bisecting").to_owned(),
+            trf(
+                "Test the commit checked out ({commit}), then mark it. {good} good so far.",
+                &[
+                    ("commit", head.as_deref().map(short_sha).unwrap_or("?")),
+                    ("good", &bisect.good.to_string()),
+                ],
+            ),
+        ),
+    };
+    Frame::new()
+        .fill(c.warning_bg)
+        .inner_margin(Margin::symmetric(12, 6))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
+            ui.horizontal(|ui| {
+                icon::icon(ui, "search", 16.0, c.warning);
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 1.0;
+                    text(ui, title, 13.0, c.text);
+                    muted(ui, look, hint, 12.0);
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if danger(ui, look, "End bisect", true) {
+                        cx.send(Message::Run(Command::BisectReset));
+                    }
+                    if let Some(first) = &bisect.first_bad {
+                        if btn(ui, look, "Show", true) {
+                            cx.send(Message::ShowCommit(first.clone()));
+                        }
+                        return;
+                    }
+                    let mark = |verdict| Message::Run(Command::BisectMark { verdict, sha: None });
+                    if btn(ui, look, "Skip", true) {
+                        cx.send(mark("skip"));
+                    }
+                    if danger(ui, look, "Bad", true) {
+                        cx.send(mark("bad"));
+                    }
+                    if accent(ui, look, "Good", true) {
+                        cx.send(mark("good"));
+                    }
+                });
+            });
+        });
+    hline(ui, look);
+}
+
 pub fn status_bar(ui: &mut Ui, cx: &Cx) {
     use crate::app::Message;
     let app = cx.app;

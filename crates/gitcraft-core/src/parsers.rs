@@ -121,6 +121,53 @@ pub fn parse_commit_detail(out: &str) -> Option<CommitDetail> {
     })
 }
 
+/// The bisect log (`.git/BISECT_LOG`): git notes each verdict as `# good: [sha] subject`
+/// (also `bad`, `skip`, and those given at the start) and, once done,
+/// `# first bad commit: [sha] subject` (newer versions quote the term: `'bad'`).
+pub fn parse_bisect_log(log: &str) -> Bisect {
+    let mut state = Bisect::default();
+    let sha = |rest: &str| {
+        rest.strip_prefix('[')
+            .and_then(|rest| rest.split(']').next())
+            .map(str::to_owned)
+    };
+    for line in log.lines() {
+        let Some(comment) = line.strip_prefix("# ") else {
+            continue;
+        };
+        if let Some(rest) = comment.strip_prefix("first ") {
+            if let Some((_, rest)) = rest.split_once("commit: ") {
+                state.first_bad = sha(rest);
+            }
+        } else if let Some(rest) = comment.strip_prefix("bad: ") {
+            state.bad = sha(rest);
+        } else if comment.starts_with("good: ") {
+            state.good += 1;
+        } else if comment.starts_with("skip: ") {
+            state.skipped += 1;
+        }
+    }
+    state
+}
+
+#[cfg(test)]
+mod bisect_tests {
+    use super::*;
+
+    #[test]
+    fn the_bisect_log_of_old_and_new_git_versions() {
+        let log = "# bad: [bbb] commit 8\n# good: [aaa] commit 1\ngit bisect start 'HEAD' 'HEAD~7'\n\
+                   # good: [ccc] commit 4\ngit bisect good ccc\n# bad: [ddd] commit 6\n\
+                   # skip: [eee] commit 5\n# first 'bad' commit: [ddd] commit 6\n";
+        let state = parse_bisect_log(log);
+        assert_eq!(state.bad.as_deref(), Some("ddd"));
+        assert_eq!((state.good, state.skipped), (2, 1));
+        assert_eq!(state.first_bad.as_deref(), Some("ddd"));
+        let old = parse_bisect_log("# first bad commit: [fff] x\n");
+        assert_eq!(old.first_bad.as_deref(), Some("fff"));
+    }
+}
+
 /// `%G?%x1f%GS%x1f%GK`: `None` when the commit is not signed.
 pub fn parse_signature(out: &str) -> Option<Signature> {
     let line = out.trim_end_matches('\n');

@@ -29,6 +29,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Undo and redo** (*Edit* menu, Ctrl/⌘ + Z) for commits, amends, resets, checkouts, branches, tags,
   merges, rebases, cherry-picks, reverts, pulls and discards. Discarded changes are also kept for 30
   days under *Repository › Recover discarded changes*.
+- **Bisect**: start from a broken commit's menu, name one that still worked, then mark each commit
+  GitCraft checks out as good, bad or skip in the bisect bar until the first bad commit is found.
 - **Several commits at once**: pick them with Ctrl/Cmd+click or Shift+click, then cherry-pick them,
   squash or drop them (the interactive rebase editor opens with the plan), or replay them onto HEAD
   in the editor (interactive cherry-pick).

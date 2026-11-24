@@ -111,6 +111,7 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
             shell::toolbar(ui, &cx);
             if let Some(tab) = app.current() {
                 shell::operation_banner(ui, &cx, tab);
+                shell::bisect_banner(ui, &cx, tab);
             }
         });
     Panel::bottom("status")

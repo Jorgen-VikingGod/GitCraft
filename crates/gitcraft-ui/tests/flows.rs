@@ -2673,3 +2673,58 @@ async fn the_rebase_editor_autosquashes_moves_and_refuses_a_stale_plan() {
         ["meanwhile", "fixup! add a", "add a", "add b"]
     );
 }
+
+#[tokio::test]
+async fn bisecting_from_the_commit_menu_and_the_bisect_bar() {
+    let f = empty_fixture();
+    for n in 1..=8 {
+        let state = if n >= 6 { "broken" } else { "fine" };
+        f.commit(
+            "state.txt",
+            &format!("{state}\n{n}\n"),
+            &format!("commit {n}"),
+        );
+    }
+    let mut app = opened(&f, false).await;
+    let (bad, good) = (sha_of(&app, "commit 8"), sha_of(&app, "commit 1"));
+    drive(&mut app, Message::Action(Action::BisectStart(bad))).await;
+    drive(&mut app, Message::FormText(0, good)).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(app.current().unwrap().bisect.is_some());
+    for _ in 0..6 {
+        if app
+            .current()
+            .unwrap()
+            .bisect
+            .as_ref()
+            .unwrap()
+            .first_bad
+            .is_some()
+        {
+            break;
+        }
+        let button = if f.read("state.txt").starts_with("broken") {
+            "Bad"
+        } else {
+            "Good"
+        };
+        for message in Screen::new().click(&app, button, PointerButton::Primary) {
+            drive(&mut app, message).await;
+        }
+    }
+    let first = app
+        .current()
+        .unwrap()
+        .bisect
+        .as_ref()
+        .unwrap()
+        .first_bad
+        .clone();
+    assert_eq!(first, Some(sha_of(&app, "commit 6")));
+    assert!(Screen::new().show(&app).has("First bad commit"));
+    for message in Screen::new().click(&app, "End bisect", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert!(app.current().unwrap().bisect.is_none());
+    assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
+}
