@@ -1106,6 +1106,11 @@ impl App {
         if let Err(problem) = gitcraft_core::runner::check_git() {
             app.toast(ToastKind::Error, problem, None);
         }
+        // A `gitcraft://clone` link on the command line opens the clone dialog, not a path.
+        let (repo, link) = match repo {
+            Some(link) if link.starts_with("gitcraft://") => (None, Some(link)),
+            other => (other, None),
+        };
         let session = &app.settings.session;
         // A repository named on the command line opens last and stays in front.
         let front = repo.is_none().then_some(session.active_tab);
@@ -1118,7 +1123,8 @@ impl App {
             .chain(repo.map(|path| (path, false)))
             .collect();
         let task = app.restore_next();
-        (app, Task::batch([task, tools]))
+        let link = link.map_or_else(Task::none, |link| Task::done(Message::Instance(link)));
+        (app, Task::batch([task, tools, link]))
     }
 
     /// Start-up is still opening the saved tabs: the saved session is left as it is until then.
@@ -1289,6 +1295,16 @@ impl App {
                     Some(why),
                 );
                 Task::none()
+            }
+            // A `gitcraft://clone` link, handed over from a second launch: ask, with its URL.
+            Message::Instance(link) if link.starts_with("gitcraft://") => {
+                match logic::clone_link(&link) {
+                    Some(url) => Task::done(Message::Action(crate::actions::Action::CloneUrl(url))),
+                    None => {
+                        self.toast(ToastKind::Error, "This link can't be opened", Some(link));
+                        Task::none()
+                    }
+                }
             }
             Message::OpenPath(path) | Message::Instance(path) => Task::perform(
                 async move { answer(repos::locate(&path).await) },

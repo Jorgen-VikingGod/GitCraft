@@ -106,6 +106,8 @@ pub enum Action {
     DeleteDiscard(String),
     CoAuthors,
     Clone,
+    /// The clone dialog with this URL filled in, as a `gitcraft://clone` link asks.
+    CloneUrl(String),
     CloneTo {
         url: String,
         parent: String,
@@ -258,7 +260,8 @@ impl App {
     pub fn perform(&mut self, action: Action) -> Task<Message> {
         // These work without an open repository.
         match action {
-            Action::Clone => return self.clone_dialog(),
+            Action::Clone => return self.clone_dialog(""),
+            Action::CloneUrl(url) => return self.clone_dialog(&url),
             Action::Init => return self.init_dialog(),
             Action::CloneTo {
                 url,
@@ -1114,11 +1117,11 @@ impl App {
             )),
             Action::ConflictOverwrite(index, choice) => self.conflict_choose(index, choice, true),
             Action::ConflictResolve { path, side } => Task::done(run(Command::Resolve { path, content: None, side })),
-            Action::Clone | Action::Init | Action::CloneTo { .. } | Action::Cloned(_) | Action::InitAt(..) => Task::none(),
+            Action::Clone | Action::CloneUrl(_) | Action::Init | Action::CloneTo { .. } | Action::Cloned(_) | Action::InitAt(..) => Task::none(),
         }
     }
 
-    fn clone_dialog(&mut self) -> Task<Message> {
+    fn clone_dialog(&mut self, url: &str) -> Task<Message> {
         let home = gitcraft_core::store::home_dir()
             .to_string_lossy()
             .into_owned();
@@ -1142,7 +1145,7 @@ impl App {
             })
         })
         .field(
-            Field::text("url", "URL", "")
+            Field::text("url", "URL", url)
                 .required()
                 .hint("https://… or git@…"),
         )

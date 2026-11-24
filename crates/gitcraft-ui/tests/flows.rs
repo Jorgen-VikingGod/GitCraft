@@ -3366,3 +3366,29 @@ async fn the_maintenance_dialog_tidies_up() {
     assert!(toast_kinds(&app).contains(&ToastKind::Success));
     assert!(f.git(&["count-objects", "-v"]).contains("in-pack: "));
 }
+
+#[tokio::test]
+async fn a_clone_link_opens_the_clone_dialog_with_its_url() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Instance(
+            "gitcraft://clone?url=https%3A%2F%2Fexample.com%2Fteam%2Fproject.git".into(),
+        ),
+    )
+    .await;
+    let form = app.form.as_ref().expect("the clone dialog asks first");
+    assert_eq!(
+        form.values().text("url"),
+        "https://example.com/team/project.git"
+    );
+    drive(&mut app, Message::FormCancel).await;
+    drive(
+        &mut app,
+        Message::Instance("gitcraft://clone?url=file%3A%2F%2F%2Ftmp".into()),
+    )
+    .await;
+    assert!(app.form.is_none());
+    assert!(toast_kinds(&app).contains(&ToastKind::Error));
+}

@@ -186,6 +186,45 @@ pub fn next_step(error: &str) -> Option<NextStep> {
     }
 }
 
+/// The repository URL of a `gitcraft://clone?url=…` link, which a web page can use to offer
+/// "clone in GitCraft". Only https URLs are taken: a link must not point the clone at a local
+/// path or an ssh host it names. The dialog still asks before anything is cloned.
+pub fn clone_link(link: &str) -> Option<String> {
+    let query = link
+        .strip_prefix("gitcraft://clone")?
+        .trim_start_matches('/');
+    let query = query.strip_prefix('?')?;
+    let value = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("url="))?;
+    // Percent-decoding, byte by byte; malformed escapes make the link unusable.
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'%' => {
+                let hex = std::str::from_utf8(bytes.get(index + 1..index + 3)?).ok()?;
+                decoded.push(u8::from_str_radix(hex, 16).ok()?);
+                index += 3;
+            }
+            b'+' => {
+                decoded.push(b' ');
+                index += 1;
+            }
+            byte => {
+                decoded.push(byte);
+                index += 1;
+            }
+        }
+    }
+    let url = String::from_utf8(decoded).ok()?;
+    let safe = url.starts_with("https://")
+        && url.len() > "https://".len()
+        && !url.chars().any(|c| c.is_whitespace() || c.is_control());
+    safe.then_some(url)
+}
+
 /// How a signature's state is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -604,6 +643,24 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clone_links_give_https_urls_only() {
+        assert_eq!(
+            clone_link("gitcraft://clone?url=https%3A%2F%2Fexample.com%2Fa%2Fb.git").as_deref(),
+            Some("https://example.com/a/b.git")
+        );
+        assert_eq!(
+            clone_link("gitcraft://clone/?url=https://example.com/x.git&ref=main").as_deref(),
+            Some("https://example.com/x.git")
+        );
+        assert_eq!(clone_link("gitcraft://clone?url=file%3A%2F%2F%2Fetc"), None);
+        assert_eq!(clone_link("gitcraft://clone?url=git%40host%3Ax.git"), None);
+        assert_eq!(clone_link("gitcraft://clone?url=https%3A%2F%2Fa%20b"), None);
+        assert_eq!(clone_link("gitcraft://clone?url=%zz"), None);
+        assert_eq!(clone_link("/home/me/repo"), None);
+        assert_eq!(clone_link("gitcraft://other?url=https://x"), None);
+    }
 
     #[test]
     fn failed_pushes_and_pulls_say_what_to_do_next() {

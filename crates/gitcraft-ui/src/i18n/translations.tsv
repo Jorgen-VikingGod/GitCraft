@@ -783,6 +783,7 @@ There is no backup: commits only on this branch are lost.	Es gibt kein Backup: C
 There is no main or master branch to compare with.	Es gibt keinen main- oder master-Branch zum Vergleichen.	Il n’y a pas de branche main ou master avec laquelle comparer.	No hay una rama main o master con la que comparar.
 This commit has no file changes	Dieser Commit ändert keine Dateien	Ce commit ne modifie aucun fichier	Este commit no cambia ningún archivo
 this hunk	diesen Abschnitt	ce bloc	este bloque
+This link can't be opened	Dieser Link lässt sich nicht öffnen	Ce lien ne peut pas être ouvert	Este enlace no se puede abrir
 This repository has no remote to push to or fetch from yet.	Dieses Repository hat noch kein Remote zum Pushen oder Abrufen.	Ce dépôt n’a encore aucun dépôt distant vers lequel pousser ou depuis lequel récupérer.	Este repositorio aún no tiene un remoto al que enviar o del que obtener.
 This repository has no remotes	Dieses Repository hat keine Remotes	Ce dépôt n’a aucun dépôt distant	Este repositorio no tiene remotos
 This repository has no remotes. Add one from the sidebar first.	Dieses Repository hat keine Remotes. Füge zuerst eines über die Seitenleiste hinzu.	Ce dépôt n’a aucun dépôt distant. Ajoutez-en un depuis la barre latérale.	Este repositorio no tiene remotos. Añade uno primero desde la barra lateral.
