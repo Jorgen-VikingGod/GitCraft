@@ -333,6 +333,41 @@ pub async fn set_git_config(repo: Option<&str>, key: &str, value: Option<&str>) 
     Ok(())
 }
 
+/// Asks git's credential helpers to forget what they keep for the http(s) hosts of this
+/// repository's remotes, so the next fetch or push asks again. Returns the hosts.
+pub async fn forget_credentials(repo: &str) -> Result<Vec<String>> {
+    // The real URLs, not the masked ones shown elsewhere: the host is all that's used.
+    let urls = git_unchecked(
+        repo,
+        &["config", "--get-regexp", r"^remote\..*\.(push)?url$"],
+    )
+    .await?;
+    let mut hosts: Vec<(String, String)> = Vec::new();
+    for line in urls.out().lines() {
+        let Some((_, url)) = line.split_once(' ') else {
+            continue;
+        };
+        if let Some(host) = parsers::credential_host(url.trim())
+            && !hosts.contains(&host)
+        {
+            hosts.push(host);
+        }
+    }
+    for (protocol, host) in &hosts {
+        let request = format!("protocol={protocol}\nhost={host}\n\n");
+        run(
+            repo,
+            &["credential", "reject"],
+            Options {
+                stdin: Some(request.as_bytes()),
+                ..Options::default()
+            },
+        )
+        .await?;
+    }
+    Ok(hosts.into_iter().map(|(_, host)| host).collect())
+}
+
 /// Puts the conflict markers back into files resolved during a merge, rebase or cherry-pick,
 /// so they can be resolved again (`git checkout -m`).
 pub async fn mark_conflicted(repo: &str, list: &[String]) -> Result<OpResult> {

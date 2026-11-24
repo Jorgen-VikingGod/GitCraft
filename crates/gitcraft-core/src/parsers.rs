@@ -122,6 +122,40 @@ pub fn parse_commit_detail(out: &str) -> Option<CommitDetail> {
     })
 }
 
+/// The protocol and host (with port) of an http(s) remote URL, without any user name or
+/// password in it; `None` for ssh, file and other URLs, whose credentials git doesn't keep.
+pub fn credential_host(url: &str) -> Option<(String, String)> {
+    let (protocol, rest) = url.split_once("://")?;
+    if protocol != "https" && protocol != "http" {
+        return None;
+    }
+    let authority = rest.split(['/', '?', '#']).next()?;
+    let host = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
+    (!host.is_empty()).then(|| (protocol.to_owned(), host.to_owned()))
+}
+
+#[cfg(test)]
+mod credential_tests {
+    use super::*;
+
+    #[test]
+    fn only_http_hosts_have_credentials_to_forget() {
+        assert_eq!(
+            credential_host("https://me:secret@example.com:8443/team/x.git"),
+            Some(("https".to_owned(), "example.com:8443".to_owned()))
+        );
+        assert_eq!(
+            credential_host("http://example.com"),
+            Some(("http".to_owned(), "example.com".to_owned()))
+        );
+        assert_eq!(credential_host("git@example.com:team/x.git"), None);
+        assert_eq!(credential_host("ssh://git@example.com/x.git"), None);
+        assert_eq!(credential_host("file:///srv/x.git"), None);
+    }
+}
+
 /// `log --format=%x1e%H --shortstat`: each commit's sha, then a line such as
 /// " 3 files changed, 10 insertions(+), 2 deletions(-)" (absent when nothing changed).
 pub fn parse_shortstats(out: &str) -> Vec<(String, CommitStats)> {

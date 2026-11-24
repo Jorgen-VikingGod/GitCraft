@@ -292,6 +292,8 @@ pub enum Command {
         patterns: Vec<String>,
     },
     SparseOff,
+    /// Has git's credential helpers forget the passwords for this repository's remotes.
+    ForgetCredentials,
     BisectStart {
         bad: String,
         good: String,
@@ -435,6 +437,7 @@ impl Command {
             Self::MarkConflicted { .. } => "Marking as conflicted".into(),
             Self::BisectStart { .. } | Self::BisectMark { .. } => "Bisecting".into(),
             Self::FetchMore { .. } => "Fetching more history".into(),
+            Self::ForgetCredentials => "Forgetting saved passwords".into(),
             Self::SparseSet { .. } | Self::SparseOff => "Changing the sparse checkout".into(),
             Self::ForcePushOver { .. } => "Force pushing".into(),
             Self::BisectReset => "Ending bisect".into(),
@@ -520,6 +523,9 @@ impl Command {
                 &[("path", path)],
             ),
             Self::FetchMore { .. } => "More history fetched".into(),
+            Self::ForgetCredentials => {
+                "Saved passwords forgotten; the next fetch or push asks again".into()
+            }
             Self::SparseSet { .. } => "Sparse checkout updated".into(),
             Self::SparseOff => "Every file is checked out again".into(),
             Self::ForcePushOver { .. } => "Push complete".into(),
@@ -942,6 +948,10 @@ impl Command {
             Self::MarkConflicted { paths } => ops::mark_conflicted(repo, &paths).await,
             Self::BisectStart { bad, good } => ops::bisect_start(repo, &bad, &good).await,
             Self::FetchMore { how } => ops::fetch_more(repo, how, report).await,
+            Self::ForgetCredentials => ops::forget_credentials(repo).await.map(|hosts| OpResult {
+                message: hosts.join(", "),
+                ..done()
+            }),
             Self::SparseSet { patterns } => ops::sparse_set(repo, &patterns).await,
             Self::SparseOff => ops::sparse_disable(repo).await,
             Self::DeleteBranches { names, remotes } => {

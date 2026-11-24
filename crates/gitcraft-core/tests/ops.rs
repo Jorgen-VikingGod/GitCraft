@@ -3216,3 +3216,46 @@ async fn git_settings_are_read_and_changed_for_one_repository() {
         Err(Error::Invalid(_))
     ));
 }
+
+#[tokio::test]
+async fn saved_passwords_for_the_remotes_are_forgotten() {
+    let f = Fixture::with_history();
+    let store = f.root.join("credentials");
+    let helper = format!(
+        "store --file={}",
+        store.to_string_lossy().replace('\\', "/")
+    );
+    // An empty helper first drops the user's own helpers (a keyring, say) for this
+    // repository, so the test touches only its own file.
+    f.git(&["config", "credential.helper", ""]);
+    f.git(&["config", "--add", "credential.helper", &helper]);
+    f.git(&["remote", "add", "origin", "https://example.com/team/x.git"]);
+    f.git(&["remote", "add", "mirror", "git@example.org:team/x.git"]);
+    let approve =
+        Command::new("git")
+            .args(["credential", "approve"])
+            .current_dir(&f.path)
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write as _;
+                child.stdin.take().unwrap().write_all(
+                    b"protocol=https\nhost=example.com\nusername=me\npassword=secret\n\n",
+                )?;
+                child.wait()
+            })
+            .unwrap();
+    assert!(approve.success());
+    assert!(
+        std::fs::read_to_string(&store)
+            .unwrap()
+            .contains("example.com")
+    );
+    let hosts = ops::forget_credentials(&f.repo).await.unwrap();
+    assert_eq!(hosts, ["example.com"], "ssh remotes have nothing to forget");
+    assert!(
+        !std::fs::read_to_string(&store)
+            .unwrap()
+            .contains("example.com")
+    );
+}

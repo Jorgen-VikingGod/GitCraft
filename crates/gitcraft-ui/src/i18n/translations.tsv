@@ -343,6 +343,10 @@ Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer
 Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
 Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
+Forget	Vergessen	Oublier	Olvidar
+Forget saved passwords	Gespeicherte Passwörter vergessen	Oublier les mots de passe enregistrés	Olvidar las contraseñas guardadas
+Forget saved passwords for the remotes…	Gespeicherte Passwörter der Remotes vergessen…	Oublier les mots de passe enregistrés des dépôts distants…	Olvidar las contraseñas guardadas de los remotos…
+Forgetting saved passwords	Gespeicherte Passwörter werden vergessen	Oubli des mots de passe enregistrés	Olvidando las contraseñas guardadas
 Git	Git	Git	Git
 git on PATH	git aus PATH	git du PATH	git del PATH
 Git program	Git-Programm	Programme git	Programa git
@@ -359,6 +363,7 @@ Good signature, key of unknown trust	Gültige Signatur, Schlüssel mit unbekannt
 GPG	GPG	GPG	GPG
 Hard reset	Harter Reset	Réinitialisation dure	Reset duro
 Hard: discard all changes	Hart: alle Änderungen verwerfen	Dur : supprimer toutes les modifications	Duro: descartar todos los cambios
+Have git's credential helpers forget the passwords and tokens they keep for the http(s) servers of this repository's remotes? The next fetch or push asks for them again. SSH keys aren't affected.	Sollen die Credential-Helfer von git die Passwörter und Tokens vergessen, die sie für die http(s)-Server der Remotes dieses Repositorys aufbewahren? Das nächste Abrufen oder Pushen fragt wieder danach. SSH-Schlüssel sind nicht betroffen.	Faire oublier aux gestionnaires d’identifiants de git les mots de passe et jetons qu’ils gardent pour les serveurs http(s) des dépôts distants de ce dépôt ? La prochaine récupération ou le prochain envoi les redemande. Les clés SSH ne sont pas concernées.	¿Hacer que los asistentes de credenciales de git olviden las contraseñas y tokens que guardan para los servidores http(s) de los remotos de este repositorio? La próxima obtención o envío los vuelve a pedir. Las claves SSH no se ven afectadas.
 Help	Hilfe	Aide	Ayuda
 Here and on every remote	Hier und auf allen Remotes	Ici et sur tous les dépôts distants	Aquí y en todos los remotos
 Here and on {remote}	Hier und auf {remote}	Ici et sur {remote}	Aquí y en {remote}
@@ -676,6 +681,7 @@ Save git settings	Git-Einstellungen speichern	Enregistrer les réglages git	Guar
 Save local changes as patch…	Lokale Änderungen als Patch speichern…	Enregistrer les modifications locales comme patch…	Guardar los cambios locales como parche…
 Save message	Nachricht speichern	Enregistrer le message	Guardar mensaje
 Save patch	Patch speichern	Enregistrer le patch	Guardar parche
+Saved passwords forgotten; the next fetch or push asks again	Gespeicherte Passwörter vergessen; das nächste Abrufen oder Pushen fragt wieder	Mots de passe enregistrés oubliés ; la prochaine récupération ou le prochain envoi les redemande	Contraseñas guardadas olvidadas; la próxima obtención o envío las vuelve a pedir
 Saved {path}	{path} gespeichert	{path} enregistré	{path} guardado
 Saving remote	Remote wird gespeichert	Enregistrement du dépôt distant	Guardando remoto
 Saving writes the result to the file and stages it.	Speichern schreibt das Ergebnis in die Datei und merkt sie vor.	Enregistrer écrit le résultat dans le fichier et l’indexe.	Guardar escribe el resultado en el archivo y lo prepara.

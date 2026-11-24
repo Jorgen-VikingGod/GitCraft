@@ -50,6 +50,7 @@ pub enum Action {
     /// Asks what to narrow the history to.
     FilterHistory,
     AddSubmodule,
+    ForgetCredentials,
     Maintenance,
     LockWorktree(String),
     RemoveSubmodule(String),
@@ -622,6 +623,13 @@ impl App {
                 }
                 self.ask(form)
             }
+            Action::ForgetCredentials => self.ask(Form::confirm(
+                "Forget saved passwords",
+                "Have git's credential helpers forget the passwords and tokens they keep for the http(s) servers of this repository's remotes? The next fetch or push asks for them again. SSH keys aren't affected.",
+                "Forget",
+                true,
+                run(Command::ForgetCredentials),
+            )),
             Action::AddSubmodule => self.ask(
                 Form::new("Add submodule", "Add", |values: &Values| {
                     run(Command::SubmoduleAdd { url: values.text("url"), path: values.text("path") })
@@ -2265,6 +2273,11 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
             }),
         ),
         MenuItem::entry("Add remote…", act(Action::AddRemote)),
+        MenuItem::entry_if(
+            "Forget saved passwords for the remotes…",
+            !tab.refs.remotes.is_empty(),
+            act(Action::ForgetCredentials),
+        ),
     ];
     // A shallow or partial clone can get what it left out.
     if tab.refs.shallow {
