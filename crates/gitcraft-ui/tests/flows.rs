@@ -3351,3 +3351,18 @@ async fn a_worktree_is_locked_from_its_menu_and_cant_be_removed_then() {
         Some(Some(_))
     ));
 }
+
+#[tokio::test]
+async fn the_maintenance_dialog_tidies_up() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::Maintenance)).await;
+    assert_eq!(
+        app.form.as_ref().unwrap().fields.len(),
+        2,
+        "no remotes, no prune"
+    );
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(toast_kinds(&app).contains(&ToastKind::Success));
+    assert!(f.git(&["count-objects", "-v"]).contains("in-pack: "));
+}

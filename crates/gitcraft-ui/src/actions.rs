@@ -50,6 +50,7 @@ pub enum Action {
     /// Asks what to narrow the history to.
     FilterHistory,
     AddSubmodule,
+    Maintenance,
     LockWorktree(String),
     RemoveSubmodule(String),
     /// Asks for two ranges of commits to compare.
@@ -600,6 +601,23 @@ impl App {
                     ))
                     .field(Field::text("reason", "Reason", "").hint("Optional")),
                 )
+            }
+            Action::Maintenance => {
+                let has_remotes = !remotes.is_empty();
+                let mut form = Form::new("Repository maintenance", "Run", |values: &Values| {
+                    run(Command::Maintenance {
+                        gc: values.check("gc"),
+                        graph: values.check("graph"),
+                        prune: values.check("prune"),
+                    })
+                })
+                .message("Housekeeping git otherwise does now and then by itself. Nothing in the history or the working tree changes.")
+                .field(Field::check("gc", "Pack objects and drop ones nothing needs any more (gc)", true))
+                .field(Field::check("graph", "Write the commit-graph, which speeds up the history", true));
+                if has_remotes {
+                    form = form.field(Field::check("prune", "Fetch and remove branches deleted on the remotes", false));
+                }
+                self.ask(form)
             }
             Action::AddSubmodule => self.ask(
                 Form::new("Add submodule", "Add", |values: &Values| {
@@ -2233,6 +2251,7 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
         MenuItem::entry("Compare commit ranges…", act(Action::RangeDiff)),
         MenuItem::entry("Clean up branches…", Message::OpenCleanup),
         MenuItem::entry("Sparse checkout…", Message::OpenSparse),
+        MenuItem::entry("Maintenance…", act(Action::Maintenance)),
         MenuItem::Separator,
         MenuItem::entry_if(
             "Fetch all remotes (incl. tags)",

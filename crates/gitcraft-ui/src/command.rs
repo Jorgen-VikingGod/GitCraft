@@ -67,6 +67,11 @@ pub enum Command {
         force: bool,
     },
     WorktreePrune,
+    Maintenance {
+        gc: bool,
+        graph: bool,
+        prune: bool,
+    },
     WorktreeLock {
         path: String,
         reason: Option<String>,
@@ -360,6 +365,7 @@ impl Command {
             Self::WorktreeAdd { .. } => "Adding worktree".into(),
             Self::WorktreeRemove { .. } => "Removing worktree".into(),
             Self::WorktreePrune => "Pruning worktrees".into(),
+            Self::Maintenance { .. } => "Tidying up the repository".into(),
             Self::WorktreeLock { .. } => "Locking worktree".into(),
             Self::WorktreeUnlock { .. } => "Unlocking worktree".into(),
             Self::CreateBranch { .. } => "Creating branch".into(),
@@ -450,6 +456,7 @@ impl Command {
             Self::WorktreeAdd { path, .. } => trf("Added worktree {path}", &[("path", path)]),
             Self::WorktreeRemove { .. } => "Worktree removed".into(),
             Self::WorktreePrune => "Stale worktrees pruned".into(),
+            Self::Maintenance { .. } => "Repository tidied up".into(),
             Self::WorktreeLock { .. } => "Worktree locked".into(),
             Self::WorktreeUnlock { .. } => "Worktree unlocked".into(),
             Self::StashApply { pop: true, .. } => "Stash popped".into(),
@@ -713,6 +720,9 @@ impl Command {
             } => ops::worktree_add(repo, &path, start.as_deref(), new_branch.as_deref()).await,
             Self::WorktreeRemove { path, force } => ops::worktree_remove(repo, &path, force).await,
             Self::WorktreePrune => ops::worktree_prune(repo).await,
+            Self::Maintenance { gc, graph, prune } => {
+                ops::maintenance(repo, gc, graph, prune, report).await
+            }
             Self::WorktreeLock { path, reason } => {
                 ops::worktree_lock(repo, &path, reason.as_deref()).await
             }

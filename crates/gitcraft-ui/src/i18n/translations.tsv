@@ -302,6 +302,7 @@ Fetch	Fetch	Récupérer	Recuperar
 Fetch 500 more commits	500 weitere Commits abrufen	Récupérer 500 commits de plus	Obtener 500 commits más
 Fetch after adding	Nach dem Hinzufügen abrufen	Récupérer après l’ajout	Recuperar después de añadir
 Fetch all remotes (incl. tags)	Alle Remotes abrufen (inkl. Tags)	Récupérer tous les dépôts distants (tags compris)	Recuperar todos los remotos (con etiquetas)
+Fetch and remove branches deleted on the remotes	Abrufen und auf den Remotes gelöschte Branches entfernen	Récupérer et supprimer les branches effacées sur les dépôts distants	Obtener y quitar las ramas eliminadas en los remotos
 Fetch complete	Fetch abgeschlossen	Récupération terminée	Recuperación completada
 Fetch in the background every (minutes, 0 = never)	Im Hintergrund abrufen alle (Minuten, 0 = nie)	Récupérer en arrière-plan toutes les (minutes, 0 = jamais)	Obtener en segundo plano cada (minutos, 0 = nunca)
 Fetch the whole history	Den ganzen Verlauf abrufen	Récupérer tout l’historique	Obtener todo el historial
@@ -351,6 +352,7 @@ Hide Others	Andere ausblenden	Masquer les autres	Ocultar otros
 Hide {app}	{app} ausblenden	Masquer {app}	Ocultar {app}
 History of its folder	Verlauf seines Ordners	Historique de son dossier	Historial de su carpeta
 History rewritten	Verlauf neu geschrieben	Historique réécrit	Historial reescrito
+Housekeeping git otherwise does now and then by itself. Nothing in the history or the working tree changes.	Hausarbeit, die git sonst ab und zu von selbst erledigt. Weder Verlauf noch Arbeitsverzeichnis ändern sich.	Le ménage que git fait sinon de temps en temps tout seul. Rien ne change dans l’historique ni dans le répertoire de travail.	Tareas que git hace de vez en cuando por sí solo. No cambia nada en el historial ni en el directorio de trabajo.
 How	Wie	Comment	Cómo
 Ignore	Ignorieren	Ignorer	Ignorar
 Ignore all “*{extension}” files	Alle „*{extension}“-Dateien ignorieren	Ignorer tous les fichiers « *{extension} »	Ignorar todos los archivos «*{extension}»
@@ -409,6 +411,7 @@ Lock…	Sperren…	Verrouiller…	Bloquear…
 main..topic	main..topic	main..topic	main..topic
 main..topic@{1}	main..topic@{1}	main..topic@{1}	main..topic@{1}
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
+Maintenance…	Wartung…	Maintenance…	Mantenimiento…
 Make a first commit	Einen ersten Commit machen	Faire un premier commit	Hacer un primer commit
 Mark as bad	Als fehlerhaft markieren	Marquer comme mauvais	Marcar como malo
 Mark as conflicted again	Wieder als Konflikt markieren	Marquer à nouveau comme conflit	Marcar de nuevo como conflicto
@@ -513,6 +516,7 @@ Overwrite local branch with the remote branch	Lokalen Branch mit dem Remote-Bran
 Overwrite local branch?	Lokalen Branch überschreiben?	Écraser la branche locale ?	¿Sobrescribir la rama local?
 Overwrite only: keep a backup branch of the current state	Nur beim Überschreiben: Backup-Branch des aktuellen Stands behalten	Écrasement seulement : garder une branche de sauvegarde de l’état actuel	Solo al sobrescribir: guardar una rama de respaldo del estado actual
 Overwriting from remote	Wird vom Remote überschrieben	Écrasement depuis le dépôt distant	Sobrescribiendo desde el remoto
+Pack objects and drop ones nothing needs any more (gc)	Objekte packen und nicht mehr benötigte entfernen (gc)	Compacter les objets et supprimer ceux qui ne servent plus (gc)	Empaquetar objetos y quitar los que ya nada necesita (gc)
 Parent	Elternteil	Parent	Padre
 Parents	Eltern	Parents	Padres
 Part of a name or address	Teil eines Namens oder einer Adresse	Partie d’un nom ou d’une adresse	Parte de un nombre o una dirección
@@ -598,6 +602,8 @@ Renaming stash	Stash wird umbenannt	Renommage de la remise	Renombrando stash
 Replace edits?	Änderungen ersetzen?	Remplacer les modifications ?	¿Reemplazar las ediciones?
 Replace {path} in the working tree and index with its version from {commit}? Local changes to it are lost.	{path} im Arbeitsverzeichnis und Index durch die Version aus {commit} ersetzen? Lokale Änderungen daran gehen verloren.	Remplacer {path} dans l’arbre de travail et l’index par sa version de {commit} ? Ses modifications locales sont perdues.	¿Reemplazar {path} en el árbol de trabajo y el índice por su versión de {commit}? Se pierden sus cambios locales.
 Repository	Repository	Dépôt	Repositorio
+Repository maintenance	Repository-Wartung	Maintenance du dépôt	Mantenimiento del repositorio
+Repository tidied up	Repository aufgeräumt	Dépôt nettoyé	Repositorio ordenado
 Reset	Zurücksetzen	Réinitialiser	Restablecer
 Reset (hard)	Zurücksetzen (hart)	Réinitialiser (dur)	Restablecer (duro)
 Reset columns	Spalten zurücksetzen	Réinitialiser les colonnes	Restablecer columnas
@@ -631,6 +637,7 @@ Reworded commits need a message.	Umformulierte Commits brauchen eine Nachricht.	
 Rewrite the history as planned above	Den Verlauf wie oben geplant neu schreiben	Réécrire l’historique comme prévu ci-dessus	Reescribir el historial como se planeó arriba
 Rewrite {branch} on top of {base}. Commits are applied from top to bottom.	{branch} auf {base} neu schreiben. Commits werden von oben nach unten angewendet.	Réécrire {branch} sur {base}. Les commits sont appliqués de haut en bas.	Reescribir {branch} sobre {base}. Los commits se aplican de arriba abajo.
 Rewriting history	Verlauf wird neu geschrieben	Réécriture de l’historique	Reescribiendo el historial
+Run	Ausführen	Lancer	Ejecutar
 Run a command	Befehl ausführen	Exécuter une commande	Ejecutar un comando
 Run a command after the highlighted commit, such as the tests	Nach dem markierten Commit einen Befehl ausführen, etwa die Tests	Exécuter une commande après le commit sélectionné, par exemple les tests	Ejecutar un comando tras el commit resaltado, por ejemplo las pruebas
 Run after…	Danach ausführen…	Exécuter après…	Ejecutar después…
@@ -779,6 +786,7 @@ this hunk	diesen Abschnitt	ce bloc	este bloque
 This repository has no remote to push to or fetch from yet.	Dieses Repository hat noch kein Remote zum Pushen oder Abrufen.	Ce dépôt n’a encore aucun dépôt distant vers lequel pousser ou depuis lequel récupérer.	Este repositorio aún no tiene un remoto al que enviar o del que obtener.
 This repository has no remotes	Dieses Repository hat keine Remotes	Ce dépôt n’a aucun dépôt distant	Este repositorio no tiene remotos
 This repository has no remotes. Add one from the sidebar first.	Dieses Repository hat keine Remotes. Füge zuerst eines über die Seitenleiste hinzu.	Ce dépôt n’a aucun dépôt distant. Ajoutez-en un depuis la barre latérale.	Este repositorio no tiene remotos. Añade uno primero desde la barra lateral.
+Tidying up the repository	Repository wird aufgeräumt	Nettoyage du dépôt	Ordenando el repositorio
 tomorrow	morgen	demain	mañana
 Track remote branch (set upstream)	Remote-Branch verfolgen (Upstream setzen)	Suivre la branche distante (définir l’amont)	Seguir la rama remota (establecer upstream)
 Tracking branch	Verfolgter Branch	Branche suivie	Rama de seguimiento
@@ -829,6 +837,7 @@ Worktree locked	Worktree gesperrt	Arbre de travail verrouillé	Árbol de trabajo
 Worktree removed	Worktree entfernt	Arbre de travail retiré	Árbol de trabajo quitado
 Worktree unlocked	Worktree entsperrt	Arbre de travail déverrouillé	Árbol de trabajo desbloqueado
 Worktrees	Worktrees	Arbres de travail	Árboles de trabajo
+Write the commit-graph, which speeds up the history	Den Commit-Graph schreiben, der den Verlauf beschleunigt	Écrire le commit-graph, qui accélère l’historique	Escribir el commit-graph, que acelera el historial
 yesterday	gestern	hier	ayer
 Zoom	Zoom	Zoom	Zoom
 Zoom in	Vergrößern	Zoom avant	Acercar

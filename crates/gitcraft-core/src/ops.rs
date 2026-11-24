@@ -1823,6 +1823,43 @@ pub async fn worktree_unlock(repo: &str, path: &str) -> Result<OpResult> {
     Ok(ok(&git(repo, &["worktree", "unlock", "--", path]).await?))
 }
 
+/// Tidies the repository: `gc` packs objects and drops unreachable ones git no longer needs
+/// (git's own grace periods apply), `graph` writes the commit-graph that speeds up history,
+/// and `prune` fetches every remote and removes branches deleted there.
+pub async fn maintenance(
+    repo: &str,
+    gc: bool,
+    graph: bool,
+    prune: bool,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    if !(gc || graph || prune) {
+        return invalid("Choose something to do");
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if prune {
+        run(
+            repo,
+            &["fetch", "--all", "--prune", "--progress"],
+            with_progress(progress),
+        )
+        .await?;
+    }
+    if gc {
+        run(
+            repo,
+            &["maintenance", "run", "--task=gc"],
+            with_progress(progress),
+        )
+        .await?;
+    }
+    if graph {
+        git(repo, &["commit-graph", "write", "--reachable"]).await?;
+    }
+    Ok(ok_empty())
+}
+
 pub async fn worktree_prune(repo: &str) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;

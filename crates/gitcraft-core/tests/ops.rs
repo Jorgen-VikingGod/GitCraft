@@ -3147,3 +3147,24 @@ async fn a_worktree_is_locked_with_a_reason_and_unlocked() {
     ops::worktree_unlock(&f.repo, place).await.unwrap();
     assert_eq!(locked(&queries::refs(&f.repo).await.unwrap()), Some(false));
 }
+
+#[tokio::test]
+async fn maintenance_packs_and_writes_the_commit_graph() {
+    let f = Fixture::with_history();
+    ops::maintenance(&f.repo, true, true, false, None)
+        .await
+        .unwrap();
+    assert!(
+        f.path.join(".git/objects/info/commit-graph").exists()
+            || f.path.join(".git/objects/info/commit-graphs").exists()
+    );
+    assert!(f.git(&["count-objects", "-v"]).contains("in-pack: "));
+    assert!(matches!(
+        ops::maintenance(&f.repo, false, false, false, None).await,
+        Err(Error::Invalid(_))
+    ));
+    assert_eq!(
+        subjects(&queries::log(&f.repo, 10, true, None).await.unwrap().commits),
+        ["second", "first"]
+    );
+}
