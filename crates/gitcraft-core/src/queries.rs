@@ -125,6 +125,14 @@ pub async fn operation_state(repo: &str) -> Result<Option<Operation>> {
     Ok(None)
 }
 
+/// Refs left out of "all branches": the stash, and GitCraft's own backups.
+const HIDDEN_REFS: [&str; 2] = ["--exclude=refs/stash", "--exclude=refs/gitcraft/*"];
+
+/// Backups of discarded changes, newest first.
+pub async fn discard_backups(repo: &str) -> Result<Vec<DiscardBackup>> {
+    crate::backups::list(repo).await
+}
+
 pub async fn log(
     repo: &str,
     limit: usize,
@@ -142,10 +150,22 @@ pub async fn log(
     if let Some(reference) = reference {
         args.push(check_ref(reference)?);
     } else if all_refs {
-        args.extend(["--exclude=refs/stash", "--all"]);
+        args.extend(HIDDEN_REFS);
+        args.push("--all");
     }
     if reference.is_none() && !has_head(repo).await? {
-        let refs = git(repo, &["for-each-ref", "--count=1", "--format=%(refname)"]).await?;
+        let refs = git(
+            repo,
+            &[
+                "for-each-ref",
+                "--count=1",
+                "--format=%(refname)",
+                "refs/heads/",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+        .await?;
         if refs.out().trim().is_empty() {
             return Ok(LogPage {
                 commits: Vec::new(),
@@ -401,14 +421,9 @@ pub async fn search(repo: &str, query: &str, mode: &str, limit: usize) -> Result
         return Ok(parsers::parse_log(&result.out()));
     }
     let max_count = format!("--max-count={limit}");
-    let mut args = vec![
-        "log",
-        "--decorate=full",
-        LOG_FORMAT,
-        &max_count,
-        "--exclude=refs/stash",
-        "--all",
-    ];
+    let mut args = vec!["log", "--decorate=full", LOG_FORMAT, &max_count];
+    args.extend(HIDDEN_REFS);
+    args.push("--all");
     let filter;
     match mode {
         "author" => {

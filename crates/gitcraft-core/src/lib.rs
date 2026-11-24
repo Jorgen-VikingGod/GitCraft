@@ -1,5 +1,6 @@
 //! Git layer of GitCraft. Runs the system `git` and parses its machine-readable output.
 
+pub mod backups;
 pub mod editor;
 pub mod graph;
 pub mod model;

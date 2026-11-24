@@ -292,6 +292,129 @@ async fn discard_lines_and_files() {
 }
 
 #[tokio::test]
+async fn discarded_files_can_be_put_back() {
+    let f = Fixture::with_history();
+    f.commit("b.txt", "bee\n", "third");
+    // A staged change, with more on top that is not staged.
+    f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\n");
+    f.git(&["add", "a.txt"]);
+    f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\nnot staged\n");
+    f.write("we*ird name.txt", "new\n");
+    std::fs::remove_file(f.path.join("b.txt")).unwrap();
+    let staged = f.git(&["diff", "--cached"]);
+    let list: Vec<String> = vec!["a.txt".into(), "we*ird name.txt".into(), "b.txt".into()];
+    ops::discard_files(&f.repo, &list).await.unwrap();
+    assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\nstaged\n");
+    assert!(!f.exists("we*ird name.txt"));
+    assert_eq!(f.read("b.txt"), "bee\n");
+
+    let backups = queries::discard_backups(&f.repo).await.unwrap();
+    assert_eq!(backups.len(), 1);
+    assert_eq!(backups[0].paths, list);
+    // The backup commits stay out of the history and out of search.
+    let page = queries::log(&f.repo, 100, true, None).await.unwrap();
+    assert_eq!(subjects(&page.commits), ["third", "second", "first"]);
+    let found = queries::search(&f.repo, "discarded", "message", 100)
+        .await
+        .unwrap();
+    assert!(found.is_empty());
+
+    ops::restore_discard(&f.repo, &backups[0].name)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.read("a.txt"),
+        "one\ntwo\nthree\nfour\nstaged\nnot staged\n"
+    );
+    assert_eq!(f.read("we*ird name.txt"), "new\n");
+    assert!(!f.exists("b.txt"));
+    assert_eq!(
+        f.git(&["diff", "--cached"]),
+        staged,
+        "the index is left alone"
+    );
+    assert!(queries::discard_backups(&f.repo).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_backup_never_overwrites_later_work() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "discarded\n");
+    ops::discard_files(&f.repo, &["a.txt".into()])
+        .await
+        .unwrap();
+    f.write("a.txt", "written later\n");
+    let name = queries::discard_backups(&f.repo).await.unwrap()[0]
+        .name
+        .clone();
+    assert!(matches!(
+        ops::restore_discard(&f.repo, &name).await,
+        Err(Error::Invalid(_))
+    ));
+    assert_eq!(f.read("a.txt"), "written later\n");
+    ops::delete_discard(&f.repo, &name).await.unwrap();
+    assert!(queries::discard_backups(&f.repo).await.unwrap().is_empty());
+    assert!(matches!(
+        ops::restore_discard(&f.repo, "refs/heads/main").await,
+        Err(Error::Invalid(_))
+    ));
+}
+
+#[tokio::test]
+async fn discarded_lines_can_be_put_back() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "one\ntwo\nthree\nfour\nextra1\nextra2\n");
+    let diff = queries::working_diff(&f.repo, "a.txt", false, 3, false, None)
+        .await
+        .unwrap()
+        .unwrap();
+    let first = line_index(&diff, 0, |l| l.text == "extra1");
+    let selection = BTreeMap::from([(0, lines_of(&[first]))]);
+    ops::apply_selection(&f.repo, "a.txt", "discard", &selection, 3)
+        .await
+        .unwrap();
+    assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\nextra2\n");
+    // Staging keeps no backup: nothing is lost by it.
+    let name = queries::discard_backups(&f.repo).await.unwrap()[0]
+        .name
+        .clone();
+    ops::restore_discard(&f.repo, &name).await.unwrap();
+    assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\nextra1\nextra2\n");
+}
+
+#[tokio::test]
+async fn discarding_before_the_first_commit_keeps_a_backup_too() {
+    let f = Fixture::empty();
+    f.write("n.txt", "hello\n");
+    ops::discard_files(&f.repo, &["n.txt".into()])
+        .await
+        .unwrap();
+    assert!(!f.exists("n.txt"));
+    let page = queries::log(&f.repo, 100, true, None).await.unwrap();
+    assert!(page.commits.is_empty());
+    let name = queries::discard_backups(&f.repo).await.unwrap()[0]
+        .name
+        .clone();
+    ops::restore_discard(&f.repo, &name).await.unwrap();
+    assert_eq!(f.read("n.txt"), "hello\n");
+}
+
+#[tokio::test]
+async fn old_backups_are_let_go() {
+    let f = Fixture::with_history();
+    let head = f.git(&["rev-parse", "HEAD"]);
+    let old = "refs/gitcraft/discards/000000000001-0123456789ab";
+    f.git(&["update-ref", old, head.trim()]);
+    f.write("a.txt", "changed\n");
+    ops::discard_files(&f.repo, &["a.txt".into()])
+        .await
+        .unwrap();
+    let backups = queries::discard_backups(&f.repo).await.unwrap();
+    assert_eq!(backups.len(), 1);
+    assert_ne!(backups[0].name, old);
+}
+
+#[tokio::test]
 async fn untracked_diff_and_stage() {
     let f = Fixture::empty();
     f.write("n.txt", "hello\n");
@@ -1386,6 +1509,14 @@ async fn discarding_a_line_keeps_crlf_line_endings() {
         .await
         .unwrap();
     assert_eq!(f.read("a.txt"), "one\r\ntwo\r\nthree\r\nfour\r\nextra2\r\n");
+    let name = queries::discard_backups(&f.repo).await.unwrap()[0]
+        .name
+        .clone();
+    ops::restore_discard(&f.repo, &name).await.unwrap();
+    assert_eq!(
+        f.read("a.txt"),
+        "one\r\ntwo\r\nthree\r\nfour\r\nextra1\r\nextra2\r\n"
+    );
 }
 
 #[tokio::test]

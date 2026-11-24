@@ -498,6 +498,11 @@ pub enum Overlay {
         loading: bool,
         error: Option<String>,
     },
+    Discards {
+        entries: Vec<DiscardBackup>,
+        loading: bool,
+        error: Option<String>,
+    },
     Blame {
         path: String,
         rev: Option<String>,
@@ -753,6 +758,8 @@ pub enum Message {
     OverlayClose,
     OpenReflog,
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
+    OpenDiscards,
+    DiscardsLoaded(Answer<Vec<DiscardBackup>>),
     OpenBlame(String, Option<String>),
     BlameLoaded(Answer<Vec<BlameLine>>),
     BlameHover(String),
@@ -1603,6 +1610,22 @@ impl App {
             Message::OpenReflog => self.open_reflog(),
             Message::ReflogLoaded(result) => {
                 if let Some(Overlay::Reflog {
+                    entries,
+                    loading,
+                    error,
+                }) = &mut self.overlay
+                {
+                    *loading = false;
+                    match result {
+                        Ok(list) => *entries = list,
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
+            Message::OpenDiscards => self.open_discards(),
+            Message::DiscardsLoaded(result) => {
+                if let Some(Overlay::Discards {
                     entries,
                     loading,
                     error,
@@ -2490,7 +2513,10 @@ impl App {
             };
             self.form = Some(Form::confirm(
                 "Discard changes",
-                &trf("Discard {what}? This cannot be undone.", &[("what", &what)]),
+                &trf(
+                    "Discard {what}? A backup is kept: Repository › Recover discarded changes.",
+                    &[("what", &what)],
+                ),
                 "Discard",
                 true,
                 Message::Run(command),
@@ -2798,6 +2824,7 @@ impl App {
             ),
         }
         let mut then = None;
+        let mut refresh_list = false;
         match &command {
             Command::Commit { .. } => {
                 if let Some(tab) = self.tab_mut(&repo) {
@@ -2829,6 +2856,19 @@ impl App {
                     tab.view = View::Changes;
                 }
             }
+            Command::RestoreDiscard { .. } if succeeded => {
+                if matches!(self.overlay, Some(Overlay::Discards { .. })) {
+                    self.overlay = None;
+                }
+                if let Some(tab) = self.tab_mut(&repo) {
+                    tab.view = View::Changes;
+                }
+            }
+            Command::DeleteDiscard { .. }
+                if succeeded && matches!(self.overlay, Some(Overlay::Discards { .. })) =>
+            {
+                refresh_list = true;
+            }
             _ => {}
         }
         let found = self
@@ -2847,7 +2887,12 @@ impl App {
         } else {
             load_all(repo, limit, all)
         };
-        Task::batch([reload, then])
+        let list = if refresh_list {
+            self.open_discards()
+        } else {
+            Task::none()
+        };
+        Task::batch([reload, then, list])
     }
 
     // ----------------------------------------------------------- overlays
@@ -2864,6 +2909,21 @@ impl App {
         Task::perform(
             async move { answer(queries::reflog(&path, "HEAD", REFLOG_LIMIT).await) },
             Message::ReflogLoaded,
+        )
+    }
+
+    fn open_discards(&mut self) -> Task<Message> {
+        let Some(path) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        self.overlay = Some(Overlay::Discards {
+            entries: Vec::new(),
+            loading: true,
+            error: None,
+        });
+        Task::perform(
+            async move { answer(queries::discard_backups(&path).await) },
+            Message::DiscardsLoaded,
         )
     }
 

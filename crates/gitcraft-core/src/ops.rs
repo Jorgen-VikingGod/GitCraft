@@ -8,7 +8,7 @@ use crate::parsers::{self, Selection};
 use crate::runner::{
     GitResult, Options, Progress, editor_command, git, git_unchecked, repo_lock, run, run_unchecked,
 };
-use crate::{Error, GitError, Result, check_ref, editor, paths, queries};
+use crate::{Error, GitError, Result, backups, check_ref, editor, paths, queries};
 
 fn ok(result: &GitResult) -> OpResult {
     OpResult {
@@ -118,9 +118,17 @@ pub async fn unstage_all(repo: &str) -> Result<()> {
     Ok(())
 }
 
+/// Throws away the changes to `list`, after keeping a backup that
+/// [`restore_discard`] can put back.
 pub async fn discard_files(repo: &str, list: &[String]) -> Result<()> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    let backup = backups::before(repo, list).await?;
+    discard_unlocked(repo, list).await?;
+    backups::keep(repo, backup).await
+}
+
+async fn discard_unlocked(repo: &str, list: &[String]) -> Result<()> {
     let status = queries::status(repo).await?;
     let untracked: HashSet<&str> = status
         .unstaged
@@ -185,6 +193,11 @@ pub async fn apply_selection(
         args.push("-R");
     }
     args.push("-");
+    let backup = if mode == "discard" {
+        Some(backups::before(repo, &[path.to_owned()]).await?)
+    } else {
+        None
+    };
     run(
         repo,
         &args,
@@ -194,7 +207,25 @@ pub async fn apply_selection(
         },
     )
     .await?;
-    Ok(())
+    match backup {
+        Some(backup) => backups::keep(repo, backup).await,
+        None => Ok(()),
+    }
+}
+
+/// Puts discarded changes back from their backup (see [`queries::discard_backups`]).
+/// Refuses, changing nothing, when any of the files changed since the discard.
+pub async fn restore_discard(repo: &str, name: &str) -> Result<()> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    backups::restore(repo, name).await
+}
+
+/// Deletes the backup of a discard for good.
+pub async fn delete_discard(repo: &str, name: &str) -> Result<()> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    backups::delete(repo, name).await
 }
 
 // ------------------------------------------------------------------- commit

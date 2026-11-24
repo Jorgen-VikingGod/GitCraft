@@ -273,6 +273,16 @@ pub struct BlameLine {
     pub summary: String,
 }
 
+/// Discarded changes kept so they can be put back (`refs/gitcraft/discards/…`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiscardBackup {
+    pub name: String,
+    pub sha: String,
+    /// Unix seconds of the discard.
+    pub time: i64,
+    pub paths: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReflogEntry {
     pub sha: String,

@@ -182,6 +182,12 @@ pub enum Command {
     Discard {
         paths: Vec<String>,
     },
+    RestoreDiscard {
+        name: String,
+    },
+    DeleteDiscard {
+        name: String,
+    },
     Selection {
         path: String,
         mode: &'static str,
@@ -263,6 +269,8 @@ impl Command {
             Self::Unstage { .. } => "Unstaging".into(),
             Self::UnstageAll => "Unstaging all".into(),
             Self::Discard { .. } => "Discarding".into(),
+            Self::RestoreDiscard { .. } => "Restoring discarded changes".into(),
+            Self::DeleteDiscard { .. } => "Deleting backup".into(),
             Self::Selection { mode, .. } => match *mode {
                 "stage" => "Staging".into(),
                 "unstage" => "Unstaging".into(),
@@ -322,6 +330,8 @@ impl Command {
             ),
             Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
+            Self::RestoreDiscard { .. } => "Discarded changes restored".into(),
+            Self::DeleteDiscard { .. } => "Backup deleted".into(),
             Self::Resolve { path, .. } => trf("Resolved {path}", &[("path", path)]),
             Self::CheckoutStashing { reapply: true, .. } => {
                 "Checked out, with your changes brought along".into()
@@ -356,6 +366,8 @@ impl Command {
                 | Self::Unstage { .. }
                 | Self::UnstageAll
                 | Self::Discard { .. }
+                | Self::RestoreDiscard { .. }
+                | Self::DeleteDiscard { .. }
                 | Self::Selection { .. }
                 | Self::Resolve { .. }
         )
@@ -570,6 +582,10 @@ impl Command {
             Self::Unstage { paths } => ops::unstage_files(repo, &paths).await.map(|()| done()),
             Self::UnstageAll => ops::unstage_all(repo).await.map(|()| done()),
             Self::Discard { paths } => ops::discard_files(repo, &paths).await.map(|()| done()),
+            Self::RestoreDiscard { name } => {
+                ops::restore_discard(repo, &name).await.map(|()| done())
+            }
+            Self::DeleteDiscard { name } => ops::delete_discard(repo, &name).await.map(|()| done()),
             Self::Selection {
                 path,
                 mode,

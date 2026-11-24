@@ -78,6 +78,7 @@ pub enum Action {
         path: String,
     },
     Discard(Vec<String>),
+    DeleteDiscard(String),
     Clone,
     CloneTo {
         url: String,
@@ -778,12 +779,22 @@ impl App {
                 };
                 self.ask(Form::confirm(
                     "Discard changes",
-                    &trf("Discard all changes to {what}? This cannot be undone.", &[("what", &what)]),
+                    &trf(
+                        "Discard all changes to {what}? A backup is kept: Repository › Recover discarded changes.",
+                        &[("what", &what)],
+                    ),
                     "Discard",
                     true,
                     run(Command::Discard { paths }),
                 ))
             }
+            Action::DeleteDiscard(name) => self.ask(Form::confirm(
+                "Delete backup",
+                "Delete this backup of discarded changes? It can't be restored afterwards.",
+                "Delete",
+                true,
+                run(Command::DeleteDiscard { name }),
+            )),
             Action::ConflictOverwrite(index, choice) => self.conflict_choose(index, choice, true),
             Action::ConflictResolve { path, side } => Task::done(run(Command::Resolve { path, content: None, side })),
             Action::Clone | Action::Init | Action::CloneTo { .. } | Action::Cloned(_) | Action::InitAt(_) => Task::none(),
@@ -1546,6 +1557,7 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
         MenuItem::entry("Apply patch…", act(Action::ApplyPatch)),
         MenuItem::danger("Clean untracked files…", act(Action::Clean)),
         MenuItem::entry("Reflog (recover lost commits)…", Message::OpenReflog),
+        MenuItem::entry("Recover discarded changes…", Message::OpenDiscards),
         MenuItem::Separator,
         MenuItem::entry_if(
             "Fetch all remotes (incl. tags)",

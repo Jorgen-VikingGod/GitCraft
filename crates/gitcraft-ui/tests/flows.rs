@@ -412,6 +412,62 @@ async fn discarding_a_hunk_asks_first() {
 }
 
 #[tokio::test]
+async fn discarded_changes_can_be_recovered() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "brand new\n");
+    let mut app = opened(&f, false).await;
+    let paths = vec!["a.txt".to_owned(), "new.txt".to_owned()];
+    drive(&mut app, Message::Action(Action::Discard(paths))).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(f.read("a.txt"), "one\n");
+    assert!(!f.path.join("new.txt").exists());
+    assert_eq!(
+        f.subjects(),
+        ["first"],
+        "the backup is not a commit of the branch"
+    );
+
+    drive(&mut app, Message::OpenDiscards).await;
+    let Some(Overlay::Discards { entries, .. }) = &app.overlay else {
+        panic!("open")
+    };
+    assert_eq!(entries.len(), 1);
+    let clicked = Screen::new().click(&app, "Restore", PointerButton::Primary);
+    assert!(!clicked.is_empty(), "the list shows a Restore button");
+    for message in clicked {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(f.read("a.txt"), "changed\n");
+    assert_eq!(f.read("new.txt"), "brand new\n");
+    assert!(app.overlay.is_none(), "the list closes once restored");
+    assert_eq!(app.current().unwrap().view, View::Changes);
+
+    // Deleting asks first, then the list shows what is left.
+    drive(
+        &mut app,
+        Message::Action(Action::Discard(vec!["a.txt".into()])),
+    )
+    .await;
+    drive(&mut app, Message::FormSubmit).await;
+    drive(&mut app, Message::OpenDiscards).await;
+    for message in Screen::new().click(&app, "Delete…", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert!(app.form.is_some());
+    drive(&mut app, Message::FormSubmit).await;
+    let Some(Overlay::Discards {
+        entries, loading, ..
+    }) = &app.overlay
+    else {
+        panic!("still open")
+    };
+    assert!(!loading && entries.is_empty());
+    assert_eq!(f.read("a.txt"), "one\n");
+}
+
+#[tokio::test]
 async fn pushing_to_a_bare_remote_reports_progress() {
     let f = fixture();
     let remote = f.root.join("remote.git");

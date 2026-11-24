@@ -4,7 +4,7 @@ use egui::{
     Align, Align2, Color32, Context, Frame, Id, Layout, Margin, Pos2, Rect, Sense, Stroke,
     StrokeKind, Ui, vec2,
 };
-use gitcraft_core::model::{BlameLine, Commit, ConflictChunk, ReflogEntry};
+use gitcraft_core::model::{BlameLine, Commit, ConflictChunk, DiscardBackup, ReflogEntry};
 
 use super::widgets::{
     Kind, accent, area_edit, bar, btn, button_tip, card, check, choice, fill, floating, line_edit,
@@ -17,6 +17,7 @@ use crate::app::{
     BLAME_ROW_HEIGHT, ConflictState, DiffPane, Message, Overlay, PaneKey, REBASE_ROW_HEIGHT,
     RebaseState,
 };
+use crate::command::Command;
 use crate::i18n::{tr, trf};
 use crate::logic::{Choice, has_conflict_markers, plural, short_date, short_sha};
 
@@ -93,6 +94,11 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
             loading,
             error,
         } => reflog(ctx, cx, entries, *loading, error.as_deref()),
+        Overlay::Discards {
+            entries,
+            loading,
+            error,
+        } => discards(ctx, cx, entries, *loading, error.as_deref()),
         Overlay::Blame {
             path,
             rev,
@@ -158,6 +164,88 @@ fn reflog(ctx: &Context, cx: &Cx, entries: &[ReflogEntry], loading: bool, error:
             }
         },
     );
+}
+
+fn discards(ctx: &Context, cx: &Cx, entries: &[DiscardBackup], loading: bool, error: Option<&str>) {
+    let look = cx.look();
+    dialog(
+        ctx,
+        cx,
+        "Recover discarded changes",
+        tr(
+            "Discarded changes are kept for 30 days (the last 50). Putting them back never overwrites what you changed since.",
+        ),
+        None,
+        |ui, _| {
+            if loading {
+                placeholder(ui, look, "Loading…");
+            } else if let Some(error) = error {
+                placeholder(ui, look, error);
+            } else if entries.is_empty() {
+                placeholder(ui, look, "No discarded changes are kept");
+            } else {
+                let scrolled = scroll("discards").show(ui, |ui| {
+                    ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                    for entry in entries {
+                        discard_row(ui, cx, entry);
+                    }
+                });
+                super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
+            }
+        },
+    );
+}
+
+fn discard_row(ui: &mut Ui, cx: &Cx, entry: &DiscardBackup) {
+    let look = cx.look();
+    let c = &look.c;
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::hover());
+    if response.hovered() {
+        fill(ui, rect, c.hover);
+    }
+    let mid = rect.center().y;
+    let size = look.text_size;
+    let buttons = 170.0;
+    let mut x = rect.left() + 12.0;
+    paint_text(
+        ui.painter(),
+        Pos2::new(x, mid),
+        &short_date(entry.time),
+        look.ui(size),
+        c.text_muted,
+    );
+    x += 120.0;
+    let files_w = (rect.right() - buttons - 16.0 - x).max(80.0);
+    let painter = ui.painter().with_clip_rect(Rect::from_min_size(
+        Pos2::new(x, rect.top()),
+        vec2(files_w, rect.height()),
+    ));
+    let files = match &entry.paths[..] {
+        [] => String::new(),
+        [one] => one.clone(),
+        [first, rest @ ..] => trf(
+            "{path} and {more}",
+            &[("path", first), ("more", &plural(rest.len(), "more file"))],
+        ),
+    };
+    paint_text(&painter, Pos2::new(x, mid), &files, look.mono(size), c.text);
+    let slot = Rect::from_min_max(
+        Pos2::new(rect.right() - buttons - 8.0, rect.top()),
+        Pos2::new(rect.right() - 8.0, rect.bottom()),
+    );
+    region(ui, slot, |ui| {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if btn(ui, look, "Delete…", true) {
+                cx.send(Message::Action(Action::DeleteDiscard(entry.name.clone())));
+            }
+            if btn(ui, look, "Restore", true) {
+                cx.send(Message::Run(Command::RestoreDiscard {
+                    name: entry.name.clone(),
+                }));
+            }
+        });
+    });
+    response.on_hover_text(entry.paths.join("\n"));
 }
 
 fn reflog_row(ui: &mut Ui, cx: &Cx, entry: &ReflogEntry) {

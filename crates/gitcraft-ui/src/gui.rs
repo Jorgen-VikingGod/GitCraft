@@ -251,6 +251,7 @@ impl Shell {
                 Some("changes") => Message::SetView(crate::app::View::Changes),
                 Some("split") => Message::SetSplit(true),
                 Some("settings") => Message::OpenSettings,
+                Some("discards") => Message::OpenDiscards,
                 Some("rebase") => Message::OpenRebase(None),
                 Some("delete") => Message::Action(crate::actions::Action::DeleteBranch(
                     "rust-migration".to_owned(),

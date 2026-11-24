@@ -22,6 +22,7 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-core/src/graph.rs` | Commit-graph lane layout |
 | `crates/gitcraft-core/src/queries.rs` | Read-only queries |
 | `crates/gitcraft-core/src/ops.rs` | Mutating operations (always holding `repo_lock`) |
+| `crates/gitcraft-core/src/backups.rs` | Backups of discarded changes under `refs/gitcraft/discards/` (kept 30 days, at most 50), and putting them back |
 | `crates/gitcraft-core/src/editor.rs` | Non-interactive editor mode, used for `GIT_EDITOR` / `GIT_SEQUENCE_EDITOR` |
 | `crates/gitcraft-core/src/model.rs` | Data handed to callers |
 | `crates/gitcraft-core/src/watcher.rs` | File-system change notifications for one repository |
@@ -154,7 +155,8 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   it in `views/frame.rs`. `GITCRAFT_TITLEBAR=app|system` (or `CRAFT_TITLEBAR`) overrides the setting, and
   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 - The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
-- `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`) opens that
+- `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`,
+  `discards`) opens that
   before the picture is taken. Set `language = "de"` under `[general]` in the test folder's `config.toml`
   to look at a translated window.
 - Tests run side by side in one process, and the interface language is global: don't switch it to another

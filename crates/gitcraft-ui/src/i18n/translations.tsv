@@ -8,6 +8,7 @@
 1 hour ago	vor 1 Stunde	il y a 1 heure	hace 1 hora
 1 line	1 Zeile	1 ligne	1 línea
 1 minute ago	vor 1 Minute	il y a 1 minute	hace 1 minuto
+1 more file	1 weitere Datei	1 autre fichier	1 archivo más
 1 pattern	1 Muster	1 motif	1 patrón
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
 Abort	Abbrechen	Annuler	Abortar
@@ -50,6 +51,7 @@ Applying patches (git am)	Patches werden angewendet (git am)	Application des pat
 Applying stash	Stash wird angewendet	Application de la remise	Aplicando stash
 author	Autor	auteur	autor
 Author	Autor	Auteur	Autor
+Backup deleted	Sicherung gelöscht	Sauvegarde supprimée	Copia de seguridad eliminada
 Based on {based}	Basierend auf {based}	À partir de {based}	Basado en {based}
 Binary file — no text diff available	Binärdatei — kein Text-Diff verfügbar	Fichier binaire — pas de diff texte	Archivo binario: no hay diff de texto
 Blame	Blame	Annotations (blame)	Blame
@@ -156,6 +158,7 @@ Dark	Dunkel	Sombre	Oscuro
 Date	Datum	Date	Fecha
 Default (fast-forward if possible)	Standard (vorspulen, wenn möglich)	Par défaut (avance rapide si possible)	Predeterminado (avance rápido si es posible)
 Delete	Löschen	Supprimer	Eliminar
+Delete backup	Sicherung löschen	Supprimer la sauvegarde	Eliminar copia de seguridad
 Delete branch	Branch löschen	Supprimer la branche	Eliminar rama
 Delete from {remote}…	Von {remote} löschen…	Supprimer de {remote}…	Eliminar de {remote}…
 Delete local branch {name}?	Lokalen Branch {name} löschen?	Supprimer la branche locale {name} ?	¿Eliminar la rama local {name}?
@@ -163,11 +166,13 @@ Delete remote branch	Remote-Branch löschen	Supprimer la branche distante	Elimin
 Delete tag	Tag löschen	Supprimer le tag	Eliminar etiqueta
 Delete tag {name}?	Tag {name} löschen?	Supprimer le tag {name} ?	¿Eliminar la etiqueta {name}?
 Delete the working folder “{path}”? Uncommitted changes in it are lost.	Den Arbeitsordner „{path}“ löschen? Nicht committete Änderungen darin gehen verloren.	Supprimer le dossier de travail « {path} » ? Les modifications non validées qu’il contient sont perdues.	¿Eliminar la carpeta de trabajo «{path}»? Se pierden los cambios sin commit que contiene.
+Delete this backup of discarded changes? It can't be restored afterwards.	Diese Sicherung verworfener Änderungen löschen? Danach lässt sie sich nicht mehr wiederherstellen.	Supprimer cette sauvegarde de modifications supprimées ? Elle ne pourra plus être restaurée.	¿Eliminar esta copia de seguridad de cambios descartados? Después ya no se podrá restaurar.
 Delete untracked files from the working tree.	Nicht verfolgte Dateien aus dem Arbeitsverzeichnis löschen.	Supprimer les fichiers non suivis de l’arbre de travail.	Eliminar los archivos sin seguimiento del árbol de trabajo.
 Delete {branch} from {remote}?	{branch} von {remote} löschen?	Supprimer {branch} de {remote} ?	¿Eliminar {branch} de {remote}?
 Delete {count} item(s)?	{count} Einträge löschen?	Supprimer {count} élément(s) ?	¿Eliminar {count} elemento(s)?
 Delete “{message}”? This cannot be undone.	„{message}“ löschen? Das kann nicht rückgängig gemacht werden.	Supprimer « {message} » ? Cette action est irréversible.	¿Eliminar «{message}»? No se puede deshacer.
 Delete…	Löschen…	Supprimer…	Eliminar…
+Deleting backup	Sicherung wird gelöscht	Suppression de la sauvegarde	Eliminando copia de seguridad
 Deleting branch	Branch wird gelöscht	Suppression de la branche	Eliminando rama
 Deleting remote branch	Remote-Branch wird gelöscht	Suppression de la branche distante	Eliminando rama remota
 Deleting tag	Tag wird gelöscht	Suppression du tag	Eliminando etiqueta
@@ -178,14 +183,16 @@ Diff truncated — the file is too large to show completely.	Diff gekürzt – d
 Diffs	Diffs	Diffs	Diffs
 Discard	Verwerfen	Supprimer	Descartar
 Discard all	Alles verwerfen	Tout supprimer	Descartar todo
-Discard all changes to {what}? This cannot be undone.	Alle Änderungen an {what} verwerfen? Das kann nicht rückgängig gemacht werden.	Supprimer toutes les modifications de {what} ? Cette action est irréversible.	¿Descartar todos los cambios de {what}? No se puede deshacer.
+Discard all changes to {what}? A backup is kept: Repository › Recover discarded changes.	Alle Änderungen an {what} verwerfen? Eine Sicherung bleibt erhalten: Repository › Verworfene Änderungen wiederherstellen.	Supprimer toutes les modifications de {what} ? Une sauvegarde est conservée : Dépôt › Récupérer les modifications supprimées.	¿Descartar todos los cambios de {what}? Se guarda una copia de seguridad: Repositorio › Recuperar cambios descartados.
 Discard changes	Änderungen verwerfen	Supprimer les modifications	Descartar cambios
 Discard changes to {count} files…	Änderungen an {count} Dateien verwerfen…	Supprimer les modifications de {count} fichiers…	Descartar cambios de {count} archivos…
 Discard changes…	Änderungen verwerfen…	Supprimer les modifications…	Descartar cambios…
 Discard file	Datei verwerfen	Supprimer le fichier	Descartar archivo
 Discard hunk	Abschnitt verwerfen	Supprimer le bloc	Descartar bloque
 Discard {lines}	{lines} verwerfen	Supprimer {lines}	Descartar {lines}
-Discard {what}? This cannot be undone.	{what} verwerfen? Das kann nicht rückgängig gemacht werden.	Supprimer {what} ? Cette action est irréversible.	¿Descartar {what}? No se puede deshacer.
+Discard {what}? A backup is kept: Repository › Recover discarded changes.	{what} verwerfen? Eine Sicherung bleibt erhalten: Repository › Verworfene Änderungen wiederherstellen.	Supprimer {what} ? Une sauvegarde est conservée : Dépôt › Récupérer les modifications supprimées.	¿Descartar {what}? Se guarda una copia de seguridad: Repositorio › Recuperar cambios descartados.
+Discarded changes are kept for 30 days (the last 50). Putting them back never overwrites what you changed since.	Verworfene Änderungen bleiben 30 Tage lang erhalten (die letzten 50). Beim Zurückholen wird nichts überschrieben, was du seitdem geändert hast.	Les modifications supprimées sont conservées 30 jours (les 50 dernières). Les récupérer n’écrase jamais ce que vous avez modifié depuis.	Los cambios descartados se guardan 30 días (los últimos 50). Recuperarlos nunca sobrescribe lo que hayas cambiado después.
+Discarded changes restored	Verworfene Änderungen wiederhergestellt	Modifications supprimées restaurées	Cambios descartados restaurados
 Discarding	Wird verworfen	Suppression	Descartando
 Done	Fertig	Terminé	Listo
 Drag up or down to move this commit (or Alt + ↑ / ↓)	Nach oben oder unten ziehen, um diesen Commit zu verschieben (oder Alt + ↑ / ↓)	Faites glisser vers le haut ou le bas pour déplacer ce commit (ou Alt + ↑ / ↓)	Arrastra arriba o abajo para mover este commit (o Alt + ↑ / ↓)
@@ -316,6 +323,7 @@ No commits yet	Noch keine Commits	Aucun commit pour l’instant	Aún no hay comm
 No conflict markers found (binary file, or the markers were already removed). Edit the result below if needed, then mark the file as resolved.	Keine Konfliktmarkierungen gefunden (Binärdatei, oder die Markierungen wurden schon entfernt). Bearbeite bei Bedarf das Ergebnis unten und markiere die Datei dann als gelöst.	Aucun marqueur de conflit trouvé (fichier binaire, ou marqueurs déjà retirés). Modifiez le résultat ci-dessous si besoin, puis marquez le fichier comme résolu.	No se encontraron marcadores de conflicto (archivo binario, o ya se quitaron). Edita el resultado de abajo si hace falta y marca el archivo como resuelto.
 No content changes (mode or rename only)	Keine inhaltlichen Änderungen (nur Modus oder Umbenennung)	Aucune modification de contenu (mode ou renommage seulement)	Sin cambios de contenido (solo modo o cambio de nombre)
 No differences	Keine Unterschiede	Aucune différence	Sin diferencias
+No discarded changes are kept	Keine verworfenen Änderungen gesichert	Aucune modification supprimée n’est conservée	No hay cambios descartados guardados
 No files	Keine Dateien	Aucun fichier	No hay archivos
 No matching commits	Keine passenden Commits	Aucun commit correspondant	No hay commits que coincidan
 No remotes	Keine Remotes	Aucun dépôt distant	No hay remotos
@@ -387,6 +395,8 @@ Rebase {shown} onto {name}…	{shown} auf {name} rebasen…	Rebaser {shown} sur 
 Rebasing	Rebase läuft	Rebase	Haciendo rebase
 Rebuild	Neu aufbauen	Reconstruire	Reconstruir
 Recent	Zuletzt geöffnet	Récents	Recientes
+Recover discarded changes	Verworfene Änderungen wiederherstellen	Récupérer les modifications supprimées	Recuperar cambios descartados
+Recover discarded changes…	Verworfene Änderungen wiederherstellen…	Récupérer les modifications supprimées…	Recuperar cambios descartados…
 Reflog	Reflog	Reflog	Reflog
 Reflog (recover lost commits)…	Reflog (verlorene Commits wiederfinden)…	Reflog (récupérer des commits perdus)…	Reflog (recuperar commits perdidos)…
 Refresh	Aktualisieren	Actualiser	Actualizar
@@ -427,6 +437,7 @@ Resolved {path}	{path} gelöst	{path} résolu	{path} resuelto
 Resolving conflict	Konflikt wird gelöst	Résolution du conflit	Resolviendo conflicto
 Restore	Wiederherstellen	Restaurer	Restaurar
 Restore the original order and pick every commit	Ursprüngliche Reihenfolge wiederherstellen und jeden Commit übernehmen	Rétablir l’ordre d’origine et garder chaque commit	Restaurar el orden original y usar todos los commits
+Restoring discarded changes	Verworfene Änderungen werden wiederhergestellt	Restauration des modifications supprimées	Restaurando cambios descartados
 Result	Ergebnis	Résultat	Resultado
 Revert	Revert	Annuler (revert)	Revertir
 Revert commit	Commit rückgängig machen	Annuler le commit (revert)	Revertir commit
@@ -587,6 +598,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {count} hours ago	vor {count} Stunden	il y a {count} heures	hace {count} horas
 {count} lines	{count} Zeilen	{count} lignes	{count} líneas
 {count} minutes ago	vor {count} Minuten	il y a {count} minutes	hace {count} minutos
+{count} more files	{count} weitere Dateien	{count} autres fichiers	{count} archivos más
 {count} patterns	{count} Muster	{count} motifs	{count} patrones
 {count} unresolved	{count} ungelöst	{count} non résolus	{count} sin resolver
 {count} worktrees	{count} Worktrees	{count} arbres de travail	{count} árboles de trabajo
@@ -594,6 +606,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {files} conflicted. Resolve them in Local Changes, then continue.	{files} mit Konflikten. Löse sie unter Lokale Änderungen und setze dann fort.	{files} en conflit. Résolvez-les dans Modifications locales, puis continuez.	{files} con conflictos. Resuélvelos en Cambios locales y luego continúa.
 {label} failed	{label} fehlgeschlagen	Échec : {label}	Error: {label}
 {lines} selected	{lines} ausgewählt	{lines} sélectionnées	{lines} seleccionadas
+{path} and {more}	{path} und {more}	{path} et {more}	{path} y {more}
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
 … and {count} more	… und {count} weitere	… et {count} de plus	… y {count} más
