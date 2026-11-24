@@ -202,10 +202,13 @@ Default (fast-forward if possible)	Standard (vorspulen, wenn möglich)	Par défa
 Delete	Löschen	Supprimer	Eliminar
 Delete backup	Sicherung löschen	Supprimer la sauvegarde	Eliminar copia de seguridad
 Delete branch	Branch löschen	Supprimer la branche	Eliminar rama
+Delete from remote	Vom Remote löschen	Supprimer du dépôt distant	Eliminar del remoto
 Delete from {remote}…	Von {remote} löschen…	Supprimer de {remote}…	Eliminar de {remote}…
 Delete local branch {name}?	Lokalen Branch {name} löschen?	Supprimer la branche locale {name} ?	¿Eliminar la rama local {name}?
 Delete remote branch	Remote-Branch löschen	Supprimer la branche distante	Eliminar rama remota
 Delete tag	Tag löschen	Supprimer le tag	Eliminar etiqueta
+Delete tag from remote	Tag vom Remote löschen	Supprimer le tag du dépôt distant	Eliminar etiqueta del remoto
+Delete tag {name} from {remote}? It stays in this repository.	Tag {name} von {remote} löschen? In diesem Repository bleibt er erhalten.	Supprimer le tag {name} de {remote} ? Il reste dans ce dépôt.	¿Eliminar la etiqueta {name} de {remote}? Se conserva en este repositorio.
 Delete tag {name}?	Tag {name} löschen?	Supprimer le tag {name} ?	¿Eliminar la etiqueta {name}?
 Delete the working folder “{path}”? Uncommitted changes in it are lost.	Den Arbeitsordner „{path}“ löschen? Nicht committete Änderungen darin gehen verloren.	Supprimer le dossier de travail « {path} » ? Les modifications non validées qu’il contient sont perdues.	¿Eliminar la carpeta de trabajo «{path}»? Se pierden los cambios sin commit que contiene.
 Delete this backup of discarded changes? It can't be restored afterwards.	Diese Sicherung verworfener Änderungen löschen? Danach lässt sie sich nicht mehr wiederherstellen.	Supprimer cette sauvegarde de modifications supprimées ? Elle ne pourra plus être restaurée.	¿Eliminar esta copia de seguridad de cambios descartados? Después ya no se podrá restaurar.
@@ -213,11 +216,13 @@ Delete untracked files from the working tree.	Nicht verfolgte Dateien aus dem Ar
 Delete {branch} from {remote}?	{branch} von {remote} löschen?	Supprimer {branch} de {remote} ?	¿Eliminar {branch} de {remote}?
 Delete {count} item(s)?	{count} Einträge löschen?	Supprimer {count} élément(s) ?	¿Eliminar {count} elemento(s)?
 Delete “{message}”? This cannot be undone.	„{message}“ löschen? Das kann nicht rückgängig gemacht werden.	Supprimer « {message} » ? Cette action est irréversible.	¿Eliminar «{message}»? No se puede deshacer.
+Deleted {name} from {remote}	{name} von {remote} gelöscht	{name} supprimé de {remote}	{name} eliminada de {remote}
 Delete…	Löschen…	Supprimer…	Eliminar…
 Deleting backup	Sicherung wird gelöscht	Suppression de la sauvegarde	Eliminando copia de seguridad
 Deleting branch	Branch wird gelöscht	Suppression de la branche	Eliminando rama
 Deleting remote branch	Remote-Branch wird gelöscht	Suppression de la branche distante	Eliminando rama remota
 Deleting tag	Tag wird gelöscht	Suppression du tag	Eliminando etiqueta
+Deleting tag from remote	Tag wird vom Remote gelöscht	Suppression du tag du dépôt distant	Eliminando etiqueta del remoto
 Derived from the URL	Aus der URL abgeleitet	Déduit de l’URL	Tomado de la URL
 Description	Beschreibung	Description	Descripción
 detached at {commit}	losgelöst bei {commit}	détachée à {commit}	separado en {commit}
@@ -310,6 +315,8 @@ Good signature, key of unknown trust	Gültige Signatur, Schlüssel mit unbekannt
 Hard reset	Harter Reset	Réinitialisation dure	Reset duro
 Hard: discard all changes	Hart: alle Änderungen verwerfen	Dur : supprimer toutes les modifications	Duro: descartar todos los cambios
 Help	Hilfe	Aide	Ayuda
+Here and on every remote	Hier und auf allen Remotes	Ici et sur tous les dépôts distants	Aquí y en todos los remotos
+Here and on {remote}	Hier und auf {remote}	Ici et sur {remote}	Aquí y en {remote}
 Hide in graph	Im Graphen ausblenden	Masquer dans le graphe	Ocultar en el gráfico
 Hide Others	Andere ausblenden	Masquer les autres	Ocultar otros
 Hide {app}	{app} ausblenden	Masquer {app}	Ocultar {app}
@@ -433,6 +440,7 @@ Old range	Alter Bereich	Ancienne plage	Rango antiguo
 One per line	Einer pro Zeile	Un par ligne	Uno por línea
 Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
+Only in this repository	Nur in diesem Repository	Uniquement dans ce dépôt	Solo en este repositorio
 Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non suivis	Solo archivos sin seguimiento
 Only {names}	Nur {names}	Seulement {names}	Solo {names}
 Open	Öffnen	Ouvrir	Abrir

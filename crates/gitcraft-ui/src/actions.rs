@@ -42,6 +42,11 @@ pub enum Action {
     Revert(String),
     /// Asks which parent counts for a merge commit; other commits are picked right away.
     CherryPick(String),
+    /// Deletes a tag on one remote only, after asking.
+    DeleteRemoteTag {
+        remote: String,
+        name: String,
+    },
     /// Asks what to narrow the history to.
     FilterHistory,
     /// Asks for two ranges of commits to compare.
@@ -532,6 +537,16 @@ impl App {
                 let check = self.preview_conflicts(&target);
                 Task::batch([self.ask(form), check])
             }
+            Action::DeleteRemoteTag { remote, name } => self.ask(Form::confirm(
+                "Delete tag from remote",
+                &trf(
+                    "Delete tag {name} from {remote}? It stays in this repository.",
+                    &[("name", &name), ("remote", &remote)],
+                ),
+                "Delete",
+                true,
+                run(Command::DeleteRemoteTag { remote, name }),
+            )),
             Action::FilterHistory => {
                 let current = tab.history_filter.clone().unwrap_or_default();
                 self.ask(
@@ -694,16 +709,27 @@ impl App {
                 let names: Vec<String> = remotes.iter().map(|remote| remote.name.clone()).collect();
                 let has_remotes = !names.is_empty();
                 let tag = name.clone();
+                let all = names.clone();
                 let mut form = Form::new("Delete tag", "Delete", move |values: &Values| {
-                    run(Command::DeleteTag {
-                        name: tag.clone(),
-                        remotes: if values.check("remote") { names.clone() } else { Vec::new() },
-                    })
+                    // "" only here, "*" on every remote too, otherwise that one remote too.
+                    let remotes = match values.text("remotes").as_str() {
+                        "" => Vec::new(),
+                        "*" => all.clone(),
+                        one => vec![one.to_owned()],
+                    };
+                    run(Command::DeleteTag { name: tag.clone(), remotes })
                 })
                 .message(&trf("Delete tag {name}?", &[("name", &name)]))
                 .danger();
                 if has_remotes {
-                    form = form.field(Field::check("remote", "Also delete from all remotes", false));
+                    let mut choices = vec![
+                        (String::new(), tr("Only in this repository").to_owned()),
+                        ("*".to_owned(), tr("Here and on every remote").to_owned()),
+                    ];
+                    choices.extend(
+                        names.iter().map(|remote| (remote.clone(), trf("Here and on {remote}", &[("remote", remote)]))),
+                    );
+                    form = form.field(Field::select("remotes", "Delete", "", choices));
                 }
                 self.ask(form)
             }
@@ -1766,6 +1792,22 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                     act(Action::PushTag(name.clone())),
                 ),
                 MenuItem::danger("Delete…", act(Action::DeleteTag(name.clone()))),
+                MenuItem::sub(
+                    "Delete from remote",
+                    tab.refs
+                        .remotes
+                        .iter()
+                        .map(|remote| {
+                            MenuItem::danger(
+                                remote.name.clone(),
+                                act(Action::DeleteRemoteTag {
+                                    remote: remote.name.clone(),
+                                    name: name.clone(),
+                                }),
+                            )
+                        })
+                        .collect(),
+                ),
                 MenuItem::entry("Copy tag name", Message::Copy(name.clone())),
             ]
         }

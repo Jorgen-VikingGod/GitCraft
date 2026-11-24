@@ -156,6 +156,11 @@ pub enum Command {
         remote: String,
         name: String,
     },
+    /// Deletes the tag on `remote`, keeping it here.
+    DeleteRemoteTag {
+        remote: String,
+        name: String,
+    },
     AddRemote {
         name: String,
         url: String,
@@ -357,6 +362,7 @@ impl Command {
             Self::CreateTag { .. } => "Creating tag".into(),
             Self::DeleteTag { .. } => "Deleting tag".into(),
             Self::PushTag { .. } => "Pushing tag".into(),
+            Self::DeleteRemoteTag { .. } => "Deleting tag from remote".into(),
             Self::AddRemote { .. } => "Adding remote".into(),
             Self::EditRemote { .. } => "Saving remote".into(),
             Self::RemoveRemote { .. } => "Removing remote".into(),
@@ -431,6 +437,10 @@ impl Command {
             Self::Revert { .. } => "Commit reverted".into(),
             Self::CreateTag { name, .. } => trf("Created tag {name}", &[("name", name)]),
             Self::PushTag { name, .. } => trf("Pushed {name}", &[("name", name)]),
+            Self::DeleteRemoteTag { remote, name } => trf(
+                "Deleted {name} from {remote}",
+                &[("name", name), ("remote", remote)],
+            ),
             Self::Reset { undo: true, .. } => "Last commit undone; its changes are staged".into(),
             Self::Reset { target, .. } => {
                 trf("Reset to {commit}", &[("commit", short_sha(target))])
@@ -531,6 +541,7 @@ impl Command {
                 | Self::Push { .. }
                 | Self::DeleteRemoteBranch { .. }
                 | Self::PushTag { .. }
+                | Self::DeleteRemoteTag { .. }
                 | Self::PruneRemote { .. }
                 | Self::UpdateSubmodules
                 | Self::FetchMore { .. }
@@ -777,6 +788,9 @@ impl Command {
             }
             Self::PushTag { remote, name } => {
                 ops::push_tag(repo, &remote, &name, false, report).await
+            }
+            Self::DeleteRemoteTag { remote, name } => {
+                ops::push_tag(repo, &remote, &name, true, report).await
             }
             Self::AddRemote { name, url, fetch } => {
                 let result = ops::add_remote(repo, &name, &url).await?;

@@ -3084,3 +3084,33 @@ async fn changes_are_brought_along_as_they_are_when_they_fit() {
     assert_eq!(f.read("a.txt"), "mine\n");
     assert_eq!(f.git(&["stash", "list"]), "", "no stash involved");
 }
+
+#[tokio::test]
+async fn a_tag_is_deleted_on_one_remote_only() {
+    let f = fixture();
+    let (one, two) = (f.root.join("one.git"), f.root.join("two.git"));
+    for (name, path) in [("one", &one), ("two", &two)] {
+        git(&f.root, &["init", "-q", "--bare", path.to_str().unwrap()]);
+        f.git(&["remote", "add", name, path.to_str().unwrap()]);
+        f.git(&["push", "-q", name, "refs/tags/v1.0"]);
+    }
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Action(Action::DeleteRemoteTag {
+            remote: "one".into(),
+            name: "v1.0".into(),
+        }),
+    )
+    .await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(git(&one, &["tag"]), "");
+    assert_eq!(git(&two, &["tag"]), "v1.0\n");
+    assert_eq!(f.git(&["tag"]), "v1.0\n", "kept here");
+
+    drive(&mut app, Message::Action(Action::DeleteTag("v1.0".into()))).await;
+    drive(&mut app, Message::FormSelect(0, "two".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(git(&two, &["tag"]), "");
+    assert_eq!(f.git(&["tag"]), "");
+}
