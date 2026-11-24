@@ -1199,8 +1199,9 @@ const THEMES: [(&str, &str); 3] = [
     ("dark", "Dark"),
 ];
 
-const SHORTCUTS: [(&str, &str); 8] = [
+const SHORTCUTS: [(&str, &str); 9] = [
     ("Ctrl/⌘ + 1 / 2", "All commits / Local changes"),
+    ("Ctrl/⌘ + Z / Shift + Z", "Undo / redo the last operation"),
     ("Ctrl/⌘ + F", "Search commits"),
     ("Ctrl/⌘ + T or O", "Open repository"),
     ("Ctrl/⌘ + W", "Close tab"),

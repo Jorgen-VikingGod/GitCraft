@@ -3,6 +3,7 @@
 use gitcraft_core::model::{OpResult, RebaseStep};
 use gitcraft_core::parsers::Selection;
 use gitcraft_core::runner::Progress;
+use gitcraft_core::undo::Mode;
 use gitcraft_core::{Result, ops, queries};
 
 use crate::i18n::{tr, trf};
@@ -203,7 +204,37 @@ pub enum Command {
         message: String,
         amend: bool,
     },
+    /// `label` is the English label of what is undone, for the messages.
+    Undo {
+        label: String,
+    },
+    Redo {
+        label: String,
+    },
 }
+
+/// Every label [`Command::undo_kind`] gives, so a test can check each has a translation.
+pub const UNDO_LABELS: [&str; 19] = [
+    "Amend",
+    "Commit",
+    "Undo last commit",
+    "Reset",
+    "New branch",
+    "Rename branch",
+    "Delete branch",
+    "New tag",
+    "Delete tag",
+    "Checkout",
+    "Fast-forward",
+    "Merge",
+    "Rebase",
+    "Edit history",
+    "Cherry-pick",
+    "Revert",
+    "Pull",
+    "Apply patch",
+    "Discard",
+];
 
 impl Command {
     /// Shown while it runs, and in the failure message, in the interface language.
@@ -279,6 +310,8 @@ impl Command {
             Self::Resolve { .. } => "Resolving conflict".into(),
             Self::Commit { amend: true, .. } => "Amending commit".into(),
             Self::Commit { .. } => "Committing".into(),
+            Self::Undo { .. } => "Undoing".into(),
+            Self::Redo { .. } => "Redoing".into(),
         };
         tr(&text).to_owned()
     }
@@ -330,6 +363,8 @@ impl Command {
             ),
             Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
+            Self::Undo { label } => trf("Undone: {action}", &[("action", tr(label))]),
+            Self::Redo { label } => trf("Redone: {action}", &[("action", tr(label))]),
             Self::RestoreDiscard { .. } => "Discarded changes restored".into(),
             Self::DeleteDiscard { .. } => "Backup deleted".into(),
             Self::Resolve { path, .. } => trf("Resolved {path}", &[("path", path)]),
@@ -342,6 +377,46 @@ impl Command {
             _ => return None,
         };
         Some(tr(&text).to_owned())
+    }
+
+    /// What Edit › Undo calls this afterwards (English), and how undoing it moves the
+    /// current branch. `None` for what can't be undone: anything that changed a remote, stash
+    /// operations, settings of remotes and worktrees.
+    pub fn undo_kind(&self) -> Option<(&'static str, Mode)> {
+        Some(match self {
+            Self::Commit { amend: true, .. } => ("Amend", Mode::Soft),
+            Self::Commit { .. } => ("Commit", Mode::Soft),
+            Self::Reset { undo: true, .. } => ("Undo last commit", Mode::Soft),
+            Self::Reset { mode, .. } => (
+                "Reset",
+                match mode.as_str() {
+                    "soft" => Mode::Soft,
+                    "mixed" => Mode::Mixed,
+                    "hard" => Mode::Hard,
+                    _ => Mode::Keep,
+                },
+            ),
+            Self::CreateBranch { .. } => ("New branch", Mode::Keep),
+            Self::RenameBranch { .. } => ("Rename branch", Mode::Keep),
+            Self::DeleteBranch { remote: None, .. } => ("Delete branch", Mode::Keep),
+            Self::CreateTag { push_to, .. } if push_to.is_empty() => ("New tag", Mode::Keep),
+            Self::DeleteTag { remotes, .. } if remotes.is_empty() => ("Delete tag", Mode::Keep),
+            Self::Checkout { .. } | Self::CheckoutStashing { .. } => ("Checkout", Mode::Keep),
+            Self::FastForward { .. } => ("Fast-forward", Mode::Keep),
+            Self::Merge { .. } => ("Merge", Mode::Keep),
+            Self::Rebase { .. } => ("Rebase", Mode::Keep),
+            Self::InteractiveRebase { .. } | Self::QuickRebase { .. } => {
+                ("Edit history", Mode::Keep)
+            }
+            Self::CherryPick { .. } => ("Cherry-pick", Mode::Keep),
+            Self::Revert { .. } => ("Revert", Mode::Keep),
+            Self::Pull { mode, .. } if mode == "overwrite" => ("Pull", Mode::Hard),
+            Self::Pull { .. } => ("Pull", Mode::Keep),
+            Self::ApplyPatch { .. } => ("Apply patch", Mode::Keep),
+            Self::Discard { .. } => ("Discard", Mode::Keep),
+            Self::Selection { mode, .. } if *mode == "discard" => ("Discard", Mode::Keep),
+            _ => return None,
+        })
     }
 
     /// Network operations can be stopped at any point without leaving a mess; history rewrites can't.
@@ -600,6 +675,8 @@ impl Command {
                 side,
             } => ops::resolve_conflict(repo, &path, content.as_deref(), side.as_deref()).await,
             Self::Commit { message, amend } => ops::commit(repo, &message, amend, false).await,
+            Self::Undo { .. } => ops::undo(repo).await.map(|_| done()),
+            Self::Redo { .. } => ops::redo(repo).await.map(|_| done()),
         }
     }
 }

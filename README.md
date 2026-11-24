@@ -22,6 +22,9 @@ installed `git`, so it behaves the same as git on the command line and uses your
   commit** from context menus on commits, branch/tag badges and sidebar refs; banner with
   Continue/Skip/Abort while an operation is in progress.
 - **Edit history** from the commit menu: edit message, squash/fixup into parent, drop commit.
+- **Undo and redo** (*Edit* menu, Ctrl/⌘ + Z) for commits, amends, resets, checkouts, branches, tags,
+  merges, rebases, cherry-picks, reverts, pulls and discards. Discarded changes are also kept for 30
+  days under *Repository › Recover discarded changes*.
 - **Compare** any two commits (Ctrl/Cmd+click), filter history to the current branch, **reflog** to
   recover lost commits, fast-forward branches without checking them out.
 - **Patches** (save commit as patch, apply / `git am`), **.gitignore** from the changes list, stash selected
@@ -78,6 +81,7 @@ and can be resolved in the built-in conflict resolver.
 | --- | --- |
 | Ctrl/⌘ + 1 / 2 | All commits / Local changes |
 | Ctrl/⌘ + F | Search commits |
+| Ctrl/⌘ + Z, Ctrl/⌘ + Shift + Z or Y | Undo / redo the last operation (outside text fields) |
 | Ctrl/⌘ + A | Select every file of the list in Local changes |
 | Ctrl/⌘ + T or O | Open repository |
 | Ctrl/⌘ + W | Close tab |

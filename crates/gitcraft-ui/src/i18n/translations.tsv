@@ -38,6 +38,7 @@ Also delete from all remotes	Auch auf allen Remotes löschen	Supprimer aussi de 
 Also delete ignored files (build output, dependencies…)	Auch ignorierte Dateien löschen (Build-Ausgaben, Abhängigkeiten…)	Supprimer aussi les fichiers ignorés (sorties de compilation, dépendances…)	Eliminar también los archivos ignorados (compilaciones, dependencias…)
 Also delete {upstream} on the remote	Auch {upstream} auf dem Remote löschen	Supprimer aussi {upstream} sur le dépôt distant	Eliminar también {upstream} en el remoto
 Always create a merge commit (--no-ff)	Immer einen Merge-Commit erstellen (--no-ff)	Toujours créer un commit de fusion (--no-ff)	Crear siempre un commit de fusión (--no-ff)
+Amend	Amend	Modification du commit	Enmienda
 Amend commit	Commit ergänzen	Modifier le commit	Enmendar commit
 Amend last commit	Letzten Commit ergänzen	Modifier le dernier commit	Enmendar el último commit
 Amending commit	Commit wird ergänzt	Modification du commit	Enmendando commit
@@ -78,6 +79,7 @@ Checkout tag…	Tag auschecken…	Extraire le tag…	Cambiar a la etiqueta…
 Checkout this version of the file…	Diese Version der Datei auschecken…	Extraire cette version du fichier…	Extraer esta versión del archivo…
 Checkout {branch} (track)	{branch} auschecken (verfolgen)	Extraire {branch} (suivre)	Cambiar a {branch} (seguir)
 Checkout {name}	{name} auschecken	Extraire {name}	Cambiar a {name}
+Cherry-pick	Cherry-Pick	Cherry-pick	Cherry-pick
 Cherry-pick in progress	Cherry-Pick läuft	Cherry-pick en cours	Cherry-pick en curso
 Cherry-pick into {current}	Per Cherry-Pick in {current} übernehmen	Cherry-pick dans {current}	Cherry-pick en {current}
 Cherry-picked {commit}	{commit} per Cherry-Pick übernommen	{commit} picoré (cherry-pick)	{commit} aplicado con cherry-pick
@@ -205,12 +207,14 @@ Drop…	Verwerfen…	Supprimer…	Descartar…
 Edit	Bearbeiten	Édition	Editar
 Edit commit	Commit bearbeiten	Modifier le commit	Editar commit
 Edit commit message	Commit-Nachricht bearbeiten	Modifier le message du commit	Editar el mensaje del commit
+Edit history	Verlauf bearbeiten	Modification de l’historique	Edición del historial
 Edit message…	Nachricht bearbeiten…	Modifier le message…	Editar mensaje…
 Edit remote	Remote bearbeiten	Modifier le dépôt distant	Editar remoto
 edited by hand	von Hand bearbeitet	modifié à la main	editado a mano
 Edit…	Bearbeiten…	Modifier…	Editar…
 Every position HEAD has been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD war. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Toutes les positions occupées par HEAD. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que ha estado HEAD. Haz clic derecho en una entrada para ver todas las acciones de commit.
 Exit	Beenden	Quitter	Salir
+Fast-forward	Vorspulen	Avance rapide	Avance rápido
 Fast-forward only	Nur vorspulen	Avance rapide uniquement	Solo avance rápido
 Fast-forward to {upstream}	Auf {upstream} vorspulen	Avancer jusqu’à {upstream}	Avanzar hasta {upstream}
 Fast-forward {branch} to here	{branch} bis hierher vorspulen	Avancer {branch} jusqu’ici	Avanzar {branch} hasta aquí
@@ -397,6 +401,10 @@ Rebuild	Neu aufbauen	Reconstruire	Reconstruir
 Recent	Zuletzt geöffnet	Récents	Recientes
 Recover discarded changes	Verworfene Änderungen wiederherstellen	Récupérer les modifications supprimées	Recuperar cambios descartados
 Recover discarded changes…	Verworfene Änderungen wiederherstellen…	Récupérer les modifications supprimées…	Recuperar cambios descartados…
+Redo	Wiederholen	Rétablir	Rehacer
+Redo: {action}	Wiederholen: {action}	Rétablir : {action}	Rehacer: {action}
+Redoing	Wird wiederholt	Rétablissement	Rehaciendo
+Redone: {action}	Wiederholt: {action}	Rétabli : {action}	Rehecho: {action}
 Reflog	Reflog	Reflog	Reflog
 Reflog (recover lost commits)…	Reflog (verlorene Commits wiederfinden)…	Reflog (récupérer des commits perdus)…	Reflog (recuperar commits perdidos)…
 Refresh	Aktualisieren	Actualiser	Actualizar
@@ -551,10 +559,15 @@ Track remote branch (set upstream)	Remote-Branch verfolgen (Upstream setzen)	Sui
 Tracking branch	Verfolgter Branch	Branche suivie	Rama de seguimiento
 Uncommitted changes	Nicht committete Änderungen	Modifications non validées	Cambios sin commit
 Uncommitted changes are stashed before the rebase and put back after it.	Nicht committete Änderungen werden vor dem Rebase in den Stash gelegt und danach zurückgeholt.	Les modifications non validées sont remisées avant le rebase et restaurées après.	Los cambios sin commit se guardan en el stash antes del rebase y se restauran después.
+Undo	Rückgängig	Annuler	Deshacer
+Undo / redo the last operation	Letzte Aktion rückgängig machen / wiederholen	Annuler / rétablir la dernière opération	Deshacer / rehacer la última operación
 Undo commit	Commit rückgängig machen	Annuler le commit	Deshacer commit
 Undo last commit	Letzten Commit rückgängig machen	Annuler le dernier commit	Deshacer el último commit
 Undo last commit (keep changes)	Letzten Commit rückgängig machen (Änderungen behalten)	Annuler le dernier commit (garder les modifications)	Deshacer el último commit (conservar cambios)
+Undo: {action}	Rückgängig: {action}	Annuler : {action}	Deshacer: {action}
+Undoing	Wird rückgängig gemacht	Annulation	Deshaciendo
 Undoing commit	Commit wird rückgängig gemacht	Annulation du commit	Deshaciendo commit
+Undone: {action}	Rückgängig gemacht: {action}	Annulé : {action}	Deshecho: {action}
 Unified	Einheitlich	Unifié	Unificado
 Unstage	Vormerkung aufheben	Désindexer	Quitar de preparados
 Unstage all	Alle Vormerkungen aufheben	Tout désindexer	Quitar todo de preparados

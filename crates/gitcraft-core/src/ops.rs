@@ -221,6 +221,20 @@ pub async fn restore_discard(repo: &str, name: &str) -> Result<()> {
     backups::restore(repo, name).await
 }
 
+/// Undoes the last undoable operation (see [`crate::undo`]). Returns its English label.
+pub async fn undo(repo: &str) -> Result<String> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    crate::undo::undo(repo).await
+}
+
+/// Does the last undone operation again. Returns its English label.
+pub async fn redo(repo: &str) -> Result<String> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    crate::undo::redo(repo).await
+}
+
 /// Deletes the backup of a discard for good.
 pub async fn delete_discard(repo: &str, name: &str) -> Result<()> {
     let lock = repo_lock(repo);

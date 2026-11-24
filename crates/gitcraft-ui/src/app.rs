@@ -12,7 +12,7 @@ use gitcraft_core::parsers::Selection;
 use gitcraft_core::runner::Progress;
 use gitcraft_core::store::RepoStore;
 use gitcraft_core::watcher::{self, WatchEvent};
-use gitcraft_core::{Error, ops, queries, repos};
+use gitcraft_core::{Error, ops, queries, repos, undo};
 
 use crate::actions::{Action, MenuRequest};
 use crate::command::Command;
@@ -281,6 +281,8 @@ pub struct RepoTab {
     /// "Commit first" in the checkout dialog: the checkout to run once the commit succeeds.
     pub after_commit: Option<Command>,
     pub filter: String,
+    /// What Edit › Undo and Redo would do.
+    pub undo: UndoLabels,
 }
 
 impl RepoTab {
@@ -325,6 +327,7 @@ impl RepoTab {
             committing: false,
             after_commit: None,
             filter: String::new(),
+            undo: UndoLabels::default(),
         }
     }
 
@@ -678,6 +681,9 @@ pub enum Message {
     SetView(View),
     StatusLoaded(String, Answer<Status>),
     RefsLoaded(String, Answer<Refs>),
+    UndoLoaded(String, Answer<UndoLabels>),
+    Undo,
+    Redo,
     LogLoaded(String, Answer<(Vec<Commit>, bool)>),
     LoadMore,
     SetBranchFilter(bool),
@@ -1119,6 +1125,24 @@ impl App {
                 }
             }
             Message::StatusLoaded(path, result) => self.status_loaded(&path, result),
+            Message::UndoLoaded(path, result) => {
+                if let (Some(tab), Ok(labels)) = (self.tab_mut(&path), result) {
+                    tab.undo = labels;
+                }
+                Task::none()
+            }
+            Message::Undo | Message::Redo => {
+                let back = matches!(message, Message::Undo);
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let label = if back { &tab.undo.undo } else { &tab.undo.redo };
+                match (label.clone(), self.busy.is_none()) {
+                    (Some(label), true) if back => self.run_command(Command::Undo { label }),
+                    (Some(label), true) => self.run_command(Command::Redo { label }),
+                    _ => Task::none(),
+                }
+            }
             Message::RefsLoaded(path, result) => {
                 match result {
                     Ok(refs) => {
@@ -2752,12 +2776,24 @@ impl App {
         self.busy = Some((id, command.label()));
         self.progress_line.clear();
         let cancellable = command.cancellable();
+        let undoable = command.undo_kind();
         let (sender, lines) = tokio::sync::mpsc::unbounded_channel();
         let progress: Progress = Arc::new(move |line| {
             let _ = sender.send(line);
         });
         let work = Box::pin(async move {
+            // What the command changes is kept so Edit › Undo can take it back. Undo is a
+            // convenience: when keeping it fails, the command itself still counts.
+            let before = match undoable {
+                Some(_) => undo::capture(&repo).await.ok(),
+                None => None,
+            };
             let result = command.clone().run(&repo, Some(progress)).await;
+            if let (Some((label, mode)), Some(before), Ok(done)) = (undoable, before, &result)
+                && done.ok
+            {
+                let _ = undo::record(&repo, label, mode, before).await;
+            }
             (repo, command, result)
         });
         type Work = std::pin::Pin<
@@ -3262,6 +3298,9 @@ impl App {
             Key::Num0 if command => return Task::done(Message::Zoom(0.0)),
             Key::Enter if command => return Task::done(Message::CommitNow),
             Key::A if command => return Task::done(Message::SelectAllFiles),
+            Key::Z if command && modifiers.shift => return Task::done(Message::Redo),
+            Key::Z if command => return Task::done(Message::Undo),
+            Key::Y if command => return Task::done(Message::Redo),
             _ => {}
         }
         if self.overlay.is_some() {
@@ -3575,14 +3614,26 @@ fn scroll_to(tab: &mut RepoTab, offset: f32) {
     tab.scroll_to.set(Some(offset));
 }
 
-fn load_status(path: String) -> Task<Message> {
+fn load_undo(path: String) -> Task<Message> {
     Task::perform(
+        async move {
+            let result = answer(undo::labels(&path).await);
+            (path, result)
+        },
+        |(path, result)| Message::UndoLoaded(path, result),
+    )
+}
+
+fn load_status(path: String) -> Task<Message> {
+    let undo = load_undo(path.clone());
+    let status = Task::perform(
         async move {
             let result = answer(queries::status(&path).await);
             (path, result)
         },
         |(path, result)| Message::StatusLoaded(path, result),
-    )
+    );
+    Task::batch([status, undo])
 }
 
 fn load_refs(path: String) -> Task<Message> {

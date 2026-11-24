@@ -243,7 +243,15 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
     let after = resolve(repo, name).await?;
     let parent = format!("{after}^");
     let before = git(repo, &["rev-parse", "--verify", "-q", &parent]).await?;
-    let before = before.out().trim().to_owned();
+    put(repo, &after, before.out().trim()).await?;
+    git(repo, &["update-ref", "-d", name, &after]).await?;
+    Ok(())
+}
+
+/// Changes the files that differ between the commits `from` and `to` from their `from`
+/// version to their `to` version in the working tree, but only while they are all still as
+/// in `from`. Undo puts a backup back this way, and redo discards again.
+pub(crate) async fn put(repo: &str, from: &str, to: &str) -> Result<()> {
     let diff = git(
         repo,
         &[
@@ -252,8 +260,8 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
             "-z",
             "--no-renames",
             "--name-status",
-            &before,
-            &after,
+            from,
+            to,
         ],
     )
     .await?;
@@ -264,8 +272,8 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
     let mut all = Vec::new();
     for [status, path] in fields.as_chunks::<2>().0 {
         let path = (*path).to_owned();
-        // Added by the discard means the file didn't exist before it.
-        if *status == "A" {
+        // Missing in `to`: the file goes.
+        if *status == "D" {
             remove.push(path.clone());
         } else {
             write.push(path.clone());
@@ -275,11 +283,11 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
     if all.is_empty() {
         return Ok(());
     }
-    let now_tree = snapshot(repo, Some(&after), &all).await?;
-    let tree_of = format!("{after}^{{tree}}");
-    let after_tree = git(repo, &["rev-parse", &tree_of]).await?;
-    let after_tree = after_tree.out().trim().to_owned();
-    if now_tree != after_tree {
+    let now_tree = snapshot(repo, Some(from), &all).await?;
+    let tree_of = format!("{from}^{{tree}}");
+    let from_tree = git(repo, &["rev-parse", &tree_of]).await?;
+    let from_tree = from_tree.out().trim().to_owned();
+    if now_tree != from_tree {
         let changed = git(
             repo,
             &[
@@ -287,7 +295,7 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
                 "-r",
                 "-z",
                 "--name-only",
-                &after_tree,
+                &from_tree,
                 &now_tree,
             ],
         )
@@ -299,7 +307,7 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
             .map(str::to_owned)
             .collect();
         return invalid(format!(
-            "These files changed after they were discarded, so the backup would overwrite your work: {}",
+            "These files changed since, so this would overwrite your work: {}",
             changed.join(", ")
         ));
     }
@@ -318,7 +326,7 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
             &[
                 "restore",
                 "--source",
-                &before,
+                to,
                 "--worktree",
                 "--pathspec-from-file=-",
                 "--pathspec-file-nul",
@@ -331,7 +339,6 @@ pub(crate) async fn restore(repo: &str, name: &str) -> Result<()> {
         )
         .await?;
     }
-    git(repo, &["update-ref", "-d", name, &after]).await?;
     Ok(())
 }
 

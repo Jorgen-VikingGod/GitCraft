@@ -12,6 +12,7 @@ pub mod repos;
 pub mod runner;
 pub mod store;
 pub mod text;
+pub mod undo;
 pub mod watcher;
 
 pub use runner::GitError;

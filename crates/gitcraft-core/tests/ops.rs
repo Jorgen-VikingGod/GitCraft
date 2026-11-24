@@ -10,7 +10,7 @@ use gitcraft_core::model::*;
 use gitcraft_core::parsers::Selection;
 use gitcraft_core::runner::{Progress, set_editor_exe};
 use gitcraft_core::watcher::{self, WatchEvent};
-use gitcraft_core::{Error, ops, queries};
+use gitcraft_core::{Error, ops, queries, undo};
 
 struct Fixture {
     _dir: tempfile::TempDir,
@@ -1695,4 +1695,276 @@ async fn pull_overwrite_replaces_the_branch_and_can_keep_a_backup() {
         ops::pull_overwrite(&f.repo, Some("origin"), Some("main"), false, None).await,
         Err(Error::Invalid(_))
     ));
+}
+
+// ------------------------------------------------------------------ undo / redo
+
+/// Runs `op` the way the interface does: state before, the operation, then the record.
+macro_rules! undoable {
+    ($f:expr, $label:expr, $mode:expr, $op:expr) => {{
+        let before = undo::capture(&$f.repo).await.unwrap();
+        let result = $op;
+        undo::record(&$f.repo, $label, $mode, before).await.unwrap();
+        result
+    }};
+}
+
+fn head_of(f: &Fixture) -> String {
+    f.git(&["rev-parse", "HEAD"]).trim().to_owned()
+}
+
+#[tokio::test]
+async fn a_commit_is_undone_with_its_changes_staged_and_redone() {
+    let f = Fixture::with_history();
+    let before = head_of(&f);
+    f.write("a.txt", "changed\n");
+    f.git(&["add", "a.txt"]);
+    undoable!(
+        f,
+        "Commit",
+        undo::Mode::Soft,
+        ops::commit(&f.repo, "third", false, false).await.unwrap()
+    );
+    let third = head_of(&f);
+    assert_eq!(
+        undo::labels(&f.repo).await.unwrap().undo.as_deref(),
+        Some("Commit")
+    );
+
+    assert_eq!(ops::undo(&f.repo).await.unwrap(), "Commit");
+    assert_eq!(head_of(&f), before);
+    assert_eq!(f.git(&["diff", "--cached", "--name-only"]), "a.txt\n");
+    let labels = undo::labels(&f.repo).await.unwrap();
+    assert_eq!(
+        (labels.undo, labels.redo.as_deref()),
+        (None, Some("Commit"))
+    );
+
+    ops::redo(&f.repo).await.unwrap();
+    assert_eq!(head_of(&f), third);
+    assert!(f.git(&["diff", "--cached", "--name-only"]).is_empty());
+    // The commits it needs are pinned, and hidden from the history.
+    assert!(
+        f.git(&["for-each-ref", "refs/gitcraft/undo/"])
+            .contains(&third)
+    );
+    let page = queries::log(&f.repo, 100, true, None).await.unwrap();
+    assert_eq!(subjects(&page.commits), ["third", "second", "first"]);
+}
+
+#[tokio::test]
+async fn undo_refuses_once_the_branch_moved_on() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "changed\n");
+    f.git(&["add", "a.txt"]);
+    undoable!(
+        f,
+        "Commit",
+        undo::Mode::Soft,
+        ops::commit(&f.repo, "third", false, false).await.unwrap()
+    );
+    f.commit("b.txt", "b\n", "made elsewhere");
+    let head = head_of(&f);
+    assert!(matches!(ops::undo(&f.repo).await, Err(Error::Invalid(_))));
+    assert_eq!(head_of(&f), head, "nothing changed");
+    assert!(
+        undo::labels(&f.repo).await.unwrap().undo.is_some(),
+        "still offered"
+    );
+}
+
+#[tokio::test]
+async fn the_first_commit_can_be_undone_too() {
+    let f = Fixture::empty();
+    f.write("a.txt", "one\n");
+    f.git(&["add", "a.txt"]);
+    undoable!(
+        f,
+        "Commit",
+        undo::Mode::Soft,
+        ops::commit(&f.repo, "first", false, false).await.unwrap()
+    );
+    ops::undo(&f.repo).await.unwrap();
+    assert!(!queries::has_head(&f.repo).await.unwrap());
+    assert_eq!(f.git(&["diff", "--cached", "--name-only"]), "a.txt\n");
+    ops::redo(&f.repo).await.unwrap();
+    assert_eq!(f.git(&["log", "--format=%s"]), "first\n");
+}
+
+#[tokio::test]
+async fn a_hard_reset_is_undone_only_on_a_clean_tree() {
+    let f = Fixture::with_history();
+    let second = head_of(&f);
+    undoable!(
+        f,
+        "Reset",
+        undo::Mode::Hard,
+        ops::reset(&f.repo, "HEAD~1", "hard").await.unwrap()
+    );
+    f.write("a.txt", "work in progress\n");
+    assert!(matches!(ops::undo(&f.repo).await, Err(Error::Invalid(_))));
+    assert_eq!(f.read("a.txt"), "work in progress\n");
+    f.git(&["checkout", "--", "a.txt"]);
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(head_of(&f), second);
+    assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\n");
+}
+
+#[tokio::test]
+async fn branches_and_tags_come_back_with_their_settings() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "topic"]);
+    f.git(&["config", "branch.topic.description", "my notes"]);
+    let topic = f.git(&["rev-parse", "topic"]);
+    undoable!(
+        f,
+        "Delete branch",
+        undo::Mode::Keep,
+        ops::delete_branch(&f.repo, "topic", true).await.unwrap()
+    );
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(f.git(&["rev-parse", "topic"]), topic);
+    assert_eq!(f.git(&["config", "branch.topic.description"]), "my notes\n");
+
+    undoable!(
+        f,
+        "Rename branch",
+        undo::Mode::Keep,
+        ops::rename_branch(&f.repo, "topic", "renamed")
+            .await
+            .unwrap()
+    );
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(
+        f.git(&["branch", "--format=%(refname:short)"]),
+        "main\ntopic\n"
+    );
+    assert_eq!(f.git(&["config", "branch.topic.description"]), "my notes\n");
+    ops::redo(&f.repo).await.unwrap();
+    assert_eq!(
+        f.git(&["branch", "--format=%(refname:short)"]),
+        "main\nrenamed\n"
+    );
+    assert_eq!(
+        f.git(&["config", "branch.renamed.description"]),
+        "my notes\n"
+    );
+
+    undoable!(
+        f,
+        "New tag",
+        undo::Mode::Keep,
+        ops::create_tag(&f.repo, "v1", "HEAD", Some("release"))
+            .await
+            .unwrap()
+    );
+    ops::undo(&f.repo).await.unwrap();
+    assert!(f.git(&["tag"]).is_empty());
+    ops::redo(&f.repo).await.unwrap();
+    assert_eq!(f.git(&["tag"]), "v1\n");
+}
+
+#[tokio::test]
+async fn a_checkout_is_undone_and_its_new_branch_removed() {
+    let f = Fixture::with_history();
+    undoable!(
+        f,
+        "New branch",
+        undo::Mode::Keep,
+        ops::create_branch(&f.repo, "feature", None, true)
+            .await
+            .unwrap()
+    );
+    assert_eq!(f.git(&["branch", "--show-current"]), "feature\n");
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
+    assert_eq!(f.git(&["branch", "--format=%(refname:short)"]), "main\n");
+    ops::redo(&f.repo).await.unwrap();
+    assert_eq!(f.git(&["branch", "--show-current"]), "feature\n");
+
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    undoable!(
+        f,
+        "Checkout",
+        undo::Mode::Keep,
+        ops::checkout(&f.repo, &first, "commit").await.unwrap()
+    );
+    assert!(f.git(&["branch", "--show-current"]).trim().is_empty());
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(f.git(&["branch", "--show-current"]), "feature\n");
+}
+
+#[tokio::test]
+async fn a_merge_is_undone_keeping_unrelated_changes() {
+    let f = Fixture::with_history();
+    f.git(&["switch", "-q", "-c", "side"]);
+    f.commit("side.txt", "side\n", "side work");
+    f.git(&["switch", "-q", "main"]);
+    f.commit("main.txt", "main\n", "main work");
+    let main = head_of(&f);
+    undoable!(
+        f,
+        "Merge",
+        undo::Mode::Keep,
+        ops::merge(&f.repo, "side", "no-ff").await.unwrap()
+    );
+    f.write("a.txt", "local edit\n");
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(head_of(&f), main);
+    assert_eq!(f.read("a.txt"), "local edit\n");
+    assert!(!f.exists("side.txt"));
+}
+
+#[tokio::test]
+async fn a_discard_is_undone_and_redone() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "new\n");
+    let list = vec!["a.txt".to_owned(), "new.txt".to_owned()];
+    undoable!(
+        f,
+        "Discard",
+        undo::Mode::Keep,
+        ops::discard_files(&f.repo, &list).await.unwrap()
+    );
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(f.read("a.txt"), "changed\n");
+    assert_eq!(f.read("new.txt"), "new\n");
+    assert!(
+        queries::discard_backups(&f.repo).await.unwrap().is_empty(),
+        "back in place, so not offered for recovery"
+    );
+    ops::redo(&f.repo).await.unwrap();
+    assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\n");
+    assert!(!f.exists("new.txt"));
+    ops::undo(&f.repo).await.unwrap();
+    assert_eq!(f.read("new.txt"), "new\n");
+}
+
+#[tokio::test]
+async fn nothing_changed_records_nothing_and_new_work_clears_redo() {
+    let f = Fixture::with_history();
+    undoable!(
+        f,
+        "Checkout",
+        undo::Mode::Keep,
+        ops::checkout(&f.repo, "main", "local").await.unwrap()
+    );
+    assert_eq!(undo::labels(&f.repo).await.unwrap(), UndoLabels::default());
+    assert!(matches!(ops::undo(&f.repo).await, Err(Error::Invalid(_))));
+
+    undoable!(
+        f,
+        "New tag",
+        undo::Mode::Keep,
+        ops::create_tag(&f.repo, "a", "HEAD", None).await.unwrap()
+    );
+    ops::undo(&f.repo).await.unwrap();
+    undoable!(
+        f,
+        "New tag",
+        undo::Mode::Keep,
+        ops::create_tag(&f.repo, "b", "HEAD", None).await.unwrap()
+    );
+    assert_eq!(undo::labels(&f.repo).await.unwrap().redo, None);
 }

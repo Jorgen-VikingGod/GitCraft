@@ -1050,6 +1050,33 @@ impl App {
             MenuItem::entry("Quit", Message::Quit),
         ]);
 
+        let no_labels = gitcraft_core::model::UndoLabels::default();
+        let labels = tab.map_or(&no_labels, |tab| &tab.undo);
+        let undo = match &labels.undo {
+            Some(label) => MenuItem::entry_if(
+                trf("Undo: {action}", &[("action", tr(label))]),
+                idle,
+                Message::Undo,
+            ),
+            None => MenuItem::entry_if("Undo", false, Message::Undo),
+        };
+        let redo = match &labels.redo {
+            Some(label) => MenuItem::entry_if(
+                trf("Redo: {action}", &[("action", tr(label))]),
+                idle,
+                Message::Redo,
+            ),
+            None => MenuItem::entry_if("Redo", false, Message::Redo),
+        };
+        let edit = vec![
+            undo.key(Shortcut::command(Key::Z)),
+            redo.key(Shortcut {
+                key: Key::Z,
+                command: true,
+                shift: true,
+            }),
+        ];
+
         let mut repository = match tab {
             Some(tab) => {
                 let mut items = vec![
@@ -1166,6 +1193,7 @@ impl App {
 
         vec![
             ("File", file),
+            ("Edit", edit),
             ("Repository", repository),
             ("View", view),
             ("Help", help),

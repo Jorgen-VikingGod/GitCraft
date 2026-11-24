@@ -2138,8 +2138,8 @@ async fn the_menu_bar_offers_the_app_and_its_choices_persist() {
     let mut app = opened(&f, true).await;
     let menus = app.bar_menus();
     let titles: Vec<_> = menus.iter().map(|(title, _)| *title).collect();
-    assert_eq!(titles, ["File", "Repository", "View", "Help"]);
-    let view = &menus[2].1;
+    assert_eq!(titles, ["File", "Edit", "Repository", "View", "Help"]);
+    let view = &menus[3].1;
     let Some(MenuItem::Sub {
         children: themes, ..
     }) = view.iter().find(|item| item.label() == Some("Theme"))
@@ -2158,7 +2158,7 @@ async fn the_menu_bar_offers_the_app_and_its_choices_persist() {
         })
         .collect();
     assert_eq!(chosen, ["Follow system"]);
-    let repository = labels(&menus[1].1);
+    let repository = labels(&menus[2].1);
     assert!(repository.contains(&"Fetch".to_owned()), "{repository:?}");
 
     // English, so that the other tests running beside this one keep their English text.
@@ -2281,4 +2281,44 @@ async fn dragging_a_tab_past_its_neighbour_moves_it() {
         .expect("the drag moves the first tab right");
     drive(&mut app, moved).await;
     assert_eq!(names(&app), ["second", "demo-repo"]);
+}
+
+#[tokio::test]
+async fn edit_undo_and_redo_take_back_a_commit() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.write("a.txt", "two\n");
+    let mut app = opened(&f, false).await;
+    let edit = |app: &App| {
+        let menus = app.bar_menus();
+        let (_, items) = menus.iter().find(|(name, _)| *name == "Edit").unwrap();
+        labels(items)
+    };
+    assert_eq!(edit(&app), ["Undo", "Redo"], "nothing to undo yet");
+
+    drive(&mut app, Message::Run(Command::StageAll)).await;
+    drive(
+        &mut app,
+        Message::Run(Command::Commit {
+            message: "second".into(),
+            amend: false,
+        }),
+    )
+    .await;
+    assert_eq!(f.subjects(), ["second", "first"]);
+    assert_eq!(edit(&app), ["Undo: Commit", "Redo"]);
+
+    drive(&mut app, Message::Undo).await;
+    assert_eq!(f.subjects(), ["first"]);
+    assert_eq!(
+        f.git(&["diff", "--cached", "--name-only"]),
+        "a.txt\n",
+        "still staged"
+    );
+    assert_eq!(edit(&app), ["Undo", "Redo: Commit"]);
+
+    drive(&mut app, Message::Redo).await;
+    assert_eq!(f.subjects(), ["second", "first"]);
+    drive(&mut app, Message::Key(egui::Key::Z, Modifiers::COMMAND)).await;
+    assert_eq!(f.subjects(), ["first"], "Ctrl+Z undoes too");
 }

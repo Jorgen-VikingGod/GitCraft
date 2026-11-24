@@ -273,6 +273,13 @@ pub struct BlameLine {
     pub summary: String,
 }
 
+/// What undo and redo would do, as English labels such as "Commit".
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UndoLabels {
+    pub undo: Option<String>,
+    pub redo: Option<String>,
+}
+
 /// Discarded changes kept so they can be put back (`refs/gitcraft/discards/…`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiscardBackup {

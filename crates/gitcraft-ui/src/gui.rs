@@ -225,8 +225,10 @@ impl Shell {
             else {
                 continue;
             };
-            // Ctrl+A in a field selects its text rather than the files.
-            let global = (modifiers.command && !(typing && key == egui::Key::A))
+            // Ctrl+A in a field selects its text rather than the files, and Ctrl+Z / Ctrl+Y
+            // undo typing there rather than the last git operation.
+            let field_key = matches!(key, egui::Key::A | egui::Key::Z | egui::Key::Y);
+            let global = (modifiers.command && !(typing && field_key))
                 || matches!(key, egui::Key::Escape | egui::Key::F5 | egui::Key::F11);
             if global || !typing {
                 self.handle(Message::Key(key, modifiers));
