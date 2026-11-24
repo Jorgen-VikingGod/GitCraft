@@ -887,6 +887,12 @@ pub enum Message {
     CompareStart(String, String),
     /// Hides a branch from the graph, solos it, or shows everything again.
     RefVisibility(RefVisibility),
+    /// A push was rejected; the remote branch is at `expected` now (when it could be asked).
+    OfferForcePush {
+        remote: String,
+        branch: String,
+        expected: Option<String>,
+    },
     /// Narrows the history; `None` or an empty filter shows it all again.
     SetHistoryFilter(Option<LogFilter>),
     /// Opens the rebase editor with these commits dropped or squashed.
@@ -1478,6 +1484,36 @@ impl App {
                 }
                 self.save_settings();
                 reload
+            }
+            Message::OfferForcePush {
+                remote,
+                branch,
+                expected,
+            } => {
+                let mut form = Form::confirm(
+                    "Push rejected",
+                    &trf(
+                        "{remote} has commits that {branch} doesn't have. Pull them in first, or replace them with your branch (force push with lease)?",
+                        &[("remote", &remote), ("branch", &branch)],
+                    ),
+                    "Pull…",
+                    false,
+                    Message::Action(crate::actions::Action::Pull),
+                );
+                // Only what was there just now is replaced; anything pushed since is kept.
+                if let Some(expected) = expected {
+                    form = form.choice(
+                        "Force push",
+                        true,
+                        Message::Run(Command::ForcePushOver {
+                            remote,
+                            branch,
+                            expected,
+                        }),
+                    );
+                }
+                self.form = Some(form);
+                Task::none()
             }
             Message::SetHistoryFilter(filter) => {
                 let Some(tab) = self.current_mut() else {
@@ -2851,6 +2887,70 @@ impl App {
         stats
     }
 
+    /// After a push or pull failed in a way with an obvious way out, offers it: a dialog right
+    /// away, or for a rejected push first a look at what the remote has now, so a force push
+    /// replaces exactly that.
+    fn next_step(&mut self, repo: &str, command: &Command, error: &str) -> Task<Message> {
+        use crate::actions::Action;
+        if !matches!(
+            command,
+            Command::Push { .. } | Command::Pull { .. } | Command::Fetch { .. }
+        ) {
+            return Task::none();
+        }
+        let branch = self
+            .tabs
+            .iter()
+            .find(|tab| tab.path == repo)
+            .and_then(|tab| tab.current_branch().map(str::to_owned));
+        match logic::next_step(error) {
+            Some(logic::NextStep::PullOrForce) => {
+                let Command::Push { remote, branch, .. } = command else {
+                    return Task::none();
+                };
+                let (repo, remote, branch) = (repo.to_owned(), remote.clone(), branch.clone());
+                Task::perform(
+                    async move {
+                        let found =
+                            answer(queries::remote_branch_sha(&repo, &remote, &branch).await);
+                        Message::OfferForcePush {
+                            remote,
+                            branch,
+                            expected: found.ok().flatten(),
+                        }
+                    },
+                    |message| message,
+                )
+            }
+            Some(logic::NextStep::SetUpstream) => {
+                if let Some(branch) = branch {
+                    self.form = Some(Form::confirm(
+                        "No upstream",
+                        &trf(
+                            "{branch} doesn't track a remote branch yet. Choose the one it should pull from and push to.",
+                            &[("branch", &branch)],
+                        ),
+                        "Set upstream…",
+                        false,
+                        Message::Action(Action::SetUpstream(branch.clone())),
+                    ));
+                }
+                Task::none()
+            }
+            Some(logic::NextStep::AddRemote) => {
+                self.form = Some(Form::confirm(
+                    "No remote",
+                    "This repository has no remote to push to or fetch from yet.",
+                    "Add remote…",
+                    false,
+                    Message::Action(Action::AddRemote),
+                ));
+                Task::none()
+            }
+            None => Task::none(),
+        }
+    }
+
     /// Counts the changes of the current tab's commits that have no count yet.
     fn load_stats(&mut self) -> Task<Message> {
         match self.current().map(|tab| tab.path.clone()) {
@@ -3515,6 +3615,7 @@ impl App {
         }
         let label = command.label();
         let mut succeeded = false;
+        let mut next = Task::none();
         match result {
             Ok(result) if !result.ok => {
                 let message = if result.conflicts {
@@ -3533,11 +3634,14 @@ impl App {
                     self.toast(ToastKind::Success, message, None);
                 }
             }
-            Err(error) => self.toast(
-                ToastKind::Error,
-                trf("{label} failed", &[("label", &label)]),
-                Some(error),
-            ),
+            Err(error) => {
+                next = self.next_step(&repo, &command, &error);
+                self.toast(
+                    ToastKind::Error,
+                    trf("{label} failed", &[("label", &label)]),
+                    Some(error),
+                );
+            }
         }
         let mut then = None;
         let mut push: Option<Task<Message>> = None;
@@ -3614,7 +3718,7 @@ impl App {
         } else {
             Task::none()
         };
-        Task::batch([reload, then, list, push.unwrap_or_else(Task::none)])
+        Task::batch([reload, then, list, push.unwrap_or_else(Task::none), next])
     }
 
     // ----------------------------------------------------------- overlays

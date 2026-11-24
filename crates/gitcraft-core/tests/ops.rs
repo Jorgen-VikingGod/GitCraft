@@ -2806,3 +2806,57 @@ async fn a_remote_can_push_somewhere_else_than_it_fetches_from() {
         .await
         .unwrap();
 }
+
+#[tokio::test]
+async fn a_force_push_only_replaces_what_was_seen_on_the_remote() {
+    let f = Fixture::with_history();
+    let remote = f.root.join("remote.git");
+    raw_git(
+        &f.root,
+        &["clone", "-q", "--bare", &f.repo, remote.to_str().unwrap()],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    let other = f.root.join("other");
+    raw_git(
+        &f.root,
+        &[
+            "clone",
+            "-q",
+            remote.to_str().unwrap(),
+            other.to_str().unwrap(),
+        ],
+    );
+    f.identity(&other);
+    commit_at(&other, "t.txt", "t\n", "theirs");
+    raw_git(&other, &["push", "-q", "origin", "main"]);
+    let seen = queries::remote_branch_sha(&f.repo, "origin", "main")
+        .await
+        .unwrap()
+        .unwrap();
+    commit_at(&other, "u.txt", "u\n", "theirs again");
+    raw_git(&other, &["push", "-q", "origin", "main"]);
+    f.commit("m.txt", "m\n", "mine");
+    assert!(
+        ops::force_push_over(&f.repo, "origin", "main", &seen, None)
+            .await
+            .is_err(),
+        "something new arrived after it was looked at"
+    );
+    let now = queries::remote_branch_sha(&f.repo, "origin", "main")
+        .await
+        .unwrap()
+        .unwrap();
+    ops::force_push_over(&f.repo, "origin", "main", &now, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        raw_git(&remote, &["log", "-1", "--format=%s", "main"]),
+        b"mine\n"
+    );
+    assert_eq!(
+        queries::remote_branch_sha(&f.repo, "origin", "gone")
+            .await
+            .unwrap(),
+        None
+    );
+}

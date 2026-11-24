@@ -157,6 +157,35 @@ pub fn column_x(right: f32, columns: &crate::settings::Columns) -> ColumnX {
     }
 }
 
+/// What to offer after a push, pull or fetch failed, read from git's message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NextStep {
+    /// The remote has commits the branch doesn't: pull them, or force-push.
+    PullOrForce,
+    /// The branch tracks nothing to pull from.
+    SetUpstream,
+    /// There is no remote to talk to.
+    AddRemote,
+}
+
+pub fn next_step(error: &str) -> Option<NextStep> {
+    if error.contains("[rejected]")
+        && (error.contains("fetch first") || error.contains("non-fast-forward"))
+    {
+        Some(NextStep::PullOrForce)
+    } else if error.contains("There is no tracking information for the current branch")
+        || error.contains("has no upstream branch")
+    {
+        Some(NextStep::SetUpstream)
+    } else if error.contains("No configured push destination")
+        || error.contains("No remote repository specified")
+    {
+        Some(NextStep::AddRemote)
+    } else {
+        None
+    }
+}
+
 /// How a signature's state is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -575,6 +604,26 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_pushes_and_pulls_say_what_to_do_next() {
+        let rejected =
+            " ! [rejected]        HEAD -> main (fetch first)\nerror: failed to push some refs";
+        assert_eq!(next_step(rejected), Some(NextStep::PullOrForce));
+        assert_eq!(
+            next_step(" ! [rejected]        main -> main (non-fast-forward)"),
+            Some(NextStep::PullOrForce)
+        );
+        assert_eq!(
+            next_step("There is no tracking information for the current branch.\nPlease specify"),
+            Some(NextStep::SetUpstream)
+        );
+        assert_eq!(
+            next_step("fatal: No configured push destination."),
+            Some(NextStep::AddRemote)
+        );
+        assert_eq!(next_step("fatal: Authentication failed"), None);
+    }
 
     #[test]
     fn columns_are_laid_out_from_the_right() {

@@ -3016,3 +3016,58 @@ async fn a_shallow_clone_offers_to_fetch_more_history() {
     drive(&mut app, whole).await;
     assert!(!app.current().unwrap().refs.shallow);
 }
+
+#[tokio::test]
+async fn a_rejected_push_offers_to_pull_or_force_push() {
+    let f = fixture();
+    let remote = f.root.join("remote.git");
+    git(
+        &f.root,
+        &["clone", "-q", "--bare", &f.repo, remote.to_str().unwrap()],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    f.git(&["fetch", "-q", "origin"]);
+    let other = f.root.join("other");
+    git(
+        &f.root,
+        &[
+            "clone",
+            "-q",
+            remote.to_str().unwrap(),
+            other.to_str().unwrap(),
+        ],
+    );
+    git(
+        &other,
+        &[
+            "-c",
+            "user.name=O",
+            "-c",
+            "user.email=o@e",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "theirs",
+        ],
+    );
+    git(&other, &["push", "-q", "origin", "main"]);
+    f.commit("mine.txt", "mine\n", "mine");
+    let mut app = opened(&f, false).await;
+    let push = Command::Push {
+        remote: "origin".into(),
+        branch: "main".into(),
+        set_upstream: false,
+        force: false,
+        tags: false,
+    };
+    drive(&mut app, Message::Run(push)).await;
+    let form = app.form.as_ref().expect("asks what to do");
+    assert_eq!(form.choices.len(), 1, "force push is offered");
+    drive(&mut app, Message::FormChoice(0)).await;
+    assert_eq!(
+        git(&remote, &["log", "-1", "--format=%s", "main"]),
+        "mine\n",
+        "the branch replaced theirs"
+    );
+}

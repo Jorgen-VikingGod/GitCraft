@@ -295,7 +295,9 @@ Folder	Ordner	Dossier	Carpeta
 Folder name	Ordnername	Nom du dossier	Nombre de la carpeta
 Follow system	Wie das System	Comme le système	Como el sistema
 Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer la suppression, même si elle n’est pas fusionnée	Forzar la eliminación aunque no esté fusionada
+Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
+Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
 Give both ranges, such as main..topic	Gib beide Bereiche an, etwa main..topic	Indiquez les deux plages, par exemple main..topic	Indica ambos rangos, por ejemplo main..topic
 Good	Gut	Bon	Bueno
 Good commit	Guter Commit	Commit fonctionnel	Commit bueno
@@ -415,12 +417,14 @@ No differences	Keine Unterschiede	Aucune différence	Sin diferencias
 No discarded changes are kept	Keine verworfenen Änderungen gesichert	Aucune modification supprimée n’est conservée	No hay cambios descartados guardados
 No files	Keine Dateien	Aucun fichier	No hay archivos
 No matching commits	Keine passenden Commits	Aucun commit correspondant	No hay commits que coincidan
+No remote	Kein Remote	Aucun dépôt distant	Sin remoto
 No remotes	Keine Remotes	Aucun dépôt distant	No hay remotos
 No repository is open	Kein Repository geöffnet	Aucun dépôt n’est ouvert	No hay ningún repositorio abierto
 No repository open	Kein Repository geöffnet	Aucun dépôt ouvert	Ningún repositorio abierto
 No stashes	Keine Stashes	Aucune remise	No hay stashes
 No tags	Keine Tags	Aucun tag	No hay etiquetas
 No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non indexée	No hay cambios sin preparar
+No upstream	Kein Upstream	Pas d’amont	Sin upstream
 Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún no hay nada preparado
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
 Old range	Alter Bereich	Ancienne plage	Rango antiguo
@@ -473,6 +477,7 @@ Push	Push	Pousser	Enviar
 Push after committing	Nach dem Commit pushen	Pousser après le commit	Hacer push tras el commit
 Push all tags	Alle Tags pushen	Pousser tous les tags	Enviar todas las etiquetas
 Push complete	Push abgeschlossen	Envoi terminé	Envío completado
+Push rejected	Push abgelehnt	Envoi refusé	Push rechazado
 Push tag	Tag pushen	Pousser le tag	Enviar etiqueta
 Push to all remotes	Auf alle Remotes pushen	Pousser vers tous les dépôts distants	Enviar a todos los remotos
 Push to remote…	Auf Remote pushen…	Pousser vers le dépôt distant…	Enviar al remoto…
@@ -699,6 +704,7 @@ There are no local changes to stash	Es gibt keine lokalen Änderungen für den S
 There is no backup: commits only on this branch are lost.	Es gibt kein Backup: Commits, die nur auf diesem Branch sind, gehen verloren.	Il n’y a pas de sauvegarde : les commits présents seulement sur cette branche sont perdus.	No hay respaldo: se pierden los commits que solo están en esta rama.
 This commit has no file changes	Dieser Commit ändert keine Dateien	Ce commit ne modifie aucun fichier	Este commit no cambia ningún archivo
 this hunk	diesen Abschnitt	ce bloc	este bloque
+This repository has no remote to push to or fetch from yet.	Dieses Repository hat noch kein Remote zum Pushen oder Abrufen.	Ce dépôt n’a encore aucun dépôt distant vers lequel pousser ou depuis lequel récupérer.	Este repositorio aún no tiene un remoto al que enviar o del que obtener.
 This repository has no remotes	Dieses Repository hat keine Remotes	Ce dépôt n’a aucun dépôt distant	Este repositorio no tiene remotos
 This repository has no remotes. Add one from the sidebar first.	Dieses Repository hat keine Remotes. Füge zuerst eines über die Seitenleiste hinzu.	Ce dépôt n’a aucun dépôt distant. Ajoutez-en un depuis la barre latérale.	Este repositorio no tiene remotos. Añade uno primero desde la barra lateral.
 tomorrow	morgen	demain	mañana
@@ -750,6 +756,7 @@ Zoom	Zoom	Zoom	Zoom
 Zoom in	Vergrößern	Zoom avant	Acercar
 Zoom out	Verkleinern	Zoom arrière	Alejar
 {branches} hidden: {names}	{branches} ausgeblendet: {names}	{branches} masquées : {names}	{branches} ocultas: {names}
+{branch} doesn't track a remote branch yet. Choose the one it should pull from and push to.	{branch} folgt noch keinem entfernten Branch. Wähle den, von dem er holen und zu dem er pushen soll.	{branch} ne suit encore aucune branche distante. Choisissez celle depuis laquelle tirer et vers laquelle pousser.	{branch} aún no sigue ninguna rama remota. Elige la rama de la que traer y a la que enviar.
 {branch} fast-forwarded	{branch} vorgespult	{branch} avancée rapidement	{branch} avanzada rápidamente
 {commits} matching “{query}” ({mode})	{commits} passend zu „{query}“ ({mode})	{commits} correspondant à « {query} » ({mode})	{commits} que coinciden con «{query}» ({mode})
 {commits} only in target, {count} only in base	{commits} nur im Ziel, {count} nur in der Basis	{commits} seulement dans la cible, {count} seulement dans la base	{commits} solo en el destino, {count} solo en la base
@@ -775,6 +782,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
 {path} taken from the stash	{path} aus dem Stash geholt	{path} récupéré de la remise	{path} tomado del stash
 {path} · the working folder, uncommitted lines included	{path} · das Arbeitsverzeichnis, mit nicht committeten Zeilen	{path} · le répertoire de travail, lignes non validées comprises	{path} · el directorio de trabajo, con las líneas sin commit
+{remote} has commits that {branch} doesn't have. Pull them in first, or replace them with your branch (force push with lease)?	{remote} hat Commits, die {branch} nicht hat. Zuerst holen oder sie durch deinen Branch ersetzen (Force-Push mit Lease)?	{remote} contient des commits que {branch} n’a pas. Les récupérer d’abord, ou les remplacer par votre branche (push forcé avec bail) ?	{remote} tiene commits que {branch} no tiene. ¿Traerlos primero o reemplazarlos con tu rama (push forzado con lease)?
 “{subject}” is broken. Name an older commit that still worked: GitCraft then checks out commits in between for you to test, until the first broken one is found.	„{subject}“ ist fehlerhaft. Nenne einen älteren Commit, der noch funktioniert hat: GitCraft checkt dann Commits dazwischen zum Testen aus, bis der erste fehlerhafte gefunden ist.	« {subject} » est cassé. Indiquez un commit plus ancien qui fonctionnait encore : GitCraft extrait alors des commits intermédiaires à tester, jusqu’à trouver le premier cassé.	«{subject}» está roto. Indica un commit anterior que aún funcionaba: GitCraft extrae commits intermedios para que los pruebes, hasta encontrar el primero roto.
 … and {count} more	… und {count} weitere	… et {count} de plus	… y {count} más
 Select all files	Alle Dateien auswählen	Sélectionner tous les fichiers	Seleccionar todos los archivos

@@ -943,6 +943,30 @@ pub async fn fetch_more(repo: &str, how: &str, progress: Option<&Progress>) -> R
     Ok(ok(&run(repo, &args, with_progress(progress)).await?))
 }
 
+/// Replaces `branch` on `remote` with the local one, but only while the remote still has
+/// `expected` there (the commit the user agreed to overwrite): anything pushed since makes
+/// git refuse, rather than that being lost too.
+pub async fn force_push_over(
+    repo: &str,
+    remote: &str,
+    branch: &str,
+    expected: &str,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    let (remote, branch, expected) = (check_ref(remote)?, check_ref(branch)?, check_ref(expected)?);
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let lease = format!("--force-with-lease=refs/heads/{branch}:{expected}");
+    let spec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    let result = run(
+        repo,
+        &["push", "--progress", &lease, remote, &spec],
+        with_progress(progress),
+    )
+    .await?;
+    Ok(ok(&result))
+}
+
 /// Pulls with mode merge, rebase or ff-only; autostash stashes local changes and reapplies them.
 pub async fn pull(
     repo: &str,

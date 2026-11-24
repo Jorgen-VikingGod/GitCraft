@@ -69,6 +69,18 @@ pub async fn bisect_state(repo: &str) -> Result<Option<Bisect>> {
         .map(|text| parsers::parse_bisect_log(&text)))
 }
 
+/// The commit `branch` points at on `remote` right now (asks the remote), if it exists there.
+pub async fn remote_branch_sha(repo: &str, remote: &str, branch: &str) -> Result<Option<String>> {
+    let name = format!("refs/heads/{}", check_ref(branch)?);
+    let result = git(repo, &["ls-remote", "--refs", check_ref(remote)?, &name]).await?;
+    Ok(result
+        .out()
+        .lines()
+        .find(|line| line.ends_with(&name))
+        .and_then(|line| line.split_whitespace().next())
+        .map(str::to_owned))
+}
+
 /// The commit HEAD points at, if there is one yet.
 pub async fn head_sha(repo: &str) -> Result<Option<String>> {
     let result = git_unchecked(repo, &["rev-parse", "--verify", "-q", "HEAD"]).await?;

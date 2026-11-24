@@ -245,6 +245,12 @@ pub enum Command {
         amend: bool,
         options: CommitOptions,
     },
+    /// Replaces the remote branch, but only while it is still at `expected`.
+    ForcePushOver {
+        remote: String,
+        branch: String,
+        expected: String,
+    },
     /// Downloads what a shallow or partial clone left out: deepen, unshallow or refetch.
     FetchMore {
         how: &'static str,
@@ -384,6 +390,7 @@ impl Command {
             Self::MarkConflicted { .. } => "Marking as conflicted".into(),
             Self::BisectStart { .. } | Self::BisectMark { .. } => "Bisecting".into(),
             Self::FetchMore { .. } => "Fetching more history".into(),
+            Self::ForcePushOver { .. } => "Force pushing".into(),
             Self::BisectReset => "Ending bisect".into(),
             Self::Undo { .. } => "Undoing".into(),
             Self::Redo { .. } => "Redoing".into(),
@@ -447,6 +454,7 @@ impl Command {
             Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
             Self::FetchMore { .. } => "More history fetched".into(),
+            Self::ForcePushOver { .. } => "Push complete".into(),
             Self::FixupCommit { sha } => trf(
                 "Fixup commit for {commit} created; an interactive rebase with autosquash folds it in",
                 &[("commit", short_sha(sha))],
@@ -526,6 +534,7 @@ impl Command {
                 | Self::PruneRemote { .. }
                 | Self::UpdateSubmodules
                 | Self::FetchMore { .. }
+                | Self::ForcePushOver { .. }
         )
     }
 
@@ -846,6 +855,11 @@ impl Command {
             Self::MarkConflicted { paths } => ops::mark_conflicted(repo, &paths).await,
             Self::BisectStart { bad, good } => ops::bisect_start(repo, &bad, &good).await,
             Self::FetchMore { how } => ops::fetch_more(repo, how, report).await,
+            Self::ForcePushOver {
+                remote,
+                branch,
+                expected,
+            } => ops::force_push_over(repo, &remote, &branch, &expected, report).await,
             Self::BisectMark { verdict, sha } => {
                 ops::bisect_mark(repo, verdict, sha.as_deref()).await
             }
