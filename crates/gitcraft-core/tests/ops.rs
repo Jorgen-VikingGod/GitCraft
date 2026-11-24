@@ -2706,3 +2706,40 @@ async fn blame_can_skip_the_commits_listed_to_be_ignored() {
     assert!(!skipped, "a list git can't read falls back to plain blame");
     assert_eq!(lines[0].sha, reformat);
 }
+
+#[tokio::test]
+async fn a_background_fetch_says_whether_anything_came_in() {
+    let f = Fixture::with_history();
+    let remote = f.root.join("remote.git");
+    raw_git(
+        &f.root,
+        &["clone", "-q", "--bare", &f.repo, remote.to_str().unwrap()],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    assert!(
+        ops::fetch_background(&f.repo, true).await.unwrap(),
+        "the first fetch brings branches"
+    );
+    assert!(
+        !ops::fetch_background(&f.repo, true).await.unwrap(),
+        "then nothing is new"
+    );
+    let other = f.root.join("other");
+    raw_git(
+        &f.root,
+        &[
+            "clone",
+            "-q",
+            remote.to_str().unwrap(),
+            other.to_str().unwrap(),
+        ],
+    );
+    f.identity(&other);
+    commit_at(&other, "new.txt", "new\n", "elsewhere");
+    raw_git(&other, &["push", "-q", "origin", "main"]);
+    assert!(ops::fetch_background(&f.repo, true).await.unwrap());
+    assert!(
+        !f.path.join(".git/FETCH_HEAD").exists(),
+        "FETCH_HEAD is left alone"
+    );
+}

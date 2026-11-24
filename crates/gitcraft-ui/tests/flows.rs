@@ -2954,3 +2954,39 @@ async fn blame_skips_listed_commits_and_can_be_told_not_to() {
     };
     assert_eq!(lines[0].summary, "reformat");
 }
+
+#[tokio::test]
+async fn repositories_are_fetched_in_the_background_when_due() {
+    let f = fixture();
+    let remote = f.root.join("remote.git");
+    git(
+        &f.root,
+        &["clone", "-q", "--bare", &f.repo, remote.to_str().unwrap()],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::AutoFetchTick).await;
+    assert!(f.git(&["branch", "-r"]).is_empty(), "off by default");
+
+    drive(&mut app, Message::SetAutoFetch(5)).await;
+    drive(&mut app, Message::AutoFetchTick).await;
+    assert!(
+        f.git(&["branch", "-r"]).is_empty(),
+        "not due yet: the tab only just opened"
+    );
+
+    app.tabs[app.active].last_fetch = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(600))
+        .unwrap();
+    drive(&mut app, Message::AutoFetchTick).await;
+    assert!(f.git(&["branch", "-r"]).contains("origin/main"));
+    let tab = app.current().unwrap();
+    assert!(!tab.fetching);
+    assert!(
+        tab.refs
+            .remote
+            .iter()
+            .any(|branch| branch.name == "origin/main"),
+        "the sidebar shows what came in"
+    );
+}

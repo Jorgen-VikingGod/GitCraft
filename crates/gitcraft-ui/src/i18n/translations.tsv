@@ -268,6 +268,7 @@ Fetch	Fetch	Récupérer	Recuperar
 Fetch after adding	Nach dem Hinzufügen abrufen	Récupérer après l’ajout	Recuperar después de añadir
 Fetch all remotes (incl. tags)	Alle Remotes abrufen (inkl. Tags)	Récupérer tous les dépôts distants (tags compris)	Recuperar todos los remotos (con etiquetas)
 Fetch complete	Fetch abgeschlossen	Récupération terminée	Recuperación completada
+Fetch in the background every (minutes, 0 = never)	Im Hintergrund abrufen alle (Minuten, 0 = nie)	Récupérer en arrière-plan toutes les (minutes, 0 = jamais)	Obtener en segundo plano cada (minutos, 0 = nunca)
 Fetch when opening a repository	Beim Öffnen eines Repositorys abrufen	Récupérer à l’ouverture d’un dépôt	Recuperar al abrir un repositorio
 Fetch {name}	{name} abrufen	Récupérer {name}	Recuperar {name}
 Fetching	Fetch läuft	Récupération	Recuperando

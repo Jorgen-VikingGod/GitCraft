@@ -1537,6 +1537,13 @@ fn settings(ctx: &Context, cx: &Cx) {
                                 cx.send(Message::SetLogLimit(limit.to_string()));
                             }
                             ui.end_row();
+                            ui.label(tr("Fetch in the background every (minutes, 0 = never)"));
+                            let mut minutes = values.history.auto_fetch_minutes;
+                            ui.add(DragValue::new(&mut minutes).range(0..=1440).speed(1));
+                            if minutes != values.history.auto_fetch_minutes {
+                                cx.send(Message::SetAutoFetch(minutes));
+                            }
+                            ui.end_row();
                         });
                     if let Some(on) = check(
                         ui,

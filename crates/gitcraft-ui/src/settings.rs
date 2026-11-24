@@ -96,6 +96,8 @@ pub struct History {
     pub date_order: bool,
     /// Stashes as rows in the history, above the commit each was made on.
     pub show_stashes: bool,
+    /// Fetches every remote in the background this often; 0 never does.
+    pub auto_fetch_minutes: u32,
 }
 
 impl Default for History {
@@ -107,6 +109,7 @@ impl Default for History {
             conflict_check: true,
             date_order: false,
             show_stashes: true,
+            auto_fetch_minutes: 0,
         }
     }
 }

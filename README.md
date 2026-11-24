@@ -19,6 +19,7 @@ installed `git`, so it behaves the same as git on the command line and uses your
   (`Co-authored-by`) and push after committing; amending a commit that is already pushed asks first.
 - **Branches, tags, remotes**: sidebar with folder trees, ahead/behind counts, checkout (double-click),
   create, rename, delete, upstream tracking, push/delete remote branches and tags, add/edit/remove remotes.
+- **Background fetch** every few minutes (Settings › Repository; off by default), quiet, never prompting.
 - **Fetch / pull / push** with live progress (merge, rebase or fast-forward pulls; force-with-lease).
 - **Conflict check**: the merge and rebase dialogs say beforehand which files would conflict (git 2.38+).
 - **Merge, rebase (with optional autostash), cherry-pick, revert, reset (soft/mixed/keep/hard), undo last

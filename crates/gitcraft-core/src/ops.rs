@@ -861,6 +861,55 @@ pub async fn fetch(
     Ok(ok(&run(repo, &args, with_progress(progress)).await?))
 }
 
+/// A fetch of every remote in the background: quiet, never asking for anything, given up
+/// after a minute, and leaving FETCH_HEAD alone. Returns whether a remote branch or a tag
+/// changed, so the caller knows whether to reload.
+pub async fn fetch_background(repo: &str, prune: bool) -> Result<bool> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let refs = || {
+        git(
+            repo,
+            &[
+                "for-each-ref",
+                "--format=%(refname) %(objectname)",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+    };
+    let before = refs().await?.out().into_owned();
+    let mut args = vec![
+        "fetch",
+        "--all",
+        "--quiet",
+        "--no-write-fetch-head",
+        "--no-auto-maintenance",
+    ];
+    if prune {
+        args.push("--prune");
+    }
+    let options = Options {
+        env: vec![
+            ("GCM_INTERACTIVE", "never".to_owned()),
+            ("SSH_ASKPASS_REQUIRE", "never".to_owned()),
+        ],
+        ..Options::default()
+    };
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        run(repo, &args, options),
+    )
+    .await
+    {
+        Ok(result) => {
+            result?;
+        }
+        Err(_) => return invalid("The fetch took too long and was stopped"),
+    }
+    Ok(refs().await?.out() != before)
+}
+
 /// Pulls with mode merge, rebase or ff-only; autostash stashes local changes and reapplies them.
 pub async fn pull(
     repo: &str,

@@ -294,6 +294,9 @@ pub struct RepoTab {
     pub history_filter: Option<LogFilter>,
     /// Branches hidden from the graph, or the only ones shown.
     pub ref_view: RefView,
+    /// When the remotes were last fetched in the background (or the tab opened).
+    pub last_fetch: Instant,
+    pub fetching: bool,
     /// How much each loaded commit changed, for the Changes column.
     pub stats: std::collections::HashMap<String, CommitStats>,
     /// Copies of the history settings, so the list can be reloaded from the tab alone.
@@ -350,6 +353,8 @@ impl RepoTab {
             date_order: false,
             show_stashes: true,
             stats: std::collections::HashMap::new(),
+            last_fetch: Instant::now(),
+            fetching: false,
             co_authors: String::new(),
             picked_commits: Vec::new(),
         }
@@ -1015,6 +1020,11 @@ pub enum Message {
     SetFetchOnOpen(bool),
     SetConflictCheck(bool),
     SetDateOrder(bool),
+    SetAutoFetch(u32),
+    /// Sent now and then by the window: fetches the repositories that are due.
+    AutoFetchTick,
+    /// A background fetch ended; `true` when something new came in.
+    AutoFetched(String, Answer<bool>),
     /// Shows or hides a column of the history list.
     ToggleColumn(Column),
     /// A new width for a resizable column; `done` once the drag ends, to save it.
@@ -2374,6 +2384,57 @@ impl App {
             Message::SetCommitGraph(value) => {
                 self.settings.history.commit_graph = value;
                 self.save_settings();
+                Task::none()
+            }
+            Message::SetAutoFetch(minutes) => {
+                self.settings.history.auto_fetch_minutes = minutes.min(24 * 60);
+                self.save_settings();
+                Task::none()
+            }
+            Message::AutoFetchTick => {
+                let minutes = self.settings.history.auto_fetch_minutes;
+                // Never while a command runs, or while the user is in the middle of an
+                // operation: the fetch would only get in the way.
+                if minutes == 0 || self.busy.is_some() {
+                    return Task::none();
+                }
+                let every = Duration::from_secs(u64::from(minutes) * 60);
+                let mut tasks = Vec::new();
+                for tab in &mut self.tabs {
+                    let operating = tab
+                        .status
+                        .as_ref()
+                        .is_some_and(|status| status.operation.is_some());
+                    if tab.fetching
+                        || operating
+                        || tab.refs.remotes.is_empty()
+                        || tab.last_fetch.elapsed() < every
+                    {
+                        continue;
+                    }
+                    tab.fetching = true;
+                    let path = tab.path.clone();
+                    tasks.push(Task::perform(
+                        async move {
+                            let result = answer(ops::fetch_background(&path, true).await);
+                            (path, result)
+                        },
+                        |(path, result)| Message::AutoFetched(path, result),
+                    ));
+                }
+                Task::batch(tasks)
+            }
+            Message::AutoFetched(path, result) => {
+                let Some(tab) = self.tab_mut(&path) else {
+                    return Task::none();
+                };
+                tab.fetching = false;
+                tab.last_fetch = Instant::now();
+                // A failed background fetch (offline, say) waits for the next round quietly.
+                if result == Ok(true) {
+                    let query = tab.log_query();
+                    return Task::batch([load_refs(path.clone()), load_log(path, query)]);
+                }
                 Task::none()
             }
             Message::ToggleColumn(column) => {

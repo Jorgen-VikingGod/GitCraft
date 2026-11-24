@@ -31,6 +31,8 @@ pub struct Shell {
     shown: Shown,
     /// `GITCRAFT_SHOT=file.png` saves a picture of the window and quits, for documentation.
     shot: Option<Shot>,
+    /// When to see next whether a repository is due for its background fetch.
+    next_fetch_check: std::time::Instant,
 }
 
 struct Shot {
@@ -84,6 +86,7 @@ impl Shell {
                 system_dark: Some(system_dark),
                 ..Shown::default()
             },
+            next_fetch_check: std::time::Instant::now(),
             shot: std::env::var_os("GITCRAFT_SHOT").map(|file| Shot {
                 file: file.into(),
                 frames: 0,
@@ -346,6 +349,15 @@ impl eframe::App for Shell {
         if !self.app.toasts.is_empty() {
             self.handle(Message::Tick);
             ctx.request_repaint_after(Duration::from_millis(500));
+        }
+        // Background fetches: the app decides which repositories are due; this only wakes it.
+        if self.app.settings.history.auto_fetch_minutes > 0 {
+            let now = std::time::Instant::now();
+            if now >= self.next_fetch_check {
+                self.handle(Message::AutoFetchTick);
+                self.next_fetch_check = now + Duration::from_secs(30);
+            }
+            ctx.request_repaint_after(self.next_fetch_check.saturating_duration_since(now));
         }
         if busy {
             ctx.request_repaint();
