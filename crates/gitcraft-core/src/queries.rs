@@ -690,13 +690,45 @@ pub async fn file_history(repo: &str, path: &str, limit: usize) -> Result<Vec<Co
 }
 
 pub async fn blame(repo: &str, path: &str, rev: Option<&str>) -> Result<Vec<BlameLine>> {
+    Ok(blame_with(repo, path, rev, false).await?.0)
+}
+
+/// The list of commits blame can skip (formatting changes and the like), by convention.
+pub const BLAME_IGNORE_FILE: &str = ".git-blame-ignore-revs";
+
+/// Whether the repository has a [`BLAME_IGNORE_FILE`].
+pub async fn has_blame_ignore_file(repo: &str) -> Result<bool> {
+    Ok(Path::new(&toplevel(repo).await?)
+        .join(BLAME_IGNORE_FILE)
+        .is_file())
+}
+
+/// Blame, skipping the commits in [`BLAME_IGNORE_FILE`] when `ignore_revs` is set and the
+/// file is there. The flag returned says whether they were skipped: a file git can't read
+/// falls back to plain blame rather than failing.
+pub async fn blame_with(
+    repo: &str,
+    path: &str,
+    rev: Option<&str>,
+    ignore_revs: bool,
+) -> Result<(Vec<BlameLine>, bool)> {
     let mut args = vec!["blame", "--porcelain"];
     if let Some(rev) = rev {
         args.push(check_ref(rev)?);
     }
     args.extend(["--", path]);
+    if ignore_revs && has_blame_ignore_file(repo).await? {
+        let file = Path::new(&toplevel(repo).await?).join(BLAME_IGNORE_FILE);
+        let flag = format!("--ignore-revs-file={}", file.to_string_lossy());
+        let mut ignoring = vec!["blame", "--porcelain", &flag];
+        ignoring.extend(&args[2..]);
+        let result = git_unchecked(repo, &ignoring).await?;
+        if result.code == 0 {
+            return Ok((parsers::parse_blame(&result.out()), true));
+        }
+    }
     let result = git(repo, &args).await?;
-    Ok(parsers::parse_blame(&result.out()))
+    Ok((parsers::parse_blame(&result.out()), false))
 }
 
 /// The diff tools (`merge`: the merge tools) git can start here: installed ones that open a

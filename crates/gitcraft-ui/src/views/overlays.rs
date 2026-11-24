@@ -107,6 +107,8 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
             loading,
             error,
             hovered,
+            ignore_revs,
+            ignored,
         } => blame(
             ctx,
             cx,
@@ -116,6 +118,7 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
             *loading,
             error.as_deref(),
             hovered.as_deref(),
+            (*ignore_revs, *ignored),
         ),
         Overlay::FileHistory {
             path,
@@ -429,15 +432,30 @@ fn blame(
     loading: bool,
     error: Option<&str>,
     hovered: Option<&str>,
+    (ignore_revs, ignored): (bool, Option<bool>),
 ) {
     let look = cx.look();
     let subtitle = match rev {
         Some(rev) => format!("{path} @ {}", short_sha(rev)),
-        None => path.to_owned(),
+        None => trf(
+            "{path} · the working folder, uncommitted lines included",
+            &[("path", path)],
+        ),
     };
     let extra = |ui: &mut Ui| {
         if btn(ui, look, "File history", true) {
             cx.send(Message::OpenFileHistory(path.to_owned()));
+        }
+        // Offered where the repository lists commits to skip (formatting and the like).
+        if ignored.is_some()
+            && let Some(on) = check(
+                ui,
+                ignore_revs,
+                "Skip commits in .git-blame-ignore-revs",
+                true,
+            )
+        {
+            cx.send(Message::BlameIgnoreRevs(on));
         }
     };
     dialog(ctx, cx, "Blame", &subtitle, Some(&extra), |ui, _| {

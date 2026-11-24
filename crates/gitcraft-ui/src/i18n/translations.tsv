@@ -603,6 +603,7 @@ Signed, but it can't be checked here	Signiert, lässt sich hier aber nicht prüf
 Skip	Überspringen	Passer	Omitir
 Skip (can't be tested)	Überspringen (nicht testbar)	Ignorer (impossible à tester)	Omitir (no se puede probar)
 Skip commit hooks	Commit-Hooks überspringen	Ignorer les hooks de commit	Omitir los hooks de commit
+Skip commits in .git-blame-ignore-revs	Commits aus .git-blame-ignore-revs überspringen	Ignorer les commits de .git-blame-ignore-revs	Omitir los commits de .git-blame-ignore-revs
 Skipping	Wird übersprungen	Saut	Omitiendo
 Soft: keep all changes staged	Weich: alle Änderungen vorgemerkt behalten	Doux : garder toutes les modifications indexées	Suave: mantener todos los cambios preparados
 Solo in graph	Allein im Graphen zeigen	Afficher seule dans le graphe	Mostrar sola en el gráfico
@@ -765,6 +766,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
 {path} taken from the stash	{path} aus dem Stash geholt	{path} récupéré de la remise	{path} tomado del stash
+{path} · the working folder, uncommitted lines included	{path} · das Arbeitsverzeichnis, mit nicht committeten Zeilen	{path} · le répertoire de travail, lignes non validées comprises	{path} · el directorio de trabajo, con las líneas sin commit
 “{subject}” is broken. Name an older commit that still worked: GitCraft then checks out commits in between for you to test, until the first broken one is found.	„{subject}“ ist fehlerhaft. Nenne einen älteren Commit, der noch funktioniert hat: GitCraft checkt dann Commits dazwischen zum Testen aus, bis der erste fehlerhafte gefunden ist.	« {subject} » est cassé. Indiquez un commit plus ancien qui fonctionnait encore : GitCraft extrait alors des commits intermédiaires à tester, jusqu’à trouver le premier cassé.	«{subject}» está roto. Indica un commit anterior que aún funcionaba: GitCraft extrae commits intermedios para que los pruebes, hasta encontrar el primero roto.
 … and {count} more	… und {count} weitere	… et {count} de plus	… y {count} más
 Select all files	Alle Dateien auswählen	Sélectionner tous les fichiers	Seleccionar todos los archivos

@@ -657,6 +657,10 @@ pub enum Overlay {
         loading: bool,
         error: Option<String>,
         hovered: Option<String>,
+        /// Skip the commits listed in `.git-blame-ignore-revs`.
+        ignore_revs: bool,
+        /// Whether they were skipped; `None` when the repository has no such list.
+        ignored: Option<bool>,
     },
     FileHistory {
         path: String,
@@ -955,7 +959,9 @@ pub enum Message {
     RangeDiffLoaded(Answer<String>),
     DiscardsLoaded(Answer<Vec<DiscardBackup>>),
     OpenBlame(String, Option<String>),
-    BlameLoaded(Answer<Vec<BlameLine>>),
+    BlameLoaded(Answer<(Vec<BlameLine>, Option<bool>)>),
+    /// Turns skipping the commits in `.git-blame-ignore-revs` on or off.
+    BlameIgnoreRevs(bool),
     BlameHover(String),
     OpenFileHistory(String),
     FileHistoryLoaded(Answer<Vec<Commit>>),
@@ -2062,16 +2068,30 @@ impl App {
                     lines,
                     loading,
                     error,
+                    ignored,
                     ..
                 }) = &mut self.overlay
                 {
                     *loading = false;
                     match result {
-                        Ok(list) => *lines = list,
+                        Ok((list, skipped)) => {
+                            *lines = list;
+                            *ignored = skipped;
+                        }
                         Err(message) => *error = Some(message),
                     }
                 }
                 Task::none()
+            }
+            Message::BlameIgnoreRevs(on) => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                let Some(Overlay::Blame { path, rev, .. }) = &self.overlay else {
+                    return Task::none();
+                };
+                let (path, rev) = (path.clone(), rev.clone());
+                self.open_blame_with(repo, path, rev, on)
             }
             Message::BlameHover(sha) => {
                 if let Some(Overlay::Blame { hovered, .. }) = &mut self.overlay {
@@ -3580,6 +3600,25 @@ impl App {
         let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
             return Task::none();
         };
+        // Skipping the listed commits is the default where a repository has the list.
+        let ignore_revs = match &self.overlay {
+            Some(Overlay::Blame {
+                path: open,
+                ignore_revs,
+                ..
+            }) if *open == path => *ignore_revs,
+            _ => true,
+        };
+        self.open_blame_with(repo, path, rev, ignore_revs)
+    }
+
+    fn open_blame_with(
+        &mut self,
+        repo: String,
+        path: String,
+        rev: Option<String>,
+        ignore_revs: bool,
+    ) -> Task<Message> {
         self.overlay = Some(Overlay::Blame {
             path: path.clone(),
             rev: rev.clone(),
@@ -3587,9 +3626,15 @@ impl App {
             loading: true,
             error: None,
             hovered: None,
+            ignore_revs,
+            ignored: None,
         });
         Task::perform(
-            async move { answer(queries::blame(&repo, &path, rev.as_deref()).await) },
+            async move {
+                let found = queries::blame_with(&repo, &path, rev.as_deref(), ignore_revs).await;
+                let can = queries::has_blame_ignore_file(&repo).await.unwrap_or(false);
+                answer(found.map(|(lines, ignored)| (lines, can.then_some(ignored))))
+            },
             Message::BlameLoaded,
         )
     }

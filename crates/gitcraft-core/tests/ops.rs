@@ -2680,3 +2680,29 @@ async fn each_commit_says_how_much_it_changed() {
     );
     assert_eq!(stats[1].1.added, 1, "second adds the line four");
 }
+
+#[tokio::test]
+async fn blame_can_skip_the_commits_listed_to_be_ignored() {
+    let f = Fixture::empty();
+    let first = f.commit("code.txt", "a = 1\n", "write it");
+    let reformat = f.commit("code.txt", "a  =  1\n", "reformat");
+    assert!(!queries::has_blame_ignore_file(&f.repo).await.unwrap());
+    f.write(".git-blame-ignore-revs", format!("{reformat}\n"));
+    assert!(queries::has_blame_ignore_file(&f.repo).await.unwrap());
+    let (lines, skipped) = queries::blame_with(&f.repo, "code.txt", None, true)
+        .await
+        .unwrap();
+    assert!(skipped);
+    assert_eq!(lines[0].sha, first);
+    let (lines, skipped) = queries::blame_with(&f.repo, "code.txt", None, false)
+        .await
+        .unwrap();
+    assert!(!skipped);
+    assert_eq!(lines[0].sha, reformat);
+    f.write(".git-blame-ignore-revs", "not a commit\n");
+    let (lines, skipped) = queries::blame_with(&f.repo, "code.txt", None, true)
+        .await
+        .unwrap();
+    assert!(!skipped, "a list git can't read falls back to plain blame");
+    assert_eq!(lines[0].sha, reformat);
+}

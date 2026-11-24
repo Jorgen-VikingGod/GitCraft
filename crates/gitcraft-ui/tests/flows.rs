@@ -2928,3 +2928,29 @@ async fn history_columns_are_chosen_and_resized() {
         gitcraft_ui::settings::Columns::default()
     );
 }
+
+#[tokio::test]
+async fn blame_skips_listed_commits_and_can_be_told_not_to() {
+    let f = empty_fixture();
+    f.commit("code.txt", "a = 1\n", "write it");
+    f.commit("code.txt", "a  =  1\n", "reformat");
+    let reformat = f.git(&["rev-parse", "HEAD"]);
+    f.write(".git-blame-ignore-revs", &reformat);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenBlame("code.txt".into(), None)).await;
+    let Some(Overlay::Blame { lines, ignored, .. }) = &app.overlay else {
+        panic!("open")
+    };
+    assert_eq!(*ignored, Some(true));
+    assert_eq!(lines[0].summary, "write it");
+    assert!(
+        Screen::new()
+            .show(&app)
+            .has("Skip commits in .git-blame-ignore-revs")
+    );
+    drive(&mut app, Message::BlameIgnoreRevs(false)).await;
+    let Some(Overlay::Blame { lines, .. }) = &app.overlay else {
+        panic!("still open")
+    };
+    assert_eq!(lines[0].summary, "reformat");
+}
