@@ -51,6 +51,26 @@ pub struct CommitDetail {
     pub files: Vec<FileChange>,
 }
 
+/// A diff or merge tool git can start (`git difftool` / `git mergetool`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalTool {
+    /// What git calls it: `kdiff3`, `bc`, or a name from `difftool.<name>.cmd`.
+    pub name: String,
+    /// For people: "KDiff3", "Beyond Compare".
+    pub label: String,
+}
+
+/// Which two versions of a file an external diff tool compares.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ToolTarget {
+    /// The working tree against the index, or with `staged` the index against HEAD.
+    Working { staged: bool },
+    /// A commit against its first parent.
+    Commit { sha: String },
+    /// One commit against another.
+    Compare { base: String, target: String },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileChange {

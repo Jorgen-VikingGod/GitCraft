@@ -7,6 +7,7 @@ use std::process::Command as Process;
 
 use egui::{Event, Modifiers, PointerButton, Pos2, Rect, Vec2, vec2};
 use futures::StreamExt;
+use gitcraft_core::model::ToolTarget;
 use gitcraft_core::runner::set_editor_exe;
 use gitcraft_core::store::RepoStore;
 use gitcraft_ui::App;
@@ -42,6 +43,10 @@ struct Fixture {
 impl Fixture {
     fn write(&self, name: &str, content: &str) {
         std::fs::write(self.path.join(name), content).unwrap();
+    }
+
+    fn read(&self, name: &str) -> String {
+        std::fs::read_to_string(self.path.join(name)).unwrap()
     }
 
     fn commit(&self, file: &str, content: &str, message: &str) {
@@ -988,7 +993,7 @@ async fn settings_persist_and_change_the_diff() {
     drive(&mut app, Message::SetContext("1".into())).await;
     assert_eq!(lines(&app), 4);
     drive(&mut app, Message::SetContext("nonsense".into())).await;
-    assert_eq!(app.settings.diff_context, 1, "bad input is ignored");
+    assert_eq!(app.settings.diff.context, 1, "bad input is ignored");
 
     drive(&mut app, Message::SetSplit(true)).await;
     assert!(
@@ -1001,10 +1006,10 @@ async fn settings_persist_and_change_the_diff() {
     );
 
     let saved = gitcraft_ui::settings::Settings::load(&f.root.join("config"));
-    assert_eq!(saved.diff_context, 1);
-    assert!(saved.diff_split);
+    assert_eq!(saved.diff.context, 1);
+    assert!(saved.diff.split);
     assert_eq!(
-        saved.tabs,
+        saved.session.tabs,
         std::slice::from_ref(&f.repo),
         "open tabs are remembered"
     );
@@ -1037,7 +1042,7 @@ async fn pull_and_rebase_remember_the_last_choice() {
     );
     drive(&mut app, Message::FormSelect(2, "rebase".into())).await;
     drive(&mut app, Message::FormSubmit).await;
-    assert_eq!(app.settings.pull_mode, "rebase");
+    assert_eq!(app.settings.pull.mode, "rebase");
     drive(&mut app, Message::Action(Action::Pull)).await;
     assert_eq!(app.form.as_ref().unwrap().values().text("mode"), "rebase");
 }
@@ -1072,7 +1077,7 @@ async fn long_lists_draw_every_visible_row_before_any_scrolling() {
     let mut app = opened(&f, false).await;
     let tall = vec2(1280.0, 1600.0);
     drive(&mut app, Message::WindowResized(tall)).await;
-    app.settings.history_height = 1200.0;
+    app.settings.layout.history_height = 1200.0;
     let screen = Screen::sized(tall);
     assert!(
         screen.show(&app).has("commit number 30"),
@@ -1118,6 +1123,58 @@ async fn a_stale_scroll_position_cant_blank_a_shorter_diff() {
 }
 
 #[tokio::test]
+async fn a_tab_in_the_background_is_coloured_again_for_a_new_theme() {
+    let f = empty_fixture();
+    f.commit("a.rs", "fn main() {}\n", "first");
+    f.write("a.rs", "fn main() { let x = 1; }\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetSyntax(true)).await;
+    drive(&mut app, Message::SetTheme("light".into())).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    let other = f.root.join("other");
+    std::fs::create_dir(&other).unwrap();
+    git(&other, &["init", "-q", "-b", "main"]);
+    drive(
+        &mut app,
+        Message::OpenPath(other.to_str().unwrap().to_owned()),
+    )
+    .await;
+    assert_eq!(app.current().unwrap().name, "other");
+    drive(&mut app, Message::SetTheme("dark".into())).await;
+    let first = &app.tabs[0];
+    assert_eq!(first.changes_pane.highlighted_dark, Some(true));
+    assert!(first.changes_pane.highlights.is_some());
+}
+
+#[tokio::test]
+async fn a_diff_is_coloured_again_when_the_theme_turns_dark() {
+    let f = empty_fixture();
+    f.commit("a.rs", "fn main() {}\n", "first");
+    f.write("a.rs", "fn main() { let x = 1; }\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetSyntax(true)).await;
+    drive(&mut app, Message::SetTheme("light".into())).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    let pane = |app: &App| {
+        let pane = &app.current().unwrap().changes_pane;
+        (pane.highlighted_dark, pane.highlights.is_some())
+    };
+    assert_eq!(
+        pane(&app),
+        (Some(false), true),
+        "coloured for the light theme"
+    );
+    drive(&mut app, Message::SetTheme("dark".into())).await;
+    assert_eq!(pane(&app), (Some(true), true), "and again for the dark one");
+    drive(&mut app, Message::SetSyntax(false)).await;
+    assert_eq!(
+        pane(&app),
+        (None, false),
+        "no colours once highlighting is off"
+    );
+}
+
+#[tokio::test]
 async fn cancelling_stops_network_operations_only() {
     let fetch = Command::Fetch {
         remote: None,
@@ -1149,8 +1206,409 @@ async fn cancelling_stops_network_operations_only() {
 async fn opening_writes_a_commit_graph_when_enabled() {
     let f = fixture();
     let app = opened(&f, false).await;
-    assert!(app.settings.commit_graph);
+    assert!(app.settings.history.commit_graph);
     assert!(f.path.join(".git/objects/info/commit-graph").exists());
+}
+
+#[tokio::test]
+async fn follow_system_turns_dark_after_starting_in_light_on_a_dark_desktop() {
+    let f = fixture();
+    let dir = f.root.join("config");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("config.toml"), "[appearance]\ntheme = \"light\"\n").unwrap();
+    let (mut app, _) = App::boot_with(None, true, RepoStore::at(dir.join("repos.json")));
+    assert!(!app.look.dark, "starts in the chosen light theme");
+    drive(&mut app, Message::SetTheme("system".into())).await;
+    assert!(app.look.dark, "and follows the dark desktop once asked to");
+}
+
+/// Starts the app as `main` does, and runs what that asks for to the end.
+async fn booted(repo: Option<String>, store: RepoStore) -> App {
+    let (mut app, task) = App::boot_with(repo, true, store);
+    let mut first = Vec::new();
+    if let Some(mut stream) = task.into_stream() {
+        while let Some(message) = stream.next().await {
+            first.push(message);
+        }
+    }
+    for message in first {
+        drive(&mut app, message).await;
+    }
+    app
+}
+
+#[tokio::test]
+async fn saved_tabs_open_in_their_order_with_the_saved_one_in_front() {
+    let f = fixture();
+    let mut paths = Vec::new();
+    for name in ["one", "two", "three", "four"] {
+        let repo = f.root.join(name);
+        std::fs::create_dir(&repo).unwrap();
+        git(&repo, &["init", "-q", "-b", "main"]);
+        paths.push(repo.canonicalize().unwrap().to_str().unwrap().to_owned());
+    }
+    let dir = f.root.join("config");
+    std::fs::create_dir_all(&dir).unwrap();
+    let tabs = paths
+        .iter()
+        .map(|path| format!("{path:?}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    std::fs::write(
+        dir.join("config.toml"),
+        format!("[session]\ntabs = [{tabs}]\nactive_tab = 2\n"),
+    )
+    .unwrap();
+    let store = || RepoStore::at(dir.join("repos.json"));
+    let names = |app: &App| {
+        app.tabs
+            .iter()
+            .map(|tab| tab.name.clone())
+            .collect::<Vec<_>>()
+    };
+
+    // Closing before the saved tabs have all opened keeps the session as it was.
+    let (mut early, _) = App::boot_with(None, true, store());
+    drive(&mut early, Message::CloseRequested).await;
+    let kept = std::fs::read_to_string(dir.join("config.toml")).unwrap();
+    assert!(
+        kept.contains("four") && kept.contains("active_tab = 2"),
+        "{kept}"
+    );
+
+    let app = booted(None, store()).await;
+    assert_eq!(
+        names(&app),
+        ["one", "two", "three", "four"],
+        "in the saved order"
+    );
+    assert_eq!(
+        app.current().unwrap().name,
+        "three",
+        "with the saved tab in front"
+    );
+
+    // A repository named on the command line comes last and stays in front.
+    let extra = f.root.join("extra");
+    std::fs::create_dir(&extra).unwrap();
+    git(&extra, &["init", "-q", "-b", "main"]);
+    let app = booted(Some(extra.to_str().unwrap().to_owned()), store()).await;
+    assert_eq!(names(&app), ["one", "two", "three", "four", "extra"]);
+    assert_eq!(app.current().unwrap().name, "extra");
+}
+
+#[tokio::test]
+async fn f11_and_the_view_menu_toggle_full_screen_without_a_title_bar() {
+    use gitcraft_ui::app::{Effect, WindowAction};
+    let f = fixture();
+    let mut app = opened(&f, true).await;
+    app.effects.clear();
+    drive(&mut app, Message::Key(egui::Key::F11, Modifiers::NONE)).await;
+    assert!(
+        matches!(
+            app.effects.as_slice(),
+            [Effect::Window(WindowAction::ToggleFullscreen)]
+        ),
+        "F11 asks the window to go full screen"
+    );
+
+    let menus = app.bar_menus();
+    let (_, view) = menus.iter().find(|(title, _)| *title == "View").unwrap();
+    let entry = view
+        .iter()
+        .find(|item| item.label() == Some("Full screen"))
+        .expect("the View menu offers full screen");
+    let MenuItem::Entry { message, mark, .. } = entry else {
+        panic!("an entry");
+    };
+    assert!(matches!(
+        message,
+        Some(Message::Window(WindowAction::ToggleFullscreen))
+    ));
+    assert_eq!(*mark, gitcraft_ui::menu::Mark::Check(false));
+
+    // Once the window is full screen (the shell reads that from it), the app draws no title bar.
+    app.frame = gitcraft_ui::window::decide(false);
+    let title = "demo-repo - GitCraft";
+    let shown = Screen::new().show(&app);
+    let with_bar = shown.texts.iter().any(|(text, _)| text == title);
+    app.fullscreen = true;
+    let shown = Screen::new().show(&app);
+    assert!(
+        !shown.texts.iter().any(|(text, _)| text == title),
+        "no title bar"
+    );
+    // Where this machine chose the system's title bar there was none to begin with.
+    if !matches!(app.frame, craft_window::policy::Frame::Native) {
+        assert!(with_bar, "the title bar shows outside full screen");
+    }
+}
+
+/// A repository on main with a second branch, and a change to a tracked file.
+async fn changed_with_a_branch() -> (Fixture, App) {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.git(&["branch", "side"]);
+    f.write("a.txt", "mine\n");
+    let app = opened(&f, false).await;
+    (f, app)
+}
+
+fn checkout_side() -> Message {
+    Message::Run(Command::Checkout {
+        reference: "side".into(),
+        kind: "local",
+    })
+}
+
+#[tokio::test]
+async fn checking_out_with_changes_asks_and_can_bring_them_along() {
+    let (f, mut app) = changed_with_a_branch().await;
+    drive(&mut app, checkout_side()).await;
+    let form = app
+        .form
+        .as_ref()
+        .expect("a checkout with changes asks first");
+    assert_eq!(form.title, "Uncommitted changes");
+    let answers: Vec<&str> = form
+        .choices
+        .iter()
+        .map(|choice| choice.label.as_str())
+        .collect();
+    assert_eq!(
+        (form.ok.as_str(), answers),
+        ("Stash and reapply", vec!["Commit first", "Discard changes"])
+    );
+    assert_eq!(
+        f.git(&["branch", "--show-current"]).trim(),
+        "main",
+        "nothing ran yet"
+    );
+
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(f.read("a.txt"), "mine\n", "the change came along");
+    assert_eq!(f.git(&["stash", "list"]), "", "and no stash is left over");
+}
+
+#[tokio::test]
+async fn discarding_before_a_checkout_keeps_the_changes_in_a_stash() {
+    let (f, mut app) = changed_with_a_branch().await;
+    drive(&mut app, checkout_side()).await;
+    drive(&mut app, Message::FormChoice(1)).await;
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(f.read("a.txt"), "one\n");
+    assert!(
+        f.git(&["stash", "list"])
+            .contains("before checking out side")
+    );
+}
+
+#[tokio::test]
+async fn commit_first_checks_out_once_the_commit_is_made() {
+    let (f, mut app) = changed_with_a_branch().await;
+    drive(&mut app, checkout_side()).await;
+    drive(&mut app, Message::FormChoice(0)).await;
+    assert!(app.form.is_none());
+    assert_eq!(
+        app.current().unwrap().view,
+        View::Changes,
+        "the commit box is shown"
+    );
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "main");
+
+    drive(&mut app, Message::Run(Command::StageAll)).await;
+    drive(&mut app, Message::SummaryInput("keep mine".into())).await;
+    drive(&mut app, Message::CommitNow).await;
+    assert_eq!(
+        f.git(&["log", "-1", "--format=%s", "main"]).trim(),
+        "keep mine"
+    );
+    assert_eq!(
+        f.git(&["branch", "--show-current"]).trim(),
+        "side",
+        "then checked out"
+    );
+    assert!(app.current().unwrap().after_commit.is_none());
+}
+
+#[tokio::test]
+async fn the_checkout_question_answers_for_its_own_repository() {
+    let (f, mut app) = changed_with_a_branch().await;
+    let other = f.root.join("other");
+    std::fs::create_dir(&other).unwrap();
+    git(&other, &["init", "-q", "-b", "main"]);
+    drive(&mut app, checkout_side()).await;
+    // Another repository comes to the front before the question is answered.
+    drive(
+        &mut app,
+        Message::OpenPath(other.to_str().unwrap().to_owned()),
+    )
+    .await;
+    assert_eq!(app.current().unwrap().name, "other");
+    drive(&mut app, Message::FormChoice(1)).await;
+    assert_eq!(
+        f.git(&["branch", "--show-current"]).trim(),
+        "side",
+        "the asking one switched"
+    );
+    assert_eq!(git(&other, &["branch", "--show-current"]).trim(), "main");
+}
+
+#[tokio::test]
+async fn commit_first_clears_amend_and_shows_the_asking_repository() {
+    let (f, mut app) = changed_with_a_branch().await;
+    drive(&mut app, Message::AmendToggled(true)).await;
+    drive(&mut app, checkout_side()).await;
+    let other = f.root.join("other");
+    std::fs::create_dir(&other).unwrap();
+    git(&other, &["init", "-q", "-b", "main"]);
+    drive(
+        &mut app,
+        Message::OpenPath(other.to_str().unwrap().to_owned()),
+    )
+    .await;
+    drive(&mut app, Message::FormChoice(0)).await;
+    let tab = app.current().unwrap();
+    assert_ne!(tab.name, "other", "back on the repository that asked");
+    assert!(!tab.amend, "a new commit, as the question said");
+    assert!(tab.after_commit.is_some());
+}
+
+#[tokio::test]
+async fn a_checkout_with_only_new_files_doesnt_ask() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.git(&["branch", "side"]);
+    f.write("new.txt", "untracked\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, checkout_side()).await;
+    assert!(app.form.is_none());
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+}
+
+/// A "diff tool" and a "merge tool" set up in the repository's git config: the diff tool
+/// copies the two versions it is shown beside the repository, the merge tool takes theirs.
+fn fake_tools(f: &Fixture) {
+    let root = f.root.to_str().unwrap().replace('\\', "/");
+    let diff = format!("cp \"$LOCAL\" \"{root}/left\" && cp \"$REMOTE\" \"{root}/right\"");
+    f.git(&["config", "difftool.fake.cmd", &diff]);
+    f.git(&["config", "mergetool.fake.cmd", "cp \"$REMOTE\" \"$MERGED\""]);
+    f.git(&["config", "mergetool.fake.trustExitCode", "true"]);
+}
+
+#[tokio::test]
+async fn an_external_diff_tool_is_found_chosen_and_opened() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.write("a.txt", "changed\n");
+    fake_tools(&f);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    let menu = |app: &mut App| {
+        app.update(Message::OpenMenu(MenuRequest::File {
+            area: Some(Area::Unstaged),
+            path: "a.txt".into(),
+            rev: None,
+        }));
+        labels(&app.menu.take().unwrap().items)
+    };
+    assert!(
+        menu(&mut app).contains(&"Choose a diff tool…".to_owned()),
+        "none chosen yet"
+    );
+
+    drive(&mut app, Message::OpenSettings).await;
+    assert!(app.found_tools.diff.iter().any(|tool| tool.name == "fake"));
+    drive(&mut app, Message::SetDiffTool("fake".into())).await;
+    let saved = std::fs::read_to_string(f.root.join("config/config.toml")).unwrap_or_default();
+    assert!(
+        saved.contains("[tools]") && saved.contains("diff = \"fake\""),
+        "{saved}"
+    );
+
+    assert!(menu(&mut app).contains(&"Open in fake".to_owned()));
+    let seen = drive(
+        &mut app,
+        Message::OpenDiffTool {
+            path: "a.txt".into(),
+            orig: None,
+            target: ToolTarget::Working { staged: false },
+        },
+    )
+    .await;
+    assert!(
+        seen.iter()
+            .any(|message| matches!(message, Message::ToolClosed(_, false, Ok(_))))
+    );
+    let read = |name: &str| std::fs::read_to_string(f.root.join(name)).unwrap_or_default();
+    assert_eq!(
+        (read("left"), read("right")),
+        ("one\n".into(), "changed\n".into())
+    );
+
+    // A file renamed between two compared commits opens with its old name on the left.
+    f.git(&["checkout", "-q", "--", "a.txt"]);
+    f.git(&["mv", "a.txt", "b.txt"]);
+    f.git(&["commit", "-qm", "rename"]);
+    drive(&mut app, Message::Refresh).await;
+    let (base, target) = (sha_of(&app, "first"), sha_of(&app, "rename"));
+    drive(&mut app, Message::CompareStart(base, target.clone())).await;
+    app.update(Message::OpenMenu(MenuRequest::File {
+        area: None,
+        path: "b.txt".into(),
+        rev: Some(target),
+    }));
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(open)) = find_entry(&items, "Open in fake") else {
+        panic!("no diff tool entry: {:?}", labels(&items));
+    };
+    assert!(
+        matches!(&open, Message::OpenDiffTool { orig: Some(orig), target: ToolTarget::Compare { .. }, .. } if orig == "a.txt"),
+        "{open:?}"
+    );
+    for side in ["left", "right"] {
+        let _ = std::fs::remove_file(f.root.join(side));
+    }
+    drive(&mut app, open).await;
+    assert_eq!(
+        (read("left"), read("right")),
+        ("one\n".into(), "one\n".into())
+    );
+}
+
+#[tokio::test]
+async fn a_conflict_is_resolved_in_the_chosen_merge_tool() {
+    let f = empty_fixture();
+    f.commit("a.txt", "base\n", "base");
+    f.git(&["switch", "-q", "-c", "other"]);
+    f.commit("a.txt", "theirs\n", "theirs");
+    f.git(&["switch", "-q", "main"]);
+    f.commit("a.txt", "ours\n", "ours");
+    let _ = Process::new("git")
+        .args(["merge", "other"])
+        .current_dir(&f.path)
+        .output();
+    fake_tools(&f);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetMergeTool("fake".into())).await;
+    app.update(Message::OpenMenu(MenuRequest::File {
+        area: Some(Area::Conflicts),
+        path: "a.txt".into(),
+        rev: None,
+    }));
+    let items = app.menu.take().unwrap().items;
+    assert!(matches!(
+        find_entry(&items, "Resolve in fake"),
+        Some(Some(Message::OpenMergeTool(_)))
+    ));
+    drive(&mut app, Message::OpenMergeTool("a.txt".into())).await;
+    assert_eq!(f.read("a.txt"), "theirs\n");
+    let status = app.current().unwrap().status.as_ref().unwrap();
+    assert!(
+        status.conflicts.is_empty(),
+        "resolved, and the status shows it"
+    );
 }
 
 #[tokio::test]
@@ -1206,6 +1664,53 @@ async fn menus_open_submenus_under_the_pointer_and_run_entries() {
             .iter()
             .any(|message| matches!(message, Message::FromMenu(_))),
         "clicking an entry in a submenu runs it: {messages:?}"
+    );
+}
+
+#[tokio::test]
+async fn ctrl_a_selects_every_file_of_the_focused_list() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.commit("b.txt", "two\n", "second");
+    f.commit("c.txt", "three\n", "third");
+    f.write("a.txt", "changed a\n");
+    f.write("b.txt", "changed b\n");
+    f.write("c.txt", "changed c\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    drive(
+        &mut app,
+        Message::FilePicked(Area::Unstaged, "b.txt".into()),
+    )
+    .await;
+    drive(&mut app, Message::Key(egui::Key::A, Modifiers::COMMAND)).await;
+    let tab = app.current().unwrap();
+    assert_eq!(tab.picked.0, Area::Unstaged);
+    assert_eq!(
+        tab.picked.1,
+        ["a.txt", "b.txt", "c.txt"],
+        "every unstaged file"
+    );
+    assert_eq!(
+        tab.focus,
+        Some((Area::Unstaged, "b.txt".to_owned())),
+        "the file shown stays"
+    );
+
+    drive(
+        &mut app,
+        Message::Run(Command::Stage {
+            paths: vec!["c.txt".into()],
+        }),
+    )
+    .await;
+    drive(&mut app, Message::FilePicked(Area::Staged, "c.txt".into())).await;
+    drive(&mut app, Message::Key(egui::Key::A, Modifiers::COMMAND)).await;
+    let tab = app.current().unwrap();
+    assert_eq!(
+        (tab.picked.0, tab.picked.1.as_slice()),
+        (Area::Staged, ["c.txt".to_owned()].as_slice()),
+        "only the staged list once it has the focus"
     );
 }
 
@@ -1408,7 +1913,7 @@ async fn pulling_can_overwrite_the_branch_after_asking_and_keep_a_backup() {
         "nothing happens before the answer"
     );
     assert_eq!(
-        app.settings.pull_mode, "merge",
+        app.settings.pull.mode, "merge",
         "overwriting isn't remembered as the usual strategy"
     );
 
@@ -1510,4 +2015,214 @@ async fn squash_into_parent_is_in_the_edit_commit_submenu_only() {
             .iter()
             .any(|item| matches!(item, MenuItem::Sub { label, .. } if label == "Edit commit"))
     );
+}
+
+#[tokio::test]
+async fn file_dialogs_open_repositories_and_save_and_apply_patches() {
+    use gitcraft_ui::app::{Effect, Pick};
+    let f = fixture();
+    let store = RepoStore::at(f.root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(true), store);
+
+    // The dialog is the shell's to show; the app only asks, and acts on the answer.
+    drive(&mut app, Message::OpenDialog).await;
+    assert!(matches!(
+        app.effects.as_slice(),
+        [Effect::Ask(Pick::OpenRepository)]
+    ));
+    app.effects.clear();
+    drive(
+        &mut app,
+        Message::Picked(Pick::OpenRepository, f.path.clone()),
+    )
+    .await;
+    assert_eq!(app.tabs.len(), 1, "the picked folder opens in a tab");
+
+    // Not the newest commit: that one is a merge, which has no patch.
+    let subject = "second commit".to_owned();
+    let sha = sha_of(&app, &subject);
+    drive(&mut app, Message::Action(Action::SavePatch(sha))).await;
+    let Some(Effect::Ask(pick)) = app.effects.pop() else {
+        panic!("saving a patch asks where");
+    };
+    let Pick::SavePatch { name, .. } = &pick else {
+        panic!("{pick:?}");
+    };
+    assert!(name.ends_with(".patch"), "{name}");
+    let target = f.root.join("out.patch");
+    drive(&mut app, Message::Picked(pick, target.clone())).await;
+    let patch = std::fs::read_to_string(&target).unwrap();
+    assert!(
+        patch.contains(&format!("Subject: [PATCH] {subject}")),
+        "{patch}"
+    );
+    assert!(toast_kinds(&app).contains(&ToastKind::Success));
+
+    drive(&mut app, Message::Action(Action::ApplyPatch)).await;
+    assert!(matches!(
+        app.effects.pop(),
+        Some(Effect::Ask(Pick::ApplyPatch))
+    ));
+    drive(&mut app, Message::Picked(Pick::ApplyPatch, target)).await;
+    let form = app
+        .form
+        .as_ref()
+        .expect("the patch is offered for applying");
+    assert_eq!(form.title, "Apply patch");
+    assert_eq!(form.message.as_deref(), Some("out.patch"));
+
+    drive(&mut app, Message::DialogFailed("no portal".into())).await;
+    assert!(toast_kinds(&app).contains(&ToastKind::Error));
+}
+
+#[tokio::test]
+async fn the_menu_bar_offers_the_app_and_its_choices_persist() {
+    use gitcraft_ui::menu::Mark;
+    let f = fixture();
+    let mut app = opened(&f, true).await;
+    let menus = app.bar_menus();
+    let titles: Vec<_> = menus.iter().map(|(title, _)| *title).collect();
+    assert_eq!(titles, ["File", "Repository", "View", "Help"]);
+    let view = &menus[2].1;
+    let Some(MenuItem::Sub {
+        children: themes, ..
+    }) = view.iter().find(|item| item.label() == Some("Theme"))
+    else {
+        panic!("View has a Theme submenu");
+    };
+    let chosen: Vec<_> = themes
+        .iter()
+        .filter_map(|item| match item {
+            MenuItem::Entry {
+                label,
+                mark: Mark::Radio(true),
+                ..
+            } => Some(label.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(chosen, ["Follow system"]);
+    let repository = labels(&menus[1].1);
+    assert!(repository.contains(&"Fetch".to_owned()), "{repository:?}");
+
+    // English, so that the other tests running beside this one keep their English text.
+    drive(&mut app, Message::SetLanguage("en".into())).await;
+    drive(&mut app, Message::ToggleSystemTitleBar).await;
+    assert!(toast_kinds(&app).contains(&ToastKind::Info));
+    let saved = gitcraft_ui::settings::Settings::load(&f.root.join("config"));
+    assert_eq!(saved.general.language, "en");
+    assert!(saved.appearance.system_title_bar);
+    assert!(f.root.join("config/config.toml").is_file());
+}
+
+#[tokio::test]
+async fn many_tabs_scroll_the_one_in_front_into_view_and_are_listed_in_the_menu() {
+    let f = fixture();
+    let mut app = opened(&f, true).await;
+    for index in 0..6 {
+        let repo = f.root.join(format!("repository-with-a-long-name-{index}"));
+        std::fs::create_dir(&repo).unwrap();
+        git(&repo, &["init", "-q", "-b", "main"]);
+        drive(
+            &mut app,
+            Message::OpenPath(repo.to_str().unwrap().to_owned()),
+        )
+        .await;
+    }
+    assert_eq!(app.tabs.len(), 7);
+    let width = 900.0;
+    let screen = Screen::sized(vec2(width, 700.0));
+    // A few frames: the strip learns its width in the first, then scrolls.
+    let label_x = |screen: &Screen, app: &App, name: &str| {
+        screen.show(app);
+        let shown = screen.show(app);
+        let (_, rect) = shown.texts.iter().find(|(text, _)| text == name).unwrap();
+        rect.center().x
+    };
+    let last = "repository-with-a-long-name-5";
+    assert!(
+        label_x(&screen, &app, last) < width - 60.0,
+        "the newest tab is scrolled into view"
+    );
+    drive(&mut app, Message::Activate(0)).await;
+    let first = label_x(&screen, &app, "demo-repo");
+    assert!(
+        first > 0.0 && first < width,
+        "and so is the first one once picked"
+    );
+
+    let menus = app.bar_menus();
+    let (_, view) = menus.iter().find(|(title, _)| *title == "View").unwrap();
+    let Some(MenuItem::Sub { children, .. }) = view.first() else {
+        panic!("the View menu starts with the tabs");
+    };
+    assert_eq!(children.len(), 7);
+    let MenuItem::Entry {
+        label,
+        message,
+        mark,
+        ..
+    } = &children[0]
+    else {
+        panic!("an entry per tab");
+    };
+    assert_eq!(label, "demo-repo");
+    assert!(matches!(message, Some(Message::Activate(0))));
+    assert_eq!(
+        *mark,
+        gitcraft_ui::menu::Mark::Radio(true),
+        "the tab in front is marked"
+    );
+}
+
+#[tokio::test]
+async fn dragging_a_tab_past_its_neighbour_moves_it() {
+    let f = fixture();
+    let second = f.root.join("second");
+    std::fs::create_dir(&second).unwrap();
+    git(&second, &["init", "-q", "-b", "main"]);
+    let mut app = opened(&f, true).await;
+    drive(
+        &mut app,
+        Message::OpenPath(second.to_str().unwrap().to_owned()),
+    )
+    .await;
+    let names = |app: &App| {
+        app.tabs
+            .iter()
+            .map(|tab| tab.name.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(names(&app), ["demo-repo", "second"]);
+
+    let screen = Screen::new();
+    let shown = screen.show(&app);
+    // The tab's own label, not the window title that contains the name too.
+    let exactly = |name: &str| {
+        let (_, rect) = shown.texts.iter().find(|(text, _)| text == name).unwrap();
+        rect.center()
+    };
+    let from = exactly("demo-repo");
+    // Well past the middle of the neighbouring tab, whose label sits at its left.
+    let to = exactly("second") + vec2(80.0, 0.0);
+    let button = |pos, pressed| Event::PointerButton {
+        pos,
+        button: PointerButton::Primary,
+        pressed,
+        modifiers: Modifiers::NONE,
+    };
+    screen.frame(&app, vec![Event::PointerMoved(from)]);
+    screen.frame(&app, vec![button(from, true)]);
+    let mut messages = Vec::new();
+    for step in 1..=8 {
+        let at = from + (to - from) * (step as f32 / 8.0);
+        messages.extend(screen.frame(&app, vec![Event::PointerMoved(at)]).messages);
+    }
+    screen.frame(&app, vec![button(to, false)]);
+    let moved = messages
+        .into_iter()
+        .find(|message| matches!(message, Message::MoveTab(0, 1)))
+        .expect("the drag moves the first tab right");
+    drive(&mut app, moved).await;
+    assert_eq!(names(&app), ["second", "demo-repo"]);
 }

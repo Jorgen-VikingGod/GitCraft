@@ -2,17 +2,24 @@
 
 use std::collections::BTreeMap;
 
-use gitcraft_core::model::{ConflictChunk, Remote};
+use gitcraft_core::model::{ConflictChunk, Remote, Status};
+
+use crate::i18n::{tr, trf};
 
 pub fn short_sha(sha: &str) -> &str {
     &sha[..sha.len().min(7)]
 }
 
+/// "1 file", "3 files", in the interface language: the table has a line for each form
+/// ("1 file", "{count} files").
 pub fn plural(count: usize, word: &str) -> String {
     if count == 1 {
-        format!("1 {word}")
+        tr(&format!("1 {word}")).to_owned()
     } else {
-        format!("{count} {word}s")
+        trf(
+            &format!("{{count}} {word}s"),
+            &[("count", &count.to_string())],
+        )
     }
 }
 
@@ -257,27 +264,41 @@ pub fn patch_file_name(sha: &str, subject: &str) -> String {
 /// Menu entries for ignoring a file: (label, pattern) for the file, its extension and its folder.
 pub fn ignore_patterns(path: &str) -> Vec<(String, String)> {
     let name = path.rsplit('/').next().unwrap_or(path);
-    let mut options = vec![(format!("Ignore \"{path}\""), format!("/{path}"))];
+    let mut options = vec![(
+        trf("Ignore “{path}”", &[("path", path)]),
+        format!("/{path}"),
+    )];
     if let Some(at) = name.rfind('.').filter(|at| *at > 0) {
         let extension = &name[at..];
         options.push((
-            format!("Ignore all \"*{extension}\" files"),
+            trf(
+                "Ignore all “*{extension}” files",
+                &[("extension", extension)],
+            ),
             format!("*{extension}"),
         ));
     }
     if let Some(at) = path.rfind('/') {
         let dir = &path[..=at];
-        options.push((format!("Ignore folder \"{dir}\""), format!("/{dir}")));
+        options.push((
+            trf("Ignore folder “{dir}”", &[("dir", dir)]),
+            format!("/{dir}"),
+        ));
     }
     options
 }
 
+/// "3 hours ago", "in 1 minute": whole phrases in the table, as other languages change the
+/// word with the phrase around it ("vor 3 Stunden").
 fn relative(amount: i64, unit: &str, past: bool) -> String {
+    let count = amount.to_string();
     match (amount, unit, past) {
-        (1, "day", true) => "yesterday".to_owned(),
-        (1, "day", false) => "tomorrow".to_owned(),
-        (_, _, true) => format!("{} ago", plural(amount as usize, unit)),
-        (_, _, false) => format!("in {}", plural(amount as usize, unit)),
+        (1, "day", true) => tr("yesterday").to_owned(),
+        (1, "day", false) => tr("tomorrow").to_owned(),
+        (1, _, true) => tr(&format!("1 {unit} ago")).to_owned(),
+        (1, _, false) => tr(&format!("in 1 {unit}")).to_owned(),
+        (_, _, true) => trf(&format!("{{count}} {unit}s ago"), &[("count", &count)]),
+        (_, _, false) => trf(&format!("in {{count}} {unit}s"), &[("count", &count)]),
     }
 }
 
@@ -287,7 +308,7 @@ pub fn short_date_at(time: i64, now: i64) -> String {
     let (past, distance) = (seconds <= 0, seconds.abs());
     let rounded = |unit: i64| (distance + unit / 2) / unit;
     if distance < 60 {
-        "just now".to_owned()
+        tr("just now").to_owned()
     } else if distance < 3600 {
         relative(rounded(60), "minute", past)
     } else if distance < 86_400 {
@@ -341,9 +362,66 @@ pub fn initials(name: &str) -> String {
     }
 }
 
+/// The corner radius of the fill under the whole window, or `None` when the window is opaque
+/// and needs none. `transparent`: the window was made see-through for round corners;
+/// `rounded`: they are round right now (not while maximized).
+pub fn underlay_corner(transparent: bool, rounded: bool, radius: u8) -> Option<u8> {
+    transparent.then_some(if rounded { radius } else { 0 })
+}
+
+/// Whether uncommitted changes would get in the way of a checkout: staged or changed tracked
+/// files. New untracked files don't count (git leaves them where they are), and neither does a
+/// conflict, which git refuses to check out over and which can't be stashed.
+pub fn changes_in_the_way(status: &Status) -> bool {
+    status.conflicts.is_empty()
+        && (!status.staged.is_empty() || status.unstaged.iter().any(|file| file.status != "?"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_tracked_changes_get_in_the_way_of_a_checkout() {
+        use gitcraft_core::model::{ConflictFile, FileChange};
+        let file = |status: &str| FileChange {
+            path: "a".into(),
+            status: status.into(),
+            orig_path: None,
+        };
+        let mut status = Status::default();
+        assert!(!changes_in_the_way(&status), "a clean tree");
+        status.unstaged = vec![file("?")];
+        assert!(!changes_in_the_way(&status), "only a new untracked file");
+        status.unstaged = vec![file("M")];
+        assert!(changes_in_the_way(&status), "a changed file");
+        status.unstaged.clear();
+        status.staged = vec![file("A")];
+        assert!(changes_in_the_way(&status), "a staged file");
+        status.conflicts = vec![ConflictFile {
+            path: "b".into(),
+            status: "UU".into(),
+        }];
+        assert!(
+            !changes_in_the_way(&status),
+            "conflicts: git itself says no"
+        );
+    }
+
+    #[test]
+    fn a_transparent_window_is_always_filled_also_when_maximized() {
+        assert_eq!(underlay_corner(true, true, 10), Some(10));
+        assert_eq!(
+            underlay_corner(true, false, 10),
+            Some(0),
+            "maximized: square, but filled"
+        );
+        assert_eq!(
+            underlay_corner(false, false, 10),
+            None,
+            "an opaque window needs no fill"
+        );
+    }
 
     #[test]
     fn dates_read_like_the_list_shows_them() {

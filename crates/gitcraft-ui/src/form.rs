@@ -1,8 +1,12 @@
 //! Modal forms: a confirmation is a form without fields.
+//!
+//! Titles, labels, buttons and hints are given in English and stored in the interface language
+//! (see `i18n.rs`); values are never translated.
 
 use std::collections::HashMap;
 
 use crate::app::Message;
+use crate::i18n::tr;
 
 pub enum FieldKind {
     Text(String),
@@ -26,7 +30,7 @@ impl Field {
     pub fn text(key: &'static str, label: &str, value: &str) -> Self {
         Self {
             key,
-            label: label.to_owned(),
+            label: tr(label).to_owned(),
             kind: FieldKind::Text(value.to_owned()),
             placeholder: String::new(),
             required: false,
@@ -50,6 +54,13 @@ impl Field {
         value: &str,
         options: Vec<(String, String)>,
     ) -> Self {
+        let options = options
+            .into_iter()
+            .map(|(value, label)| {
+                let label = tr(&label).to_owned();
+                (value, label)
+            })
+            .collect();
         Self {
             kind: FieldKind::Select {
                 options,
@@ -63,7 +74,7 @@ impl Field {
         self
     }
     pub fn hint(mut self, placeholder: &str) -> Self {
-        self.placeholder = placeholder.to_owned();
+        self.placeholder = tr(placeholder).to_owned();
         self
     }
 
@@ -106,17 +117,27 @@ pub struct Form {
     pub ok: String,
     pub danger: bool,
     pub on_ok: Box<dyn Fn(&Values) -> Message>,
+    /// Other answers than OK, shown between Cancel and OK.
+    pub choices: Vec<Choice>,
+}
+
+/// An answer of its own in a form, such as "Commit first" beside OK.
+pub struct Choice {
+    pub label: String,
+    pub danger: bool,
+    pub message: Message,
 }
 
 impl Form {
     pub fn new(title: &str, ok: &str, on_ok: impl Fn(&Values) -> Message + 'static) -> Self {
         Self {
-            title: title.to_owned(),
+            title: tr(title).to_owned(),
             message: None,
             fields: Vec::new(),
-            ok: ok.to_owned(),
+            ok: tr(ok).to_owned(),
             danger: false,
             on_ok: Box::new(on_ok),
+            choices: Vec::new(),
         }
     }
     /// A question that only needs an answer.
@@ -126,11 +147,20 @@ impl Form {
         form
     }
     pub fn message(mut self, message: &str) -> Self {
-        self.message = Some(message.to_owned());
+        self.message = Some(tr(message).to_owned());
         self
     }
     pub fn field(mut self, field: Field) -> Self {
         self.fields.push(field);
+        self
+    }
+    /// Adds an answer of its own; `danger` shows it in red.
+    pub fn choice(mut self, label: &str, danger: bool, message: Message) -> Self {
+        self.choices.push(Choice {
+            label: tr(label).to_owned(),
+            danger,
+            message,
+        });
         self
     }
     pub fn danger(mut self) -> Self {

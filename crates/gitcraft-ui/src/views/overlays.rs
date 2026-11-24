@@ -7,9 +7,9 @@ use egui::{
 use gitcraft_core::model::{BlameLine, Commit, ConflictChunk, ReflogEntry};
 
 use super::widgets::{
-    Kind, area_edit, bar, btn, button_tip, card, check, choice, fill, floating, line_edit, muted,
-    paint_text, placeholder, primary, region, scroll, segmented, split_x, split_y, text,
-    text_width, toggle,
+    Kind, accent, area_edit, bar, btn, button_tip, card, check, choice, fill, floating, line_edit,
+    muted, paint_text, placeholder, region, scroll, segmented, split_x, split_y, text, text_width,
+    toggle,
 };
 use super::{Cx, diff, icon};
 use crate::actions::{Action, MenuRequest};
@@ -17,6 +17,7 @@ use crate::app::{
     BLAME_ROW_HEIGHT, ConflictState, DiffPane, Message, Overlay, PaneKey, REBASE_ROW_HEIGHT,
     RebaseState,
 };
+use crate::i18n::{tr, trf};
 use crate::logic::{Choice, has_conflict_markers, plural, short_date, short_sha};
 
 const REBASE_ACTIONS: [(&str, &str, &str); 6] = [
@@ -62,8 +63,9 @@ fn dialog(
                         ui.spacing_mut().item_spacing.y = 1.0;
                         // Centre the title and subtitle in the header.
                         ui.add_space(if subtitle.is_empty() { 18.0 } else { 9.0 });
-                        text(ui, title, 22.0, c.text);
+                        text(ui, tr(title), 22.0, c.text);
                         if !subtitle.is_empty() {
+                            // As given: it may be a path, which must not be translated.
                             muted(ui, look, subtitle, look.text_size);
                         }
                     });
@@ -136,7 +138,7 @@ fn reflog(ctx: &Context, cx: &Cx, entries: &[ReflogEntry], loading: bool, error:
         ctx,
         cx,
         "Reflog",
-        "Every position HEAD has been at. Right-click an entry for all commit actions.",
+        tr("Every position HEAD has been at. Right-click an entry for all commit actions."),
         None,
         |ui, _| {
             if loading {
@@ -146,12 +148,13 @@ fn reflog(ctx: &Context, cx: &Cx, entries: &[ReflogEntry], loading: bool, error:
             } else if entries.is_empty() {
                 placeholder(ui, look, "The reflog is empty");
             } else {
-                scroll("reflog").show(ui, |ui| {
+                let scrolled = scroll("reflog").show(ui, |ui| {
                     ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                     for entry in entries {
                         reflog_row(ui, cx, entry);
                     }
                 });
+                super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
             }
         },
     );
@@ -282,7 +285,7 @@ fn blame(
             (lo.min(line.time), hi.max(line.time))
         });
         let span = (max - min).max(1) as f32;
-        scroll("blame").show_viewport(ui, |ui, viewport| {
+        let scrolled = scroll("blame").show_viewport(ui, |ui, viewport| {
             let origin = ui.max_rect().min;
             let width = ui.max_rect().width();
             ui.set_height(lines.len() as f32 * BLAME_ROW_HEIGHT);
@@ -296,6 +299,7 @@ fn blame(
                 blame_row(ui, cx, rect, lines, at, min, span, hovered);
             }
         });
+        super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
     });
 }
 
@@ -393,13 +397,13 @@ fn file_history(
     dialog(ctx, cx, "File history", path, None, |ui, rect| {
         let (list, right) = split_x(rect, 360.0);
         region(ui, list, |ui| {
-            scroll("file_history").show(ui, |ui| {
+            let scrolled = scroll("file_history").show(ui, |ui| {
                 ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                 if loading {
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
                         ui.add_space(10.0);
-                        muted(ui, look, "Loading…", look.text_size);
+                        muted(ui, look, tr("Loading…"), look.text_size);
                     });
                 } else if let Some(error) = error {
                     ui.add_space(10.0);
@@ -412,6 +416,7 @@ fn file_history(
                     history_item(ui, cx, commit, selected == Some(commit.sha.as_str()));
                 }
             });
+            super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
         });
         let current = selected.and_then(|sha| commits.iter().find(|commit| commit.sha == sha));
         let actions = |ui: &mut Ui| {
@@ -490,7 +495,7 @@ fn history_item(ui: &mut Ui, cx: &Cx, commit: &Commit, chosen: bool) {
         paint_text(
             &painter,
             Pos2::new(rect.left() + 10.0, rect.top() + 45.0),
-            &format!("renamed from {orig}"),
+            &trf("renamed from {orig}", &[("orig", orig)]),
             look.ui(size - 1.0),
             c.text_muted,
         );
@@ -543,7 +548,11 @@ fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
                 bar(ui, toolbar, Color32::TRANSPARENT, 12.0, |ui| {
                     let mut summary = plural(count, "conflict");
                     if count > 0 {
-                        summary.push_str(&format!(" · {} unresolved", state.unresolved()));
+                        summary.push_str(" · ");
+                        summary.push_str(&trf(
+                            "{count} unresolved",
+                            &[("count", &state.unresolved().to_string())],
+                        ));
                     }
                     text(ui, summary, size, c.text);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -566,7 +575,7 @@ fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
             });
 
             region(ui, chunks_area, |ui| {
-                scroll("conflict_chunks").show(ui, |ui| {
+                let scrolled = scroll("conflict_chunks").show(ui, |ui| {
                 Frame::new().inner_margin(Margin::same(12)).show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     ui.spacing_mut().item_spacing = vec2(6.0, 10.0);
@@ -594,6 +603,7 @@ fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
                     }
                 });
             });
+                super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
             });
 
             region(ui, result_area, |ui| {
@@ -603,12 +613,17 @@ fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
                         ui.set_width(ui.available_width());
                         ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
                         ui.horizontal(|ui| {
-                            text(ui, "Result", size, c.text);
+                            text(ui, tr("Result"), size, c.text);
                             if state.edited {
-                                muted(ui, look, "· edited by hand", size);
+                                muted(ui, look, format!("· {}", tr("edited by hand")), size);
                             }
                             if has_conflict_markers(&state.result) {
-                                text(ui, "· contains conflict markers", size, c.warning);
+                                text(
+                                    ui,
+                                    format!("· {}", tr("contains conflict markers")),
+                                    size,
+                                    c.warning,
+                                );
                             }
                         });
                         let height = (result_area.height() - 40.0).max(40.0);
@@ -634,7 +649,13 @@ fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
                         size,
                     );
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if primary(ui, look, "Save & mark resolved", data.working.is_some()) {
+                        if super::widgets::button(
+                            ui,
+                            look,
+                            "Save & mark resolved",
+                            Kind::Accent,
+                            data.working.is_some(),
+                        ) {
                             cx.send(Message::ConflictSave);
                         }
                         if btn(ui, look, "Cancel", true) {
@@ -665,7 +686,12 @@ fn conflict_card(
         ui.set_width(ui.available_width());
         ui.spacing_mut().item_spacing = vec2(4.0, 6.0);
         ui.horizontal(|ui| {
-            text(ui, format!("Conflict {}", which + 1), size, c.text);
+            text(
+                ui,
+                trf("Conflict {number}", &[("number", &(which + 1).to_string())]),
+                size,
+                c.text,
+            );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 for (label, option) in [
                     ("Theirs + ours", Choice::TheirsOurs),
@@ -724,7 +750,7 @@ fn conflict_card(
                         ui.add(
                             egui::Label::new(
                                 egui::RichText::new(if joined.is_empty() {
-                                    "(empty)".to_owned()
+                                    tr("(empty)").to_owned()
                                 } else {
                                     joined
                                 })
@@ -748,9 +774,9 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
         .current()
         .and_then(|tab| tab.current_branch())
         .unwrap_or("HEAD");
-    let subtitle = format!(
-        "Rewrite {branch} on top of {}. Commits are applied from top to bottom.",
-        state.base_label
+    let subtitle = trf(
+        "Rewrite {branch} on top of {base}. Commits are applied from top to bottom.",
+        &[("branch", branch), ("base", &state.base_label)],
     );
     dialog(
         ctx,
@@ -780,12 +806,13 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                 } else if state.steps.is_empty() {
                     placeholder(ui, look, "No commits between the base and HEAD.");
                 } else {
-                    scroll("rebase_steps").show(ui, |ui| {
+                    let scrolled = scroll("rebase_steps").show(ui, |ui| {
                         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                         for (index, step) in state.steps.iter().enumerate() {
                             rebase_row(ui, cx, state, index, step);
                         }
                     });
+                    super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
                 }
             });
 
@@ -806,7 +833,7 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                 paint_text(
                     ui.painter(),
                     at + vec2(width + 10.0, 0.0),
-                    &format!("{action}: {hint}"),
+                    &format!("{action}: {}", tr(hint)),
                     look.ui(size - 1.0),
                     c.text_muted,
                 );
@@ -833,7 +860,7 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                             ui,
                             look,
                             "Start rebase",
-                            Kind::Primary,
+                            Kind::Accent,
                             ready,
                             problem.unwrap_or("Rewrite the history as planned above"),
                         ) {
@@ -892,7 +919,7 @@ fn rebase_row(
     );
     let grip = ui
         .interact(grip_rect, response.id.with("grip"), Sense::drag())
-        .on_hover_text("Drag up or down to move this commit (or Alt + ↑ / ↓)");
+        .on_hover_text(tr("Drag up or down to move this commit (or Alt + ↑ / ↓)"));
     icon::paint(
         ui,
         "grip",
@@ -939,7 +966,12 @@ fn rebase_row(
         let on = step.action == action;
         let response = ui
             .interact(button, response.id.with(("action", action)), Sense::click())
-            .on_hover_text(format!("{}: {hint}\nShortcut: {key}", capitalised(action)));
+            .on_hover_text(format!(
+                "{}: {}\n{}",
+                capitalised(action),
+                tr(hint),
+                trf("Shortcut: {key}", &[("key", key)])
+            ));
         let fill_color = if on {
             c.accent
         } else if response.hovered() {
@@ -1051,11 +1083,11 @@ fn rebase_row(
         };
         let response = ui
             .interact(area, response.id.with(name), sense)
-            .on_hover_text(if delta < 0 {
+            .on_hover_text(tr(if delta < 0 {
                 "Move this commit up (Alt + ↑)"
             } else {
                 "Move this commit down (Alt + ↓)"
-            });
+            }));
         super::widgets::icon_in(ui, look, &response, area, name, 14.0, enabled);
         if enabled && response.clicked() {
             cx.send(Message::RebaseMove(index, delta));
@@ -1094,7 +1126,7 @@ const SHORTCUTS: [(&str, &str); 8] = [
 fn group(ui: &mut Ui, cx: &Cx, title: &str, add: impl FnOnce(&mut Ui)) {
     ui.add_space(8.0);
     ui.label(
-        egui::RichText::new(title)
+        egui::RichText::new(tr(title))
             .size(15.0)
             .strong()
             .color(cx.c().text),
@@ -1118,9 +1150,9 @@ fn settings(ctx: &Context, cx: &Cx) {
             ui.set_width(460.0);
             ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Settings").size(22.0).color(c.text));
+                ui.label(RichText::new(tr("Settings")).size(22.0).color(c.text));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if primary(ui, look, "Done", true) {
+                    if accent(ui, look, "Done", true) {
                         cx.send(Message::OverlayClose);
                     }
                 });
@@ -1138,15 +1170,31 @@ fn settings(ctx: &Context, cx: &Cx) {
                         .num_columns(2)
                         .spacing([24.0, 8.0])
                         .show(ui, |ui| {
-                            ui.label("Theme");
+                            ui.label(tr("Theme"));
                             let options: Vec<(String, String)> = THEMES
                                 .iter()
-                                .map(|(value, label)| ((*value).to_owned(), (*label).to_owned()))
+                                .map(|(value, label)| ((*value).to_owned(), tr(label).to_owned()))
                                 .collect();
                             if let Some(chosen) =
-                                choice(ui, "theme", &options, &values.theme, 170.0)
+                                choice(ui, "theme", &options, &values.appearance.theme, 170.0)
                             {
                                 cx.send(Message::SetTheme(chosen));
+                            }
+                            ui.end_row();
+                            ui.label(tr("Language"));
+                            let mut languages = vec![(
+                                crate::i18n::AUTO.to_owned(),
+                                tr("System language").to_owned(),
+                            )];
+                            languages.extend(
+                                crate::i18n::languages()
+                                    .into_iter()
+                                    .map(|(code, name)| (code.to_owned(), name.to_owned())),
+                            );
+                            if let Some(chosen) =
+                                choice(ui, "language", &languages, &values.general.language, 170.0)
+                            {
+                                cx.send(Message::SetLanguage(chosen));
                             }
                             ui.end_row();
                         });
@@ -1156,54 +1204,105 @@ fn settings(ctx: &Context, cx: &Cx) {
                         .num_columns(2)
                         .spacing([24.0, 8.0])
                         .show(ui, |ui| {
-                            ui.label("Layout");
+                            ui.label(tr("Layout"));
                             if let Some(chosen) = segmented(
                                 ui,
                                 look,
                                 ["Unified", "Side by side"],
-                                usize::from(values.diff_split),
+                                usize::from(values.diff.split),
                             ) {
                                 cx.send(Message::SetSplit(chosen == 1));
                             }
                             ui.end_row();
-                            ui.label("Context lines");
-                            let mut lines = values.diff_context;
+                            ui.label(tr("Context lines"));
+                            let mut lines = values.diff.context;
                             ui.add(DragValue::new(&mut lines).range(0..=100));
-                            if lines != values.diff_context {
+                            if lines != values.diff.context {
                                 cx.send(Message::SetContext(lines.to_string()));
                             }
                             ui.end_row();
                         });
                     if let Some(on) = check(
                         ui,
-                        values.ignore_whitespace,
+                        values.diff.ignore_whitespace,
                         "Ignore whitespace changes",
                         true,
                     ) {
                         cx.send(Message::SetIgnoreWhitespace(on));
                     }
-                    if let Some(on) =
-                        check(ui, values.syntax_highlight, "Syntax highlighting", true)
-                    {
+                    if let Some(on) = check(
+                        ui,
+                        values.diff.syntax_highlight,
+                        "Syntax highlighting",
+                        true,
+                    ) {
                         cx.send(Message::SetSyntax(on));
                     }
+                });
+                group(ui, cx, "External tools", |ui| {
+                    let found = &cx.app.found_tools;
+                    // "None", what git found, and a saved choice git no longer finds.
+                    let options = |list: &[gitcraft_core::model::ExternalTool], chosen: &str| {
+                        let mut options = vec![(String::new(), tr("None").to_owned())];
+                        options.extend(
+                            list.iter()
+                                .map(|tool| (tool.name.clone(), tool.label.clone())),
+                        );
+                        if !chosen.is_empty() && !list.iter().any(|tool| tool.name == chosen) {
+                            options.push((
+                                chosen.to_owned(),
+                                trf("{tool} (not found)", &[("tool", chosen)]),
+                            ));
+                        }
+                        options
+                    };
+                    Grid::new("tools")
+                        .num_columns(2)
+                        .spacing([24.0, 8.0])
+                        .show(ui, |ui| {
+                            ui.label(tr("Diff tool"));
+                            let diff = options(&found.diff, &values.tools.diff);
+                            if let Some(chosen) =
+                                choice(ui, "diff_tool", &diff, &values.tools.diff, 170.0)
+                            {
+                                cx.send(Message::SetDiffTool(chosen));
+                            }
+                            ui.end_row();
+                            ui.label(tr("Merge tool"));
+                            let merge = options(&found.merge, &values.tools.merge);
+                            if let Some(chosen) =
+                                choice(ui, "merge_tool", &merge, &values.tools.merge, 170.0)
+                            {
+                                cx.send(Message::SetMergeTool(chosen));
+                            }
+                            ui.end_row();
+                        });
+                    let hint = if found.diff.is_empty() && found.merge.is_empty() {
+                        "No diff or merge tools were found. Install one, such as KDiff3 or Meld, or set one up in git's config (difftool.<name>.cmd)."
+                    } else {
+                        "Files open in the chosen tools from their right-click menus."
+                    };
+                    ui.add(
+                        egui::Label::new(RichText::new(tr(hint)).size(12.0).color(c.text_muted))
+                            .wrap(),
+                    );
                 });
                 group(ui, cx, "Repository", |ui| {
                     Grid::new("repository")
                         .num_columns(2)
                         .spacing([24.0, 8.0])
                         .show(ui, |ui| {
-                            ui.label("Commits loaded at a time");
-                            let mut limit = values.log_limit;
+                            ui.label(tr("Commits loaded at a time"));
+                            let mut limit = values.history.log_limit;
                             ui.add(DragValue::new(&mut limit).range(100..=100_000).speed(50));
-                            if limit != values.log_limit {
+                            if limit != values.history.log_limit {
                                 cx.send(Message::SetLogLimit(limit.to_string()));
                             }
                             ui.end_row();
                         });
                     if let Some(on) = check(
                         ui,
-                        values.fetch_on_open,
+                        values.history.fetch_on_open,
                         "Fetch when opening a repository",
                         true,
                     ) {
@@ -1211,7 +1310,7 @@ fn settings(ctx: &Context, cx: &Cx) {
                     }
                     if let Some(on) = check(
                         ui,
-                        values.commit_graph,
+                        values.history.commit_graph,
                         "Keep a commit-graph file for faster history",
                         true,
                     ) {
@@ -1225,7 +1324,7 @@ fn settings(ctx: &Context, cx: &Cx) {
                         .show(ui, |ui| {
                             for (keys, what) in SHORTCUTS {
                                 ui.label(RichText::new(keys).monospace().size(12.0));
-                                muted(ui, look, what, look.text_size);
+                                muted(ui, look, tr(what), look.text_size);
                                 ui.end_row();
                             }
                         });
@@ -1243,6 +1342,7 @@ fn settings(ctx: &Context, cx: &Cx) {
                     .auto_shrink([false, true])
                     .max_height(limit)
                     .show(ui, body);
+                super::widgets::scroll_shadows(ui, cx.look(), &shown);
                 shown.content_size.y
             } else {
                 ui.scope(body).response.rect.height()

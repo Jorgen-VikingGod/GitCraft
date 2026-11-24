@@ -5,6 +5,7 @@ use gitcraft_core::parsers::Selection;
 use gitcraft_core::runner::Progress;
 use gitcraft_core::{Result, ops, queries};
 
+use crate::i18n::{tr, trf};
 use crate::logic::{plural, short_sha};
 
 #[derive(Debug, Clone)]
@@ -61,6 +62,13 @@ pub enum Command {
     Checkout {
         reference: String,
         kind: &'static str,
+    },
+    /// A checkout with uncommitted changes in the way: they go into a stash first, and come back
+    /// afterwards when `reapply` is set.
+    CheckoutStashing {
+        reference: String,
+        kind: &'static str,
+        reapply: bool,
     },
     RenameBranch {
         old: String,
@@ -192,13 +200,13 @@ pub enum Command {
 }
 
 impl Command {
-    /// Shown while it runs, and in the failure message.
+    /// Shown while it runs, and in the failure message, in the interface language.
     pub fn label(&self) -> String {
-        match self {
+        let text: String = match self {
             Self::Fetch {
                 remote: Some(remote),
                 ..
-            } => format!("Fetching {remote}"),
+            } => trf("Fetching {remote}", &[("remote", remote)]),
             Self::Fetch { .. } => "Fetching".into(),
             Self::Pull { mode, .. } if mode == "rebase" => "Pulling (rebase)".into(),
             Self::Pull { mode, .. } if mode == "overwrite" => "Overwriting from remote".into(),
@@ -212,13 +220,16 @@ impl Command {
             Self::WorktreeRemove { .. } => "Removing worktree".into(),
             Self::WorktreePrune => "Pruning worktrees".into(),
             Self::CreateBranch { .. } => "Creating branch".into(),
-            Self::Checkout { reference, kind } => {
+            Self::Checkout { reference, kind }
+            | Self::CheckoutStashing {
+                reference, kind, ..
+            } => {
                 let name = if *kind == "commit" {
                     short_sha(reference)
                 } else {
                     reference
                 };
-                format!("Checking out {name}")
+                trf("Checking out {name}", &[("name", name)])
             }
             Self::RenameBranch { .. } => "Renaming branch".into(),
             Self::DeleteBranch { .. } => "Deleting branch".into(),
@@ -239,13 +250,13 @@ impl Command {
             Self::EditRemote { .. } => "Saving remote".into(),
             Self::RemoveRemote { .. } => "Removing remote".into(),
             Self::Reset { undo: true, .. } => "Undoing commit".into(),
-            Self::Reset { mode, .. } => format!("Resetting ({mode})"),
+            Self::Reset { mode, .. } => trf("Resetting ({mode})", &[("mode", mode)]),
             Self::ApplyPatch { .. } => "Applying patch".into(),
             Self::FastForward { .. } => "Fast-forwarding".into(),
             Self::Ignore { .. } => "Updating .gitignore".into(),
             Self::Clean { .. } => "Cleaning".into(),
             Self::CheckoutFile { .. } => "Checking out file".into(),
-            Self::PruneRemote { name } => format!("Pruning {name}"),
+            Self::PruneRemote { name } => trf("Pruning {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Updating submodules".into(),
             Self::Stage { .. } => "Staging".into(),
             Self::StageAll => "Staging all".into(),
@@ -260,49 +271,67 @@ impl Command {
             Self::Resolve { .. } => "Resolving conflict".into(),
             Self::Commit { amend: true, .. } => "Amending commit".into(),
             Self::Commit { .. } => "Committing".into(),
-        }
+        };
+        tr(&text).to_owned()
     }
 
     /// The toast after it succeeded, if it deserves one.
     pub fn success(&self) -> Option<String> {
-        Some(match self {
+        let text: String = match self {
             Self::Fetch { .. } => "Fetch complete".into(),
             Self::Pull { mode, .. } if mode == "overwrite" => "Branch overwritten".into(),
             Self::Pull { .. } => "Pull complete".into(),
             Self::Push { .. } => "Push complete".into(),
             Self::StashPush { paths: Some(_), .. } => "Files stashed".into(),
             Self::StashPush { .. } => "Changes stashed".into(),
-            Self::WorktreeAdd { path, .. } => format!("Added worktree {path}"),
+            Self::WorktreeAdd { path, .. } => trf("Added worktree {path}", &[("path", path)]),
             Self::WorktreeRemove { .. } => "Worktree removed".into(),
             Self::WorktreePrune => "Stale worktrees pruned".into(),
             Self::StashApply { pop: true, .. } => "Stash popped".into(),
             Self::StashApply { .. } => "Stash applied".into(),
-            Self::CreateBranch { name, .. } => format!("Created {name}"),
-            Self::Merge { reference, .. } => format!("Merged {reference}"),
+            Self::CreateBranch { name, .. } => trf("Created {name}", &[("name", name)]),
+            Self::Merge { reference, .. } => trf("Merged {reference}", &[("reference", reference)]),
             Self::Rebase { .. } => "Rebase complete".into(),
             Self::InteractiveRebase { .. } => "Interactive rebase complete".into(),
             Self::QuickRebase { .. } => "History rewritten".into(),
-            Self::CherryPick { sha } => format!("Cherry-picked {}", short_sha(sha)),
+            Self::CherryPick { sha } => {
+                trf("Cherry-picked {commit}", &[("commit", short_sha(sha))])
+            }
             Self::Revert { .. } => "Commit reverted".into(),
-            Self::CreateTag { name, .. } => format!("Created tag {name}"),
-            Self::PushTag { name, .. } => format!("Pushed {name}"),
+            Self::CreateTag { name, .. } => trf("Created tag {name}", &[("name", name)]),
+            Self::PushTag { name, .. } => trf("Pushed {name}", &[("name", name)]),
             Self::Reset { undo: true, .. } => "Last commit undone; its changes are staged".into(),
-            Self::Reset { target, .. } => format!("Reset to {}", short_sha(target)),
+            Self::Reset { target, .. } => {
+                trf("Reset to {commit}", &[("commit", short_sha(target))])
+            }
             Self::ApplyPatch { .. } => "Patch applied".into(),
-            Self::FastForward { branch, .. } => format!("{branch} fast-forwarded"),
+            Self::FastForward { branch, .. } => {
+                trf("{branch} fast-forwarded", &[("branch", branch)])
+            }
             Self::Ignore { patterns } => match &patterns[..] {
-                [one] => format!("Added \"{one}\" to .gitignore"),
-                many => format!("Added {} to .gitignore", plural(many.len(), "pattern")),
+                [one] => trf("Added “{pattern}” to .gitignore", &[("pattern", one)]),
+                many => trf(
+                    "Added {patterns} to .gitignore",
+                    &[("patterns", &plural(many.len(), "pattern"))],
+                ),
             },
             Self::Clean { .. } => "Cleaned".into(),
-            Self::CheckoutFile { sha, path } => format!("{path} restored from {}", short_sha(sha)),
-            Self::PruneRemote { name } => format!("Pruned stale branches of {name}"),
+            Self::CheckoutFile { sha, path } => trf(
+                "{path} restored from {commit}",
+                &[("path", path), ("commit", short_sha(sha))],
+            ),
+            Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
-            Self::Resolve { path, .. } => format!("Resolved {path}"),
+            Self::Resolve { path, .. } => trf("Resolved {path}", &[("path", path)]),
+            Self::CheckoutStashing { reapply: true, .. } => {
+                "Checked out, with your changes brought along".into()
+            }
+            Self::CheckoutStashing { .. } => "Checked out; your changes are kept in a stash".into(),
             Self::Commit { amend: true, .. } => "Commit amended".into(),
             Self::Commit { .. } => "Committed".into(),
             _ => return None,
-        })
+        };
+        Some(tr(&text).to_owned())
     }
 
     /// Network operations can be stopped at any point without leaving a mess; history rewrites can't.
@@ -423,6 +452,11 @@ impl Command {
                 checkout,
             } => ops::create_branch(repo, &name, start.as_deref(), checkout).await,
             Self::Checkout { reference, kind } => ops::checkout(repo, &reference, kind).await,
+            Self::CheckoutStashing {
+                reference,
+                kind,
+                reapply,
+            } => ops::checkout_stashing(repo, &reference, kind, reapply).await,
             Self::RenameBranch { old, new } => ops::rename_branch(repo, &old, &new).await,
             Self::DeleteBranch {
                 name,

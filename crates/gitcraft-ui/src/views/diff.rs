@@ -10,11 +10,12 @@ use egui::{
 use gitcraft_core::model::{DiffLine, FileDiff};
 
 use super::widgets::{
-    bar, btn, danger_text, fill, hline, paint_text, placeholder, primary, region, scroll,
-    segmented, split_x, text,
+    accent, bar, danger, fill, hline, paint_text, placeholder, region, scroll, segmented, split_x,
+    text, warning,
 };
 use super::{Cx, icon};
 use crate::app::{DIFF_ROW_HEIGHT, DiffPane, DiffRow, Message, PaneKey};
+use crate::i18n::{tr, trf};
 use crate::logic::plural;
 use crate::theme::{CODE_SIZE, Look};
 
@@ -317,12 +318,14 @@ impl Lines<'_> {
         }
 
         let count = self.pane.selected_in(index).len();
-        let name = |verb: &str| {
-            if count > 0 {
-                format!("{verb} {}", plural(count, "line"))
-            } else {
-                format!("{verb} hunk")
-            }
+        let lines = plural(count, "line");
+        let name = |verb: &str| match (verb, count > 0) {
+            ("Stage", true) => trf("Stage {lines}", &[("lines", &lines)]),
+            ("Discard", true) => trf("Discard {lines}", &[("lines", &lines)]),
+            (_, true) => trf("Unstage {lines}", &[("lines", &lines)]),
+            ("Stage", false) => tr("Stage hunk").to_owned(),
+            ("Discard", false) => tr("Discard hunk").to_owned(),
+            (_, false) => tr("Unstage hunk").to_owned(),
         };
         let Some(mode) = stage_mode.filter(|_| show_buttons) else {
             return;
@@ -335,13 +338,13 @@ impl Lines<'_> {
             ui.spacing_mut().item_spacing.x = 6.0;
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if mode == "stage" {
-                    if primary(ui, look, &name("Stage"), true) {
+                    if accent(ui, look, &name("Stage"), true) {
                         self.cx.send(Message::HunkAction(index, "stage"));
                     }
-                    if danger_text(ui, look, &name("Discard"), true) {
+                    if danger(ui, look, &name("Discard"), true) {
                         self.cx.send(Message::HunkAction(index, "discard"));
                     }
-                } else if btn(ui, look, &name("Unstage"), true) {
+                } else if warning(ui, look, &name("Unstage"), true) {
                     self.cx.send(Message::HunkAction(index, "unstage"));
                 }
             });
@@ -379,7 +382,7 @@ pub fn view(
         (Some(old), None) => old.clone(),
         _ => String::new(),
     };
-    let split = cx.app.settings.diff_split;
+    let split = cx.app.settings.diff.split;
     bar(ui, 35.0, c.panel, 12.0, |ui| {
         ui.spacing_mut().item_spacing.x = 8.0;
         icon::icon(ui, "file", 14.0, c.text_muted);
@@ -413,17 +416,17 @@ pub fn view(
 
     // Line staging can't work while the diff ignores whitespace: it wouldn't match the file.
     let selectable =
-        stage_mode.is_some() && !cx.app.settings.ignore_whitespace && diff.status != "?";
+        stage_mode.is_some() && !cx.app.settings.diff.ignore_whitespace && diff.status != "?";
     let shown_mode = stage_mode.filter(|_| selectable);
     let note = if selectable {
-        Some(
+        Some(tr(
             "Click lines to select them (Shift+click for a range), then stage or discard just those lines.",
-        )
+        ))
     } else if stage_mode.is_some() {
         Some(if diff.status == "?" {
-            "Untracked file: stage the whole file to include it."
+            tr("Untracked file: stage the whole file to include it.")
         } else {
-            "Line staging is disabled while “Ignore whitespace” is on."
+            tr("Line staging is disabled while “Ignore whitespace” is on.")
         })
     } else {
         None
@@ -459,13 +462,8 @@ pub fn view(
     let mut sideways: Vec<f32> = Vec::new();
     for (side, rect) in panes {
         region(ui, rect, |ui| {
-            // The same bars as the history list, but not hidden until the pointer comes near,
-            // so that each pane shows its own sideways bar.
-            let bars = &mut ui.spacing_mut().scroll;
-            bars.dormant_handle_opacity = bars.active_handle_opacity;
-            let mut area = scroll(("diff", repo, key as u8, side as u8))
-                .scroll([true, true])
-                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible);
+            // The same floating bars as the history list: they show when the pointer comes near.
+            let mut area = scroll(("diff", repo, key as u8, side as u8)).scroll([true, true]);
             if let Some(offset) = requested.or(split.then_some(pane.offset)) {
                 area = area.vertical_scroll_offset(offset);
             }
@@ -523,7 +521,7 @@ pub fn view(
                         ui.painter().text(
                             Pos2::new(seen + viewport.width() / 2.0, y + 35.0),
                             Align2::CENTER_CENTER,
-                            "Diff truncated — the file is too large to show completely.",
+                            tr("Diff truncated — the file is too large to show completely."),
                             look.ui(13.0),
                             c.text_muted,
                         );
@@ -540,6 +538,7 @@ pub fn view(
                     }
                 });
             });
+            super::widgets::scroll_shadows(ui, cx.look(), &output);
             sideways.push(output.state.clamped_offset().x);
             reported.push((
                 output.state.clamped_offset().y,

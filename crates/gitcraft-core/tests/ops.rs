@@ -533,6 +533,211 @@ async fn stash_cycle() {
 }
 
 #[tokio::test]
+async fn checkout_with_changes_stashes_and_reapplies_them() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "side"]);
+    f.write("a.txt", "one\ntwo\nthree\nfour\nmine\n");
+    f.write("staged.txt", "new\n");
+    f.git(&["add", "staged.txt"]);
+    let result = ops::checkout_stashing(&f.repo, "side", "local", true)
+        .await
+        .unwrap();
+    assert!(result.ok);
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert!(f.read("a.txt").ends_with("mine\n"), "the change came along");
+    let status = queries::status(&f.repo).await.unwrap();
+    assert_eq!(paths(&status.staged), ["staged.txt"], "and stays staged");
+    assert!(queries::refs(&f.repo).await.unwrap().stashes.is_empty());
+}
+
+#[tokio::test]
+async fn checkout_with_changes_that_conflict_keeps_the_stash() {
+    let f = Fixture::with_history();
+    f.git(&["switch", "-q", "-c", "side"]);
+    f.commit("a.txt", "side\n", "side changes a");
+    f.git(&["switch", "-q", "main"]);
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, "side", "local", true)
+        .await
+        .unwrap();
+    assert!(!result.ok && result.conflicts, "reported as conflicts");
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().stashes.len(),
+        1,
+        "the changes are still in the stash"
+    );
+}
+
+#[tokio::test]
+async fn checkout_discarding_changes_keeps_them_in_a_stash() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "side"]);
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, "side", "local", false)
+        .await
+        .unwrap();
+    assert!(result.ok);
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\n", "a clean tree");
+    let stashes = queries::refs(&f.repo).await.unwrap().stashes;
+    assert_eq!(stashes.len(), 1);
+    assert!(stashes[0].message.contains("before checking out side"));
+}
+
+/// A post-checkout hook that fails, so that git reports an error after it has switched.
+fn failing_post_checkout(f: &Fixture) {
+    // A global core.hooksPath would send git elsewhere: use this repository's hooks.
+    let hooks = f.path.join(".git/hooks");
+    f.git(&["config", "core.hooksPath", hooks.to_str().unwrap()]);
+    let hook = hooks.join("post-checkout");
+    std::fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn checkout_whose_hook_fails_after_switching_keeps_the_stash() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "side"]);
+    failing_post_checkout(&f);
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, "side", "local", true).await;
+    assert!(result.is_err(), "the hook's failure is reported");
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().stashes.len(),
+        1,
+        "the changes stay in the stash instead of landing on side"
+    );
+}
+
+#[tokio::test]
+async fn a_detached_checkout_whose_hook_fails_keeps_the_stash_too() {
+    let f = Fixture::with_history();
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    let second = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+    f.git(&["switch", "-q", "--detach", &first]);
+    failing_post_checkout(&f);
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, &second, "commit", true).await;
+    assert!(result.is_err());
+    assert_eq!(f.git(&["rev-parse", "HEAD"]).trim(), second, "it did move");
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().stashes.len(),
+        1,
+        "so the changes stay in the stash"
+    );
+}
+
+#[tokio::test]
+async fn checkout_that_fails_puts_the_changes_back() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "mine\n");
+    assert!(
+        ops::checkout_stashing(&f.repo, "no-such-branch", "local", true)
+            .await
+            .is_err()
+    );
+    assert_eq!(f.read("a.txt"), "mine\n");
+    assert!(queries::refs(&f.repo).await.unwrap().stashes.is_empty());
+}
+
+/// A "diff tool" that copies the two versions it is given beside the repository.
+fn fake_diff_tool(f: &Fixture) {
+    let root = f.root.to_str().unwrap().replace('\\', "/");
+    let cmd = format!("cp \"$LOCAL\" \"{root}/left\" && cp \"$REMOTE\" \"{root}/right\"");
+    f.git(&["config", "difftool.fake.cmd", &cmd]);
+}
+
+fn sides(f: &Fixture) -> (String, String) {
+    let read = |name: &str| std::fs::read_to_string(f.root.join(name)).unwrap_or_default();
+    (read("left"), read("right"))
+}
+
+#[tokio::test]
+async fn external_diff_tools_are_listed_and_shown_each_version() {
+    let f = Fixture::with_history();
+    fake_diff_tool(&f);
+    let tools = queries::external_tools(&f.repo, false).await.unwrap();
+    assert!(tools.iter().any(|tool| tool.name == "fake"), "{tools:?}");
+
+    f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\n");
+    f.git(&["add", "a.txt"]);
+    f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\nworking\n");
+    let open = |target: ToolTarget| {
+        let repo = f.repo.clone();
+        async move {
+            ops::open_diff_tool(&repo, "fake", "a.txt", None, &target)
+                .await
+                .unwrap()
+        }
+    };
+    open(ToolTarget::Working { staged: false }).await;
+    assert_eq!(
+        sides(&f),
+        (
+            "one\ntwo\nthree\nfour\nstaged\n".into(),
+            "one\ntwo\nthree\nfour\nstaged\nworking\n".into()
+        ),
+        "the index against the working tree"
+    );
+    open(ToolTarget::Working { staged: true }).await;
+    assert_eq!(
+        sides(&f),
+        (
+            "one\ntwo\nthree\nfour\n".into(),
+            "one\ntwo\nthree\nfour\nstaged\n".into()
+        ),
+        "HEAD against the index"
+    );
+    let second = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+    open(ToolTarget::Commit { sha: second }).await;
+    assert_eq!(
+        sides(&f),
+        ("one\ntwo\nthree\n".into(), "one\ntwo\nthree\nfour\n".into()),
+        "a commit against its parent"
+    );
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    open(ToolTarget::Commit { sha: first }).await;
+    assert_eq!(sides(&f).1, "one\ntwo\nthree\n", "a first commit too");
+    assert!(matches!(
+        ops::open_diff_tool(
+            &f.repo,
+            "--extcmd=sh",
+            "a.txt",
+            None,
+            &ToolTarget::Working { staged: false }
+        )
+        .await,
+        Err(Error::Invalid(_))
+    ));
+}
+
+#[tokio::test]
+async fn an_external_merge_tool_resolves_the_conflict() {
+    let f = Fixture::with_history();
+    f.git(&["config", "mergetool.fake.cmd", "cp \"$REMOTE\" \"$MERGED\""]);
+    f.git(&["config", "mergetool.fake.trustExitCode", "true"]);
+    let tools = queries::external_tools(&f.repo, true).await.unwrap();
+    assert!(tools.iter().any(|tool| tool.name == "fake"), "{tools:?}");
+    f.make_conflict();
+    ops::merge(&f.repo, "other", "default").await.unwrap();
+    ops::open_merge_tool(&f.repo, "fake", "a.txt")
+        .await
+        .unwrap();
+    assert!(f.read("a.txt").ends_with("THEIRS\n"));
+    assert!(
+        queries::status(&f.repo).await.unwrap().conflicts.is_empty(),
+        "and marked as resolved"
+    );
+    assert!(!f.exists("a.txt.orig"), "without a backup copy left behind");
+}
+
+#[tokio::test]
 async fn cherry_pick_revert_reset() {
     let f = Fixture::with_history();
     f.git(&["switch", "-q", "-c", "side"]);

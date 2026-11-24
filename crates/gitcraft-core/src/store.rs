@@ -27,6 +27,18 @@ pub fn config_dir() -> PathBuf {
         .join("gitcraft")
 }
 
+/// Saves a file that belongs to the user (settings, the list of repositories) so that a failed
+/// or interrupted save never leaves half a file behind (craft-atomic). New files are readable
+/// by the user only.
+pub fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)?;
+    }
+    craft_atomic::WriteOptions::default()
+        .with_new_file_permissions(craft_atomic::NewFilePermissions::Private)
+        .atomic_write(path, bytes)
+}
+
 #[derive(Debug)]
 pub struct RepoStore {
     path: PathBuf,
@@ -52,14 +64,9 @@ impl RepoStore {
     }
 
     fn save(&self) -> std::io::Result<()> {
-        if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let tmp = self.path.with_extension("tmp");
         let body = serde_json::to_string_pretty(&json!({ "repos": self.repos }))
             .expect("plain data serialises");
-        std::fs::write(&tmp, body)?;
-        std::fs::rename(&tmp, &self.path)
+        write_private(&self.path, body.as_bytes())
     }
 
     pub fn list(&self) -> Vec<RepoEntry> {

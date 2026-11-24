@@ -4,13 +4,14 @@ use egui::{Align, Layout, Margin, Ui, vec2};
 use gitcraft_core::model::FileChange;
 
 use super::widgets::{
-    GRIP, area_edit, bar, btn, centered, check, danger_text, file_row, fill, ghost, heading,
-    line_edit, muted, placeholder, primary, region, scroll, split_x, split_y, splitter, text,
+    GRIP, accent, area_edit, bar, btn, centered, check, danger, file_row, fill, heading, line_edit,
+    muted, placeholder, region, scroll, split_x, split_y, splitter, text, warning,
 };
 use super::{Cx, diff, icon};
 use crate::actions::{Action, MenuRequest};
 use crate::app::{Area, Message, PaneKey, RepoTab, Splitter};
 use crate::command::Command;
+use crate::i18n::{tr, trf};
 use crate::logic::plural;
 
 const SUBJECT_LIMIT: usize = 72;
@@ -24,7 +25,7 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, area: Area, files: &[FileChange], e
         ui.horizontal(|ui| {
             ui.add_space(14.0);
             ui.label(
-                egui::RichText::new(empty)
+                egui::RichText::new(tr(empty))
                     .size(13.0)
                     .italics()
                     .color(look.c.text_muted),
@@ -46,7 +47,7 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, area: Area, files: &[FileChange], e
         }),
         Area::Conflicts => ("edit", Message::OpenConflict),
     };
-    scroll(("changes", &tab.path, area as u8)).show(ui, |ui| {
+    let scrolled = scroll(("changes", &tab.path, area as u8)).show(ui, |ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
         for file in files {
             let path = file.path.clone();
@@ -66,6 +67,7 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, area: Area, files: &[FileChange], e
             }
         }
     });
+    super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
 }
 
 fn commit_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
@@ -77,13 +79,13 @@ fn commit_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         .as_ref()
         .is_some_and(|status| status.branch.oid.is_some());
     let label = if tab.committing {
-        "Committing…".to_owned()
+        tr("Committing…").to_owned()
     } else if tab.amend {
-        "Amend commit".to_owned()
+        tr("Amend commit").to_owned()
     } else if staged > 0 {
-        format!("Commit {}", plural(staged, "file"))
+        trf("Commit {files}", &[("files", &plural(staged, "file"))])
     } else {
-        "Commit".to_owned()
+        tr("Commit").to_owned()
     };
     let length = tab.summary.chars().count();
     let count_color = if length > SUBJECT_LIMIT {
@@ -125,11 +127,27 @@ fn commit_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                 cx.send(Message::BodyInput(body));
             }
             ui.horizontal(|ui| {
-                if let Some(amend) = check(ui, tab.amend, "Amend last commit", has_head) {
+                // "Commit first" from the checkout dialog: say what follows, and let it be called off.
+                if let Some(Command::Checkout { reference, kind }) = &tab.after_commit {
+                    let name = if *kind == "commit" {
+                        crate::logic::short_sha(reference)
+                    } else {
+                        reference
+                    };
+                    muted(
+                        ui,
+                        look,
+                        trf("Then {name} is checked out", &[("name", name)]),
+                        12.0,
+                    );
+                    if super::widgets::icon_button(ui, look, "x", 12.0, true) {
+                        cx.send(Message::CommitFirstCancel);
+                    }
+                } else if let Some(amend) = check(ui, tab.amend, "Amend last commit", has_head) {
                     cx.send(Message::AmendToggled(amend));
                 }
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if primary(ui, look, &label, tab.can_commit()) {
+                    if accent(ui, look, &label, tab.can_commit()) {
                         cx.send(Message::CommitNow);
                     }
                 });
@@ -153,6 +171,7 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let width = cx
         .app
         .settings
+        .layout
         .changes_width
         .min(area.width() - 200.0)
         .max(200.0);
@@ -194,7 +213,11 @@ fn lists(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                 icon::icon(ui, "alert", 13.0, c.danger);
                 text(
                     ui,
-                    format!("CONFLICTS ({})", conflicts.len()),
+                    trf(
+                        "Conflicts ({count})",
+                        &[("count", &conflicts.len().to_string())],
+                    )
+                    .to_uppercase(),
                     11.0,
                     c.danger,
                 );
@@ -207,18 +230,26 @@ fn lists(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     }
 
     cut(ui, HEADER, &|ui| {
-        header(ui, cx, &format!("Unstaged ({})", unstaged.len()), |ui| {
-            if unstaged.is_empty() {
-                return;
-            }
-            if btn(ui, look, "Stage all", true) {
-                cx.send(Message::Run(Command::StageAll));
-            }
-            if ghost(ui, look, "Discard all", true) {
-                let every = unstaged.iter().map(|file| file.path.clone()).collect();
-                cx.send(Message::Action(Action::Discard(every)));
-            }
-        });
+        header(
+            ui,
+            cx,
+            &trf(
+                "Unstaged ({count})",
+                &[("count", &unstaged.len().to_string())],
+            ),
+            |ui| {
+                if unstaged.is_empty() {
+                    return;
+                }
+                if accent(ui, look, "Stage all", true) {
+                    cx.send(Message::Run(Command::StageAll));
+                }
+                if danger(ui, look, "Discard all", true) {
+                    let every = unstaged.iter().map(|file| file.path.clone()).collect();
+                    cx.send(Message::Action(Action::Discard(every)));
+                }
+            },
+        );
     });
     cut(ui, weight(2.0), &|ui| {
         list(
@@ -232,11 +263,16 @@ fn lists(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     });
     cut(ui, 1.0, &|ui| fill(ui, ui.max_rect(), c.border));
     cut(ui, HEADER, &|ui| {
-        header(ui, cx, &format!("Staged ({})", staged.len()), |ui| {
-            if !staged.is_empty() && btn(ui, look, "Unstage all", true) {
-                cx.send(Message::Run(Command::UnstageAll));
-            }
-        });
+        header(
+            ui,
+            cx,
+            &trf("Staged ({count})", &[("count", &staged.len().to_string())]),
+            |ui| {
+                if !staged.is_empty() && warning(ui, look, "Unstage all", true) {
+                    cx.send(Message::Run(Command::UnstageAll));
+                }
+            },
+        );
     });
     cut(ui, weight(2.0), &|ui| {
         list(ui, cx, tab, Area::Staged, &staged, "Nothing staged yet")
@@ -262,16 +298,28 @@ fn detail(ui: &mut Ui, cx: &Cx, tab: &RepoTab, width: f32) {
             centered(ui, rect, 150.0, |ui| {
                 ui.spacing_mut().item_spacing = vec2(8.0, 12.0);
                 icon::icon(ui, "alert", 32.0, c.danger);
-                text(ui, format!("{path} has conflicts"), 15.0, c.text);
+                text(
+                    ui,
+                    trf("{path} has conflicts", &[("path", path)]),
+                    15.0,
+                    c.text,
+                );
                 muted(
                     ui,
                     look,
-                    "Resolve the conflicting sections, then the file is marked as resolved.",
+                    tr("Resolve the conflicting sections, then the file is marked as resolved."),
                     13.0,
                 );
                 ui.horizontal(|ui| {
-                    if primary(ui, look, "Open merge tool", true) {
+                    if accent(ui, look, "Open merge tool", true) {
                         cx.send(Message::OpenConflict(path.clone()));
+                    }
+                    let tool = &cx.app.settings.tools.merge;
+                    if !tool.is_empty() {
+                        let label = cx.app.found_tools.label(true, tool);
+                        if btn(ui, look, &trf("Open in {tool}", &[("tool", &label)]), true) {
+                            cx.send(Message::OpenMergeTool(path.clone()));
+                        }
                     }
                     if btn(ui, look, "Use ours", true) {
                         cx.send(resolve(Some("ours")));
@@ -289,15 +337,15 @@ fn detail(ui: &mut Ui, cx: &Cx, tab: &RepoTab, width: f32) {
             let unstaged = *area == Area::Unstaged;
             let actions = |ui: &mut Ui| {
                 if unstaged {
-                    if btn(ui, look, "Stage file", true) {
+                    if accent(ui, look, "Stage file", true) {
                         cx.send(Message::Run(Command::Stage {
                             paths: vec![path.clone()],
                         }));
                     }
-                    if danger_text(ui, look, "Discard file", true) {
+                    if danger(ui, look, "Discard file", true) {
                         cx.send(Message::Action(Action::Discard(vec![path.clone()])));
                     }
-                } else if btn(ui, look, "Unstage file", true) {
+                } else if warning(ui, look, "Unstage file", true) {
                     cx.send(Message::Run(Command::Unstage {
                         paths: vec![path.clone()],
                     }));
@@ -317,9 +365,9 @@ fn detail(ui: &mut Ui, cx: &Cx, tab: &RepoTab, width: f32) {
         None => {
             fill(ui, ui.max_rect(), c.bg);
             let note = if tab.change_count() > 0 {
-                "Select a file to see its changes"
+                tr("Select a file to see its changes")
             } else {
-                "Working tree is clean"
+                tr("Working tree is clean")
             };
             placeholder(ui, look, note);
         }

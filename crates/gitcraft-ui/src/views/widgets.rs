@@ -8,6 +8,7 @@ use gitcraft_core::model::{FileChange, RefLabel};
 
 use super::{Cx, icon};
 use crate::app::{Message, Splitter};
+use crate::i18n::tr;
 use crate::theme::{Colors, Look};
 
 const SMALL_BUTTON: f32 = 24.0;
@@ -114,18 +115,19 @@ pub fn muted(ui: &mut Ui, look: &Look, content: impl Into<String>, size: f32) {
     text(ui, content, size, look.c.text_muted);
 }
 
-/// A small heading in capitals, like those above lists.
+/// A small heading in capitals, like those above lists. `content` is English; it is shown in
+/// the interface language.
 pub fn heading(ui: &mut Ui, look: &Look, content: &str) {
-    text(ui, content.to_uppercase(), 11.0, look.c.text_muted);
+    text(ui, tr(content).to_uppercase(), 11.0, look.c.text_muted);
 }
 
-/// Text centred in whatever space is left.
+/// Text centred in whatever space is left, in the interface language.
 pub fn placeholder(ui: &mut Ui, look: &Look, note: &str) {
     let rect = ui.available_rect_before_wrap();
     ui.painter().text(
         rect.center(),
         Align2::CENTER_CENTER,
-        note,
+        tr(note),
         look.ui(look.text_size),
         look.c.text_muted,
     );
@@ -151,12 +153,17 @@ pub fn paint_text(painter: &Painter, at: Pos2, content: &str, font: FontId, colo
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Normal,
+    /// Solid accent fill with white text, for the main action of a view.
     Primary,
+    /// The main action of a dialog: a tint of the accent with an accent outline.
+    Accent,
+    /// An action that takes a step back without losing anything, such as unstaging: outlined
+    /// and written in orange.
+    Warning,
+    /// A dialog action that throws something away: outlined and written in the danger colour.
     Danger,
     /// No frame until hovered.
     Ghost,
-    /// No frame, in the danger colour.
-    GhostDanger,
 }
 
 fn dim(color: Color32, enabled: bool) -> Color32 {
@@ -188,23 +195,52 @@ pub fn button_tip(
 ) -> bool {
     let response = button_response(ui, look, label, kind, enabled);
     let response = if enabled {
-        response.on_hover_text(tip)
+        response.on_hover_text(tr(tip))
     } else {
-        response.on_disabled_hover_text(tip)
+        response.on_disabled_hover_text(tr(tip))
     };
     enabled && response.clicked()
 }
 
 fn button_response(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: bool) -> Response {
     let c = &look.c;
-    let text = RichText::new(label).size(12.0);
+    let label = tr(label);
+    let mix = crate::theme::mix;
+    let solid = match kind {
+        Kind::Primary => Some(c.accent),
+        _ => None,
+    };
+    // An outlined button: its colour, and how strongly it tints the fill when idle and hovered.
+    let outline = match kind {
+        Kind::Accent if look.dark => Some((c.accent, 0.24, 0.34)),
+        Kind::Accent => Some((c.accent, 0.2, 0.3)),
+        Kind::Warning if look.dark => Some((c.caution, 0.0, 0.14)),
+        // On white an orange outline alone reads almost like the red one: a tint sets it apart.
+        Kind::Warning => Some((c.caution, 0.1, 0.2)),
+        Kind::Danger => Some((c.danger, 0.0, 0.14)),
+        _ => None,
+    };
+    // The theme overrides every text colour, so text that isn't the usual one names its colour.
+    let text = match kind {
+        Kind::Primary => text_colored(label, Color32::WHITE),
+        Kind::Accent if look.dark => text_colored(label, c.text),
+        Kind::Accent => text_colored(label, mix(c.accent, Color32::BLACK, 0.35)),
+        Kind::Warning => text_colored(label, c.caution),
+        Kind::Danger => text_colored(label, c.danger),
+        _ => RichText::new(label).size(12.0),
+    };
     ui.scope(|ui| {
-        let solid = match kind {
-            Kind::Primary => Some(c.accent),
-            Kind::Danger => Some(c.danger),
-            _ => None,
-        };
+        let idle = ui.visuals().widgets.inactive.weak_bg_fill;
         let widgets = &mut ui.style_mut().visuals.widgets;
+        if let Some((color, rest, hover)) = outline {
+            let stroke = Stroke::new(1.0, color);
+            widgets.inactive.bg_stroke = stroke;
+            widgets.hovered.bg_stroke = stroke;
+            widgets.active.bg_stroke = stroke;
+            widgets.inactive.weak_bg_fill = mix(idle, color, rest);
+            widgets.hovered.weak_bg_fill = mix(idle, color, hover);
+            widgets.active.weak_bg_fill = mix(idle, color, hover + 0.1);
+        }
         if let Some(fill) = solid {
             for state in [
                 &mut widgets.inactive,
@@ -219,14 +255,8 @@ fn button_response(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: b
             widgets.active.weak_bg_fill = crate::theme::mix(fill, Color32::BLACK, 0.15);
         }
         let mut button = egui::Button::new(text).min_size(vec2(0.0, SMALL_BUTTON));
-        match kind {
-            Kind::Ghost => button = button.frame_when_inactive(false),
-            Kind::GhostDanger => {
-                button = egui::Button::new(text_colored(label, c.danger))
-                    .min_size(vec2(0.0, SMALL_BUTTON))
-                    .frame_when_inactive(false);
-            }
-            _ => {}
+        if kind == Kind::Ghost {
+            button = button.frame_when_inactive(false);
         }
         ui.add_enabled(enabled, button)
     })
@@ -241,16 +271,19 @@ pub fn btn(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
     button(ui, look, label, Kind::Normal, enabled)
 }
 
-pub fn primary(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
-    button(ui, look, label, Kind::Primary, enabled)
+/// The tinted, outlined accent button of dialogs, also used for staging.
+pub fn accent(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
+    button(ui, look, label, Kind::Accent, enabled)
 }
 
-pub fn danger_text(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
-    button(ui, look, label, Kind::GhostDanger, enabled)
+/// The outlined orange button, for steps back that keep the changes (unstaging).
+pub fn warning(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
+    button(ui, look, label, Kind::Warning, enabled)
 }
 
-pub fn ghost(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
-    button(ui, look, label, Kind::Ghost, enabled)
+/// The outlined button in the danger colour, for actions that throw changes away.
+pub fn danger(ui: &mut Ui, look: &Look, label: &str, enabled: bool) -> bool {
+    button(ui, look, label, Kind::Danger, enabled)
 }
 
 /// A button that stays lit while its choice is on.
@@ -297,6 +330,7 @@ pub fn icon_in(
 pub fn segmented(ui: &mut Ui, look: &Look, labels: [&str; 2], active: usize) -> Option<usize> {
     let c = &look.c;
     let font = look.ui(11.5);
+    let labels = labels.map(tr);
     let widths = labels.map(|label| text_width(ui, label, &font) + 18.0);
     let (frame, _) =
         ui.allocate_exact_size(vec2(widths[0] + widths[1] + 2.0, 22.0), Sense::hover());
@@ -364,7 +398,7 @@ pub fn line_edit(
     let response = ui.add(
         TextEdit::singleline(&mut buffer)
             .id_salt(id)
-            .hint_text(hint)
+            .hint_text(tr(hint))
             .font(font)
             .desired_width(width)
             .margin(Margin::symmetric(8, 5)),
@@ -386,7 +420,7 @@ pub fn bare_edit(
     let response = ui.add(
         TextEdit::singleline(&mut buffer)
             .id(id)
-            .hint_text(hint)
+            .hint_text(tr(hint))
             .font(font)
             .frame(egui::Frame::NONE)
             .desired_width(width),
@@ -413,7 +447,7 @@ pub fn area_edit(
             ui.add(
                 TextEdit::multiline(&mut buffer)
                     .id_salt(id)
-                    .hint_text(hint)
+                    .hint_text(tr(hint))
                     .font(font)
                     .desired_width(f32::INFINITY)
                     .desired_rows(((height - 12.0) / 16.0).max(2.0) as usize)
@@ -426,7 +460,7 @@ pub fn area_edit(
 /// A check box. Gives the new value when it was clicked.
 pub fn check(ui: &mut Ui, value: bool, label: &str, enabled: bool) -> Option<bool> {
     let mut checked = value;
-    let response = ui.add_enabled(enabled, egui::Checkbox::new(&mut checked, label));
+    let response = ui.add_enabled(enabled, egui::Checkbox::new(&mut checked, tr(label)));
     response.changed().then_some(checked)
 }
 
@@ -490,7 +524,7 @@ pub fn file_row(
     let look = cx.look();
     let c = &look.c;
     let (rect, row) = ui.allocate_exact_size(vec2(ui.available_width(), 26.0), Sense::click());
-    let body = rect.shrink2(vec2(4.0, 0.0));
+    let body = rect.shrink2(vec2(4.0, ROW_INSET));
     let hovered = ui.rect_contains_pointer(rect);
     // Moving the selection with the keyboard must bring the row into view.
     let was_selected_id = row.id.with("was_selected");
@@ -635,15 +669,6 @@ pub fn bar_with(
     add(&mut row);
 }
 
-/// A borderless label button that lights up under the pointer.
-pub fn tool_text(ui: &mut Ui, label: &str, size: f32) -> Response {
-    ui.add(
-        egui::Button::new(RichText::new(label).size(size))
-            .frame_when_inactive(false)
-            .min_size(vec2(0.0, 22.0)),
-    )
-}
-
 // ------------------------------------------------------------------ frames
 
 /// A floating surface: dialogs, menus and toasts.
@@ -689,4 +714,87 @@ pub fn centered<R>(ui: &mut Ui, rect: Rect, height: f32, add: impl FnOnce(&mut U
         ui.with_layout(egui::Layout::top_down(egui::Align::Center), add)
             .inner
     })
+}
+
+/// How far a list row's hover or selection fill stays inside the row, above and below, so that
+/// two filled rows next to each other keep a gap of twice this.
+pub const ROW_INSET: f32 = 1.0;
+
+/// Soft shadows along the edges of a scroll area where there is more to see, so that a list or
+/// a diff shows it goes on past what is visible (as in the other Craft apps).
+pub fn scroll_shadows<R>(ui: &Ui, look: &Look, out: &egui::scroll_area::ScrollAreaOutput<R>) {
+    let strength = if look.dark { 85.0 } else { 34.0 };
+    edge_shadows(ui, out, 28.0, strength);
+}
+
+/// Shades the edges of a scroll area where it goes on: `depth` pixels deep at most, starting at
+/// `strength` (alpha of black) at the edge.
+fn edge_shadows<R>(
+    ui: &Ui,
+    out: &egui::scroll_area::ScrollAreaOutput<R>,
+    depth: f32,
+    strength: f32,
+) {
+    #[derive(Clone, Copy)]
+    enum Edge {
+        Top,
+        Bottom,
+        Left,
+        Right,
+    }
+    let rect = out.inner_rect;
+    let offset = out.state.clamped_offset();
+    let max = (out.content_size - rect.size()).max(Vec2::ZERO);
+    let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+    // An eased (quadratic) fall-off over several strips, so that no edge shows.
+    const STEPS: usize = 10;
+    let shade = |edge: Edge| {
+        let depth = match edge {
+            Edge::Top | Edge::Bottom => depth.min(rect.height() / 3.0),
+            Edge::Left | Edge::Right => depth.min(rect.width() / 3.0),
+        };
+        let mut mesh = egui::Mesh::default();
+        for k in 0..=STEPS {
+            let t = k as f32 / STEPS as f32;
+            let color = Color32::from_black_alpha((strength * (1.0 - t) * (1.0 - t)) as u8);
+            let (a, b) = match edge {
+                Edge::Top => {
+                    let y = rect.top() + depth * t;
+                    (Pos2::new(rect.left(), y), Pos2::new(rect.right(), y))
+                }
+                Edge::Bottom => {
+                    let y = rect.bottom() - depth * t;
+                    (Pos2::new(rect.left(), y), Pos2::new(rect.right(), y))
+                }
+                Edge::Left => {
+                    let x = rect.left() + depth * t;
+                    (Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom()))
+                }
+                Edge::Right => {
+                    let x = rect.right() - depth * t;
+                    (Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom()))
+                }
+            };
+            mesh.colored_vertex(a, color);
+            mesh.colored_vertex(b, color);
+            if k > 0 {
+                let n = (k * 2) as u32;
+                mesh.add_triangle(n - 2, n - 1, n);
+                mesh.add_triangle(n - 1, n, n + 1);
+            }
+        }
+        painter.add(egui::Shape::mesh(mesh));
+    };
+    if max.y > 0.5 && offset.y > 0.5 {
+        shade(Edge::Top);
+    }
+    if max.y > 0.5 && offset.y < max.y - 0.5 {
+        shade(Edge::Bottom);
+    }
+    if max.x > 0.5 && offset.x > 0.5 {
+        shade(Edge::Left);
+    }
+    if max.x > 0.5 && offset.x < max.x - 0.5 {
+        shade(Edge::Right);
+    }
 }

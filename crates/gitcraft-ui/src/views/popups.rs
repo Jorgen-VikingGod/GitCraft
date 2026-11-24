@@ -52,10 +52,21 @@ pub fn form(ctx: &Context, cx: &Cx, form: &Form) {
                         let kind = if form.danger {
                             Kind::Danger
                         } else {
-                            Kind::Primary
+                            Kind::Accent
                         };
                         if button(ui, look, &form.ok, kind, form.can_submit()) {
                             cx.send(Message::FormSubmit);
+                        }
+                        // Laid out from the right: the first choice sits next to OK.
+                        for (index, choice) in form.choices.iter().enumerate() {
+                            let kind = if choice.danger {
+                                Kind::Danger
+                            } else {
+                                Kind::Normal
+                            };
+                            if button(ui, look, &choice.label, kind, true) {
+                                cx.send(Message::FormChoice(index));
+                            }
                         }
                         if btn(ui, look, "Cancel", true) {
                             cx.send(Message::FormCancel);
@@ -168,6 +179,7 @@ fn entries(ui: &mut Ui, cx: &Cx, items: &[MenuItem]) {
                 label,
                 message,
                 danger,
+                ..
             } => {
                 let mut text = RichText::new(label.as_str()).size(13.0);
                 if *danger {

@@ -474,6 +474,14 @@ pub async fn blame(repo: &str, path: &str, rev: Option<&str>) -> Result<Vec<Blam
     Ok(parsers::parse_blame(&result.out()))
 }
 
+/// The diff tools (`merge`: the merge tools) git can start here: installed ones that open a
+/// window, and those set up in git's config. `cwd` may be any folder.
+pub async fn external_tools(cwd: &str, merge: bool) -> Result<Vec<ExternalTool>> {
+    let command = if merge { "mergetool" } else { "difftool" };
+    let result = git_unchecked(cwd, &[command, "--tool-help"]).await?;
+    Ok(parsers::parse_tool_help(&result.out()))
+}
+
 pub async fn head_message(repo: &str) -> Result<String> {
     let result = git_unchecked(repo, &["log", "-1", "--format=%B"]).await?;
     Ok(if result.code == 0 {

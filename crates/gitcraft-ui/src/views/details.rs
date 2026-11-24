@@ -4,13 +4,14 @@ use egui::{Align, Align2, Color32, Label, Layout, Margin, RichText, Sense, Ui, v
 use gitcraft_core::model::FileChange;
 
 use super::widgets::{
-    GRIP, badge, btn, danger_text, file_row, fill, heading, hline, mono, muted, placeholder,
-    primary, region, scroll, split_x, splitter, text,
+    GRIP, accent, badge, btn, danger, file_row, fill, heading, hline, mono, muted, placeholder,
+    region, scroll, split_x, splitter, text,
 };
 use super::{Cx, diff};
 use crate::actions::{Action, MenuRequest};
 use crate::app::{Message, PaneKey, RepoTab, Splitter};
 use crate::command::Command;
+use crate::i18n::{tr, trf};
 use crate::logic::{full_date, initials, name_hue, plural, short_sha};
 
 fn files(
@@ -27,7 +28,7 @@ fn files(
         ui.horizontal(|ui| {
             ui.add_space(14.0);
             ui.label(
-                RichText::new(empty)
+                RichText::new(tr(empty))
                     .size(13.0)
                     .italics()
                     .color(cx.c().text_muted),
@@ -35,7 +36,7 @@ fn files(
         });
         return;
     }
-    scroll(("files", id)).show(ui, |ui| {
+    let scrolled = scroll(("files", id)).show(ui, |ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
         for file in list {
             let row = file_row(ui, cx, file, selected == Some(file.path.as_str()), None);
@@ -52,6 +53,7 @@ fn files(
             }
         }
     });
+    super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
 }
 
 fn with_diff(ui: &mut Ui, cx: &Cx, tab: &RepoTab, empty: &str, left: impl FnOnce(&mut Ui)) {
@@ -60,6 +62,7 @@ fn with_diff(ui: &mut Ui, cx: &Cx, tab: &RepoTab, empty: &str, left: impl FnOnce
     let width = cx
         .app
         .settings
+        .layout
         .details_width
         .min(area.width() - 200.0)
         .max(120.0);
@@ -117,7 +120,7 @@ fn avatar(ui: &mut Ui, cx: &Cx, name: &str) {
 /// How tall the part above the file list may get: just over half of the pane.
 fn meta_height(cx: &Cx) -> f32 {
     let app = cx.app;
-    let pane = app.window.y - app.settings.history_height - 150.0;
+    let pane = app.window.y - app.settings.layout.history_height - 150.0;
     (pane * 0.55).max(120.0)
 }
 
@@ -128,7 +131,7 @@ fn fact(ui: &mut Ui, cx: &Cx, label: &str, value: impl FnOnce(&mut Ui)) {
         ui.painter().text(
             rect.left_center(),
             Align2::LEFT_CENTER,
-            label,
+            tr(label),
             cx.look().ui(12.0),
             cx.c().text_muted,
         );
@@ -156,13 +159,13 @@ pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         return;
     };
     let empty = if detail.files.is_empty() {
-        "This commit has no file changes"
+        tr("This commit has no file changes")
     } else {
-        "Select a file to see its changes"
+        tr("Select a file to see its changes")
     };
     with_diff(ui, cx, tab, empty, |ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-        scroll(("meta", &detail.sha))
+        let scrolled = scroll(("meta", &detail.sha))
             .auto_shrink([false, true])
             .max_height(meta_height(cx))
             .show(ui, |ui| {
@@ -213,14 +216,14 @@ pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                             ui,
                             cx,
                             if detail.parents.len() > 1 {
-                                "Parents"
+                                tr("Parents")
                             } else {
-                                "Parent"
+                                tr("Parent")
                             },
                             |ui| {
                                 ui.spacing_mut().item_spacing.x = 6.0;
                                 if detail.parents.is_empty() {
-                                    mono(ui, "(root commit)", 12.0, c.text);
+                                    mono(ui, tr("(root commit)"), 12.0, c.text);
                                 }
                                 for parent in &detail.parents {
                                     let response = ui.add(
@@ -256,6 +259,7 @@ pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                         }
                     });
             });
+        super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
         hline(ui, look);
         ui.add_space(8.0);
         ui.horizontal(|ui| {
@@ -263,14 +267,17 @@ pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
             heading(
                 ui,
                 look,
-                &format!("{} changed", plural(detail.files.len(), "file")),
+                &trf(
+                    "{files} changed",
+                    &[("files", &plural(detail.files.len(), "file"))],
+                ),
             );
         });
         ui.add_space(4.0);
         if detail.parents.len() > 1 {
             ui.horizontal(|ui| {
                 ui.add_space(14.0);
-                muted(ui, look, "(compared to first parent)", 12.0);
+                muted(ui, look, tr("(compared to first parent)"), 12.0);
             });
         }
         files(
@@ -303,7 +310,7 @@ pub fn compare(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
             .inner_margin(Margin::symmetric(14, 12))
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                text(ui, "Comparing commits", 13.0, c.text);
+                text(ui, tr("Comparing commits"), 13.0, c.text);
                 for (prefix, sha) in [("", &state.base), ("→", &state.target)] {
                     ui.horizontal(|ui| {
                         muted(ui, look, prefix, 12.0);
@@ -315,10 +322,12 @@ pub fn compare(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                     muted(
                         ui,
                         look,
-                        format!(
-                            "{} only in target, {} only in base",
-                            plural(result.target_only as usize, "commit"),
-                            result.base_only
+                        trf(
+                            "{commits} only in target, {count} only in base",
+                            &[
+                                ("commits", &plural(result.target_only as usize, "commit")),
+                                ("count", &result.base_only.to_string()),
+                            ],
                         ),
                         12.0,
                     );
@@ -379,7 +388,7 @@ pub fn stash(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                     12.0,
                 );
                 ui.horizontal(|ui| {
-                    if primary(ui, look, "Apply", true) {
+                    if accent(ui, look, "Apply", true) {
                         cx.send(Message::Run(Command::StashApply {
                             name: stash.name.clone(),
                             pop: false,
@@ -392,7 +401,7 @@ pub fn stash(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                         }));
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if danger_text(ui, look, "Drop…", true) {
+                        if danger(ui, look, "Drop…", true) {
                             cx.send(Message::Action(Action::DropStash(stash.name.clone())));
                         }
                     });

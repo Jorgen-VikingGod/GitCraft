@@ -227,6 +227,77 @@ pub async fn checkout(repo: &str, reference: &str, kind: &str) -> Result<OpResul
     check_ref(reference)?;
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    switch_to(repo, reference, kind).await
+}
+
+/// Checks out `reference` with uncommitted changes in the way: they are put in a stash first.
+/// `reapply` brings them back on the new branch; if they conflict there, the conflicts are
+/// reported and the stash is kept. Without it they stay in the stash, so they can still be
+/// restored. If the checkout itself fails, the changes are put back where they were.
+pub async fn checkout_stashing(
+    repo: &str,
+    reference: &str,
+    kind: &str,
+    reapply: bool,
+) -> Result<OpResult> {
+    check_ref(reference)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let note = format!("GitCraft: uncommitted changes before checking out {reference}");
+    let top = async || {
+        git_unchecked(repo, &["rev-parse", "-q", "--verify", "refs/stash"])
+            .await
+            .map(|result| result.out().trim().to_owned())
+    };
+    // Where HEAD is: its name ("HEAD" when detached) and its commit, so that a detached
+    // checkout of another commit is seen too.
+    let head = async || -> Result<(String, String)> {
+        let name = git(repo, &["rev-parse", "--symbolic-full-name", "HEAD"]).await?;
+        let commit = git(repo, &["rev-parse", "--verify", "HEAD"]).await?;
+        Ok((name.out().trim().to_owned(), commit.out().trim().to_owned()))
+    };
+    let before = top().await?;
+    let start = head().await?;
+    git(repo, &["stash", "push", "-m", &note]).await?;
+    // With nothing to save git makes no stash, and none must be popped later.
+    let made = top().await? != before;
+    let switched = match switch_to(repo, reference, kind).await {
+        Ok(switched) => switched,
+        Err(error) => {
+            // A failing post-checkout hook reports an error after the switch was made: then the
+            // changes stay in the stash rather than landing on the other branch.
+            if made && head().await? == start {
+                git(repo, &["stash", "pop", "--index"]).await?;
+            }
+            return Err(error);
+        }
+    };
+    if !reapply || !made {
+        return Ok(switched);
+    }
+    if git_unchecked(repo, &["stash", "pop", "--index"])
+        .await?
+        .code
+        == 0
+    {
+        return Ok(switched);
+    }
+    // The staged part couldn't be restored as staged: apply it all as plain changes.
+    let popped = git_unchecked(repo, &["stash", "pop"]).await?;
+    if popped.code == 0 {
+        return Ok(ok(&popped));
+    }
+    let status = queries::status(repo).await?;
+    Ok(OpResult {
+        ok: false,
+        conflicts: !status.conflicts.is_empty(),
+        message: popped.output(),
+        operation: None,
+        files: None,
+    })
+}
+
+async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> {
     let result = match kind {
         "remote" => {
             let local = reference
@@ -1007,7 +1078,7 @@ pub async fn resolve_conflict(
                          Take one side, or resolve it in another editor and mark it as resolved.",
                 );
             }
-            std::fs::write(target, content)?;
+            craft_atomic::atomic_write(&target, content.as_bytes())?;
         }
         _ => {
             if !safe_path(repo, path)?.exists() {
@@ -1016,6 +1087,97 @@ pub async fn resolve_conflict(
         }
     }
     Ok(ok(&git(repo, &["add", "--", path]).await?))
+}
+
+// --------------------------------------------------------- external tools
+
+/// A tool name as git uses it: no spaces, nothing git would read as an option.
+fn tool_name(tool: &str) -> Result<&str> {
+    let fits = !tool.is_empty()
+        && !tool.starts_with('-')
+        && tool
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
+    if fits {
+        Ok(tool)
+    } else {
+        invalid(format!("Not a tool name: {tool}"))
+    }
+}
+
+/// Shows a file's change in an external diff tool, and returns once the tool is closed.
+/// Nothing in the repository changes, so this doesn't hold its lock.
+pub async fn open_diff_tool(
+    repo: &str,
+    tool: &str,
+    path: &str,
+    orig: Option<&str>,
+    target: &ToolTarget,
+) -> Result<OpResult> {
+    let tool = format!("--tool={}", tool_name(tool)?);
+    safe_path(repo, path)?;
+    let mut revisions = Vec::new();
+    match target {
+        ToolTarget::Working { staged } => {
+            if *staged {
+                revisions.push("--cached".to_owned());
+            }
+        }
+        ToolTarget::Commit { sha } => {
+            let sha = check_ref(sha)?;
+            let parent = format!("{sha}^1");
+            let has_parent = git_unchecked(repo, &["rev-parse", "-q", "--verify", &parent])
+                .await?
+                .code
+                == 0;
+            // A first commit is compared with the empty tree.
+            let base = if has_parent {
+                parent
+            } else {
+                empty_tree(repo).await?
+            };
+            revisions.extend([base, sha.to_owned()]);
+        }
+        ToolTarget::Compare { base, target } => {
+            revisions.extend([check_ref(base)?.to_owned(), check_ref(target)?.to_owned()]);
+        }
+    }
+    let mut args = vec!["difftool", "--no-prompt", &tool];
+    args.extend(revisions.iter().map(String::as_str));
+    args.push("--");
+    args.extend(orig.filter(|orig| *orig != path));
+    args.push(path);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// The id of the empty tree in this repository's hash.
+async fn empty_tree(repo: &str) -> Result<String> {
+    let options = Options {
+        stdin: Some(b""),
+        ..Options::default()
+    };
+    let result = run(repo, &["hash-object", "-t", "tree", "--stdin"], options).await?;
+    Ok(result.out().trim().to_owned())
+}
+
+/// Resolves a conflicted file in an external merge tool, and returns once the tool is closed.
+/// Git marks the file as resolved when the tool reports success; without the `.orig` copy
+/// git would otherwise leave beside it.
+pub async fn open_merge_tool(repo: &str, tool: &str, path: &str) -> Result<OpResult> {
+    let tool = format!("--tool={}", tool_name(tool)?);
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let args = [
+        "-c",
+        "mergetool.keepBackup=false",
+        "mergetool",
+        "--no-prompt",
+        &tool,
+        "--",
+        path,
+    ];
+    Ok(ok(&git(repo, &args).await?))
 }
 
 // ----------------------------------------------------------- misc tools
@@ -1087,7 +1249,7 @@ pub async fn add_to_gitignore(repo: &str, pattern: &str) -> Result<OpResult> {
     }
     updated.extend_from_slice(pattern.as_bytes());
     updated.push(b'\n');
-    std::fs::write(&path, updated)?;
+    craft_atomic::atomic_write(&path, &updated)?;
     // Ignoring a tracked file has no effect unless it is removed from the index.
     let target = pattern.trim_start_matches('/');
     let tracked = git_unchecked(repo, &["ls-files", "--", target]).await?;
