@@ -1727,6 +1727,24 @@ fn settings(ctx: &Context, cx: &Cx) {
                         placeholder(ui, look, "Loading…");
                         return;
                     }
+                    ui.horizontal(|ui| {
+                        ui.label(tr("Git program"));
+                        let (response, changed) = line_edit(
+                            ui,
+                            "git-program",
+                            &state.program,
+                            "git on PATH",
+                            230.0,
+                            look.ui(look.text_size),
+                        );
+                        if let Some(text) = changed {
+                            cx.send(Message::GitProgramInput(text));
+                        }
+                        // Checked and taken once typing is done.
+                        if response.lost_focus() && state.program != values.general.git_program {
+                            cx.send(Message::SetGitProgram(state.program.clone()));
+                        }
+                    });
                     Grid::new("git-config")
                         .num_columns(2)
                         .spacing([24.0, 8.0])

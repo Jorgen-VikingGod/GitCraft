@@ -89,6 +89,24 @@ pub struct Options<'a> {
 }
 
 static EDITOR_EXE: OnceLock<PathBuf> = OnceLock::new();
+/// The git program chosen in the settings; `None` finds `git` on PATH.
+static GIT_PROGRAM: LazyLock<RwLock<Option<PathBuf>>> = LazyLock::new(Default::default);
+
+/// Uses this git program from now on; `None` (or an empty path) goes back to `git` on PATH.
+pub fn set_git_program(program: Option<PathBuf>) {
+    *GIT_PROGRAM
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+        program.filter(|path| !path.as_os_str().is_empty());
+}
+
+fn git_program() -> PathBuf {
+    GIT_PROGRAM
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("git"))
+}
 static CHILD_ENV: LazyLock<RwLock<ChildEnv>> = LazyLock::new(Default::default);
 
 /// Changes to the environment git runs in, on top of what this process inherited.
@@ -142,7 +160,7 @@ pub fn editor_command(extra: &[&str]) -> String {
 }
 
 fn prepare(cwd: &str, args: &[&str], options: &Options<'_>) -> Command {
-    let mut command = Command::new("git");
+    let mut command = Command::new(git_program());
     apply_child_env(&mut command);
     command
         .args(["-c", "color.ui=false", "-c", "core.quotepath=false"])
@@ -313,10 +331,21 @@ pub fn repo_lock(repo: &str) -> Arc<Mutex<()>> {
 
 /// The installed git's version, or an explanation for the user.
 pub fn check_git() -> Result<(u32, u32), String> {
-    let output = std::process::Command::new("git")
+    check_git_at(&git_program())
+}
+
+/// The version of the git program at `program`, or an explanation for the user.
+pub fn check_git_at(program: &std::path::Path) -> Result<(u32, u32), String> {
+    let output = std::process::Command::new(program)
         .arg("--version")
         .output()
-        .map_err(|_| "git was not found on PATH; install git and try again".to_owned())?;
+        .map_err(|_| {
+            if program == std::path::Path::new("git") {
+                "git was not found on PATH; install git and try again".to_owned()
+            } else {
+                format!("{} can't be started", program.display())
+            }
+        })?;
     let text = String::from_utf8_lossy(&output.stdout);
     let version = parse_git_version(&text)
         .ok_or_else(|| format!("could not read the git version from: {text}"))?;
@@ -340,6 +369,20 @@ fn parse_git_version(text: &str) -> Option<(u32, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_git_program_that_isnt_there_is_explained() {
+        let missing = std::path::Path::new("/nowhere/at/all/git");
+        assert!(
+            check_git_at(missing)
+                .unwrap_err()
+                .contains("can't be started")
+        );
+        assert!(
+            check_git_at(std::path::Path::new("git")).is_ok(),
+            "the one on PATH"
+        );
+    }
 
     #[test]
     fn reads_git_versions() {

@@ -32,12 +32,15 @@ pub struct Settings {
 pub struct General {
     /// A language code such as `de`, or `auto` for the system's language.
     pub language: String,
+    /// The git program to run; empty finds `git` on PATH.
+    pub git_program: String,
 }
 
 impl Default for General {
     fn default() -> Self {
         Self {
             language: crate::i18n::AUTO.to_owned(),
+            git_program: String::new(),
         }
     }
 }

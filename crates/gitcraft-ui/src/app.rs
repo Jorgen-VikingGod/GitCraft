@@ -1046,6 +1046,10 @@ pub enum Message {
     SetLogLimit(String),
     SetFetchOnOpen(bool),
     SetConflictCheck(bool),
+    /// A git program to use instead of the one on PATH (empty goes back to that).
+    SetGitProgram(String),
+    GitProgramInput(String),
+    GitProgramChecked(String, Result<(u32, u32), String>),
     /// Settings › Git: everywhere (false) or for this repository (true).
     GitConfigScope(bool),
     GitConfigLoaded(bool, Answer<std::collections::BTreeMap<String, String>>),
@@ -2801,6 +2805,49 @@ impl App {
                 }
                 Task::batch(reloads)
             }
+            Message::SetGitProgram(path) => {
+                let path = path.trim().to_owned();
+                Task::perform(
+                    async move {
+                        let program = if path.is_empty() {
+                            "git".to_owned()
+                        } else {
+                            path.clone()
+                        };
+                        let checked = tokio::task::spawn_blocking(move || {
+                            gitcraft_core::runner::check_git_at(std::path::Path::new(&program))
+                        })
+                        .await
+                        .unwrap_or_else(|error| Err(error.to_string()));
+                        (path, checked)
+                    },
+                    |(path, checked)| Message::GitProgramChecked(path, checked),
+                )
+            }
+            Message::GitProgramInput(text) => {
+                self.git_config.program = text;
+                Task::none()
+            }
+            Message::GitProgramChecked(path, checked) => match checked {
+                // Only a git that works (and is new enough) is taken.
+                Ok((major, minor)) => {
+                    gitcraft_core::runner::set_git_program(Some(std::path::PathBuf::from(&path)));
+                    self.settings.general.git_program = path;
+                    self.save_settings();
+                    let version = format!("{major}.{minor}");
+                    self.toast(
+                        ToastKind::Success,
+                        trf("Using git {version}", &[("version", &version)]),
+                        None,
+                    );
+                    Task::done(Message::Refresh)
+                }
+                Err(problem) => {
+                    self.toast(ToastKind::Error, "That git can't be used", Some(problem));
+                    self.git_config.program = self.settings.general.git_program.clone();
+                    Task::none()
+                }
+            },
             Message::SetConflictCheck(value) => {
                 self.settings.history.conflict_check = value;
                 self.save_settings();
@@ -3220,6 +3267,7 @@ impl App {
         self.git_config = GitConfigState {
             here: repo.is_some(),
             loading: true,
+            program: self.settings.general.git_program.clone(),
             ..GitConfigState::default()
         };
         let here = repo.is_some();
@@ -4806,6 +4854,8 @@ pub struct GitConfigState {
     pub values: std::collections::BTreeMap<String, String>,
     pub edits: std::collections::BTreeMap<String, String>,
     pub loading: bool,
+    /// The git program's path as being typed.
+    pub program: String,
 }
 
 impl GitConfigState {

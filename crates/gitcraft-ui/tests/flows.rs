@@ -3434,3 +3434,17 @@ async fn git_settings_are_changed_for_this_repository_in_settings() {
             .all(|line| !line.starts_with("rerere."))
     );
 }
+
+#[tokio::test]
+async fn a_git_program_that_cant_run_is_refused() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSettings).await;
+    drive(
+        &mut app,
+        Message::SetGitProgram("/nowhere/at/all/git".into()),
+    )
+    .await;
+    assert_eq!(app.settings.general.git_program, "", "kept as it was");
+    assert!(toast_kinds(&app).contains(&ToastKind::Error));
+}

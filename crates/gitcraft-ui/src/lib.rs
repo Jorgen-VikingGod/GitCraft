@@ -29,6 +29,9 @@ pub fn run() -> eframe::Result {
     let dir = gitcraft_core::store::config_dir();
     let saved = settings::Settings::load(&dir);
     i18n::set_language(&saved.general.language);
+    gitcraft_core::runner::set_git_program(Some(std::path::PathBuf::from(
+        &saved.general.git_program,
+    )));
     let frame = window::decide(saved.appearance.system_title_bar);
     let desktop = appearance::Desktop::start();
     let options = eframe::NativeOptions {

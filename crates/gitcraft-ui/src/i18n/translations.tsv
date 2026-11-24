@@ -344,6 +344,8 @@ Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
 Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
 Git	Git	Git	Git
+git on PATH	git aus PATH	git du PATH	git del PATH
+Git program	Git-Programm	Programme git	Programa git
 Git settings saved	Git-Einstellungen gespeichert	Réglages git enregistrés	Ajustes de git guardados
 Git's default, such as main	Standard von git, etwa main	Celle par défaut de git, par exemple main	La predeterminada de git, como main
 Give at least one folder or pattern, or turn sparse checkout off	Gib mindestens einen Ordner oder ein Muster an oder schalte Sparse-Checkout aus	Indiquez au moins un dossier ou un motif, ou désactivez l’extraction partielle	Indica al menos una carpeta o un patrón, o desactiva el checkout parcial
@@ -783,6 +785,7 @@ Take this file from the stash	Diese Datei aus dem Stash holen	Récupérer ce fic
 Taking the file from the stash	Datei wird aus dem Stash geholt	Récupération du fichier de la remise	Tomando el archivo del stash
 Test the commit checked out ({commit}), then mark it. {good} good so far.	Teste den ausgecheckten Commit ({commit}) und markiere ihn. Bisher {good} gut.	Testez le commit extrait ({commit}), puis marquez-le. {good} bons jusqu’ici.	Prueba el commit extraído ({commit}) y márcalo. {good} buenos hasta ahora.
 Text a commit added or removed	Text, den ein Commit hinzugefügt oder entfernt hat	Texte qu’un commit a ajouté ou supprimé	Texto que un commit añadió o eliminó
+That git can't be used	Dieses git lässt sich nicht verwenden	Ce git ne peut pas être utilisé	Ese git no se puede usar
 The branch has changed since this plan was made; open the editor again	Der Branch hat sich geändert, seit dieser Plan erstellt wurde; öffne den Editor erneut	La branche a changé depuis la création de ce plan ; rouvrez l’éditeur	La rama ha cambiado desde que se hizo este plan; vuelve a abrir el editor
 The commit can't move further that way	Der Commit lässt sich nicht weiter in diese Richtung verschieben	Le commit ne peut pas aller plus loin dans ce sens	El commit no puede moverse más en esa dirección
 The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.	Der aktuelle Branch wird auf {source} zurückgesetzt. Lokale Commits und nicht committete Änderungen werden verworfen.	La branche actuelle sera réinitialisée à {source}. Les commits locaux et les modifications non validées sont supprimés.	La rama actual se restablecerá a {source}. Se descartan los commits locales y los cambios sin commit.
@@ -859,6 +862,7 @@ Use the commit	Den Commit verwenden	Utiliser le commit	Usar el commit
 Use the commit, edit its message	Den Commit verwenden, seine Nachricht bearbeiten	Utiliser le commit, modifier son message	Usar el commit y editar su mensaje
 Use their file	Ihre Datei verwenden	Utiliser leur fichier	Usar su archivo
 Use theirs	Ihre verwenden	Utiliser le leur	Usar lo suyo
+Using git {version}	git {version} wird verwendet	git {version} est utilisé	Se usa git {version}
 View	Ansicht	Affichage	Ver
 Window	Fenster	Fenêtre	Ventana
 Working directory	Arbeitsverzeichnis	Répertoire de travail	Directorio de trabajo
