@@ -2827,3 +2827,54 @@ async fn the_history_is_filtered_and_the_filter_cleared() {
     assert!(app.current().unwrap().history_filter.is_none());
     assert_eq!(app.current().unwrap().commits.len(), all);
 }
+
+#[tokio::test]
+async fn a_branch_is_hidden_from_the_graph_and_remembered() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let root = f.git(&["rev-list", "--max-parents=0", "HEAD"]);
+    f.git(&["switch", "-q", "-c", "topic", root.trim()]);
+    f.commit("t.txt", "t\n", "topic work");
+    f.git(&["switch", "-q", "main"]);
+    let mut app = opened(&f, false).await;
+    assert!(
+        app.current()
+            .unwrap()
+            .commits
+            .iter()
+            .any(|c| c.subject == "topic work")
+    );
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/topic".into())),
+    )
+    .await;
+    assert!(
+        !app.current()
+            .unwrap()
+            .commits
+            .iter()
+            .any(|c| c.subject == "topic work")
+    );
+    assert!(Screen::new().show(&app).has("hidden: topic"));
+    let path = app.current().unwrap().path.clone();
+    assert!(
+        app.settings.graph.views.contains_key(&path),
+        "remembered for the repository"
+    );
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Solo("refs/heads/topic".into())),
+    )
+    .await;
+    let subjects: Vec<&str> = app
+        .current()
+        .unwrap()
+        .commits
+        .iter()
+        .map(|c| c.subject.as_str())
+        .collect();
+    assert_eq!(subjects, ["topic work", "first commit"]);
+    drive(&mut app, Message::RefVisibility(RefVisibility::ShowAll)).await;
+    assert!(!app.settings.graph.views.contains_key(&path));
+}

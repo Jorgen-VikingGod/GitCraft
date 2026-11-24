@@ -153,17 +153,55 @@ pub async fn log(
     all_refs: bool,
     reference: Option<&str>,
 ) -> Result<LogPage> {
-    log_filtered(repo, limit, all_refs, reference, &LogFilter::default()).await
+    log_filtered(
+        repo,
+        limit,
+        all_refs,
+        reference,
+        &LogFilter::default(),
+        &RefView::default(),
+    )
+    .await
 }
 
-/// The history, only with the commits `filter` lets through.
+/// The history, only with the commits `filter` lets through; for all branches, without the
+/// ones `view` hides (or only those it solos). Refs that no longer exist are ignored.
 pub async fn log_filtered(
     repo: &str,
     limit: usize,
     all_refs: bool,
     reference: Option<&str>,
     filter: &LogFilter,
+    view: &RefView,
 ) -> Result<LogPage> {
+    let existing: Vec<String> = if all_refs && reference.is_none() && !view.is_empty() {
+        let listed = git(
+            repo,
+            &[
+                "for-each-ref",
+                "--format=%(refname)",
+                "refs/heads/",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+        .await?;
+        listed.out().lines().map(str::to_owned).collect()
+    } else {
+        Vec::new()
+    };
+    let solo: Vec<&str> = view
+        .solo
+        .iter()
+        .filter(|name| existing.contains(name))
+        .map(String::as_str)
+        .collect();
+    let excludes: Vec<String> = view
+        .hidden
+        .iter()
+        .filter(|name| existing.contains(name))
+        .map(|name| format!("--exclude={name}"))
+        .collect();
     let max_count = format!("--max-count={}", limit + 1);
     let mut args = vec![
         "log",
@@ -187,7 +225,12 @@ pub async fn log_filtered(
     }
     if let Some(reference) = reference {
         args.push(check_ref(reference)?);
+    } else if all_refs && !solo.is_empty() {
+        for name in &solo {
+            args.push(check_ref(name)?);
+        }
     } else if all_refs {
+        args.extend(excludes.iter().map(String::as_str));
         args.extend(HIDDEN_REFS);
         args.push("--all");
     }

@@ -63,6 +63,45 @@ fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     } else {
         width_for(tab.graph_lanes)
     };
+    let view = &tab.ref_view;
+    if !view.is_empty() && tab.search.is_none() && tab.all_branches {
+        let short = |name: &String| {
+            name.strip_prefix("refs/heads/")
+                .or_else(|| name.strip_prefix("refs/remotes/"))
+                .unwrap_or(name)
+                .to_owned()
+        };
+        let summary = if view.solo.is_empty() {
+            trf(
+                "{branches} hidden: {names}",
+                &[
+                    ("branches", &plural(view.hidden.len(), "branch")),
+                    (
+                        "names",
+                        &view.hidden.iter().map(short).collect::<Vec<_>>().join(", "),
+                    ),
+                ],
+            )
+        } else {
+            trf(
+                "Only {names}",
+                &[(
+                    "names",
+                    &view.solo.iter().map(short).collect::<Vec<_>>().join(", "),
+                )],
+            )
+        };
+        super::widgets::bar(ui, 29.0, c.accent_soft, 10.0, |ui| {
+            icon::icon(ui, "branch", 13.0, c.text_muted);
+            text(ui, summary, 12.0, c.text);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if btn(ui, look, "Show all branches", true) {
+                    cx.send(Message::RefVisibility(crate::app::RefVisibility::ShowAll));
+                }
+            });
+        });
+        hline(ui, look);
+    }
     if let Some(filter) = tab.history_filter.as_ref().filter(|_| tab.search.is_none()) {
         let mut parts = Vec::new();
         if !filter.author.trim().is_empty() {

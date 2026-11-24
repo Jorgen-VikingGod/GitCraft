@@ -21,6 +21,7 @@ pub struct Settings {
     pub pull: Pull,
     pub rebase: Rebase,
     pub commit: Commit,
+    pub graph: Graph,
     pub layout: Layout,
     pub session: Session,
 }
@@ -120,6 +121,13 @@ impl Default for Pull {
             backup: true,
         }
     }
+}
+
+/// Branches hidden from or soloed in the graph, by repository path.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Graph {
+    pub views: std::collections::BTreeMap<String, gitcraft_core::model::RefView>,
 }
 
 /// The commit box's options, remembered for the next commit.
@@ -244,6 +252,7 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
     Ok(Settings {
         general: General::default(),
         commit: Commit::default(),
+        graph: Graph::default(),
         appearance: Appearance {
             theme: old.theme,
             zoom: old.zoom,

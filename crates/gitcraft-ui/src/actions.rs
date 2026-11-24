@@ -1599,9 +1599,44 @@ fn local_ref_items(tab: &RepoTab, branch: &LocalBranch) -> Vec<MenuItem> {
             !branch.current,
             act(Action::DeleteBranch(name.clone())),
         ),
-        MenuItem::entry("Copy branch name", Message::Copy(name)),
+        MenuItem::Separator,
     ]);
+    items.extend(visibility_items(tab, &format!("refs/heads/{name}")));
+    items.push(MenuItem::entry("Copy branch name", Message::Copy(name)));
     items
+}
+
+/// Hide or solo a branch in the graph of all branches.
+fn visibility_items(tab: &RepoTab, full: &str) -> Vec<MenuItem> {
+    use crate::app::RefVisibility;
+    let view = &tab.ref_view;
+    let hidden = view.hidden.iter().any(|name| name == full);
+    let solo = view.solo.iter().any(|name| name == full);
+    let change = |change| Message::RefVisibility(change);
+    vec![
+        if hidden {
+            MenuItem::entry(
+                "Show in graph",
+                change(RefVisibility::Show(full.to_owned())),
+            )
+        } else {
+            MenuItem::entry(
+                "Hide in graph",
+                change(RefVisibility::Hide(full.to_owned())),
+            )
+        },
+        if solo {
+            MenuItem::entry(
+                "Stop soloing",
+                change(RefVisibility::Unsolo(full.to_owned())),
+            )
+        } else {
+            MenuItem::entry(
+                "Solo in graph",
+                change(RefVisibility::Solo(full.to_owned())),
+            )
+        },
+    ]
 }
 
 fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
@@ -1665,8 +1700,13 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                     trf("Delete from {remote}…", &[("remote", &branch.remote)]),
                     act(Action::DeleteRemoteBranch(name.clone())),
                 ),
-                MenuItem::entry("Copy branch name", Message::Copy(name.clone())),
+                MenuItem::Separator,
             ]);
+            items.extend(visibility_items(tab, &format!("refs/remotes/{name}")));
+            items.push(MenuItem::entry(
+                "Copy branch name",
+                Message::Copy(name.clone()),
+            ));
             items
         }
         RefTarget::Tag(name) => {

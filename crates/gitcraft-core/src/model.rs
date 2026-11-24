@@ -324,6 +324,21 @@ impl LogFilter {
     }
 }
 
+/// Which branches the graph of all branches leaves out (`hidden`), or the only ones it shows
+/// (`solo`, which wins). Full ref names such as `refs/heads/topic`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RefView {
+    pub hidden: Vec<String>,
+    pub solo: Vec<String>,
+}
+
+impl RefView {
+    pub fn is_empty(&self) -> bool {
+        self.hidden.is_empty() && self.solo.is_empty()
+    }
+}
+
 /// A bisect in progress, read from `BISECT_LOG`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bisect {

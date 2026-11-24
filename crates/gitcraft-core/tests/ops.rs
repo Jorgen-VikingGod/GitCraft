@@ -2524,7 +2524,7 @@ async fn history_is_filtered_by_author_path_and_changed_text() {
     let filtered = |filter: LogFilter| {
         let repo = f.repo.clone();
         async move {
-            queries::log_filtered(&repo, 100, true, None, &filter)
+            queries::log_filtered(&repo, 100, true, None, &filter, &RefView::default())
                 .await
                 .unwrap()
         }
@@ -2571,9 +2571,40 @@ async fn history_is_filtered_by_author_path_and_changed_text() {
             &LogFilter {
                 path: "../outside".into(),
                 ..LogFilter::default()
-            }
+            },
+            &RefView::default(),
         )
         .await
         .is_err()
     );
+}
+
+#[tokio::test]
+async fn branches_are_hidden_from_the_graph_or_shown_alone() {
+    let f = Fixture::with_history();
+    f.git(&["switch", "-q", "-c", "topic", "HEAD~1"]);
+    f.commit("t.txt", "t\n", "topic work");
+    f.git(&["switch", "-q", "-c", "other", "main"]);
+    f.commit("o.txt", "o\n", "other work");
+    f.git(&["switch", "-q", "main"]);
+    let log = |view: RefView| {
+        let repo = f.repo.clone();
+        async move {
+            queries::log_filtered(&repo, 100, true, None, &LogFilter::default(), &view)
+                .await
+                .unwrap()
+        }
+    };
+    let hidden = log(RefView {
+        hidden: vec!["refs/heads/topic".into(), "refs/heads/gone".into()],
+        ..RefView::default()
+    })
+    .await;
+    assert_eq!(subjects(&hidden.commits), ["other work", "second", "first"]);
+    let solo = log(RefView {
+        solo: vec!["refs/heads/topic".into()],
+        ..RefView::default()
+    })
+    .await;
+    assert_eq!(subjects(&solo.commits), ["topic work", "first"]);
 }

@@ -2,6 +2,7 @@
 (empty)	(leer)	(vide)	(vacío)
 (none)	(keiner)	(aucune)	(ninguno)
 (root commit)	(Wurzel-Commit)	(commit racine)	(commit raíz)
+1 branch	1 Branch	1 branche	1 rama
 1 commit	1 Commit	1 commit	1 commit
 1 conflict	1 Konflikt	1 conflit	1 conflicto
 1 file	1 Datei	1 fichier	1 archivo
@@ -296,6 +297,7 @@ Good signature, key of unknown trust	Gültige Signatur, Schlüssel mit unbekannt
 Hard reset	Harter Reset	Réinitialisation dure	Reset duro
 Hard: discard all changes	Hart: alle Änderungen verwerfen	Dur : supprimer toutes les modifications	Duro: descartar todos los cambios
 Help	Hilfe	Aide	Ayuda
+Hide in graph	Im Graphen ausblenden	Masquer dans le graphe	Ocultar en el gráfico
 Hide Others	Andere ausblenden	Masquer les autres	Ocultar otros
 Hide {app}	{app} ausblenden	Masquer {app}	Ocultar {app}
 History of its folder	Verlauf seines Ordners	Historique de son dossier	Historial de su carpeta
@@ -416,6 +418,7 @@ One per line	Einer pro Zeile	Un par ligne	Uno por línea
 Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
 Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non suivis	Solo archivos sin seguimiento
+Only {names}	Nur {names}	Seulement {names}	Solo {names}
 Open	Öffnen	Ouvrir	Abrir
 Open a repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir un repositorio…
 Open file	Datei öffnen	Ouvrir le fichier	Abrir archivo
@@ -577,10 +580,12 @@ sha	SHA	SHA	SHA
 Short SHA	Kurzer SHA	SHA court	SHA corto
 Shortcut: {key}	Tastenkürzel: {key}	Raccourci : {key}	Atajo: {key}
 Show	Anzeigen	Afficher	Mostrar
+Show all branches	Alle Branches zeigen	Afficher toutes les branches	Mostrar todas las ramas
 Show conflicts	Konflikte anzeigen	Afficher les conflits	Mostrar conflictos
 Show data folder	Datenordner anzeigen	Afficher le dossier de données	Mostrar la carpeta de datos
 Show in Explorer	Im Explorer anzeigen	Afficher dans l’Explorateur	Mostrar en el Explorador
 Show in file manager	Im Dateimanager anzeigen	Afficher dans le gestionnaire de fichiers	Mostrar en el gestor de archivos
+Show in graph	Im Graphen zeigen	Afficher dans le graphe	Mostrar en el gráfico
 Show in history	Im Verlauf anzeigen	Afficher dans l’historique	Mostrar en el historial
 Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.	Zeigt, wie sich zwei Fassungen einer Commit-Reihe unterscheiden, etwa ein Branch vor und nach einem Rebase: welche Commits übereinstimmen, welche sich geändert haben und wie.	Montre en quoi deux versions d’une série de commits diffèrent, comme une branche avant et après un rebase : quels commits correspondent, lesquels ont changé et comment.	Muestra en qué se diferencian dos versiones de una serie de commits, como una rama antes y después de un rebase: qué commits coinciden, cuáles cambiaron y cómo.
 Shows only the commits that match every filled-in field.	Zeigt nur Commits, die zu allen ausgefüllten Feldern passen.	N’affiche que les commits qui correspondent à tous les champs remplis.	Muestra solo los commits que coinciden con todos los campos rellenados.
@@ -594,6 +599,7 @@ Skip (can't be tested)	Überspringen (nicht testbar)	Ignorer (impossible à test
 Skip commit hooks	Commit-Hooks überspringen	Ignorer les hooks de commit	Omitir los hooks de commit
 Skipping	Wird übersprungen	Saut	Omitiendo
 Soft: keep all changes staged	Weich: alle Änderungen vorgemerkt behalten	Doux : garder toutes les modifications indexées	Suave: mantener todos los cambios preparados
+Solo in graph	Allein im Graphen zeigen	Afficher seule dans le graphe	Mostrar sola en el gráfico
 Split	Geteilt	Séparé	Dividido
 Squash	Squash	Fusionner (squash)	Squash
 Squash (stage changes, do not commit)	Squash (Änderungen vormerken, nicht committen)	Squash (indexer les modifications, sans valider)	Squash (preparar los cambios, sin commit)
@@ -634,6 +640,7 @@ Stashes	Stashes	Remises	Stashes
 Stashing	Wird in den Stash gelegt	Remisage	Guardando en el stash
 Stash…	Stash…	Remiser…	Stash…
 step {step} of {total}	Schritt {step} von {total}	étape {step} sur {total}	paso {step} de {total}
+Stop soloing	Nicht mehr allein zeigen	Ne plus afficher seule	Dejar de mostrar sola
 Stop to amend the commit	Anhalten, um den Commit zu ergänzen	S’arrêter pour modifier le commit	Detenerse para enmendar el commit
 Stopped at {commit}. Amend or make changes, then continue.	Bei {commit} angehalten. Ergänze oder ändere etwas und setze dann fort.	Arrêté à {commit}. Modifiez le commit ou faites des changements, puis continuez.	Detenido en {commit}. Enmienda o haz cambios y luego continúa.
 Stopped because of conflicts. Resolve them in Local Changes.	Wegen Konflikten angehalten. Löse sie unter Lokale Änderungen.	Arrêté à cause de conflits. Résolvez-les dans Modifications locales.	Detenido por conflictos. Resuélvelos en Cambios locales.
@@ -727,10 +734,12 @@ yesterday	gestern	hier	ayer
 Zoom	Zoom	Zoom	Zoom
 Zoom in	Vergrößern	Zoom avant	Acercar
 Zoom out	Verkleinern	Zoom arrière	Alejar
+{branches} hidden: {names}	{branches} ausgeblendet: {names}	{branches} masquées : {names}	{branches} ocultas: {names}
 {branch} fast-forwarded	{branch} vorgespult	{branch} avancée rapidement	{branch} avanzada rápidamente
 {commits} matching “{query}” ({mode})	{commits} passend zu „{query}“ ({mode})	{commits} correspondant à « {query} » ({mode})	{commits} que coinciden con «{query}» ({mode})
 {commits} only in target, {count} only in base	{commits} nur im Ziel, {count} nur in der Basis	{commits} seulement dans la cible, {count} seulement dans la base	{commits} solo en el destino, {count} solo en la base
 {commit}: commits after it are rewritten.	{commit}: Die Commits danach werden neu geschrieben.	{commit} : les commits suivants sont réécrits.	{commit}: se reescriben los commits posteriores.
+{count} branches	{count} Branches	{count} branches	{count} ramas
 {count} commits	{count} Commits	{count} commits	{count} commits
 {count} conflicts	{count} Konflikte	{count} conflits	{count} conflictos
 {count} days ago	vor {count} Tagen	il y a {count} jours	hace {count} días

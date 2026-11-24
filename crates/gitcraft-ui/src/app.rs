@@ -292,6 +292,8 @@ pub struct RepoTab {
     pub bisect: Option<Bisect>,
     /// What the history is narrowed to; `None` shows everything.
     pub history_filter: Option<LogFilter>,
+    /// Branches hidden from the graph, or the only ones shown.
+    pub ref_view: RefView,
 }
 
 impl RepoTab {
@@ -339,6 +341,7 @@ impl RepoTab {
             undo: UndoLabels::default(),
             bisect: None,
             history_filter: None,
+            ref_view: RefView::default(),
             co_authors: String::new(),
             picked_commits: Vec::new(),
         }
@@ -383,6 +386,7 @@ impl RepoTab {
             limit: self.log_limit,
             all: self.all_branches,
             filter: self.history_filter.clone().unwrap_or_default(),
+            view: self.ref_view.clone(),
         }
     }
 
@@ -860,6 +864,8 @@ pub enum Message {
     SearchFocus,
     SearchDone(String, String, Answer<Vec<Commit>>),
     CompareStart(String, String),
+    /// Hides a branch from the graph, solos it, or shows everything again.
+    RefVisibility(RefVisibility),
     /// Narrows the history; `None` or an empty filter shows it all again.
     SetHistoryFilter(Option<LogFilter>),
     /// Opens the rebase editor with these commits dropped or squashed.
@@ -1402,6 +1408,39 @@ impl App {
                 self.select(sha)
             }
             Message::PlanCommits(preset) => self.plan_commits(preset),
+            Message::RefVisibility(change) => {
+                let Some(tab) = self.current_mut() else {
+                    return Task::none();
+                };
+                let view = &mut tab.ref_view;
+                match change {
+                    RefVisibility::Hide(name) => {
+                        view.solo.retain(|other| *other != name);
+                        if !view.hidden.contains(&name) {
+                            view.hidden.push(name);
+                        }
+                    }
+                    RefVisibility::Show(name) => view.hidden.retain(|other| *other != name),
+                    RefVisibility::Solo(name) => {
+                        view.hidden.retain(|other| *other != name);
+                        if !view.solo.contains(&name) {
+                            view.solo.push(name);
+                        }
+                    }
+                    RefVisibility::Unsolo(name) => view.solo.retain(|other| *other != name),
+                    RefVisibility::ShowAll => *view = RefView::default(),
+                }
+                let (path, view) = (tab.path.clone(), tab.ref_view.clone());
+                tab.loading = true;
+                let reload = load_log(path.clone(), tab.log_query());
+                if view.is_empty() {
+                    self.settings.graph.views.remove(&path);
+                } else {
+                    self.settings.graph.views.insert(path, view);
+                }
+                self.save_settings();
+                reload
+            }
             Message::SetHistoryFilter(filter) => {
                 let Some(tab) = self.current_mut() else {
                     return Task::none();
@@ -2466,6 +2505,13 @@ impl App {
         let limit = self.settings.history.log_limit;
         let mut tab = RepoTab::new(path.clone(), limit);
         tab.viewport = self.history_list_height();
+        tab.ref_view = self
+            .settings
+            .graph
+            .views
+            .get(&path)
+            .cloned()
+            .unwrap_or_default();
         self.tabs.push(tab);
         self.active = self.tabs.len() - 1;
         self.save_settings();
@@ -2483,6 +2529,13 @@ impl App {
             limit,
             all: true,
             filter: LogFilter::default(),
+            view: self
+                .settings
+                .graph
+                .views
+                .get(&path)
+                .cloned()
+                .unwrap_or_default(),
         };
         let mut tasks = vec![load_all(path, query), template];
         if self.settings.history.fetch_on_open {
@@ -4113,6 +4166,16 @@ fn scroll_to(tab: &mut RepoTab, offset: f32) {
     tab.scroll_to.set(Some(offset));
 }
 
+/// A change to which branches the graph shows (full ref names).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RefVisibility {
+    Hide(String),
+    Show(String),
+    Solo(String),
+    Unsolo(String),
+    ShowAll,
+}
+
 /// The commit box's options menu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommitOption {
@@ -4188,14 +4251,21 @@ pub struct LogQuery {
     pub limit: usize,
     pub all: bool,
     pub filter: LogFilter,
+    pub view: RefView,
 }
 
 fn load_log(path: String, query: LogQuery) -> Task<Message> {
     Task::perform(
         async move {
-            let LogQuery { limit, all, filter } = query;
-            let result = answer(queries::log_filtered(&path, limit, all, None, &filter).await)
-                .map(|page| (page.commits, page.has_more));
+            let LogQuery {
+                limit,
+                all,
+                filter,
+                view,
+            } = query;
+            let result =
+                answer(queries::log_filtered(&path, limit, all, None, &filter, &view).await)
+                    .map(|page| (page.commits, page.has_more));
             (path, result)
         },
         |(path, result)| Message::LogLoaded(path, result),
