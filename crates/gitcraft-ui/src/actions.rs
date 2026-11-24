@@ -1083,6 +1083,7 @@ impl App {
                                 subject: detail.subject,
                                 graph: None,
                                 file: None,
+                                stash: None,
                             })
                             .map_err(|error| error.to_string())
                     },

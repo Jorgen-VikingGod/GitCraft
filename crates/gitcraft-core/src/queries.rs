@@ -159,7 +159,7 @@ pub async fn log(
         all_refs,
         reference,
         &LogFilter::default(),
-        &RefView::default(),
+        &LogOptions::default(),
     )
     .await
 }
@@ -172,8 +172,9 @@ pub async fn log_filtered(
     all_refs: bool,
     reference: Option<&str>,
     filter: &LogFilter,
-    view: &RefView,
+    options: &LogOptions,
 ) -> Result<LogPage> {
+    let view = &options.view;
     let existing: Vec<String> = if all_refs && reference.is_none() && !view.is_empty() {
         let listed = git(
             repo,
@@ -205,7 +206,11 @@ pub async fn log_filtered(
     let max_count = format!("--max-count={}", limit + 1);
     let mut args = vec![
         "log",
-        "--topo-order",
+        if options.date_order {
+            "--date-order"
+        } else {
+            "--topo-order"
+        },
         "--decorate=full",
         LOG_FORMAT,
         &max_count,
@@ -264,11 +269,37 @@ pub async fn log_filtered(
     let mut commits = parsers::parse_log(&result.out());
     let has_more = commits.len() > limit;
     commits.truncate(limit);
+    if options.stashes && all_refs && reference.is_none() && filter.is_empty() {
+        place_stashes(repo, &mut commits).await?;
+    }
     let mut layout = Layout::new();
     for commit in &mut commits {
         commit.graph = Some(layout.push(&commit.sha, &commit.parents));
     }
     Ok(LogPage { commits, has_more })
+}
+
+/// Puts each stash right above the commit it was made on, newest first, with that commit
+/// as its only parent. Stashes on commits beyond the loaded page are left out.
+async fn place_stashes(repo: &str, commits: &mut Vec<Commit>) -> Result<()> {
+    let listed = git_unchecked(repo, &["stash", "list", LOG_FORMAT]).await?;
+    if listed.code != 0 {
+        return Ok(());
+    }
+    for (index, mut stash) in parsers::parse_log(&listed.out()).into_iter().enumerate() {
+        let Some(base) = stash.parents.first().cloned() else {
+            continue;
+        };
+        let Some(at) = commits.iter().position(|commit| commit.sha == base) else {
+            continue;
+        };
+        stash.parents = vec![base];
+        stash.refs = None;
+        stash.stash = Some(format!("stash@{{{index}}}"));
+        // Right above the commit: an older stash on the same commit lands below the newer.
+        commits.insert(at, stash);
+    }
+    Ok(())
 }
 
 pub async fn commit_detail(repo: &str, sha: &str) -> Result<CommitDetail> {

@@ -430,6 +430,7 @@ Operation paused	Vorgang angehalten	Opération en pause	Operación en pausa
 Optional description	Optionale Beschreibung	Description facultative	Descripción opcional
 Options	Optionen	Options	Opciones
 Options ({count})	Optionen ({count})	Options ({count})	Opciones ({count})
+Order the history by date instead of keeping branches together	Verlauf nach Datum ordnen, statt Branches zusammenzuhalten	Trier l’historique par date plutôt que de regrouper les branches	Ordenar el historial por fecha en lugar de agrupar las ramas
 Ours	Unsere	Le nôtre	Lo nuestro
 Ours + theirs	Unsere + ihre	Le nôtre + le leur	Lo nuestro + lo suyo
 Overwrite	Überschreiben	Écraser	Sobrescribir
@@ -587,6 +588,7 @@ Show in Explorer	Im Explorer anzeigen	Afficher dans l’Explorateur	Mostrar en e
 Show in file manager	Im Dateimanager anzeigen	Afficher dans le gestionnaire de fichiers	Mostrar en el gestor de archivos
 Show in graph	Im Graphen zeigen	Afficher dans le graphe	Mostrar en el gráfico
 Show in history	Im Verlauf anzeigen	Afficher dans l’historique	Mostrar en el historial
+Show stashes in the history	Stashes im Verlauf zeigen	Afficher les remises dans l’historique	Mostrar los stashes en el historial
 Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.	Zeigt, wie sich zwei Fassungen einer Commit-Reihe unterscheiden, etwa ein Branch vor und nach einem Rebase: welche Commits übereinstimmen, welche sich geändert haben und wie.	Montre en quoi deux versions d’une série de commits diffèrent, comme une branche avant et après un rebase : quels commits correspondent, lesquels ont changé et comment.	Muestra en qué se diferencian dos versiones de una serie de commits, como una rama antes y después de un rebase: qué commits coinciden, cuáles cambiaron y cómo.
 Shows only the commits that match every filled-in field.	Zeigt nur Commits, die zu allen ausgefüllten Feldern passen.	N’affiche que les commits qui correspondent à tous les champs remplis.	Muestra solo los commits que coinciden con todos los campos rellenados.
 Side by side	Nebeneinander	Côte à côte	En paralelo

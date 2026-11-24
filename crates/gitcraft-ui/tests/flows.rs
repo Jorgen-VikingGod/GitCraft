@@ -2878,3 +2878,22 @@ async fn a_branch_is_hidden_from_the_graph_and_remembered() {
     drive(&mut app, Message::RefVisibility(RefVisibility::ShowAll)).await;
     assert!(!app.settings.graph.views.contains_key(&path));
 }
+
+#[tokio::test]
+async fn a_stash_shows_in_the_history_and_opens_from_there() {
+    let f = fixture();
+    f.write("a.txt", "stashed\n");
+    f.git(&["stash", "push", "-q", "-m", "work aside"]);
+    let mut app = opened(&f, false).await;
+    let tab = app.current().unwrap();
+    let row = tab
+        .commits
+        .iter()
+        .find(|commit| commit.stash.is_some())
+        .expect("a stash row");
+    assert!(row.subject.contains("work aside"));
+    for message in Screen::new().click(&app, "stash@{0}", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(app.current().unwrap().view, View::Stash);
+}

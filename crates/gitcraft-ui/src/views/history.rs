@@ -444,6 +444,30 @@ fn commit_row(
     if commit.refs.as_ref().is_some_and(|refs| !refs.is_empty()) {
         x += 2.0;
     }
+    if let Some(name) = &commit.stash {
+        // A stash: its name, then its message, muted, and it opens as a stash.
+        x += paint_text(
+            &subject_painter,
+            Pos2::new(x, mid),
+            name,
+            look.mono(12.0),
+            secondary,
+        );
+        x += 8.0;
+        paint_text(
+            &subject_painter,
+            Pos2::new(x, mid),
+            &commit.subject,
+            look.ui(13.0),
+            secondary,
+        );
+        if response.clicked() || response.double_clicked() {
+            cx.send(Message::OpenStash(name.clone()));
+        } else if response.secondary_clicked() {
+            cx.send(Message::OpenMenu(MenuRequest::Stash(name.clone())));
+        }
+        return;
+    }
     if is_head {
         paint_strong(
             &subject_painter,

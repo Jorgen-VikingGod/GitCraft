@@ -294,6 +294,9 @@ pub struct RepoTab {
     pub history_filter: Option<LogFilter>,
     /// Branches hidden from the graph, or the only ones shown.
     pub ref_view: RefView,
+    /// Copies of the history settings, so the list can be reloaded from the tab alone.
+    pub date_order: bool,
+    pub show_stashes: bool,
 }
 
 impl RepoTab {
@@ -342,6 +345,8 @@ impl RepoTab {
             bisect: None,
             history_filter: None,
             ref_view: RefView::default(),
+            date_order: false,
+            show_stashes: true,
             co_authors: String::new(),
             picked_commits: Vec::new(),
         }
@@ -386,7 +391,11 @@ impl RepoTab {
             limit: self.log_limit,
             all: self.all_branches,
             filter: self.history_filter.clone().unwrap_or_default(),
-            view: self.ref_view.clone(),
+            options: LogOptions {
+                view: self.ref_view.clone(),
+                date_order: self.date_order,
+                stashes: self.show_stashes,
+            },
         }
     }
 
@@ -996,6 +1005,8 @@ pub enum Message {
     SetLogLimit(String),
     SetFetchOnOpen(bool),
     SetConflictCheck(bool),
+    SetDateOrder(bool),
+    SetShowStashes(bool),
     /// The files a merge with this target would conflict in (see `queries::conflict_check`).
     ConflictPreview(String, Answer<Option<Vec<String>>>),
     SetCommitGraph(bool),
@@ -1380,9 +1391,11 @@ impl App {
                     return Task::none();
                 };
                 if command || shift {
+                    // Stashes in the history aren't commits to pick.
                     let listed: Vec<String> = tab
                         .visible()
                         .iter()
+                        .filter(|commit| commit.stash.is_none())
                         .map(|commit| commit.sha.clone())
                         .collect();
                     tab.picked_commits = logic::pick_commits(
@@ -2334,6 +2347,25 @@ impl App {
                 self.save_settings();
                 Task::none()
             }
+            Message::SetDateOrder(value) | Message::SetShowStashes(value) => {
+                if matches!(message, Message::SetDateOrder(_)) {
+                    self.settings.history.date_order = value;
+                } else {
+                    self.settings.history.show_stashes = value;
+                }
+                self.save_settings();
+                let (date_order, stashes) = (
+                    self.settings.history.date_order,
+                    self.settings.history.show_stashes,
+                );
+                let mut reloads = Vec::new();
+                for tab in &mut self.tabs {
+                    tab.date_order = date_order;
+                    tab.show_stashes = stashes;
+                    reloads.push(load_log(tab.path.clone(), tab.log_query()));
+                }
+                Task::batch(reloads)
+            }
             Message::SetConflictCheck(value) => {
                 self.settings.history.conflict_check = value;
                 self.save_settings();
@@ -2512,6 +2544,8 @@ impl App {
             .get(&path)
             .cloned()
             .unwrap_or_default();
+        tab.date_order = self.settings.history.date_order;
+        tab.show_stashes = self.settings.history.show_stashes;
         self.tabs.push(tab);
         self.active = self.tabs.len() - 1;
         self.save_settings();
@@ -2529,13 +2563,17 @@ impl App {
             limit,
             all: true,
             filter: LogFilter::default(),
-            view: self
-                .settings
-                .graph
-                .views
-                .get(&path)
-                .cloned()
-                .unwrap_or_default(),
+            options: LogOptions {
+                view: self
+                    .settings
+                    .graph
+                    .views
+                    .get(&path)
+                    .cloned()
+                    .unwrap_or_default(),
+                date_order: self.settings.history.date_order,
+                stashes: self.settings.history.show_stashes,
+            },
         };
         let mut tasks = vec![load_all(path, query), template];
         if self.settings.history.fetch_on_open {
@@ -4251,7 +4289,7 @@ pub struct LogQuery {
     pub limit: usize,
     pub all: bool,
     pub filter: LogFilter,
-    pub view: RefView,
+    pub options: LogOptions,
 }
 
 fn load_log(path: String, query: LogQuery) -> Task<Message> {
@@ -4261,10 +4299,10 @@ fn load_log(path: String, query: LogQuery) -> Task<Message> {
                 limit,
                 all,
                 filter,
-                view,
+                options,
             } = query;
             let result =
-                answer(queries::log_filtered(&path, limit, all, None, &filter, &view).await)
+                answer(queries::log_filtered(&path, limit, all, None, &filter, &options).await)
                     .map(|page| (page.commits, page.has_more));
             (path, result)
         },
@@ -4394,6 +4432,7 @@ mod tests {
             subject: sha.into(),
             graph: None,
             file: None,
+            stash: None,
         };
         let mut state = RebaseState {
             head: None,
@@ -4432,6 +4471,7 @@ mod tests {
             subject: sha.into(),
             graph: None,
             file: None,
+            stash: None,
         };
         let state = |preset| {
             let mut state = RebaseState {

@@ -80,6 +80,7 @@ pub fn parse_log(out: &str) -> Vec<Commit> {
             subject: subject.to_owned(),
             graph: None,
             file: None,
+            stash: None,
         });
     }
     commits

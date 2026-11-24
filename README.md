@@ -55,6 +55,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
   apply, pop, drop.
 - **Worktrees**: listed in the sidebar with their branch; add, open in a new tab, remove, prune. Tabs and the window title show when a repository is a linked worktree.
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
+- **Stashes in the history**, each right above the commit it was made on (click to open it), and an
+  optional date order for the graph (Settings › Repository).
 - **Hide or solo branches** in the graph from a branch's menu, remembered for each repository.
 - **Filter the history** (*View › Filter history…*) by author, file or folder, or changed text (`-S`,
   or a regular expression with `-G`); a file's menu shows the history of its folder.

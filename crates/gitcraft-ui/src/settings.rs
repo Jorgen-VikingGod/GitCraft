@@ -91,6 +91,10 @@ pub struct History {
     pub commit_graph: bool,
     /// Merge and rebase dialogs say beforehand which files would conflict.
     pub conflict_check: bool,
+    /// The history by commit date instead of keeping each branch's commits together.
+    pub date_order: bool,
+    /// Stashes as rows in the history, above the commit each was made on.
+    pub show_stashes: bool,
 }
 
 impl Default for History {
@@ -100,6 +104,8 @@ impl Default for History {
             fetch_on_open: false,
             commit_graph: true,
             conflict_check: true,
+            date_order: false,
+            show_stashes: true,
         }
     }
 }

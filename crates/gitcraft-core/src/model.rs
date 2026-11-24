@@ -25,6 +25,10 @@ pub struct Commit {
     pub graph: Option<GraphRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<FileChange>,
+    /// For a stash shown in the history: its `stash@{n}`. Its parents are then only the
+    /// commit it was made on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stash: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -337,6 +341,17 @@ impl RefView {
     pub fn is_empty(&self) -> bool {
         self.hidden.is_empty() && self.solo.is_empty()
     }
+}
+
+/// How the history is listed.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LogOptions {
+    pub view: RefView,
+    /// Newest first by commit date, rather than keeping each branch's commits together.
+    pub date_order: bool,
+    /// Stashes as rows right above the commit each was made on.
+    pub stashes: bool,
 }
 
 /// A bisect in progress, read from `BISECT_LOG`.

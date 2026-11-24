@@ -1530,6 +1530,22 @@ fn settings(ctx: &Context, cx: &Cx) {
                     }
                     if let Some(on) = check(
                         ui,
+                        values.history.show_stashes,
+                        "Show stashes in the history",
+                        true,
+                    ) {
+                        cx.send(Message::SetShowStashes(on));
+                    }
+                    if let Some(on) = check(
+                        ui,
+                        values.history.date_order,
+                        "Order the history by date instead of keeping branches together",
+                        true,
+                    ) {
+                        cx.send(Message::SetDateOrder(on));
+                    }
+                    if let Some(on) = check(
+                        ui,
                         values.history.conflict_check,
                         "Say beforehand which files a merge or rebase would conflict in",
                         true,

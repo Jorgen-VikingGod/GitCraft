@@ -2524,7 +2524,7 @@ async fn history_is_filtered_by_author_path_and_changed_text() {
     let filtered = |filter: LogFilter| {
         let repo = f.repo.clone();
         async move {
-            queries::log_filtered(&repo, 100, true, None, &filter, &RefView::default())
+            queries::log_filtered(&repo, 100, true, None, &filter, &LogOptions::default())
                 .await
                 .unwrap()
         }
@@ -2572,7 +2572,7 @@ async fn history_is_filtered_by_author_path_and_changed_text() {
                 path: "../outside".into(),
                 ..LogFilter::default()
             },
-            &RefView::default(),
+            &LogOptions::default(),
         )
         .await
         .is_err()
@@ -2589,8 +2589,12 @@ async fn branches_are_hidden_from_the_graph_or_shown_alone() {
     f.git(&["switch", "-q", "main"]);
     let log = |view: RefView| {
         let repo = f.repo.clone();
+        let options = LogOptions {
+            view,
+            ..LogOptions::default()
+        };
         async move {
-            queries::log_filtered(&repo, 100, true, None, &LogFilter::default(), &view)
+            queries::log_filtered(&repo, 100, true, None, &LogFilter::default(), &options)
                 .await
                 .unwrap()
         }
@@ -2607,4 +2611,46 @@ async fn branches_are_hidden_from_the_graph_or_shown_alone() {
     })
     .await;
     assert_eq!(subjects(&solo.commits), ["topic work", "first"]);
+}
+
+#[tokio::test]
+async fn stashes_sit_above_the_commit_they_were_made_on() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "older stash\n");
+    f.git(&["stash", "push", "-q", "-m", "older"]);
+    f.write("a.txt", "newer stash\n");
+    f.git(&["stash", "push", "-q", "-m", "newer"]);
+    let base = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+    f.commit("b.txt", "b\n", "third");
+    let options = LogOptions {
+        stashes: true,
+        ..LogOptions::default()
+    };
+    let page = queries::log_filtered(&f.repo, 100, true, None, &LogFilter::default(), &options)
+        .await
+        .unwrap();
+    let rows: Vec<(String, Option<String>)> = page
+        .commits
+        .iter()
+        .map(|commit| (commit.subject.clone(), commit.stash.clone()))
+        .collect();
+    assert_eq!(rows[0], ("third".to_owned(), None));
+    assert_eq!(rows[1].1.as_deref(), Some("stash@{0}"));
+    assert!(rows[1].0.contains("newer"));
+    assert_eq!(rows[2].1.as_deref(), Some("stash@{1}"));
+    assert_eq!(rows[3], ("second".to_owned(), None));
+    assert_eq!(page.commits[1].parents, [base]);
+    let plain = queries::log(&f.repo, 100, true, None).await.unwrap();
+    assert!(
+        plain.commits.iter().all(|commit| commit.stash.is_none()),
+        "off unless asked"
+    );
+    let by_date = LogOptions {
+        date_order: true,
+        ..LogOptions::default()
+    };
+    let dated = queries::log_filtered(&f.repo, 100, true, None, &LogFilter::default(), &by_date)
+        .await
+        .unwrap();
+    assert_eq!(subjects(&dated.commits), ["third", "second", "first"]);
 }
