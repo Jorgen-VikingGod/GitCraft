@@ -1756,7 +1756,12 @@ fn file_menu_items(
                     base: compare.base.clone(),
                     target: compare.target.clone(),
                 },
-                None,
+                compare
+                    .result
+                    .iter()
+                    .flat_map(|result| &result.files)
+                    .find(|file| file.path == path)
+                    .and_then(|file| file.orig_path.clone()),
             ),
             None => {
                 let orig = tab

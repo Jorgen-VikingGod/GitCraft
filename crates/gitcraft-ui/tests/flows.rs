@@ -1546,6 +1546,35 @@ async fn an_external_diff_tool_is_found_chosen_and_opened() {
         (read("left"), read("right")),
         ("one\n".into(), "changed\n".into())
     );
+
+    // A file renamed between two compared commits opens with its old name on the left.
+    f.git(&["checkout", "-q", "--", "a.txt"]);
+    f.git(&["mv", "a.txt", "b.txt"]);
+    f.git(&["commit", "-qm", "rename"]);
+    drive(&mut app, Message::Refresh).await;
+    let (base, target) = (sha_of(&app, "first"), sha_of(&app, "rename"));
+    drive(&mut app, Message::CompareStart(base, target.clone())).await;
+    app.update(Message::OpenMenu(MenuRequest::File {
+        area: None,
+        path: "b.txt".into(),
+        rev: Some(target),
+    }));
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(open)) = find_entry(&items, "Open in fake") else {
+        panic!("no diff tool entry: {:?}", labels(&items));
+    };
+    assert!(
+        matches!(&open, Message::OpenDiffTool { orig: Some(orig), target: ToolTarget::Compare { .. }, .. } if orig == "a.txt"),
+        "{open:?}"
+    );
+    for side in ["left", "right"] {
+        let _ = std::fs::remove_file(f.root.join(side));
+    }
+    drive(&mut app, open).await;
+    assert_eq!(
+        (read("left"), read("right")),
+        ("one\n".into(), "one\n".into())
+    );
 }
 
 #[tokio::test]

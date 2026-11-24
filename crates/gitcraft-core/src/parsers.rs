@@ -919,14 +919,50 @@ pub fn parse_tool_help(out: &str) -> Vec<ExternalTool> {
                 name: word.to_owned(),
                 label: label.to_owned(),
             });
+        } else if rest.is_empty() && !runs_in_terminal(word) {
+            // git before 2.37 lists names only, without saying which tools need a window.
+            tools.push(ExternalTool {
+                name: word.to_owned(),
+                label: word.to_owned(),
+            });
         }
     }
     tools.dedup_by(|a, b| a.name == b.name);
     tools
 }
 
+/// The tools git knows that run in a terminal rather than a window of their own.
+fn runs_in_terminal(name: &str) -> bool {
+    name == "emerge" || name.starts_with("vimdiff") || name.starts_with("nvimdiff")
+}
+
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn tool_help_of_older_git_lists_names_only() {
+        // git 2.35 and 2.36 print no descriptions.
+        let out = "'git difftool --tool=<tool>' may be set to one of the following:\n\
+\t\temerge\n\
+\t\tgvimdiff\n\
+\t\tkdiff3\n\
+\t\tnvimdiff2\n\
+\t\tvimdiff\n\
+\n\
+\tuser-defined:\n\
+\t\tmytool.cmd echo $LOCAL\n\
+\n\
+The following tools are valid, but not currently available:\n\
+\t\tmeld\n\
+\n\
+Some of the tools listed above only work in a windowed\n\
+environment. If run in a terminal-only session, they will fail.\n";
+        let names: Vec<String> = parse_tool_help(out)
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert_eq!(names, ["gvimdiff", "kdiff3", "mytool"]);
+    }
 
     #[test]
     fn tool_help_gives_the_installed_window_tools() {
