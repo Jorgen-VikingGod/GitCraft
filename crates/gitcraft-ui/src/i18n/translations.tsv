@@ -54,6 +54,7 @@ Applying stash	Stash wird angewendet	Application de la remise	Aplicando stash
 author	Autor	auteur	autor
 Author	Autor	Auteur	Autor
 Backup deleted	Sicherung gelöscht	Sauvegarde supprimée	Copia de seguridad eliminada
+Bad signature	Ungültige Signatur	Signature invalide	Firma no válida
 Based on {based}	Basierend auf {based}	À partir de {based}	Basado en {based}
 Binary file — no text diff available	Binärdatei — kein Text-Diff verfügbar	Fichier binaire — pas de diff texte	Archivo binario: no hay diff de texto
 Blame	Blame	Annotations (blame)	Blame
@@ -246,6 +247,10 @@ Folder name	Ordnername	Nom du dossier	Nombre de la carpeta
 Follow system	Wie das System	Comme le système	Como el sistema
 Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer la suppression, même si elle n’est pas fusionnée	Forzar la eliminación aunque no esté fusionada
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
+Good signature	Gültige Signatur	Signature valide	Firma válida
+Good signature by an expired key	Gültige Signatur mit abgelaufenem Schlüssel	Signature valide par une clé expirée	Firma válida con una clave caducada
+Good signature, but it has expired	Gültige Signatur, aber abgelaufen	Signature valide, mais expirée	Firma válida, pero caducada
+Good signature, key of unknown trust	Gültige Signatur, Schlüssel mit unbekanntem Vertrauen	Signature valide, clé de confiance inconnue	Firma válida, clave de confianza desconocida
 Hard reset	Harter Reset	Réinitialisation dure	Reset duro
 Hard: discard all changes	Hart: alle Änderungen verwerfen	Dur : supprimer toutes les modifications	Duro: descartar todos los cambios
 Help	Hilfe	Aide	Ayuda
@@ -276,6 +281,7 @@ Keep a commit-graph file for faster history	Commit-Graph-Datei für schnelleren 
 Keep staged changes in the working tree	Vorgemerkte Änderungen im Arbeitsverzeichnis behalten	Garder les modifications indexées dans l’arbre de travail	Mantener los cambios preparados en el árbol de trabajo
 Keep the parent's message, discard this one	Nachricht des Elternteils behalten, diese verwerfen	Garder le message du parent, supprimer celui-ci	Conservar el mensaje del padre y descartar este
 Keep: discard commits, keep local changes	Behalten: Commits verwerfen, lokale Änderungen behalten	Garder : supprimer les commits, garder les modifications locales	Conservar: descartar commits, conservar cambios locales
+Key {key}	Schlüssel {key}	Clé {key}	Clave {key}
 Keyboard shortcuts	Tastenkürzel	Raccourcis clavier	Atajos de teclado
 Language	Sprache	Langue	Idioma
 Last commit undone; its changes are staged	Letzter Commit rückgängig gemacht; seine Änderungen sind vorgemerkt	Dernier commit annulé ; ses modifications sont indexées	Último commit deshecho; sus cambios están preparados
@@ -511,6 +517,9 @@ Show in file manager	Im Dateimanager anzeigen	Afficher dans le gestionnaire de f
 Show in history	Im Verlauf anzeigen	Afficher dans l’historique	Mostrar en el historial
 Side by side	Nebeneinander	Côte à côte	En paralelo
 Sign off (Signed-off-by line)	Abzeichnen (Signed-off-by-Zeile)	Signer (ligne Signed-off-by)	Firmar (línea Signed-off-by)
+Signature	Signatur	Signature	Firma
+Signed by a revoked key	Mit einem widerrufenen Schlüssel signiert	Signé par une clé révoquée	Firmado con una clave revocada
+Signed, but it can't be checked here	Signiert, lässt sich hier aber nicht prüfen	Signé, mais impossible à vérifier ici	Firmado, pero no se puede comprobar aquí
 Skip	Überspringen	Passer	Omitir
 Skip commit hooks	Commit-Hooks überspringen	Ignorer les hooks de commit	Omitir los hooks de commit
 Skipping	Wird übersprungen	Saut	Omitiendo

@@ -249,6 +249,31 @@ pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                                 }
                             },
                         );
+                        if let Some(signature) = &detail.signature {
+                            let (label, tone) = crate::logic::signature_label(signature.status);
+                            let color = match tone {
+                                crate::logic::Tone::Good => c.success,
+                                crate::logic::Tone::Warning => c.warning,
+                                crate::logic::Tone::Bad => c.danger,
+                                crate::logic::Tone::Muted => c.text_muted,
+                            };
+                            let text = if signature.signer.is_empty() {
+                                tr(label).to_owned()
+                            } else {
+                                format!("{} · {}", tr(label), signature.signer)
+                            };
+                            fact(ui, cx, "Signature", |ui| {
+                                let label = ui.add(
+                                    Label::new(RichText::new(text).size(12.0).color(color)).wrap(),
+                                );
+                                if !signature.key.is_empty() {
+                                    label.on_hover_text(trf(
+                                        "Key {key}",
+                                        &[("key", &signature.key)],
+                                    ));
+                                }
+                            });
+                        }
                         if detail.committer != detail.author || detail.commit_time != detail.time {
                             fact(ui, cx, "Committer", |ui| {
                                 ui.add(

@@ -117,6 +117,22 @@ pub fn parse_commit_detail(out: &str) -> Option<CommitDetail> {
         subject: message.split('\n').next().unwrap_or("").to_owned(),
         message,
         files: Vec::new(),
+        signature: None,
+    })
+}
+
+/// `%G?%x1f%GS%x1f%GK`: `None` when the commit is not signed.
+pub fn parse_signature(out: &str) -> Option<Signature> {
+    let line = out.trim_end_matches('\n');
+    let mut fields = line.split('\x1f');
+    let status = fields.next()?.chars().next()?;
+    if status == 'N' {
+        return None;
+    }
+    Some(Signature {
+        status,
+        signer: fields.next().unwrap_or("").to_owned(),
+        key: fields.next().unwrap_or("").to_owned(),
     })
 }
 

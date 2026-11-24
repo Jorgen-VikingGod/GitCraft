@@ -11,8 +11,9 @@ installed `git`, so it behaves the same as git on the command line and uses your
 ## Features
 
 - **Commit graph**: virtual-scrolled history of all branches with lane graph, branch/tag/remote badges,
-  commit details and per-file diffs (unified or side-by-side, syntax highlighted; long lines scroll
-  sideways, and each side of a side-by-side diff has its own scroll bar).
+  commit details (with the signature's state for signed commits) and per-file diffs (unified or
+  side-by-side, syntax highlighted; long lines scroll sideways, and each side of a side-by-side diff
+  has its own scroll bar).
 - **Local changes**: stage/unstage/discard files, **hunks or individual lines**; commit, amend,
   commit templates; multi-select with Ctrl/Shift. Commit options: sign-off, skip hooks, co-authors
   (`Co-authored-by`) and push after committing; amending a commit that is already pushed asks first.

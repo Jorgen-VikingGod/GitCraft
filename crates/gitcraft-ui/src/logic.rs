@@ -23,6 +23,28 @@ pub fn plural(count: usize, word: &str) -> String {
     }
 }
 
+/// How a signature's state is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Good,
+    Warning,
+    Bad,
+    Muted,
+}
+
+/// What a commit's signature state (`%G?`) means, in English, and how it looks.
+pub fn signature_label(status: char) -> (&'static str, Tone) {
+    match status {
+        'G' => ("Good signature", Tone::Good),
+        'U' => ("Good signature, key of unknown trust", Tone::Warning),
+        'X' => ("Good signature, but it has expired", Tone::Warning),
+        'Y' => ("Good signature by an expired key", Tone::Warning),
+        'R' => ("Signed by a revoked key", Tone::Bad),
+        'B' => ("Bad signature", Tone::Bad),
+        _ => ("Signed, but it can't be checked here", Tone::Muted),
+    }
+}
+
 /// Amending HEAD rewrites a commit others may already have: it is on its upstream when the
 /// branch has one and nothing of its own beyond it.
 pub fn amend_rewrites_pushed(status: &Status) -> bool {
@@ -419,6 +441,23 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signature_states_read_as_words() {
+        assert_eq!(signature_label('G'), ("Good signature", Tone::Good));
+        assert_eq!(signature_label('B').1, Tone::Bad);
+        assert_eq!(signature_label('U').1, Tone::Warning);
+        assert_eq!(signature_label('E').1, Tone::Muted);
+        for status in ['G', 'U', 'X', 'Y', 'R', 'B', 'E'] {
+            let (label, _) = signature_label(status);
+            let de = crate::i18n::I18N.from_code("de").unwrap();
+            assert_ne!(
+                crate::i18n::I18N.t(de, label),
+                label,
+                "no translation for {label}"
+            );
+        }
+    }
 
     #[test]
     fn co_authors_need_a_name_and_an_address() {

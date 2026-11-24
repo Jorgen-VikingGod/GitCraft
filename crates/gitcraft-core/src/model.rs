@@ -49,6 +49,18 @@ pub struct CommitDetail {
     pub message: String,
     pub subject: String,
     pub files: Vec<FileChange>,
+    /// `None` for a commit without a signature.
+    pub signature: Option<Signature>,
+}
+
+/// A commit's signature as git checked it (`%G?`): `G` good, `U` good but of unknown trust,
+/// `X` good but expired, `Y` made by an expired key, `R` by a revoked key, `B` bad, `E` can't
+/// be checked (no key, or no gpg).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Signature {
+    pub status: char,
+    pub signer: String,
+    pub key: String,
 }
 
 /// A diff or merge tool git can start (`git difftool` / `git mergetool`).

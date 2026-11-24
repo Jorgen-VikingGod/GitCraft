@@ -201,6 +201,15 @@ pub async fn commit_detail(repo: &str, sha: &str) -> Result<CommitDetail> {
     let mut detail = parsers::parse_commit_detail(&result.out())
         .ok_or_else(|| Error::Invalid(format!("Could not read commit {sha}")))?;
     detail.files = commit_files(repo, &detail.sha, &detail.parents).await?;
+    // Only a signed commit makes git start gpg or ssh-keygen here.
+    let signature = git_unchecked(
+        repo,
+        &["log", "-1", "--format=%G?%x1f%GS%x1f%GK", &detail.sha, "--"],
+    )
+    .await?;
+    if signature.code == 0 {
+        detail.signature = parsers::parse_signature(&signature.out());
+    }
     Ok(detail)
 }
 

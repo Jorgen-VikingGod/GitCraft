@@ -2201,3 +2201,36 @@ async fn a_fixup_commit_names_its_target() {
         "not on this branch"
     );
 }
+
+#[tokio::test]
+async fn a_signed_commit_shows_its_signature() {
+    let f = Fixture::with_history();
+    let unsigned = queries::commit_detail(&f.repo, "HEAD").await.unwrap();
+    assert_eq!(unsigned.signature, None);
+
+    let key = f.root.join("signing-key");
+    let made = Command::new("ssh-keygen")
+        .args(["-q", "-t", "ed25519", "-N", "", "-C", "test", "-f"])
+        .arg(&key)
+        .output();
+    if !made.is_ok_and(|output| output.status.success()) {
+        eprintln!("ssh-keygen is not available; skipping");
+        return;
+    }
+    let public = std::fs::read_to_string(key.with_extension("pub")).unwrap();
+    let signers = f.root.join("allowed_signers");
+    std::fs::write(&signers, format!("test@example.com {public}")).unwrap();
+    f.git(&["config", "gpg.format", "ssh"]);
+    f.git(&["config", "user.signingkey", key.to_str().unwrap()]);
+    f.git(&[
+        "config",
+        "gpg.ssh.allowedSignersFile",
+        signers.to_str().unwrap(),
+    ]);
+    f.write("a.txt", "signed\n");
+    f.git(&["commit", "-q", "-S", "-am", "signed"]);
+    let signed = queries::commit_detail(&f.repo, "HEAD").await.unwrap();
+    let signature = signed.signature.expect("signed");
+    assert_eq!(signature.status, 'G', "{signature:?}");
+    assert_eq!(signature.signer, "test@example.com");
+}
