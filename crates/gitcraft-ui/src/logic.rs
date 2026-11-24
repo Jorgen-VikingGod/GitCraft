@@ -23,6 +23,45 @@ pub fn plural(count: usize, word: &str) -> String {
     }
 }
 
+/// Amending HEAD rewrites a commit others may already have: it is on its upstream when the
+/// branch has one and nothing of its own beyond it.
+pub fn amend_rewrites_pushed(status: &Status) -> bool {
+    let branch = &status.branch;
+    branch.upstream.is_some() && branch.ahead == 0 && !branch.detached && branch.oid.is_some()
+}
+
+/// One co-author per line, as `Name <mail>`; other lines are left out.
+pub fn co_author_trailers(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| is_co_author(line))
+        .map(|line| format!("Co-authored-by: {line}"))
+        .collect()
+}
+
+/// Where "Push after committing" pushes without asking: the upstream, when it is a branch
+/// of the same name. `None` asks with the push dialog instead.
+pub fn push_target(status: &Status, remotes: &[Remote]) -> Option<(String, String)> {
+    let head = status
+        .branch
+        .head
+        .as_deref()
+        .filter(|_| !status.branch.detached)?;
+    match split_upstream(status.branch.upstream.as_deref(), remotes) {
+        (Some(remote), Some(branch)) if branch == head => Some((remote, branch)),
+        _ => None,
+    }
+}
+
+/// Whether a co-author line looks like `Name <mail>`.
+pub fn is_co_author(line: &str) -> bool {
+    let line = line.trim();
+    match (line.find('<'), line.strip_suffix('>')) {
+        (Some(open), Some(_)) => open > 0 && line[open + 1..line.len() - 1].contains('@'),
+        _ => false,
+    }
+}
+
 /// Splits `origin/feature/x` into the longest matching remote and the branch.
 pub fn split_upstream(
     upstream: Option<&str>,
@@ -380,6 +419,51 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn co_authors_need_a_name_and_an_address() {
+        assert!(is_co_author("Ada Lovelace <ada@example.com>"));
+        assert!(!is_co_author("<ada@example.com>"));
+        assert!(!is_co_author("Ada"));
+        assert!(!is_co_author("Ada <nowhere>"));
+        assert_eq!(
+            co_author_trailers("  Ada <a@b.c>\n\nnope\nBob <b@c.d>"),
+            ["Co-authored-by: Ada <a@b.c>", "Co-authored-by: Bob <b@c.d>"]
+        );
+    }
+
+    #[test]
+    fn amending_warns_only_for_a_pushed_head_and_push_after_needs_a_same_named_upstream() {
+        use gitcraft_core::model::BranchStatus;
+        let remotes = [Remote {
+            name: "origin".into(),
+            fetch_url: String::new(),
+            push_url: String::new(),
+        }];
+        let status = |upstream: Option<&str>, ahead| Status {
+            branch: BranchStatus {
+                head: Some("main".into()),
+                oid: Some("abc".into()),
+                upstream: upstream.map(str::to_owned),
+                ahead,
+                behind: 0,
+                detached: false,
+            },
+            ..Status::default()
+        };
+        assert!(amend_rewrites_pushed(&status(Some("origin/main"), 0)));
+        assert!(!amend_rewrites_pushed(&status(Some("origin/main"), 1)));
+        assert!(!amend_rewrites_pushed(&status(None, 0)));
+        assert_eq!(
+            push_target(&status(Some("origin/main"), 1), &remotes),
+            Some(("origin".into(), "main".into()))
+        );
+        assert_eq!(
+            push_target(&status(Some("origin/other"), 1), &remotes),
+            None
+        );
+        assert_eq!(push_target(&status(None, 1), &remotes), None);
+    }
 
     #[test]
     fn only_tracked_changes_get_in_the_way_of_a_checkout() {

@@ -20,6 +20,7 @@ pub struct Settings {
     pub history: History,
     pub pull: Pull,
     pub rebase: Rebase,
+    pub commit: Commit,
     pub layout: Layout,
     pub session: Session,
 }
@@ -116,6 +117,18 @@ impl Default for Pull {
             backup: true,
         }
     }
+}
+
+/// The commit box's options, remembered for the next commit.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Commit {
+    /// `--signoff`.
+    pub sign_off: bool,
+    /// `--no-verify`.
+    pub skip_hooks: bool,
+    /// Pushes the branch to its upstream once the commit is made.
+    pub push_after: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -227,6 +240,7 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
     let old: OldSettings = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
     Ok(Settings {
         general: General::default(),
+        commit: Commit::default(),
         appearance: Appearance {
             theme: old.theme,
             zoom: old.zoom,

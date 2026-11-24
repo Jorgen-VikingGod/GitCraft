@@ -273,6 +273,19 @@ pub struct BlameLine {
     pub summary: String,
 }
 
+/// How a commit is made, besides its message and whether it amends.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitOptions {
+    /// Adds a `Signed-off-by` line for the committer.
+    pub sign_off: bool,
+    /// Skips the pre-commit and commit-msg hooks.
+    pub no_verify: bool,
+    /// Stages every change first, including new and deleted files.
+    pub stage_all: bool,
+    /// Trailers such as `Co-authored-by: Name <mail>`.
+    pub trailers: Vec<String>,
+}
+
 /// What undo and redo would do, as English labels such as "Commit".
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UndoLabels {

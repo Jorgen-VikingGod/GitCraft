@@ -14,7 +14,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
   commit details and per-file diffs (unified or side-by-side, syntax highlighted; long lines scroll
   sideways, and each side of a side-by-side diff has its own scroll bar).
 - **Local changes**: stage/unstage/discard files, **hunks or individual lines**; commit, amend,
-  commit templates; multi-select with Ctrl/Shift.
+  commit templates; multi-select with Ctrl/Shift. Commit options: sign-off, skip hooks, co-authors
+  (`Co-authored-by`) and push after committing; amending a commit that is already pushed asks first.
 - **Branches, tags, remotes**: sidebar with folder trees, ahead/behind counts, checkout (double-click),
   create, rename, delete, upstream tracking, push/delete remote branches and tags, add/edit/remove remotes.
 - **Fetch / pull / push** with live progress (merge, rebase or fast-forward pulls; force-with-lease).
@@ -86,6 +87,7 @@ and can be resolved in the built-in conflict resolver.
 | Ctrl/⌘ + T or O | Open repository |
 | Ctrl/⌘ + W | Close tab |
 | Ctrl/⌘ + Enter | Commit |
+| Ctrl/⌘ + Shift + Enter | Stage everything and commit |
 | Ctrl/⌘ + + / − / 0 | Zoom |
 | F5 or Ctrl/⌘ + R | Refresh repository |
 | F11 | Full screen |

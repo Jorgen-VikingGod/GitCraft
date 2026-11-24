@@ -1212,13 +1212,14 @@ const THEMES: [(&str, &str); 3] = [
     ("dark", "Dark"),
 ];
 
-const SHORTCUTS: [(&str, &str); 9] = [
+const SHORTCUTS: [(&str, &str); 10] = [
     ("Ctrl/⌘ + 1 / 2", "All commits / Local changes"),
     ("Ctrl/⌘ + Z / Shift + Z", "Undo / redo the last operation"),
     ("Ctrl/⌘ + F", "Search commits"),
     ("Ctrl/⌘ + T or O", "Open repository"),
     ("Ctrl/⌘ + W", "Close tab"),
     ("Ctrl/⌘ + Enter", "Commit"),
+    ("Ctrl/⌘ + Shift + Enter", "Stage everything and commit"),
     ("Ctrl/⌘ + + / − / 0", "Zoom"),
     ("F5 / Ctrl/⌘ + R", "Refresh repository"),
     ("↑ ↓ PgUp PgDn", "Move through commits or files"),

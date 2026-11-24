@@ -245,15 +245,48 @@ pub async fn delete_discard(repo: &str, name: &str) -> Result<()> {
 // ------------------------------------------------------------------- commit
 
 pub async fn commit(repo: &str, message: &str, amend: bool, sign_off: bool) -> Result<OpResult> {
+    let options = CommitOptions {
+        sign_off,
+        ..CommitOptions::default()
+    };
+    commit_with(repo, message, amend, &options).await
+}
+
+pub async fn commit_with(
+    repo: &str,
+    message: &str,
+    amend: bool,
+    options: &CommitOptions,
+) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    if options.stage_all {
+        git(repo, &["add", "-A"]).await?;
+    }
+    let trailers: Vec<String> = options
+        .trailers
+        .iter()
+        .map(|trailer| trailer.trim())
+        .filter(|trailer| !trailer.is_empty())
+        .map(|trailer| {
+            if trailer.contains(['\n', '\r']) {
+                invalid("A trailer must be one line")
+            } else {
+                Ok(format!("--trailer={trailer}"))
+            }
+        })
+        .collect::<Result<_>>()?;
     let mut args = vec!["commit", "-F", "-", "--cleanup=strip"];
     if amend {
         args.push("--amend");
     }
-    if sign_off {
+    if options.sign_off {
         args.push("--signoff");
     }
+    if options.no_verify {
+        args.push("--no-verify");
+    }
+    args.extend(trailers.iter().map(String::as_str));
     let result = run(
         repo,
         &args,

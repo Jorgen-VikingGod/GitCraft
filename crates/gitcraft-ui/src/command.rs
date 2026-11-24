@@ -1,6 +1,6 @@
 //! Every git operation the UI can start, as data: what to run and how to describe it.
 
-use gitcraft_core::model::{OpResult, RebaseStep};
+use gitcraft_core::model::{CommitOptions, OpResult, RebaseStep};
 use gitcraft_core::parsers::Selection;
 use gitcraft_core::runner::Progress;
 use gitcraft_core::undo::Mode;
@@ -203,6 +203,7 @@ pub enum Command {
     Commit {
         message: String,
         amend: bool,
+        options: CommitOptions,
     },
     /// `label` is the English label of what is undone, for the messages.
     Undo {
@@ -674,7 +675,11 @@ impl Command {
                 content,
                 side,
             } => ops::resolve_conflict(repo, &path, content.as_deref(), side.as_deref()).await,
-            Self::Commit { message, amend } => ops::commit(repo, &message, amend, false).await,
+            Self::Commit {
+                message,
+                amend,
+                options,
+            } => ops::commit_with(repo, &message, amend, &options).await,
             Self::Undo { .. } => ops::undo(repo).await.map(|_| done()),
             Self::Redo { .. } => ops::redo(repo).await.map(|_| done()),
         }

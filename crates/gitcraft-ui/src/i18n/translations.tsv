@@ -39,6 +39,7 @@ Also delete ignored files (build output, dependencies…)	Auch ignorierte Dateie
 Also delete {upstream} on the remote	Auch {upstream} auf dem Remote löschen	Supprimer aussi {upstream} sur le dépôt distant	Eliminar también {upstream} en el remoto
 Always create a merge commit (--no-ff)	Immer einen Merge-Commit erstellen (--no-ff)	Toujours créer un commit de fusion (--no-ff)	Crear siempre un commit de fusión (--no-ff)
 Amend	Amend	Modification du commit	Enmienda
+Amend a pushed commit	Bereits gepushten Commit ändern	Modifier un commit déjà poussé	Enmendar un commit ya enviado
 Amend commit	Commit ergänzen	Modifier le commit	Enmendar commit
 Amend last commit	Letzten Commit ergänzen	Modifier le dernier commit	Enmendar el último commit
 Amending commit	Commit wird ergänzt	Modification du commit	Enmendando commit
@@ -103,6 +104,9 @@ Clone…	Klonen…	Cloner…	Clonar…
 Close	Schließen	Fermer	Cerrar
 Close tab	Tab schließen	Fermer l’onglet	Cerrar pestaña
 Close without changing anything	Schließen, ohne etwas zu ändern	Fermer sans rien modifier	Cerrar sin cambiar nada
+Co-authors	Co-Autoren	Co-auteurs	Coautores
+Co-authors ({count})…	Co-Autoren ({count})…	Co-auteurs ({count})…	Coautores ({count})…
+Co-authors…	Co-Autoren…	Co-auteurs…	Coautores…
 Combine both messages	Beide Nachrichten zusammenführen	Combiner les deux messages	Combinar ambos mensajes
 Commit	Commit	Commit	Commit
 Commit amended	Commit ergänzt	Commit modifié	Commit enmendado
@@ -204,6 +208,7 @@ Drop commit…	Commit verwerfen…	Supprimer le commit…	Descartar commit…
 Drop stash	Stash verwerfen	Supprimer la remise	Descartar stash
 Dropping stash	Stash wird verworfen	Suppression de la remise	Descartando stash
 Drop…	Verwerfen…	Supprimer…	Descartar…
+Each co-author gets a “Co-authored-by” line in the commits you make next.	Jeder Co-Autor bekommt eine „Co-authored-by“-Zeile in den nächsten Commits.	Chaque co-auteur reçoit une ligne « Co-authored-by » dans vos prochains commits.	Cada coautor recibe una línea «Co-authored-by» en los próximos commits.
 Edit	Bearbeiten	Édition	Editar
 Edit commit	Commit bearbeiten	Modifier le commit	Editar commit
 Edit commit message	Commit-Nachricht bearbeiten	Modifier le message du commit	Editar el mensaje del commit
@@ -312,6 +317,7 @@ Move this commit down (Alt + ↓)	Diesen Commit nach unten verschieben (Alt + �
 Move this commit up (Alt + ↑)	Diesen Commit nach oben verschieben (Alt + ↑)	Déplacer ce commit vers le haut (Alt + ↑)	Mover este commit hacia arriba (Alt + ↑)
 Move through commits or files	Durch Commits oder Dateien bewegen	Parcourir les commits ou les fichiers	Moverse por los commits o archivos
 Name	Name	Nom	Nombre
+Name <name@example.com>	Name <name@example.com>	Nom <nom@example.com>	Nombre <nombre@example.com>
 New branch	Neuer Branch	Nouvelle branche	Nueva rama
 New branch from stash…	Neuer Branch aus Stash…	Nouvelle branche depuis la remise…	Nueva rama desde el stash…
 New branch here…	Neuer Branch hier…	Nouvelle branche ici…	Nueva rama aquí…
@@ -339,6 +345,7 @@ No tags	Keine Tags	Aucun tag	No hay etiquetas
 No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non indexée	No hay cambios sin preparar
 Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún no hay nada preparado
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
+One per line	Einer pro Zeile	Un par ligne	Uno por línea
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
 Open	Öffnen	Ouvrir	Abrir
 Open a repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir un repositorio…
@@ -350,6 +357,7 @@ Open repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir repositorio�
 Operation paused	Vorgang angehalten	Opération en pause	Operación en pausa
 Optional description	Optionale Beschreibung	Description facultative	Descripción opcional
 Options	Optionen	Options	Opciones
+Options ({count})	Optionen ({count})	Options ({count})	Opciones ({count})
 Ours	Unsere	Le nôtre	Lo nuestro
 Ours + theirs	Unsere + ihre	Le nôtre + le leur	Lo nuestro + lo suyo
 Overwrite	Überschreiben	Écraser	Sobrescribir
@@ -378,6 +386,7 @@ Pulling	Pull läuft	Tirage	Trayendo
 Pulling (rebase)	Pull läuft (Rebase)	Tirage (rebase)	Trayendo (rebase)
 Pull…	Pull…	Tirer…	Traer…
 Push	Push	Pousser	Enviar
+Push after committing	Nach dem Commit pushen	Pousser après le commit	Hacer push tras el commit
 Push all tags	Alle Tags pushen	Pousser tous les tags	Enviar todas las etiquetas
 Push complete	Push abgeschlossen	Envoi terminé	Envío completado
 Push tag	Tag pushen	Pousser le tag	Enviar etiqueta
@@ -488,7 +497,9 @@ Show in Explorer	Im Explorer anzeigen	Afficher dans l’Explorateur	Mostrar en e
 Show in file manager	Im Dateimanager anzeigen	Afficher dans le gestionnaire de fichiers	Mostrar en el gestor de archivos
 Show in history	Im Verlauf anzeigen	Afficher dans l’historique	Mostrar en el historial
 Side by side	Nebeneinander	Côte à côte	En paralelo
+Sign off (Signed-off-by line)	Abzeichnen (Signed-off-by-Zeile)	Signer (ligne Signed-off-by)	Firmar (línea Signed-off-by)
 Skip	Überspringen	Passer	Omitir
+Skip commit hooks	Commit-Hooks überspringen	Ignorer les hooks de commit	Omitir los hooks de commit
 Skipping	Wird übersprungen	Saut	Omitiendo
 Soft: keep all changes staged	Weich: alle Änderungen vorgemerkt behalten	Doux : garder toutes les modifications indexées	Suave: mantener todos los cambios preparados
 Split	Geteilt	Séparé	Dividido
@@ -498,6 +509,7 @@ Squash into parent	In Eltern-Commit squashen	Fusionner dans le parent (squash)	H
 Squash into parent…	In Eltern-Commit squashen…	Fusionner dans le parent (squash)…	Hacer squash en el padre…
 Stage	Vormerken	Indexer	Preparar
 Stage all	Alles vormerken	Tout indexer	Preparar todo
+Stage everything and commit	Alles stagen und committen	Tout indexer et valider	Preparar todo y hacer commit
 Stage file	Datei vormerken	Indexer le fichier	Preparar archivo
 Stage hunk	Abschnitt vormerken	Indexer le bloc	Preparar bloque
 Stage {count} files	{count} Dateien vormerken	Indexer {count} fichiers	Preparar {count} archivos
@@ -541,6 +553,7 @@ The file dialog couldn't be shown	Der Dateidialog konnte nicht angezeigt werden	
 The file was deleted on one side. Keep one side, or mark it as resolved to keep the current state.	Die Datei wurde auf einer Seite gelöscht. Behalte eine Seite oder markiere sie als gelöst, um den aktuellen Stand zu behalten.	Le fichier a été supprimé d’un côté. Gardez un côté, ou marquez-le comme résolu pour garder l’état actuel.	El archivo se eliminó en un lado. Conserva un lado o márcalo como resuelto para mantener el estado actual.
 The first commit has no parent to squash into	Der erste Commit hat keinen Eltern-Commit zum Squashen	Le premier commit n’a pas de parent dans lequel fusionner	El primer commit no tiene un padre en el que hacer squash
 The first remaining commit cannot be squashed or fixed up (there is nothing above it).	Der erste verbleibende Commit kann nicht gesquasht oder per Fixup eingefaltet werden (darüber ist nichts).	Le premier commit restant ne peut pas être fusionné (squash ou fixup) : il n’y a rien au-dessus.	El primer commit restante no admite squash ni fixup (no hay nada encima).
+The last commit is already on {upstream}. Amending it rewrites history others may have, and the branch then needs a force push.	Der letzte Commit ist bereits auf {upstream}. Ihn zu ändern schreibt Verlauf um, den andere womöglich schon haben, und der Branch braucht danach einen Force-Push.	Le dernier commit est déjà sur {upstream}. Le modifier réécrit un historique que d’autres ont peut-être déjà, et la branche devra ensuite être poussée de force.	El último commit ya está en {upstream}. Enmendarlo reescribe un historial que otros quizá ya tengan, y la rama necesitará después un push forzado.
 The reflog is empty	Das Reflog ist leer	Le reflog est vide	El reflog está vacío
 The result still contains conflict markers. Save and mark the file as resolved anyway?	Das Ergebnis enthält noch Konfliktmarkierungen. Trotzdem speichern und die Datei als gelöst markieren?	Le résultat contient encore des marqueurs de conflit. Enregistrer et marquer le fichier comme résolu quand même ?	El resultado aún contiene marcadores de conflicto. ¿Guardar y marcar el archivo como resuelto de todos modos?
 the root commit	den Wurzel-Commit	le commit racine	el commit raíz

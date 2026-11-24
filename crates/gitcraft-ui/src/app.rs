@@ -281,6 +281,8 @@ pub struct RepoTab {
     /// "Commit first" in the checkout dialog: the checkout to run once the commit succeeds.
     pub after_commit: Option<Command>,
     pub filter: String,
+    /// Co-authors for the next commits, one `Name <mail>` per line.
+    pub co_authors: String,
     /// What Edit › Undo and Redo would do.
     pub undo: UndoLabels,
 }
@@ -328,6 +330,7 @@ impl RepoTab {
             after_commit: None,
             filter: String::new(),
             undo: UndoLabels::default(),
+            co_authors: String::new(),
         }
     }
 
@@ -387,6 +390,18 @@ impl RepoTab {
                 })
                 .collect(),
         }
+    }
+
+    /// Ctrl+Shift+Enter stages everything first, so any change will do.
+    pub fn can_commit_all(&self) -> bool {
+        let Some(status) = &self.status else {
+            return false;
+        };
+        let changes = !status.staged.is_empty() || !status.unstaged.is_empty();
+        !self.summary.trim().is_empty()
+            && status.conflicts.is_empty()
+            && !self.committing
+            && (changes || self.amend)
     }
 
     pub fn can_commit(&self) -> bool {
@@ -726,6 +741,14 @@ pub enum Message {
     HeadMessageLoaded(String, Answer<String>),
     TemplateLoaded(String, Answer<String>),
     CommitNow,
+    /// Ctrl+Shift+Enter: stages everything, then commits.
+    CommitAll,
+    /// After the warning about amending a commit that is already pushed.
+    CommitConfirmed {
+        stage_all: bool,
+    },
+    CommitOption(CommitOption, bool),
+    CoAuthors(String),
     FilterInput(String),
     ToggleCollapsed(String),
     Run(Command),
@@ -1410,17 +1433,79 @@ impl App {
                 }
                 Task::none()
             }
-            Message::CommitNow => {
+            Message::CommitNow | Message::CommitAll => {
+                let stage_all = matches!(message, Message::CommitAll);
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let ready = if stage_all {
+                    tab.can_commit_all()
+                } else {
+                    tab.can_commit()
+                };
+                if !ready {
+                    return Task::none();
+                }
+                if tab.amend
+                    && tab
+                        .status
+                        .as_ref()
+                        .is_some_and(logic::amend_rewrites_pushed)
+                {
+                    let upstream = tab
+                        .status
+                        .as_ref()
+                        .and_then(|status| status.branch.upstream.clone())
+                        .unwrap_or_default();
+                    self.form = Some(Form::confirm(
+                        "Amend a pushed commit",
+                        &trf(
+                            "The last commit is already on {upstream}. Amending it rewrites history others may have, and the branch then needs a force push.",
+                            &[("upstream", &upstream)],
+                        ),
+                        "Amend",
+                        true,
+                        Message::CommitConfirmed { stage_all },
+                    ));
+                    return Task::none();
+                }
+                Task::done(Message::CommitConfirmed { stage_all })
+            }
+            Message::CommitConfirmed { stage_all } => {
+                let prefs = self.settings.commit.clone();
                 let Some(tab) = self.current_mut() else {
                     return Task::none();
                 };
-                if !tab.can_commit() {
-                    return Task::none();
-                }
                 tab.committing = true;
                 let message = logic::commit_message(&tab.summary, &tab.body);
+                let options = CommitOptions {
+                    sign_off: prefs.sign_off,
+                    no_verify: prefs.skip_hooks,
+                    stage_all,
+                    trailers: logic::co_author_trailers(&tab.co_authors),
+                };
                 let amend = tab.amend;
-                Task::done(Message::Run(Command::Commit { message, amend }))
+                Task::done(Message::Run(Command::Commit {
+                    message,
+                    amend,
+                    options,
+                }))
+            }
+            Message::CommitOption(option, on) => {
+                let prefs = &mut self.settings.commit;
+                match option {
+                    CommitOption::SignOff => prefs.sign_off = on,
+                    CommitOption::SkipHooks => prefs.skip_hooks = on,
+                    CommitOption::PushAfter => prefs.push_after = on,
+                }
+                self.save_settings();
+                Task::none()
+            }
+            Message::CoAuthors(text) => {
+                if let Some(tab) = self.current_mut() {
+                    tab.co_authors = text;
+                }
+                Task::none()
             }
             Message::FilterInput(text) => {
                 if let Some(tab) = self.current_mut() {
@@ -2866,9 +2951,11 @@ impl App {
             ),
         }
         let mut then = None;
+        let mut push: Option<Task<Message>> = None;
         let mut refresh_list = false;
         match &command {
             Command::Commit { .. } => {
+                let push_after = self.settings.commit.push_after;
                 if let Some(tab) = self.tab_mut(&repo) {
                     tab.committing = false;
                     if succeeded {
@@ -2876,6 +2963,10 @@ impl App {
                         tab.body.clear();
                         tab.amend = false;
                         then = tab.after_commit.take();
+                        // A checkout waiting for this commit goes first; the push can wait.
+                        if then.is_none() && push_after {
+                            push = Some(push_after_commit(tab));
+                        }
                     }
                 }
             }
@@ -2934,7 +3025,7 @@ impl App {
         } else {
             Task::none()
         };
-        Task::batch([reload, then, list])
+        Task::batch([reload, then, list, push.unwrap_or_else(Task::none)])
     }
 
     // ----------------------------------------------------------- overlays
@@ -3310,6 +3401,7 @@ impl App {
             Key::Equals | Key::Plus if command => return Task::done(Message::Zoom(1.1)),
             Key::Minus if command => return Task::done(Message::Zoom(1.0 / 1.1)),
             Key::Num0 if command => return Task::done(Message::Zoom(0.0)),
+            Key::Enter if command && modifiers.shift => return Task::done(Message::CommitAll),
             Key::Enter if command => return Task::done(Message::CommitNow),
             Key::A if command => return Task::done(Message::SelectAllFiles),
             Key::Z if command && modifiers.shift => return Task::done(Message::Redo),
@@ -3626,6 +3718,33 @@ fn click_line(pane: &mut DiffPane, hunk: usize, line: usize, shift: bool) {
 fn scroll_to(tab: &mut RepoTab, offset: f32) {
     tab.offset = offset;
     tab.scroll_to.set(Some(offset));
+}
+
+/// The commit box's options menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommitOption {
+    SignOff,
+    SkipHooks,
+    PushAfter,
+}
+
+/// "Push after committing": straight to the upstream when it has the branch's name,
+/// otherwise the push dialog asks where.
+fn push_after_commit(tab: &RepoTab) -> Task<Message> {
+    let target = tab
+        .status
+        .as_ref()
+        .and_then(|status| logic::push_target(status, &tab.refs.remotes));
+    match target {
+        Some((remote, branch)) => Task::done(Message::Run(Command::Push {
+            remote,
+            branch,
+            set_upstream: false,
+            force: false,
+            tags: false,
+        })),
+        None => Task::done(Message::Action(crate::actions::Action::Push(None))),
+    }
 }
 
 fn load_undo(path: String) -> Task<Message> {

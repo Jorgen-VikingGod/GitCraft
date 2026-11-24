@@ -143,8 +143,24 @@ fn commit_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                     if super::widgets::icon_button(ui, look, "x", 12.0, true) {
                         cx.send(Message::CommitFirstCancel);
                     }
-                } else if let Some(amend) = check(ui, tab.amend, "Amend last commit", has_head) {
-                    cx.send(Message::AmendToggled(amend));
+                } else {
+                    if let Some(amend) = check(ui, tab.amend, "Amend last commit", has_head) {
+                        cx.send(Message::AmendToggled(amend));
+                    }
+                    let prefs = &cx.app.settings.commit;
+                    let active = [prefs.sign_off, prefs.skip_hooks, prefs.push_after]
+                        .into_iter()
+                        .filter(|on| *on)
+                        .count()
+                        + crate::logic::co_author_trailers(&tab.co_authors).len();
+                    let label = if active == 0 {
+                        tr("Options").to_owned()
+                    } else {
+                        trf("Options ({count})", &[("count", &active.to_string())])
+                    };
+                    if btn(ui, look, &label, true) {
+                        cx.send(Message::OpenMenu(MenuRequest::CommitOptions));
+                    }
                 }
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if accent(ui, look, &label, tab.can_commit()) {

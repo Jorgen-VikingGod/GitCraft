@@ -79,6 +79,7 @@ pub enum Action {
     },
     Discard(Vec<String>),
     DeleteDiscard(String),
+    CoAuthors,
     Clone,
     CloneTo {
         url: String,
@@ -119,6 +120,8 @@ pub enum MenuRequest {
         rev: Option<String>,
     },
     Tab(usize),
+    /// The options of the commit box.
+    CommitOptions,
 }
 
 fn run(command: Command) -> Message {
@@ -788,6 +791,19 @@ impl App {
                     run(Command::Discard { paths }),
                 ))
             }
+            Action::CoAuthors => {
+                let current = self.current().map(|tab| tab.co_authors.clone()).unwrap_or_default();
+                self.ask(
+                    Form::new("Co-authors", "Save", |values| {
+                        Message::CoAuthors(values.text("authors"))
+                    })
+                    .message("Each co-author gets a “Co-authored-by” line in the commits you make next.")
+                    .field(
+                        Field::area("authors", "One per line", &current)
+                            .hint("Name <name@example.com>"),
+                    ),
+                )
+            }
             Action::DeleteDiscard(name) => self.ask(Form::confirm(
                 "Delete backup",
                 "Delete this backup of discarded changes? It can't be restored afterwards.",
@@ -983,6 +999,46 @@ impl App {
                 let tools = self.tool_labels();
                 let items = file_menu_items(tab, *area, path, rev.as_deref(), &tools);
                 self.menu_at_cursor(items);
+                Task::none()
+            }
+            MenuRequest::CommitOptions => {
+                use crate::app::CommitOption;
+                use crate::menu::Mark;
+                let prefs = &self.settings.commit;
+                let toggle = |label: &str, option: CommitOption, on: bool| {
+                    MenuItem::entry(label, Message::CommitOption(option, !on))
+                        .marked(Mark::Check(on))
+                };
+                let co_authors = self
+                    .current()
+                    .map_or(0, |tab| logic::co_author_trailers(&tab.co_authors).len());
+                let co_label = if co_authors == 0 {
+                    tr("Co-authors…").to_owned()
+                } else {
+                    trf(
+                        "Co-authors ({count})…",
+                        &[("count", &co_authors.to_string())],
+                    )
+                };
+                self.menu_at_cursor(vec![
+                    toggle(
+                        "Sign off (Signed-off-by line)",
+                        CommitOption::SignOff,
+                        prefs.sign_off,
+                    ),
+                    toggle(
+                        "Skip commit hooks",
+                        CommitOption::SkipHooks,
+                        prefs.skip_hooks,
+                    ),
+                    toggle(
+                        "Push after committing",
+                        CommitOption::PushAfter,
+                        prefs.push_after,
+                    ),
+                    MenuItem::Separator,
+                    MenuItem::entry(co_label, act(Action::CoAuthors)),
+                ]);
                 Task::none()
             }
             MenuRequest::Tab(index) => {

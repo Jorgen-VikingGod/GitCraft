@@ -1984,3 +1984,61 @@ async fn the_reflog_of_all_branches_finds_a_branch_moved_elsewhere() {
     assert!(all.iter().any(|entry| entry.selector.starts_with("topic@")));
     assert!(all.iter().any(|entry| entry.selector.starts_with("HEAD@")));
 }
+
+#[tokio::test]
+async fn commit_options_sign_off_trailers_skip_hooks_and_stage_all() {
+    let f = Fixture::with_history();
+    let hooks = f.path.join(".git/hooks");
+    std::fs::create_dir_all(&hooks).unwrap();
+    let hook = hooks.join("pre-commit");
+    std::fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "new\n");
+    let options = CommitOptions {
+        sign_off: true,
+        no_verify: true,
+        stage_all: true,
+        trailers: vec!["Co-authored-by: Ada <ada@example.com>".into()],
+    };
+    ops::commit_with(&f.repo, "third", false, &options)
+        .await
+        .unwrap();
+    let message = f.git(&["log", "-1", "--format=%B"]);
+    assert!(
+        message.contains("Co-authored-by: Ada <ada@example.com>"),
+        "{message}"
+    );
+    assert!(message.contains("Signed-off-by: Test User <test@example.com>"));
+    assert_eq!(
+        f.git(&["show", "--name-only", "--format=", "HEAD"]),
+        "a.txt\nnew.txt\n"
+    );
+
+    #[cfg(unix)]
+    {
+        f.write("a.txt", "again\n");
+        let hooked = CommitOptions {
+            stage_all: true,
+            ..CommitOptions::default()
+        };
+        assert!(
+            ops::commit_with(&f.repo, "fourth", false, &hooked)
+                .await
+                .is_err(),
+            "the hook runs"
+        );
+    }
+    let bad = CommitOptions {
+        trailers: vec!["Two\nlines".into()],
+        ..CommitOptions::default()
+    };
+    assert!(matches!(
+        ops::commit_with(&f.repo, "x", true, &bad).await,
+        Err(Error::Invalid(_))
+    ));
+}

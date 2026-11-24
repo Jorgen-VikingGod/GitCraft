@@ -12,7 +12,7 @@ use gitcraft_core::runner::set_editor_exe;
 use gitcraft_core::store::RepoStore;
 use gitcraft_ui::App;
 use gitcraft_ui::actions::{Action, MenuRequest, RefTarget, commit_menu_items};
-use gitcraft_ui::app::{Area, Message, Overlay, ToastKind, View};
+use gitcraft_ui::app::{Area, CommitOption, Message, Overlay, ToastKind, View};
 use gitcraft_ui::command::Command;
 use gitcraft_ui::logic::Choice;
 use gitcraft_ui::menu::MenuItem;
@@ -2313,6 +2313,7 @@ async fn edit_undo_and_redo_take_back_a_commit() {
         Message::Run(Command::Commit {
             message: "second".into(),
             amend: false,
+            options: Default::default(),
         }),
     )
     .await;
@@ -2332,4 +2333,63 @@ async fn edit_undo_and_redo_take_back_a_commit() {
     assert_eq!(f.subjects(), ["second", "first"]);
     drive(&mut app, Message::Key(egui::Key::Z, Modifiers::COMMAND)).await;
     assert_eq!(f.subjects(), ["first"], "Ctrl+Z undoes too");
+}
+
+#[tokio::test]
+async fn commit_options_sign_off_co_authors_and_push_after() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    let remote = f.root.join("remote.git");
+    git(&f.root, &["init", "-q", "--bare", remote.to_str().unwrap()]);
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    f.git(&["push", "-q", "-u", "origin", "main"]);
+    f.write("a.txt", "two\n");
+    f.write("new.txt", "new\n");
+    let mut app = opened(&f, false).await;
+
+    drive(&mut app, Message::CommitOption(CommitOption::SignOff, true)).await;
+    drive(
+        &mut app,
+        Message::CommitOption(CommitOption::PushAfter, true),
+    )
+    .await;
+    drive(&mut app, Message::Action(Action::CoAuthors)).await;
+    assert!(app.form.is_some());
+    // What the form sends on Save.
+    drive(&mut app, Message::FormCancel).await;
+    drive(
+        &mut app,
+        Message::CoAuthors("Ada Lovelace <ada@example.com>\nnot an address\n".into()),
+    )
+    .await;
+    drive(&mut app, Message::SummaryInput("second".into())).await;
+    // Ctrl+Shift+Enter stages everything, the new file too.
+    drive(
+        &mut app,
+        Message::Key(egui::Key::Enter, Modifiers::COMMAND | Modifiers::SHIFT),
+    )
+    .await;
+
+    let message = f.git(&["log", "-1", "--format=%B"]);
+    assert!(message.starts_with("second\n"), "{message}");
+    assert!(message.contains("Co-authored-by: Ada Lovelace <ada@example.com>"));
+    assert!(!message.contains("not an address"));
+    assert!(message.contains("Signed-off-by: Test User <t@example.com>"));
+    assert_eq!(
+        f.git(&["show", "--name-only", "--format=", "HEAD"]),
+        "a.txt\nnew.txt\n"
+    );
+    assert_eq!(
+        git(&remote, &["rev-parse", "main"]),
+        f.git(&["rev-parse", "HEAD"]),
+        "pushed after committing"
+    );
+
+    // Amending what is already pushed asks first.
+    drive(&mut app, Message::AmendToggled(true)).await;
+    drive(&mut app, Message::SummaryInput("second, amended".into())).await;
+    drive(&mut app, Message::CommitNow).await;
+    assert!(app.form.is_some(), "a warning comes first");
+    drive(&mut app, Message::FormCancel).await;
+    assert_eq!(f.subjects(), ["second", "first"]);
 }
