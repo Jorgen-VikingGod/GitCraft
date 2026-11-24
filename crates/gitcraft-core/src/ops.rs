@@ -352,6 +352,56 @@ pub async fn stash_selection(
     Ok(ok_empty())
 }
 
+/// Takes the selected hunks/lines of one file of a past commit back out of the working tree,
+/// as an uncommitted change. Only for a file the commit modified; when the lines changed
+/// since, git refuses and nothing is written.
+pub async fn revert_selection(
+    repo: &str,
+    sha: &str,
+    path: &str,
+    selection: &Selection,
+    context: i64,
+) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let Some(file_diff) = queries::commit_diff(repo, sha, path, None, context, false).await? else {
+        return invalid("This commit doesn't change that file");
+    };
+    if file_diff.binary {
+        return invalid("Binary files can't be reverted line by line");
+    }
+    if file_diff.status != "M" {
+        return invalid(
+            "Only changed lines of a modified file can be reverted; revert the whole commit for added, deleted or renamed files",
+        );
+    }
+    if selection.keys().any(|hunk| *hunk >= file_diff.hunks.len()) {
+        return invalid("The diff changed, please refresh");
+    }
+    let patch = parsers::build_partial_patch(&file_diff, selection, true);
+    let mut args = vec!["apply", "--recount", "--whitespace=nowarn"];
+    if context <= 0 {
+        args.push("--unidiff-zero");
+    }
+    args.extend(["-R", "-"]);
+    let result = run_unchecked(
+        repo,
+        &args,
+        Options {
+            stdin: Some(&patch),
+            ..Options::default()
+        },
+    )
+    .await?;
+    if result.code != 0 {
+        return invalid(format!(
+            "These lines have changed since that commit, so they can't be taken out automatically.\n{}",
+            result.err.trim()
+        ));
+    }
+    Ok(ok_empty())
+}
+
 /// Puts discarded changes back from their backup (see [`queries::discard_backups`]).
 /// Refuses, changing nothing, when any of the files changed since the discard.
 pub async fn restore_discard(repo: &str, name: &str) -> Result<()> {

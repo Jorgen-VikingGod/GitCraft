@@ -323,10 +323,12 @@ impl Lines<'_> {
             ("Stage", true) => trf("Stage {lines}", &[("lines", &lines)]),
             ("Discard", true) => trf("Discard {lines}", &[("lines", &lines)]),
             ("Stash", true) => trf("Stash {lines}", &[("lines", &lines)]),
+            ("Revert", true) => trf("Revert {lines}", &[("lines", &lines)]),
             (_, true) => trf("Unstage {lines}", &[("lines", &lines)]),
             ("Stage", false) => tr("Stage hunk").to_owned(),
             ("Discard", false) => tr("Discard hunk").to_owned(),
             ("Stash", false) => tr("Stash hunk").to_owned(),
+            ("Revert", false) => tr("Revert hunk").to_owned(),
             (_, false) => tr("Unstage hunk").to_owned(),
         };
         let Some(mode) = stage_mode.filter(|_| show_buttons) else {
@@ -348,6 +350,10 @@ impl Lines<'_> {
                     }
                     if btn(ui, look, &name("Stash"), true) {
                         self.cx.send(Message::HunkAction(index, "stash"));
+                    }
+                } else if mode == "revert" {
+                    if warning(ui, look, &name("Revert"), true) {
+                        self.cx.send(Message::HunkRevert(index));
                     }
                 } else if warning(ui, look, &name("Unstage"), true) {
                     self.cx.send(Message::HunkAction(index, "unstage"));
@@ -420,13 +426,22 @@ pub fn view(
     }
 
     // Line staging can't work while the diff ignores whitespace: it wouldn't match the file.
+    // A commit's lines are only taken back for a file it modified.
+    let revert = stage_mode == Some("revert");
+    let stage_mode = stage_mode.filter(|_| !revert || diff.status == "M");
     let selectable =
         stage_mode.is_some() && !cx.app.settings.diff.ignore_whitespace && diff.status != "?";
     let shown_mode = stage_mode.filter(|_| selectable);
-    let note = if selectable {
+    let note = if selectable && stage_mode == Some("revert") {
+        Some(tr(
+            "Click lines to select them (Shift+click for a range), then revert just those lines in the working tree.",
+        ))
+    } else if selectable {
         Some(tr(
             "Click lines to select them (Shift+click for a range), then stage or discard just those lines.",
         ))
+    } else if revert {
+        stage_mode.map(|_| tr("Reverting lines is disabled while “Ignore whitespace” is on."))
     } else if stage_mode.is_some() {
         Some(if diff.status == "?" {
             tr("Untracked file: stage the whole file to include it.")

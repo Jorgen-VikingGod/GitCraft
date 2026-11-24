@@ -2427,3 +2427,29 @@ async fn a_hunk_goes_into_a_stash_of_its_own() {
     );
     assert_ne!(f.read("a.txt"), changed, "one of the changes left the file");
 }
+
+#[tokio::test]
+async fn a_hunk_of_a_commit_is_reverted_from_its_diff() {
+    let f = empty_fixture();
+    let lines: String = (1..=20).map(|n| format!("line {n}\n")).collect();
+    f.commit("a.txt", &lines, "first");
+    let changed = lines
+        .replace("line 2\n", "line 2 changed\n")
+        .replace("line 18\n", "line 18 changed\n");
+    f.commit("a.txt", &changed, "two changes");
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "two changes");
+    drive(&mut app, Message::Select(sha)).await;
+    drive(&mut app, Message::PickFile("a.txt".into())).await;
+    assert!(app.current().unwrap().commit_pane.diff.is_some());
+    let clicked = Screen::new().click(&app, "Revert hunk", PointerButton::Primary);
+    assert!(!clicked.is_empty());
+    for message in clicked {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(
+        f.read("a.txt"),
+        changed.replace("line 2 changed\n", "line 2\n")
+    );
+    assert_eq!(f.subjects(), ["two changes", "first"]);
+}

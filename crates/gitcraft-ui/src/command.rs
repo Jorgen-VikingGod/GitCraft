@@ -186,6 +186,13 @@ pub enum Command {
     RestoreDiscard {
         name: String,
     },
+    /// Takes the selected hunks/lines of a file of commit `sha` back out of the working tree.
+    RevertSelection {
+        sha: String,
+        path: String,
+        selection: Selection,
+        context: i64,
+    },
     /// Stashes the selected hunks/lines of one file.
     StashSelection {
         path: String,
@@ -309,6 +316,7 @@ impl Command {
             Self::Discard { .. } => "Discarding".into(),
             Self::RestoreDiscard { .. } => "Restoring discarded changes".into(),
             Self::StashSelection { .. } => "Stashing".into(),
+            Self::RevertSelection { .. } => "Reverting lines".into(),
             Self::DeleteDiscard { .. } => "Deleting backup".into(),
             Self::Selection { mode, .. } => match *mode {
                 "stage" => "Staging".into(),
@@ -375,6 +383,10 @@ impl Command {
             Self::Redo { label } => trf("Redone: {action}", &[("action", tr(label))]),
             Self::RestoreDiscard { .. } => "Discarded changes restored".into(),
             Self::StashSelection { .. } => "Selected changes stashed".into(),
+            Self::RevertSelection { path, .. } => trf(
+                "Reverted in {path}; the change is uncommitted",
+                &[("path", path)],
+            ),
             Self::DeleteDiscard { .. } => "Backup deleted".into(),
             Self::Resolve { path, .. } => trf("Resolved {path}", &[("path", path)]),
             Self::CheckoutStashing { reapply: true, .. } => {
@@ -451,6 +463,7 @@ impl Command {
                 | Self::UnstageAll
                 | Self::Discard { .. }
                 | Self::RestoreDiscard { .. }
+                | Self::RevertSelection { .. }
                 | Self::DeleteDiscard { .. }
                 | Self::Selection { .. }
                 | Self::Resolve { .. }
@@ -666,6 +679,12 @@ impl Command {
             Self::Unstage { paths } => ops::unstage_files(repo, &paths).await.map(|()| done()),
             Self::UnstageAll => ops::unstage_all(repo).await.map(|()| done()),
             Self::Discard { paths } => ops::discard_files(repo, &paths).await.map(|()| done()),
+            Self::RevertSelection {
+                sha,
+                path,
+                selection,
+                context,
+            } => ops::revert_selection(repo, &sha, &path, &selection, context).await,
             Self::StashSelection {
                 path,
                 selection,

@@ -718,6 +718,8 @@ pub enum Message {
     DiffScrolled(PaneKey, f32, Vec2),
     DiffLineClicked(PaneKey, usize, usize),
     HunkAction(usize, &'static str),
+    /// Reverts a hunk (or its selected lines) of the commit shown in the details.
+    HunkRevert(usize),
     ToggleSplit,
     SearchInput(String),
     SearchModeChanged(SearchMode),
@@ -1313,6 +1315,23 @@ impl App {
                 Task::none()
             }
             Message::HunkAction(hunk, mode) => self.hunk_action(hunk, mode),
+            Message::HunkRevert(hunk) => {
+                let context = self.settings.diff.context;
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let (Some(detail), Some(path)) = (&tab.detail, &tab.selected_file) else {
+                    return Task::none();
+                };
+                let lines = tab.commit_pane.selected_in(hunk);
+                let chosen = (!lines.is_empty()).then(|| lines.into_iter().collect());
+                Task::done(Message::Run(Command::RevertSelection {
+                    sha: detail.sha.clone(),
+                    path: path.clone(),
+                    selection: BTreeMap::from([(hunk, chosen)]),
+                    context,
+                }))
+            }
             Message::ToggleSplit => {
                 let split = !self.settings.diff.split;
                 self.set_split(split);

@@ -94,6 +94,7 @@ Clean working tree	Arbeitsverzeichnis bereinigen	Nettoyer l’arbre de travail	L
 Cleaned	Bereinigt	Nettoyé	Limpiado
 Cleaning	Wird bereinigt	Nettoyage	Limpiando
 Clear search	Suche löschen	Effacer la recherche	Borrar la búsqueda
+Click lines to select them (Shift+click for a range), then revert just those lines in the working tree.	Zeilen anklicken, um sie auszuwählen (Umschalt+Klick für einen Bereich), dann nur diese Zeilen im Arbeitsverzeichnis zurücknehmen.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis annulez uniquement ces lignes dans le répertoire de travail.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y revierte solo esas líneas en el directorio de trabajo.
 Click lines to select them (Shift+click for a range), then stage or discard just those lines.	Klicke auf Zeilen, um sie auszuwählen (Umschalt+Klick für einen Bereich), und merke dann nur diese Zeilen vor oder verwirf sie.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis indexez ou supprimez seulement ces lignes.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y luego prepara o descarta solo esas líneas.
 Clone	Klonen	Cloner	Clonar
 Clone complete	Klonen abgeschlossen	Clonage terminé	Clonación completada
@@ -460,9 +461,14 @@ Result	Ergebnis	Résultat	Resultado
 Revert	Revert	Annuler (revert)	Revertir
 Revert commit	Commit rückgängig machen	Annuler le commit (revert)	Revertir commit
 Revert commit…	Commit rückgängig machen…	Annuler le commit (revert)…	Revertir commit…
+Revert hunk	Hunk zurücknehmen	Annuler le bloc	Revertir bloque
 Revert in progress	Revert läuft	Revert en cours	Revert en curso
 Revert merge commit	Merge-Commit rückgängig machen	Annuler le commit de fusion (revert)	Revertir commit de fusión
+Revert {lines}	{lines} zurücknehmen	Annuler {lines}	Revertir {lines}
+Reverted in {path}; the change is uncommitted	In {path} zurückgenommen; die Änderung ist noch nicht committet	Annulé dans {path} ; la modification n’est pas encore validée	Revertido en {path}; el cambio aún no tiene commit
 Reverting	Wird rückgängig gemacht	Annulation (revert)	Revirtiendo
+Reverting lines	Zeilen werden zurückgenommen	Annulation des lignes	Revirtiendo líneas
+Reverting lines is disabled while “Ignore whitespace” is on.	Zeilen zurücknehmen ist deaktiviert, solange „Leerraum ignorieren“ an ist.	L’annulation de lignes est désactivée tant que « Ignorer les espaces » est activé.	Revertir líneas está desactivado mientras «Ignorar espacios» esté activado.
 Reworded commits need a message.	Umformulierte Commits brauchen eine Nachricht.	Les commits reformulés ont besoin d’un message.	Los commits reformulados necesitan un mensaje.
 Rewrite the history as planned above	Den Verlauf wie oben geplant neu schreiben	Réécrire l’historique comme prévu ci-dessus	Reescribir el historial como se planeó arriba
 Rewrite {branch} on top of {base}. Commits are applied from top to bottom.	{branch} auf {base} neu schreiben. Commits werden von oben nach unten angewendet.	Réécrire {branch} sur {base}. Les commits sont appliqués de haut en bas.	Reescribir {branch} sobre {base}. Los commits se aplican de arriba abajo.

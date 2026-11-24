@@ -2085,3 +2085,43 @@ async fn stashing_one_hunk_keeps_the_rest_and_applies_back() {
         Err(Error::Invalid(_))
     ));
 }
+
+#[tokio::test]
+async fn lines_of_an_old_commit_are_taken_back_out() {
+    let f = Fixture::empty();
+    let lines: String = (1..=20).map(|n| format!("line {n}\n")).collect();
+    f.commit("a.txt", &lines, "first");
+    let changed = lines
+        .replace("line 2\n", "line 2 changed\n")
+        .replace("line 18\n", "line 18 changed\n");
+    let sha = f.commit("a.txt", &changed, "two changes");
+    f.commit("b.txt", "later\n", "later work");
+    ops::revert_selection(&f.repo, &sha, "a.txt", &whole(1), 3)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.read("a.txt"),
+        lines.replace("line 2\n", "line 2 changed\n")
+    );
+    assert_eq!(
+        f.git(&["log", "-1", "--format=%s"]),
+        "later work\n",
+        "nothing is committed"
+    );
+
+    // Once the lines moved on, git refuses and the file stays as it is.
+    f.write("a.txt", lines.replace("line 2\n", "line 2 rewritten\n"));
+    assert!(matches!(
+        ops::revert_selection(&f.repo, &sha, "a.txt", &whole(0), 3).await,
+        Err(Error::Invalid(_))
+    ));
+    assert_eq!(
+        f.read("a.txt"),
+        lines.replace("line 2\n", "line 2 rewritten\n")
+    );
+    let added = f.commit("c.txt", "new\n", "added");
+    assert!(matches!(
+        ops::revert_selection(&f.repo, &added, "c.txt", &whole(0), 3).await,
+        Err(Error::Invalid(_))
+    ));
+}
