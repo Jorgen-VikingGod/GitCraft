@@ -141,8 +141,10 @@ On Debian and Ubuntu (64-bit) you can install from the apt repository, which als
 sudo install -d -m 0755 /etc/apt/keyrings
 curl -fsSL https://jorgen-vikinggod.github.io/GitCraft/gitcraft.gpg | sudo tee /etc/apt/keyrings/gitcraft.gpg >/dev/null
 echo "deb [signed-by=/etc/apt/keyrings/gitcraft.gpg] https://jorgen-vikinggod.github.io/GitCraft stable main" | sudo tee /etc/apt/sources.list.d/gitcraft.list
-sudo apt update && sudo apt install gitcraft
+sudo apt update && sudo apt install git-craft
 ```
+
+The package is called `git-craft`; the program it installs is started as `gitcraft`.
 
 Installers must be built on their own OS. `.github/workflows/release.yml` builds all of them when a
 release is published and attaches them to it (it can also be started by hand from the Actions tab).
