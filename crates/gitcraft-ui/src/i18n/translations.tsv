@@ -10,6 +10,7 @@
 1 minute ago	vor 1 Minute	il y a 1 minute	hace 1 minuto
 1 more file	1 weitere Datei	1 autre fichier	1 archivo más
 1 pattern	1 Muster	1 motif	1 patrón
+A merge commit is taken as its changes against one parent: choose the mainline it was merged into.	Ein Merge-Commit wird als seine Änderungen gegenüber einem Elternteil übernommen: Wähle die Hauptlinie, in die er gemergt wurde.	Un commit de fusion est appliqué comme ses modifications par rapport à un parent : choisissez la ligne principale dans laquelle il a été fusionné.	Un commit de fusión se aplica como sus cambios respecto a un padre: elige la línea principal en la que se fusionó.
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
 Abort	Abbrechen	Annuler	Abortar
 Abort the {kind} and restore the previous state?	{kind} abbrechen und den vorherigen Zustand wiederherstellen?	Annuler l’opération ({kind}) et rétablir l’état précédent ?	¿Abortar {kind} y restaurar el estado anterior?
@@ -86,10 +87,12 @@ Checkout {name}	{name} auschecken	Extraire {name}	Cambiar a {name}
 Cherry-pick	Cherry-Pick	Cherry-pick	Cherry-pick
 Cherry-pick in progress	Cherry-Pick läuft	Cherry-pick en cours	Cherry-pick en curso
 Cherry-pick into {current}	Per Cherry-Pick in {current} übernehmen	Cherry-pick dans {current}	Cherry-pick en {current}
+Cherry-pick merge commit	Merge-Commit übernehmen	Appliquer un commit de fusion	Aplicar commit de fusión
 Cherry-pick {count} commits into current	{count} Commits in den aktuellen Branch übernehmen	Appliquer {count} commits sur la branche actuelle	Aplicar {count} commits a la rama actual
 Cherry-picked {commits}	{commits} übernommen	{commits} appliqués	{commits} aplicados
 Cherry-picked {commit}	{commit} per Cherry-Pick übernommen	{commit} picoré (cherry-pick)	{commit} aplicado con cherry-pick
 Cherry-picking	Cherry-Pick läuft	Cherry-pick en cours	Aplicando cherry-pick
+Choose a parent	Wähle ein Elternteil	Choisissez un parent	Elige un padre
 Choose the parent that should be kept (the mainline).	Wähle den Elternteil, der behalten werden soll (die Hauptlinie).	Choisissez le parent à conserver (la ligne principale).	Elige el padre que se conserva (la línea principal).
 Choose the upstream of {name}	Upstream von {name} wählen	Choisir la branche amont de {name}	Elige el upstream de {name}
 Choosing a side rebuilds the result and discards your manual edits.	Eine Seite zu wählen baut das Ergebnis neu auf und verwirft deine Handänderungen.	Choisir un côté reconstruit le résultat et supprime vos modifications manuelles.	Elegir un lado reconstruye el resultado y descarta tus ediciones manuales.

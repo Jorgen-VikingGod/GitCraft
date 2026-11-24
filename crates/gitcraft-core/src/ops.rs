@@ -1040,6 +1040,23 @@ pub async fn rebase(repo: &str, onto: &str, autostash: bool) -> Result<OpResult>
     may_conflict(repo, &["rebase", stash, onto], Options::default()).await
 }
 
+/// Cherry-picks a merge commit: its changes relative to parent `mainline` (1 is the first).
+pub async fn cherry_pick_merge(repo: &str, sha: &str, mainline: i64) -> Result<OpResult> {
+    let sha = check_ref(sha)?;
+    if mainline < 1 {
+        return invalid("Choose a parent");
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mainline = mainline.to_string();
+    may_conflict(
+        repo,
+        &["cherry-pick", "-m", &mainline, sha],
+        Options::default(),
+    )
+    .await
+}
+
 pub async fn cherry_pick(repo: &str, shas: &[String]) -> Result<OpResult> {
     for sha in shas {
         check_ref(sha)?;

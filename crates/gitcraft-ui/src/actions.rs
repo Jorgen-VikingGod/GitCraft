@@ -40,6 +40,8 @@ pub enum Action {
         label: String,
     },
     Revert(String),
+    /// Asks which parent counts for a merge commit; other commits are picked right away.
+    CherryPick(String),
     Abort,
     CreateTag(String),
     DeleteTag(String),
@@ -491,6 +493,29 @@ impl App {
                 })
                 .message(&trf("Rebase {head} onto {label}?", &[("head", &head), ("label", &label)]))
                 .field(Field::check("autostash", "Stash and reapply local changes", self.settings.rebase.autostash));
+                self.ask(form)
+            }
+            Action::CherryPick(sha) => {
+                let Some(commit) = self.commit_by_sha(&sha).cloned() else {
+                    return Task::done(run(Command::CherryPick { sha }));
+                };
+                if commit.parents.len() < 2 {
+                    return Task::done(run(Command::CherryPick { sha }));
+                }
+                let choices = commit
+                    .parents
+                    .iter()
+                    .enumerate()
+                    .map(|(i, parent)| ((i + 1).to_string(), format!("{}: {}", i + 1, short_sha(parent))))
+                    .collect();
+                let form = Form::new("Cherry-pick merge commit", "Cherry-pick", move |values: &Values| {
+                    run(Command::CherryPickMerge {
+                        sha: sha.clone(),
+                        mainline: values.text("mainline").parse().unwrap_or(1),
+                    })
+                })
+                .message("A merge commit is taken as its changes against one parent: choose the mainline it was merged into.")
+                .field(Field::select("mainline", "Mainline parent", "1", choices));
                 self.ask(form)
             }
             Action::Revert(sha) => {
@@ -1638,7 +1663,7 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
         MenuItem::entry_if(
             trf("Cherry-pick into {current}", &[("current", current)]),
             !is_head,
-            run(Command::CherryPick { sha: sha.clone() }),
+            act(Action::CherryPick(sha.clone())),
         ),
         MenuItem::entry("Revert commit…", act(Action::Revert(sha.clone()))),
         MenuItem::sub(

@@ -2613,3 +2613,14 @@ async fn several_commits_are_picked_then_cherry_picked_squashed_or_replayed() {
     drive(&mut app, Message::RebaseStart).await;
     assert_eq!(&f.subjects()[..2], ["topic 2", "topic 1"]);
 }
+
+#[tokio::test]
+async fn cherry_picking_a_merge_asks_for_the_mainline() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let merge = sha_of(&app, "merge side");
+    drive(&mut app, Message::Action(Action::CherryPick(merge))).await;
+    let form = app.form.as_ref().expect("asks which parent");
+    assert_eq!(form.fields.len(), 1);
+    drive(&mut app, Message::FormCancel).await;
+}

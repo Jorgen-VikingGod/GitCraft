@@ -2325,3 +2325,19 @@ async fn commits_of_another_branch_are_replayed_onto_head() {
     assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
     assert!(f.exists("s1.txt") && f.exists("s2.txt"));
 }
+
+#[tokio::test]
+async fn a_merge_commit_is_cherry_picked_against_its_mainline() {
+    let f = Fixture::with_history();
+    f.git(&["switch", "-q", "-c", "feature"]);
+    f.commit("f.txt", "feature\n", "feature work");
+    f.git(&["switch", "-q", "main"]);
+    f.commit("m.txt", "main\n", "main work");
+    f.git(&["merge", "-q", "--no-ff", "--no-edit", "feature"]);
+    let merge = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+    f.git(&["switch", "-q", "-c", "release", "HEAD~2"]);
+    let result = ops::cherry_pick_merge(&f.repo, &merge, 1).await.unwrap();
+    assert!(result.ok, "{}", result.message);
+    assert!(f.exists("f.txt"), "the feature's changes came along");
+    assert!(!f.exists("m.txt"), "the mainline's own changes did not");
+}

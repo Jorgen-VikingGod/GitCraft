@@ -124,6 +124,11 @@ pub enum Command {
     CherryPick {
         sha: String,
     },
+    /// A merge commit, relative to parent `mainline` (1 is the first).
+    CherryPickMerge {
+        sha: String,
+        mainline: i64,
+    },
     /// Several commits, oldest first.
     CherryPickMany {
         shas: Vec<String>,
@@ -318,7 +323,9 @@ impl Command {
             Self::Merge { .. } => "Merging".into(),
             Self::Rebase { .. } | Self::InteractiveRebase { .. } => "Rebasing".into(),
             Self::QuickRebase { .. } => "Rewriting history".into(),
-            Self::CherryPick { .. } | Self::CherryPickMany { .. } => "Cherry-picking".into(),
+            Self::CherryPick { .. }
+            | Self::CherryPickMany { .. }
+            | Self::CherryPickMerge { .. } => "Cherry-picking".into(),
             Self::Revert { .. } => "Reverting".into(),
             Self::Continue => "Continuing".into(),
             Self::Abort => "Aborting".into(),
@@ -386,7 +393,7 @@ impl Command {
             Self::InteractiveRebase { replay: true, .. } => "Commits cherry-picked".into(),
             Self::InteractiveRebase { .. } => "Interactive rebase complete".into(),
             Self::QuickRebase { .. } => "History rewritten".into(),
-            Self::CherryPick { sha } => {
+            Self::CherryPickMerge { sha, .. } | Self::CherryPick { sha } => {
                 trf("Cherry-picked {commit}", &[("commit", short_sha(sha))])
             }
             Self::CherryPickMany { shas } => trf(
@@ -473,7 +480,9 @@ impl Command {
             Self::InteractiveRebase { .. } | Self::QuickRebase { .. } => {
                 ("Edit history", Mode::Keep)
             }
-            Self::CherryPick { .. } | Self::CherryPickMany { .. } => ("Cherry-pick", Mode::Keep),
+            Self::CherryPick { .. }
+            | Self::CherryPickMany { .. }
+            | Self::CherryPickMerge { .. } => ("Cherry-pick", Mode::Keep),
             Self::Revert { .. } => ("Revert", Mode::Keep),
             Self::Pull { mode, .. } if mode == "overwrite" => ("Pull", Mode::Hard),
             Self::Pull { .. } => ("Pull", Mode::Keep),
@@ -674,6 +683,9 @@ impl Command {
                 ops::interactive_rebase(repo, base.as_deref(), &steps, true).await
             }
             Self::CherryPick { sha } => ops::cherry_pick(repo, &[sha]).await,
+            Self::CherryPickMerge { sha, mainline } => {
+                ops::cherry_pick_merge(repo, &sha, mainline).await
+            }
             Self::CherryPickMany { shas } => ops::cherry_pick(repo, &shas).await,
             Self::Revert { sha, mainline } => ops::revert(repo, &sha, mainline).await,
             Self::Continue => ops::continue_operation(repo).await,
