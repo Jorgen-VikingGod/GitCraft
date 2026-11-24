@@ -575,6 +575,15 @@ pub async fn reflog(repo: &str, reference: &str, limit: usize) -> Result<Vec<Ref
     Ok(parsers::parse_reflog(&result.out()))
 }
 
+/// The reflogs of HEAD and every branch, newest first: also where a branch was before
+/// it was deleted, reset or rebased while another one was checked out.
+pub async fn reflog_all(repo: &str, limit: usize) -> Result<Vec<ReflogEntry>> {
+    let count = format!("-n{limit}");
+    let args = ["reflog", "show", REFLOG_FORMAT, &count, "--all", "--"];
+    let result = git_unchecked(repo, &args).await?;
+    Ok(parsers::parse_reflog(&result.out()))
+}
+
 /// Files changed between two commits (base to target), plus commit counts each way.
 pub async fn compare(repo: &str, base: &str, target: &str) -> Result<Comparison> {
     let (base, target) = (check_ref(base)?, check_ref(target)?);

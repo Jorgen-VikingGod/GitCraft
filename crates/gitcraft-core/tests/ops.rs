@@ -1968,3 +1968,19 @@ async fn nothing_changed_records_nothing_and_new_work_clears_redo() {
     );
     assert_eq!(undo::labels(&f.repo).await.unwrap().redo, None);
 }
+
+#[tokio::test]
+async fn the_reflog_of_all_branches_finds_a_branch_moved_elsewhere() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "topic"]);
+    // Moved while main stays checked out: HEAD's reflog never sees it.
+    f.git(&["branch", "-f", "topic", "HEAD~1"]);
+    let head = queries::reflog(&f.repo, "HEAD", 100).await.unwrap();
+    assert!(
+        head.iter()
+            .all(|entry| !entry.selector.starts_with("topic@"))
+    );
+    let all = queries::reflog_all(&f.repo, 100).await.unwrap();
+    assert!(all.iter().any(|entry| entry.selector.starts_with("topic@")));
+    assert!(all.iter().any(|entry| entry.selector.starts_with("HEAD@")));
+}

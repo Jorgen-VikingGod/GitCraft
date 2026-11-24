@@ -497,6 +497,8 @@ impl RebaseState {
 pub enum Overlay {
     Settings,
     Reflog {
+        /// Every branch's reflog rather than only HEAD's.
+        all: bool,
         entries: Vec<ReflogEntry>,
         loading: bool,
         error: Option<String>,
@@ -763,6 +765,8 @@ pub enum Message {
     CommitFirstCancel,
     OverlayClose,
     OpenReflog,
+    /// Shows the reflogs of every branch (true) or only HEAD's.
+    ReflogAll(bool),
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenDiscards,
     DiscardsLoaded(Answer<Vec<DiscardBackup>>),
@@ -1631,12 +1635,14 @@ impl App {
                 self.overlay = None;
                 Task::none()
             }
-            Message::OpenReflog => self.open_reflog(),
+            Message::OpenReflog => self.open_reflog(false),
+            Message::ReflogAll(all) => self.open_reflog(all),
             Message::ReflogLoaded(result) => {
                 if let Some(Overlay::Reflog {
                     entries,
                     loading,
                     error,
+                    ..
                 }) = &mut self.overlay
                 {
                     *loading = false;
@@ -2933,17 +2939,25 @@ impl App {
 
     // ----------------------------------------------------------- overlays
 
-    fn open_reflog(&mut self) -> Task<Message> {
+    fn open_reflog(&mut self, all: bool) -> Task<Message> {
         let Some(path) = self.current().map(|tab| tab.path.clone()) else {
             return Task::none();
         };
         self.overlay = Some(Overlay::Reflog {
+            all,
             entries: Vec::new(),
             loading: true,
             error: None,
         });
         Task::perform(
-            async move { answer(queries::reflog(&path, "HEAD", REFLOG_LIMIT).await) },
+            async move {
+                let entries = if all {
+                    queries::reflog_all(&path, REFLOG_LIMIT).await
+                } else {
+                    queries::reflog(&path, "HEAD", REFLOG_LIMIT).await
+                };
+                answer(entries)
+            },
             Message::ReflogLoaded,
         )
     }

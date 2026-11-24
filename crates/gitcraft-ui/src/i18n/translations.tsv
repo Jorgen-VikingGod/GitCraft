@@ -212,6 +212,7 @@ Edit message…	Nachricht bearbeiten…	Modifier le message…	Editar mensaje…
 Edit remote	Remote bearbeiten	Modifier le dépôt distant	Editar remoto
 edited by hand	von Hand bearbeitet	modifié à la main	editado a mano
 Edit…	Bearbeiten…	Modifier…	Editar…
+Every position HEAD and each branch have been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD und die einzelnen Branches waren. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Chaque position où HEAD et chaque branche se sont trouvés. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que han estado HEAD y cada rama. Haz clic derecho en una entrada para todas las acciones de commit.
 Every position HEAD has been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD war. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Toutes les positions occupées par HEAD. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que ha estado HEAD. Haz clic derecho en una entrada para ver todas las acciones de commit.
 Exit	Beenden	Quitter	Salir
 Fast-forward	Vorspulen	Avance rapide	Avance rápido

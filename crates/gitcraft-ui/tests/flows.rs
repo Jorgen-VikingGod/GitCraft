@@ -1007,6 +1007,17 @@ async fn stash_view_reflog_blame_and_file_history() {
         panic!("open")
     };
     assert!(!entries.is_empty());
+    drive(&mut app, Message::ReflogAll(true)).await;
+    let Some(Overlay::Reflog { all, entries, .. }) = &app.overlay else {
+        panic!("still open")
+    };
+    assert!(*all);
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry.selector.starts_with("side@")),
+        "branches have their own reflogs"
+    );
     drive(&mut app, Message::OverlayClose).await;
 
     drive(&mut app, Message::OpenBlame("b.txt".into(), None)).await;

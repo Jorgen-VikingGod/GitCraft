@@ -90,10 +90,11 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
     match overlay {
         Overlay::Settings => settings(ctx, cx),
         Overlay::Reflog {
+            all,
             entries,
             loading,
             error,
-        } => reflog(ctx, cx, entries, *loading, error.as_deref()),
+        } => reflog(ctx, cx, *all, entries, *loading, error.as_deref()),
         Overlay::Discards {
             entries,
             loading,
@@ -138,32 +139,44 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
     }
 }
 
-fn reflog(ctx: &Context, cx: &Cx, entries: &[ReflogEntry], loading: bool, error: Option<&str>) {
+fn reflog(
+    ctx: &Context,
+    cx: &Cx,
+    all: bool,
+    entries: &[ReflogEntry],
+    loading: bool,
+    error: Option<&str>,
+) {
     let look = cx.look();
-    dialog(
-        ctx,
-        cx,
-        "Reflog",
-        tr("Every position HEAD has been at. Right-click an entry for all commit actions."),
-        None,
-        |ui, _| {
-            if loading {
-                placeholder(ui, look, "Loading…");
-            } else if let Some(error) = error {
-                placeholder(ui, look, error);
-            } else if entries.is_empty() {
-                placeholder(ui, look, "The reflog is empty");
-            } else {
-                let scrolled = scroll("reflog").show(ui, |ui| {
-                    ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-                    for entry in entries {
-                        reflog_row(ui, cx, entry);
-                    }
-                });
-                super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
-            }
-        },
-    );
+    let extra = |ui: &mut Ui| {
+        if let Some(all) = check(ui, all, "All branches", true) {
+            cx.send(Message::ReflogAll(all));
+        }
+    };
+    let subtitle = if all {
+        tr(
+            "Every position HEAD and each branch have been at. Right-click an entry for all commit actions.",
+        )
+    } else {
+        tr("Every position HEAD has been at. Right-click an entry for all commit actions.")
+    };
+    dialog(ctx, cx, "Reflog", subtitle, Some(&extra), |ui, _| {
+        if loading {
+            placeholder(ui, look, "Loading…");
+        } else if let Some(error) = error {
+            placeholder(ui, look, error);
+        } else if entries.is_empty() {
+            placeholder(ui, look, "The reflog is empty");
+        } else {
+            let scrolled = scroll("reflog").show(ui, |ui| {
+                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                for entry in entries {
+                    reflog_row(ui, cx, entry);
+                }
+            });
+            super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
+        }
+    });
 }
 
 fn discards(ctx: &Context, cx: &Cx, entries: &[DiscardBackup], loading: bool, error: Option<&str>) {
