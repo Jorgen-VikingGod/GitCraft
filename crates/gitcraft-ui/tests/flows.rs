@@ -2554,3 +2554,62 @@ async fn a_commits_file_text_is_copied() {
     drive(&mut app, Message::CopyFileText(sha, "a.txt".into())).await;
     assert!(app.effects.contains(&Effect::Copy("one\n".into())));
 }
+
+#[tokio::test]
+async fn several_commits_are_picked_then_cherry_picked_squashed_or_replayed() {
+    let f = fixture();
+    f.git(&["switch", "-q", "-c", "topic", "main"]);
+    for n in 1..=3 {
+        f.commit(&format!("t{n}.txt"), "t\n", &format!("topic {n}"));
+    }
+    f.git(&["switch", "-q", "main"]);
+    let mut app = opened(&f, false).await;
+    let (one, three) = (sha_of(&app, "topic 1"), sha_of(&app, "topic 3"));
+    drive(&mut app, Message::Select(three.clone())).await;
+    app.modifiers = Modifiers::SHIFT;
+    drive(&mut app, Message::Select(one.clone())).await;
+    app.modifiers = Modifiers::NONE;
+    let picked = app.current().unwrap().picked_commits.clone();
+    assert_eq!(picked.len(), 3);
+    assert!(app.current().unwrap().compare.is_none());
+
+    // Squashing opens the rebase editor with the plan made: here on topic, from main.
+    f.git(&["switch", "-q", "topic"]);
+    drive(&mut app, Message::Refresh).await;
+    drive(
+        &mut app,
+        Message::PlanCommits(gitcraft_ui::app::Preset::Squash(picked.clone())),
+    )
+    .await;
+    let Some(Overlay::Rebase(state)) = &app.overlay else {
+        panic!("the editor opens")
+    };
+    let plan: Vec<&str> = state.steps.iter().map(|step| step.action).collect();
+    assert_eq!(plan, ["pick", "squash", "squash"], "{:?}", state.error);
+    drive(&mut app, Message::OverlayClose).await;
+    f.git(&["switch", "-q", "main"]);
+    drive(&mut app, Message::Refresh).await;
+
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::Commits(picked.clone())),
+    )
+    .await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(pick)) = find_entry(&items, "Cherry-pick 3 commits into current") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, pick).await;
+    assert_eq!(&f.subjects()[..3], ["topic 3", "topic 2", "topic 1"]);
+
+    f.git(&["reset", "-q", "--hard", "HEAD~3"]);
+    drive(&mut app, Message::OpenReplay(picked)).await;
+    let Some(Overlay::Rebase(state)) = &app.overlay else {
+        panic!("the editor opens for a cherry-pick")
+    };
+    assert!(state.replay);
+    assert_eq!(state.steps[0].commit.subject, "topic 1", "oldest first");
+    drive(&mut app, Message::RebaseSetAction(2, "drop")).await;
+    drive(&mut app, Message::RebaseStart).await;
+    assert_eq!(&f.subjects()[..2], ["topic 2", "topic 1"]);
+}

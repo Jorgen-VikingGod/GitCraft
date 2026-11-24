@@ -48,6 +48,8 @@ Apply	Anwenden	Appliquer	Aplicar
 Apply changes only, staged (git apply)	Nur Änderungen anwenden, vorgemerkt (git apply)	Appliquer seulement les modifications, indexées (git apply)	Aplicar solo los cambios, preparados (git apply)
 Apply patch	Patch anwenden	Appliquer un patch	Aplicar parche
 Apply patch…	Patch anwenden…	Appliquer un patch…	Aplicar parche…
+Apply the commits as planned above	Die Commits wie oben geplant anwenden	Appliquer les commits comme prévu ci-dessus	Aplicar los commits como se planeó arriba
+Apply these commits on top of {branch}, from top to bottom.	Diese Commits von oben nach unten auf {branch} anwenden.	Appliquer ces commits sur {branch}, de haut en bas.	Aplicar estos commits sobre {branch}, de arriba abajo.
 Applying patch	Patch wird angewendet	Application du patch	Aplicando parche
 Applying patches (git am)	Patches werden angewendet (git am)	Application des patchs (git am)	Aplicando parches (git am)
 Applying stash	Stash wird angewendet	Application de la remise	Aplicando stash
@@ -84,6 +86,8 @@ Checkout {name}	{name} auschecken	Extraire {name}	Cambiar a {name}
 Cherry-pick	Cherry-Pick	Cherry-pick	Cherry-pick
 Cherry-pick in progress	Cherry-Pick läuft	Cherry-pick en cours	Cherry-pick en curso
 Cherry-pick into {current}	Per Cherry-Pick in {current} übernehmen	Cherry-pick dans {current}	Cherry-pick en {current}
+Cherry-pick {count} commits into current	{count} Commits in den aktuellen Branch übernehmen	Appliquer {count} commits sur la branche actuelle	Aplicar {count} commits a la rama actual
+Cherry-picked {commits}	{commits} übernommen	{commits} appliqués	{commits} aplicados
 Cherry-picked {commit}	{commit} per Cherry-Pick übernommen	{commit} picoré (cherry-pick)	{commit} aplicado con cherry-pick
 Cherry-picking	Cherry-Pick läuft	Cherry-pick en cours	Aplicando cherry-pick
 Choose the parent that should be kept (the mainline).	Wähle den Elternteil, der behalten werden soll (die Hauptlinie).	Choisissez le parent à conserver (la ligne principale).	Elige el padre que se conserva (la línea principal).
@@ -118,6 +122,7 @@ Commit reverted	Commit rückgängig gemacht	Commit annulé (revert)	Commit rever
 Commit summary	Commit-Zusammenfassung	Résumé du commit	Resumen del commit
 Commit {commit}	Commit {commit}	Commit {commit}	Commit {commit}
 Commit {files}	{files} committen	Valider {files}	Hacer commit de {files}
+Commits cherry-picked	Commits übernommen	Commits appliqués	Commits aplicados
 Commits loaded at a time	Auf einmal geladene Commits	Commits chargés à la fois	Commits cargados a la vez
 Committed	Committet	Validé	Commit hecho
 Committer	Committer	Validateur	Committer
@@ -142,6 +147,7 @@ Copy file contents	Dateiinhalt kopieren	Copier le contenu du fichier	Copiar el c
 Copy full path	Vollständigen Pfad kopieren	Copier le chemin complet	Copiar la ruta completa
 Copy path	Pfad kopieren	Copier le chemin	Copiar la ruta
 Copy repository path	Repository-Pfad kopieren	Copier le chemin du dépôt	Copiar la ruta del repositorio
+Copy SHAs	SHAs kopieren	Copier les SHA	Copiar SHA
 Copy tag name	Tag-Namen kopieren	Copier le nom du tag	Copiar el nombre de la etiqueta
 Copy URL	URL kopieren	Copier l’URL	Copiar la URL
 Could not copy the file	Die Datei konnte nicht kopiert werden	Impossible de copier le fichier	No se pudo copiar el archivo
@@ -210,6 +216,7 @@ Drop	Verwerfen	Supprimer	Descartar
 Drop commit	Commit verwerfen	Supprimer le commit	Descartar commit
 Drop commit…	Commit verwerfen…	Supprimer le commit…	Descartar commit…
 Drop stash	Stash verwerfen	Supprimer la remise	Descartar stash
+Drop {count} commits…	{count} Commits verwerfen…	Supprimer {count} commits…	Eliminar {count} commits…
 Dropping stash	Stash wird verworfen	Suppression de la remise	Descartando stash
 Drop…	Verwerfen…	Supprimer…	Descartar…
 Each co-author gets a “Co-authored-by” line in the commits you make next.	Jeder Co-Autor bekommt eine „Co-authored-by“-Zeile in den nächsten Commits.	Chaque co-auteur reçoit une ligne « Co-authored-by » dans vos prochains commits.	Cada coautor recibe una línea «Co-authored-by» en los próximos commits.
@@ -273,6 +280,8 @@ in {count} hours	in {count} Stunden	dans {count} heures	dentro de {count} horas
 in {count} minutes	in {count} Minuten	dans {count} minutes	dentro de {count} minutos
 Include untracked files	Nicht verfolgte Dateien einschließen	Inclure les fichiers non suivis	Incluir archivos sin seguimiento
 Include untracked folders	Nicht verfolgte Ordner einschließen	Inclure les dossiers non suivis	Incluir carpetas sin seguimiento
+Interactive cherry-pick	Interaktives Cherry-Pick	Cherry-pick interactif	Cherry-pick interactivo
+Interactive cherry-pick…	Interaktives Cherry-Pick…	Cherry-pick interactif…	Cherry-pick interactivo…
 Interactive rebase	Interaktiver Rebase	Rebase interactif	Rebase interactivo
 Interactive rebase complete	Interaktiver Rebase abgeschlossen	Rebase interactif terminé	Rebase interactivo completado
 Interactive rebase from here…	Interaktiver Rebase ab hier…	Rebase interactif à partir d’ici…	Rebase interactivo desde aquí…
@@ -359,6 +368,7 @@ No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non
 Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún no hay nada preparado
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
 One per line	Einer pro Zeile	Un par ligne	Uno por línea
+Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
 Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non suivis	Solo archivos sin seguimiento
 Open	Öffnen	Ouvrir	Abrir
@@ -535,6 +545,7 @@ Squash	Squash	Fusionner (squash)	Squash
 Squash (stage changes, do not commit)	Squash (Änderungen vormerken, nicht committen)	Squash (indexer les modifications, sans valider)	Squash (preparar los cambios, sin commit)
 Squash into parent	In Eltern-Commit squashen	Fusionner dans le parent (squash)	Hacer squash en el padre
 Squash into parent…	In Eltern-Commit squashen…	Fusionner dans le parent (squash)…	Hacer squash en el padre…
+Squash {count} commits…	{count} Commits zusammenfassen…	Fusionner {count} commits…	Combinar {count} commits…
 Stage	Vormerken	Indexer	Preparar
 Stage all	Alles vormerken	Tout indexer	Preparar todo
 Stage everything and commit	Alles stagen und committen	Tout indexer et valider	Preparar todo y hacer commit
@@ -546,6 +557,7 @@ Staged ({count})	Vorgemerkt ({count})	Indexé ({count})	Preparado ({count})
 Staging	Wird vorgemerkt	Indexation	Preparando
 Staging all	Alles wird vorgemerkt	Indexation de tout	Preparando todo
 Stale worktrees pruned	Veraltete Worktrees entfernt	Arbres de travail obsolètes nettoyés	Árboles de trabajo obsoletos eliminados
+Start cherry-pick	Cherry-Pick starten	Lancer le cherry-pick	Iniciar cherry-pick
 Start rebase	Rebase starten	Lancer le rebase	Iniciar rebase
 Stash	Stash	Remiser	Stash
 Stash and reapply local changes	Lokale Änderungen in den Stash legen und wieder anwenden	Remiser puis réappliquer les modifications locales	Guardar en el stash y volver a aplicar los cambios locales

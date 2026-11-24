@@ -196,7 +196,8 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
                 origin + vec2(0.0, index as f32 * ROW_HEIGHT),
                 vec2(width, ROW_HEIGHT),
             );
-            let selected = tab.selected.as_deref() == Some(commit.sha.as_str());
+            let selected = tab.selected.as_deref() == Some(commit.sha.as_str())
+                || tab.picked_commits.contains(&commit.sha);
             let compared = tab
                 .compare
                 .as_ref()
@@ -390,9 +391,18 @@ fn commit_row(
     } else if response.clicked() {
         cx.send(Message::Select(commit.sha.clone()));
     } else if response.secondary_clicked() {
-        cx.send(Message::OpenMenu(MenuRequest::Commit {
-            sha: commit.sha.clone(),
-            focus: None,
-        }));
+        let picked = cx
+            .app
+            .current()
+            .map(|tab| tab.picked_commits.clone())
+            .unwrap_or_default();
+        if picked.len() > 1 && picked.contains(&commit.sha) {
+            cx.send(Message::OpenMenu(MenuRequest::Commits(picked)));
+        } else {
+            cx.send(Message::OpenMenu(MenuRequest::Commit {
+                sha: commit.sha.clone(),
+                focus: None,
+            }));
+        }
     }
 }

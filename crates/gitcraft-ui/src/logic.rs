@@ -23,6 +23,38 @@ pub fn plural(count: usize, word: &str) -> String {
     }
 }
 
+/// The commits picked after a Ctrl/Cmd+click (`range` false: the clicked one is added or
+/// taken out) or a Shift+click (`range`: everything between the selected commit and the
+/// clicked one) on `sha`. `listed` is the history as shown, newest first; the result keeps
+/// that order. A first Ctrl+click starts from the selected commit.
+pub fn pick_commits(
+    listed: &[String],
+    picked: &[String],
+    selected: Option<&str>,
+    sha: &str,
+    range: bool,
+) -> Vec<String> {
+    let position = |wanted: &str| listed.iter().position(|sha| sha == wanted);
+    let mut chosen: Vec<String> = if picked.is_empty() {
+        selected.map(str::to_owned).into_iter().collect()
+    } else {
+        picked.to_vec()
+    };
+    if range {
+        let anchor = selected.and_then(position).or_else(|| position(sha));
+        if let (Some(anchor), Some(end)) = (anchor, position(sha)) {
+            let (from, to) = (anchor.min(end), anchor.max(end));
+            chosen = listed[from..=to].to_vec();
+        }
+    } else if let Some(at) = chosen.iter().position(|picked| picked == sha) {
+        chosen.remove(at);
+    } else {
+        chosen.push(sha.to_owned());
+    }
+    chosen.sort_by_key(|sha| position(sha).unwrap_or(usize::MAX));
+    chosen
+}
+
 /// How a signature's state is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -441,6 +473,22 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn commits_are_picked_one_by_one_or_as_a_range_in_list_order() {
+        let listed: Vec<String> = ["e", "d", "c", "b", "a"].map(String::from).to_vec();
+        let picked = pick_commits(&listed, &[], Some("d"), "b", false);
+        assert_eq!(picked, ["d", "b"]);
+        let picked = pick_commits(&listed, &picked, Some("d"), "e", false);
+        assert_eq!(picked, ["e", "d", "b"]);
+        let picked = pick_commits(&listed, &picked, Some("d"), "d", false);
+        assert_eq!(picked, ["e", "b"], "a second click takes it out");
+        assert_eq!(
+            pick_commits(&listed, &[], Some("b"), "e", true),
+            ["e", "d", "c", "b"]
+        );
+        assert_eq!(pick_commits(&listed, &[], None, "c", true), ["c"]);
+    }
 
     #[test]
     fn signature_states_read_as_words() {

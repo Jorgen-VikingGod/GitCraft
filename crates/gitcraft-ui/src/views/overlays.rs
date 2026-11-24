@@ -875,14 +875,25 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
         .current()
         .and_then(|tab| tab.current_branch())
         .unwrap_or("HEAD");
-    let subtitle = trf(
-        "Rewrite {branch} on top of {base}. Commits are applied from top to bottom.",
-        &[("branch", branch), ("base", &state.base_label)],
-    );
+    let subtitle = if state.replay {
+        trf(
+            "Apply these commits on top of {branch}, from top to bottom.",
+            &[("branch", branch)],
+        )
+    } else {
+        trf(
+            "Rewrite {branch} on top of {base}. Commits are applied from top to bottom.",
+            &[("branch", branch), ("base", &state.base_label)],
+        )
+    };
     dialog(
         ctx,
         cx,
-        "Interactive rebase",
+        if state.replay {
+            "Interactive cherry-pick"
+        } else {
+            "Interactive rebase"
+        },
         &subtitle,
         None,
         |ui, rect| {
@@ -957,13 +968,18 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                     text(ui, problem.unwrap_or(""), size, c.danger);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         let ready = problem.is_none() && !state.loading;
+                        let (start, what) = if state.replay {
+                            ("Start cherry-pick", "Apply the commits as planned above")
+                        } else {
+                            ("Start rebase", "Rewrite the history as planned above")
+                        };
                         if button_tip(
                             ui,
                             look,
-                            "Start rebase",
+                            start,
                             Kind::Accent,
                             ready,
-                            problem.unwrap_or("Rewrite the history as planned above"),
+                            problem.unwrap_or(what),
                         ) {
                             cx.send(Message::RebaseStart);
                         }

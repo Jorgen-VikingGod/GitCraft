@@ -112,6 +112,8 @@ pub enum Command {
         base: Option<String>,
         steps: Vec<RebaseStep>,
         autostash: bool,
+        /// Replays the steps' commits on top of HEAD instead (interactive cherry-pick).
+        replay: bool,
     },
     QuickRebase {
         sha: String,
@@ -121,6 +123,10 @@ pub enum Command {
     },
     CherryPick {
         sha: String,
+    },
+    /// Several commits, oldest first.
+    CherryPickMany {
+        shas: Vec<String>,
     },
     Revert {
         sha: String,
@@ -312,7 +318,7 @@ impl Command {
             Self::Merge { .. } => "Merging".into(),
             Self::Rebase { .. } | Self::InteractiveRebase { .. } => "Rebasing".into(),
             Self::QuickRebase { .. } => "Rewriting history".into(),
-            Self::CherryPick { .. } => "Cherry-picking".into(),
+            Self::CherryPick { .. } | Self::CherryPickMany { .. } => "Cherry-picking".into(),
             Self::Revert { .. } => "Reverting".into(),
             Self::Continue => "Continuing".into(),
             Self::Abort => "Aborting".into(),
@@ -377,11 +383,16 @@ impl Command {
             Self::CreateBranch { name, .. } => trf("Created {name}", &[("name", name)]),
             Self::Merge { reference, .. } => trf("Merged {reference}", &[("reference", reference)]),
             Self::Rebase { .. } => "Rebase complete".into(),
+            Self::InteractiveRebase { replay: true, .. } => "Commits cherry-picked".into(),
             Self::InteractiveRebase { .. } => "Interactive rebase complete".into(),
             Self::QuickRebase { .. } => "History rewritten".into(),
             Self::CherryPick { sha } => {
                 trf("Cherry-picked {commit}", &[("commit", short_sha(sha))])
             }
+            Self::CherryPickMany { shas } => trf(
+                "Cherry-picked {commits}",
+                &[("commits", &plural(shas.len(), "commit"))],
+            ),
             Self::Revert { .. } => "Commit reverted".into(),
             Self::CreateTag { name, .. } => trf("Created tag {name}", &[("name", name)]),
             Self::PushTag { name, .. } => trf("Pushed {name}", &[("name", name)]),
@@ -458,10 +469,11 @@ impl Command {
             Self::FastForward { .. } => ("Fast-forward", Mode::Keep),
             Self::Merge { .. } => ("Merge", Mode::Keep),
             Self::Rebase { .. } => ("Rebase", Mode::Keep),
+            Self::InteractiveRebase { replay: true, .. } => ("Cherry-pick", Mode::Keep),
             Self::InteractiveRebase { .. } | Self::QuickRebase { .. } => {
                 ("Edit history", Mode::Keep)
             }
-            Self::CherryPick { .. } => ("Cherry-pick", Mode::Keep),
+            Self::CherryPick { .. } | Self::CherryPickMany { .. } => ("Cherry-pick", Mode::Keep),
             Self::Revert { .. } => ("Revert", Mode::Keep),
             Self::Pull { mode, .. } if mode == "overwrite" => ("Pull", Mode::Hard),
             Self::Pull { .. } => ("Pull", Mode::Keep),
@@ -625,9 +637,16 @@ impl Command {
             Self::Merge { reference, mode } => ops::merge(repo, &reference, &mode).await,
             Self::Rebase { onto, autostash } => ops::rebase(repo, &onto, autostash).await,
             Self::InteractiveRebase {
+                steps,
+                autostash,
+                replay: true,
+                ..
+            } => ops::interactive_cherry_pick(repo, &steps, autostash).await,
+            Self::InteractiveRebase {
                 base,
                 steps,
                 autostash,
+                ..
             } => ops::interactive_rebase(repo, base.as_deref(), &steps, autostash).await,
             Self::QuickRebase {
                 sha,
@@ -655,6 +674,7 @@ impl Command {
                 ops::interactive_rebase(repo, base.as_deref(), &steps, true).await
             }
             Self::CherryPick { sha } => ops::cherry_pick(repo, &[sha]).await,
+            Self::CherryPickMany { shas } => ops::cherry_pick(repo, &shas).await,
             Self::Revert { sha, mainline } => ops::revert(repo, &sha, mainline).await,
             Self::Continue => ops::continue_operation(repo).await,
             Self::Abort => ops::abort_operation(repo).await,

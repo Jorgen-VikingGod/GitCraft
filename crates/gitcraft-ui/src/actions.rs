@@ -113,6 +113,8 @@ pub enum MenuRequest {
         sha: String,
         focus: Option<RefTarget>,
     },
+    /// Several commits picked in the history, newest first.
+    Commits(Vec<String>),
     Stash(String),
     Worktree(String),
     Remote(String),
@@ -946,6 +948,14 @@ impl App {
                     move |result| Message::MenuResolved(request.clone(), at, result),
                 )
             }
+            MenuRequest::Commits(shas) => {
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let items = commits_menu_items(tab, shas);
+                self.menu_at_cursor(items);
+                Task::none()
+            }
             MenuRequest::Stash(name) => {
                 let Some(tab) = self.current() else {
                     return Task::none();
@@ -1704,6 +1714,47 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
         ],
     ));
     items
+}
+
+/// The menu for several picked commits (newest first).
+pub fn commits_menu_items(tab: &RepoTab, shas: &[String]) -> Vec<MenuItem> {
+    use crate::app::Preset;
+    let count = shas.len().to_string();
+    let n = |text: &str| trf(text, &[("count", &count)]);
+    let has_merge = tab
+        .commits
+        .iter()
+        .any(|commit| shas.contains(&commit.sha) && commit.parents.len() > 1);
+    // Oldest first, as they are applied.
+    let oldest_first: Vec<String> = shas.iter().rev().cloned().collect();
+    vec![
+        MenuItem::Header(n("{count} commits")),
+        MenuItem::entry_if(
+            n("Cherry-pick {count} commits into current"),
+            !has_merge,
+            run(Command::CherryPickMany {
+                shas: oldest_first.clone(),
+            }),
+        ),
+        MenuItem::entry_if(
+            "Interactive cherry-pick…",
+            !has_merge,
+            Message::OpenReplay(shas.to_vec()),
+        ),
+        MenuItem::Separator,
+        MenuItem::entry_if(
+            n("Squash {count} commits…"),
+            !has_merge,
+            Message::PlanCommits(Preset::Squash(shas.to_vec())),
+        ),
+        MenuItem::entry_if(
+            n("Drop {count} commits…"),
+            !has_merge,
+            Message::PlanCommits(Preset::Drop(shas.to_vec())),
+        ),
+        MenuItem::Separator,
+        MenuItem::entry("Copy SHAs", Message::Copy(oldest_first.join("\n"))),
+    ]
 }
 
 fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {

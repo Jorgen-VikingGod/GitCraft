@@ -2294,3 +2294,34 @@ async fn a_resolved_file_can_be_marked_conflicted_again_and_old_text_copied() {
             .is_err()
     );
 }
+
+#[tokio::test]
+async fn commits_of_another_branch_are_replayed_onto_head() {
+    let f = Fixture::with_history();
+    f.git(&["switch", "-q", "-c", "side", "HEAD~1"]);
+    let one = f.commit("s1.txt", "1\n", "side one");
+    let two = f.commit("s2.txt", "2\n", "side two");
+    f.git(&["switch", "-q", "main"]);
+    let steps = vec![
+        RebaseStep {
+            sha: two,
+            action: "pick".into(),
+            message: None,
+        },
+        RebaseStep {
+            sha: one,
+            action: "squash".into(),
+            message: Some("both side commits".into()),
+        },
+    ];
+    let result = ops::interactive_cherry_pick(&f.repo, &steps, true)
+        .await
+        .unwrap();
+    assert!(result.ok, "{}", result.message);
+    assert_eq!(
+        f.git(&["log", "--format=%s", "-3"]),
+        "both side commits\nsecond\nfirst\n"
+    );
+    assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
+    assert!(f.exists("s1.txt") && f.exists("s2.txt"));
+}

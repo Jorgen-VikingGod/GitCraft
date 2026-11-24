@@ -1127,6 +1127,32 @@ pub async fn interactive_rebase(
     steps: &[RebaseStep],
     autostash: bool,
 ) -> Result<OpResult> {
+    let target = match base {
+        Some(base) => vec![check_ref(base)?],
+        None => vec!["--root"],
+    };
+    run_todo(repo, &target, steps, autostash).await
+}
+
+/// Replays the given commits on top of HEAD, in the order and with the actions of `steps`
+/// (an interactive cherry-pick). Uses the same todo list as an interactive rebase, so
+/// squash, fixup, reword and edit work too, and Continue, Skip and Abort apply.
+pub async fn interactive_cherry_pick(
+    repo: &str,
+    steps: &[RebaseStep],
+    autostash: bool,
+) -> Result<OpResult> {
+    run_todo(repo, &["--onto", "HEAD", "HEAD"], steps, autostash).await
+}
+
+/// `git rebase -i` with `target` (a base, `--root`, or `--onto …`), whose todo list is
+/// replaced by `steps`.
+async fn run_todo(
+    repo: &str,
+    target: &[&str],
+    steps: &[RebaseStep],
+    autostash: bool,
+) -> Result<OpResult> {
     if steps.is_empty() {
         return invalid("Nothing to rebase");
     }
@@ -1175,10 +1201,7 @@ pub async fn interactive_rebase(
             "--no-autostash"
         },
     ];
-    match base {
-        Some(base) => args.push(check_ref(base)?),
-        None => args.push("--root"),
-    }
+    args.extend(target);
     may_conflict(repo, &args, options).await
 }
 

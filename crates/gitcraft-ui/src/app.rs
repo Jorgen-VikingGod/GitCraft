@@ -281,6 +281,9 @@ pub struct RepoTab {
     /// "Commit first" in the checkout dialog: the checkout to run once the commit succeeds.
     pub after_commit: Option<Command>,
     pub filter: String,
+    /// Commits picked with Ctrl/Shift+click, newest first as listed; empty when only
+    /// `selected` is.
+    pub picked_commits: Vec<String>,
     /// Co-authors for the next commits, one `Name <mail>` per line.
     pub co_authors: String,
     /// What Edit › Undo and Redo would do.
@@ -331,6 +334,7 @@ impl RepoTab {
             filter: String::new(),
             undo: UndoLabels::default(),
             co_authors: String::new(),
+            picked_commits: Vec::new(),
         }
     }
 
@@ -446,6 +450,7 @@ impl ConflictState {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RebaseStepState {
     pub commit: Commit,
     pub action: &'static str,
@@ -454,7 +459,20 @@ pub struct RebaseStepState {
     pub body: Option<String>,
 }
 
+/// A plan the rebase editor starts from instead of picking everything.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Preset {
+    /// These commits are dropped.
+    Drop(Vec<String>),
+    /// These commits are squashed into the oldest of them.
+    Squash(Vec<String>),
+}
+
 pub struct RebaseState {
+    /// Replays `original` on top of HEAD (an interactive cherry-pick) instead of rewriting
+    /// the branch since `base`.
+    pub replay: bool,
+    pub preset: Option<Preset>,
     pub base: Option<String>,
     pub base_label: String,
     pub steps: Vec<RebaseStepState>,
@@ -488,6 +506,59 @@ impl RebaseState {
                 .zip(&self.original)
                 .all(|(step, commit)| step.action == "pick" && step.commit.sha == commit.sha)
     }
+    /// Applies the preset after the commits are loaded. False when a commit of the preset is
+    /// not among them (it isn't on the branch since the base).
+    pub fn apply_preset(&mut self) -> bool {
+        let Some(preset) = &self.preset else {
+            return true;
+        };
+        let (Preset::Drop(shas) | Preset::Squash(shas)) = preset;
+        let found = |sha: &String| self.steps.iter().any(|step| step.commit.sha == *sha);
+        if !shas.iter().all(found) {
+            return false;
+        }
+        match preset {
+            Preset::Drop(shas) => {
+                for step in self
+                    .steps
+                    .iter_mut()
+                    .filter(|step| shas.contains(&step.commit.sha))
+                {
+                    step.action = "drop";
+                }
+            }
+            Preset::Squash(shas) => {
+                // The oldest stays a pick; the others move right after it as squashes.
+                let Some(anchor) = self
+                    .steps
+                    .iter()
+                    .position(|step| shas.contains(&step.commit.sha))
+                else {
+                    return true;
+                };
+                let anchor_sha = self.steps[anchor].commit.sha.clone();
+                let mut moved = Vec::new();
+                self.steps.retain(|step| {
+                    let take = step.commit.sha != anchor_sha && shas.contains(&step.commit.sha);
+                    if take {
+                        moved.push(step.clone());
+                    }
+                    !take
+                });
+                let at = self
+                    .steps
+                    .iter()
+                    .position(|step| step.commit.sha == anchor_sha)
+                    .map_or(0, |index| index + 1);
+                for (offset, mut step) in moved.into_iter().enumerate() {
+                    step.action = "squash";
+                    self.steps.insert(at + offset, step);
+                }
+            }
+        }
+        true
+    }
+
     fn reset(&mut self) {
         self.steps = self
             .original
@@ -738,6 +809,10 @@ pub enum Message {
     SearchFocus,
     SearchDone(String, String, Answer<Vec<Commit>>),
     CompareStart(String, String),
+    /// Opens the rebase editor with these commits dropped or squashed.
+    PlanCommits(Preset),
+    /// Opens the rebase editor to replay these commits on top of HEAD.
+    OpenReplay(Vec<String>),
     CompareDone(String, Answer<Comparison>),
     CompareSwap,
     CompareClose,
@@ -1225,18 +1300,40 @@ impl App {
                 load_log(tab.path.clone(), tab.log_limit, all)
             }
             Message::Select(sha) => {
-                // Ctrl/Cmd+click compares the selected commit with the clicked one.
-                if self.modifiers.command {
-                    let selected = self.current().and_then(|tab| tab.selected.clone());
-                    if let Some(selected) = selected.filter(|selected| *selected != sha) {
-                        return Task::done(Message::CompareStart(selected, sha));
+                let (command, shift) = (self.modifiers.command, self.modifiers.shift);
+                let Some(tab) = self.current_mut() else {
+                    return Task::none();
+                };
+                if command || shift {
+                    let listed: Vec<String> = tab
+                        .visible()
+                        .iter()
+                        .map(|commit| commit.sha.clone())
+                        .collect();
+                    tab.picked_commits = logic::pick_commits(
+                        &listed,
+                        &tab.picked_commits,
+                        tab.selected.as_deref(),
+                        &sha,
+                        shift,
+                    );
+                    // Two commits picked with Ctrl/Cmd+click are compared, as before.
+                    if command
+                        && let [first, second] = &tab.picked_commits[..]
+                        && let Some(selected) = tab.selected.clone()
+                    {
+                        let other = if *first == selected { second } else { first };
+                        return Task::done(Message::CompareStart(selected, other.clone()));
                     }
-                }
-                if let Some(tab) = self.current_mut() {
                     tab.compare = None;
+                    return Task::none();
                 }
+                tab.picked_commits.clear();
+                tab.compare = None;
                 self.select(sha)
             }
+            Message::PlanCommits(preset) => self.plan_commits(preset),
+            Message::OpenReplay(shas) => self.open_replay(shas),
             Message::ShowCommit(sha) => {
                 self.overlay = None;
                 let Some(tab) = self.current_mut() else {
@@ -1851,6 +1948,12 @@ impl App {
                         Ok(commits) => {
                             state.original = commits;
                             state.reset();
+                            if !state.apply_preset() {
+                                state.error = Some(
+                                    tr("Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.")
+                                        .to_owned(),
+                                );
+                            }
                         }
                         Err(message) => state.error = Some(message),
                     }
@@ -3310,6 +3413,8 @@ impl App {
             },
         };
         self.overlay = Some(Overlay::Rebase(Box::new(RebaseState {
+            replay: false,
+            preset: None,
             base: base.clone(),
             base_label,
             steps: Vec::new(),
@@ -3323,6 +3428,62 @@ impl App {
             async move { answer(queries::rebase_candidates(&repo, base.as_deref()).await) },
             Message::RebaseLoaded,
         )
+    }
+
+    /// The rebase editor with several picked commits squashed or dropped, from the parent
+    /// of the oldest of them.
+    fn plan_commits(&mut self, preset: Preset) -> Task<Message> {
+        let Some(tab) = self.current() else {
+            return Task::none();
+        };
+        let (Preset::Drop(shas) | Preset::Squash(shas)) = &preset;
+        // Newest first as listed, so the oldest is the last one found.
+        let oldest = tab
+            .commits
+            .iter()
+            .rev()
+            .find(|commit| shas.contains(&commit.sha));
+        let Some(oldest) = oldest else {
+            return Task::none();
+        };
+        let base = oldest.parents.first().cloned();
+        let task = self.open_rebase(base);
+        if let Some(Overlay::Rebase(state)) = &mut self.overlay {
+            state.preset = Some(preset);
+        }
+        task
+    }
+
+    /// The rebase editor in cherry-pick mode: the commits, oldest first, onto HEAD.
+    fn open_replay(&mut self, shas: Vec<String>) -> Task<Message> {
+        let Some(tab) = self.current() else {
+            return Task::none();
+        };
+        let original: Vec<Commit> = tab
+            .commits
+            .iter()
+            .rev()
+            .filter(|commit| shas.contains(&commit.sha))
+            .cloned()
+            .collect();
+        if original.is_empty() {
+            return Task::none();
+        }
+        let mut state = RebaseState {
+            replay: true,
+            preset: None,
+            base: None,
+            base_label: "HEAD".to_owned(),
+            steps: Vec::new(),
+            original,
+            loading: false,
+            error: None,
+            autostash: true,
+            focused: 0,
+        };
+        state.reset();
+        self.overlay = Some(Overlay::Rebase(Box::new(state)));
+        Task::none()
     }
 
     fn rebase_set_action(&mut self, index: usize, action: &'static str) -> Task<Message> {
@@ -3381,6 +3542,7 @@ impl App {
             base: state.base.clone(),
             steps,
             autostash: state.autostash,
+            replay: state.replay,
         };
         Task::done(Message::Run(command))
     }
@@ -3974,6 +4136,8 @@ mod tests {
             file: None,
         };
         let mut state = RebaseState {
+            replay: false,
+            preset: None,
             base: None,
             base_label: String::new(),
             steps: Vec::new(),
@@ -3993,5 +4157,51 @@ mod tests {
         assert_eq!(state.steps[0].commit.sha, "b");
         state.reset();
         assert!(state.unchanged());
+    }
+
+    #[test]
+    fn presets_drop_or_squash_the_picked_commits() {
+        let commit = |sha: &str| Commit {
+            sha: sha.into(),
+            parents: Vec::new(),
+            author: String::new(),
+            email: String::new(),
+            time: 0,
+            refs: None,
+            subject: sha.into(),
+            graph: None,
+            file: None,
+        };
+        let state = |preset| {
+            let mut state = RebaseState {
+                replay: false,
+                preset: Some(preset),
+                base: None,
+                base_label: String::new(),
+                steps: Vec::new(),
+                original: ["a", "b", "c", "d"].map(commit).to_vec(),
+                loading: false,
+                error: None,
+                autostash: true,
+                focused: 0,
+            };
+            state.reset();
+            let found = state.apply_preset();
+            (found, state)
+        };
+        let plan = |state: &RebaseState| -> Vec<String> {
+            state
+                .steps
+                .iter()
+                .map(|step| format!("{} {}", step.action, step.commit.sha))
+                .collect()
+        };
+        let (found, dropped) = state(Preset::Drop(vec!["b".into(), "d".into()]));
+        assert!(found);
+        assert_eq!(plan(&dropped), ["pick a", "drop b", "pick c", "drop d"]);
+        let (_, squashed) = state(Preset::Squash(vec!["d".into(), "b".into()]));
+        assert_eq!(plan(&squashed), ["pick a", "pick b", "squash d", "pick c"]);
+        let (found, _) = state(Preset::Squash(vec!["x".into()]));
+        assert!(!found, "a commit that isn't on the branch");
     }
 }
