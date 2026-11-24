@@ -2524,3 +2524,23 @@ async fn the_commit_menu_makes_a_fixup_commit() {
     drive(&mut app, fixup).await;
     assert_eq!(f.subjects()[0], "fixup! first commit");
 }
+
+#[tokio::test]
+async fn local_changes_are_saved_as_a_patch() {
+    use gitcraft_ui::app::Effect;
+    let f = fixture();
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "new\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::SaveChangesPatch)).await;
+    let Some(Effect::Ask(pick)) = app.effects.pop() else {
+        panic!("saving a patch asks where");
+    };
+    let target = f.root.join("changes.patch");
+    drive(&mut app, Message::Picked(pick, target.clone())).await;
+    let patch = std::fs::read_to_string(&target).unwrap();
+    assert!(
+        patch.contains("+changed") && patch.contains("+new"),
+        "{patch}"
+    );
+}

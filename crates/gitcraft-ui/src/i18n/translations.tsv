@@ -488,6 +488,8 @@ Save	Speichern	Enregistrer	Guardar
 Save & mark resolved	Speichern & als gelöst markieren	Enregistrer et marquer comme résolu	Guardar y marcar como resuelto
 Save anyway	Trotzdem speichern	Enregistrer quand même	Guardar de todos modos
 Save as patch…	Als Patch speichern…	Enregistrer comme patch…	Guardar como parche…
+Save commits from here to HEAD as patches…	Commits von hier bis HEAD als Patches speichern…	Enregistrer les commits d’ici à HEAD comme patchs…	Guardar los commits desde aquí hasta HEAD como parches…
+Save local changes as patch…	Lokale Änderungen als Patch speichern…	Enregistrer les modifications locales comme patch…	Guardar los cambios locales como parche…
 Save message	Nachricht speichern	Enregistrer le message	Guardar mensaje
 Save patch	Patch speichern	Enregistrer le patch	Guardar parche
 Saved {path}	{path} gespeichert	{path} enregistré	{path} guardado
@@ -590,6 +592,7 @@ Theirs	Ihre	Le leur	Lo suyo
 Theirs + ours	Ihre + unsere	Le leur + le nôtre	Lo suyo + lo nuestro
 Theme	Design	Thème	Tema
 There are no commits to rebase.	Es gibt keine Commits für einen Rebase.	Il n’y a aucun commit à rebaser.	No hay commits para hacer rebase.
+There are no local changes	Es gibt keine lokalen Änderungen	Il n’y a aucune modification locale	No hay cambios locales
 There are no local changes to stash	Es gibt keine lokalen Änderungen für den Stash	Il n’y a aucune modification locale à remiser	No hay cambios locales que guardar en el stash
 There is no backup: commits only on this branch are lost.	Es gibt kein Backup: Commits, die nur auf diesem Branch sind, gehen verloren.	Il n’y a pas de sauvegarde : les commits présents seulement sur cette branche sont perdus.	No hay respaldo: se pierden los commits que solo están en esta rama.
 This commit has no file changes	Dieser Commit ändert keine Dateien	Ce commit ne modifie aucun fichier	Este commit no cambia ningún archivo

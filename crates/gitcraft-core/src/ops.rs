@@ -1692,6 +1692,69 @@ pub async fn clean(
     })
 }
 
+/// One patch per commit from `sha` up to HEAD, in one mailbox file that `git am` applies.
+/// Merge commits are left out, as `git format-patch` does.
+pub async fn format_patch_series(repo: &str, sha: &str) -> Result<String> {
+    let sha = check_ref(sha)?;
+    let ancestor = git_unchecked(repo, &["merge-base", "--is-ancestor", sha, "HEAD"]).await?;
+    if ancestor.code != 0 {
+        return invalid("That commit is not on the current branch");
+    }
+    let parent = format!("{sha}^");
+    let has_parent = git_unchecked(repo, &["rev-parse", "--verify", "-q", &parent])
+        .await?
+        .code
+        == 0;
+    let range = format!("{sha}^..HEAD");
+    let args = if has_parent {
+        vec!["format-patch", "--stdout", &range]
+    } else {
+        vec!["format-patch", "--stdout", "--root", "HEAD"]
+    };
+    let patch = git(repo, &args).await?.out().into_owned();
+    if patch.trim().is_empty() {
+        return invalid("No patches could be created (merge commits are not supported)");
+    }
+    Ok(patch)
+}
+
+/// The uncommitted changes, staged or not and new files included, as one patch against HEAD
+/// that `git apply` takes. The working tree and the index are left as they are.
+pub async fn working_patch(repo: &str) -> Result<String> {
+    let status = queries::status(repo).await?;
+    let list: Vec<String> = status
+        .staged
+        .iter()
+        .chain(&status.unstaged)
+        .flat_map(|entry| std::iter::once(entry.path.clone()).chain(entry.orig_path.clone()))
+        .collect();
+    if list.is_empty() {
+        return invalid("There are no local changes");
+    }
+    let tree = backups::snapshot(repo, None, &list).await?;
+    let base = if queries::has_head(repo).await? {
+        "HEAD".to_owned()
+    } else {
+        queries::empty_tree(repo).await?
+    };
+    let result = git(
+        repo,
+        &[
+            "diff",
+            "--binary",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-relative",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
+            &base,
+            &tree,
+        ],
+    )
+    .await?;
+    Ok(result.out().into_owned())
+}
+
 pub async fn format_patch(repo: &str, sha: &str) -> Result<String> {
     let result = git(repo, &["format-patch", "-1", "--stdout", check_ref(sha)?]).await?;
     let patch = result.out();

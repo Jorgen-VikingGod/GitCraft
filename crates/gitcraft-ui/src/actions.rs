@@ -6,7 +6,7 @@ use gitcraft_core::{ops, queries};
 
 use crate::task::Task;
 
-use crate::app::{App, Area, Effect, Message, Pick, RepoTab, ToastKind, View};
+use crate::app::{App, Area, Effect, Message, PatchOf, Pick, RepoTab, ToastKind, View};
 use crate::command::Command;
 use crate::form::{Field, Form, Values};
 use crate::i18n::{tr, trf};
@@ -61,6 +61,9 @@ pub enum Action {
     },
     DropCommit(String),
     SavePatch(String),
+    /// The commits from this one up to HEAD, as patches.
+    SavePatchSeries(String),
+    SaveChangesPatch,
     PatchSaved(Result<Option<String>, String>),
     ApplyPatch,
     PatchPicked(Option<(String, String)>),
@@ -711,7 +714,23 @@ impl App {
                 let repo = tab.path.clone();
                 let subject = self.commit_by_sha(&sha).map_or_else(String::new, |commit| commit.subject.clone());
                 let name = logic::patch_file_name(&sha, &subject);
-                self.effects.push(Effect::Ask(Pick::SavePatch { repo, sha, name }));
+                self.effects.push(Effect::Ask(Pick::SavePatch { repo, of: PatchOf::Commit(sha), name }));
+                Task::none()
+            }
+            Action::SavePatchSeries(sha) => {
+                let repo = tab.path.clone();
+                let name = format!("{}-to-head.patch", short_sha(&sha));
+                self.effects.push(Effect::Ask(Pick::SavePatch { repo, of: PatchOf::Series(sha), name }));
+                Task::none()
+            }
+            Action::SaveChangesPatch => {
+                if tab.change_count() == 0 {
+                    self.toast(ToastKind::Info, "There are no local changes", None);
+                    return Task::none();
+                }
+                let repo = tab.path.clone();
+                let name = "local-changes.patch".to_owned();
+                self.effects.push(Effect::Ask(Pick::SavePatch { repo, of: PatchOf::Changes, name }));
                 Task::none()
             }
             Action::PatchSaved(result) => {
@@ -1666,6 +1685,12 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
         commit.parents.len() <= 1,
         act(Action::SavePatch(sha.clone())),
     ));
+    if !is_head {
+        items.push(MenuItem::entry(
+            "Save commits from here to HEAD as patches…",
+            act(Action::SavePatchSeries(sha.clone())),
+        ));
+    }
     items.push(MenuItem::sub(
         "Copy",
         vec![
@@ -1684,6 +1709,10 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
 fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
     let mut items = vec![
         MenuItem::entry("Apply patch…", act(Action::ApplyPatch)),
+        MenuItem::entry(
+            "Save local changes as patch…",
+            act(Action::SaveChangesPatch),
+        ),
         MenuItem::danger("Clean untracked files…", act(Action::Clean)),
         MenuItem::entry("Reflog (recover lost commits)…", Message::OpenReflog),
         MenuItem::entry("Recover discarded changes…", Message::OpenDiscards),

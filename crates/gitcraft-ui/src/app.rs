@@ -576,10 +576,20 @@ pub enum Pick {
     OpenRepository,
     SavePatch {
         repo: String,
-        sha: String,
+        of: PatchOf,
         name: String,
     },
     ApplyPatch,
+}
+
+/// What a saved patch holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PatchOf {
+    Commit(String),
+    /// Every commit from this one up to HEAD.
+    Series(String),
+    /// The uncommitted changes.
+    Changes,
 }
 
 impl Pick {
@@ -2830,11 +2840,16 @@ impl App {
             Pick::OpenRepository => {
                 Task::done(Message::OpenPath(path.to_string_lossy().into_owned()))
             }
-            Pick::SavePatch { repo, sha, .. } => Task::perform(
+            Pick::SavePatch { repo, of, .. } => Task::perform(
                 async move {
-                    let patch = gitcraft_core::ops::format_patch(&repo, &sha)
-                        .await
-                        .map_err(|error| error.to_string())?;
+                    let patch = match of {
+                        PatchOf::Commit(sha) => gitcraft_core::ops::format_patch(&repo, &sha).await,
+                        PatchOf::Series(sha) => {
+                            gitcraft_core::ops::format_patch_series(&repo, &sha).await
+                        }
+                        PatchOf::Changes => gitcraft_core::ops::working_patch(&repo).await,
+                    }
+                    .map_err(|error| error.to_string())?;
                     craft_atomic::atomic_write(&path, patch.as_bytes())
                         .map_err(|error| error.to_string())?;
                     Ok(Some(path.to_string_lossy().into_owned()))

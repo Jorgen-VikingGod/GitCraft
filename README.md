@@ -31,7 +31,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
   days under *Repository › Recover discarded changes*.
 - **Compare** any two commits (Ctrl/Cmd+click), filter history to the current branch, **reflog** to
   recover lost commits, fast-forward branches without checking them out.
-- **Patches** (save commit as patch, apply / `git am`), **.gitignore** from the changes list, stash selected
+- **Patches** (save a commit, the commits from one up to HEAD, or the local changes as a patch;
+  apply / `git am`), **.gitignore** from the changes list, stash selected
   files, clean untracked files, checkout a file at a revision, prune remotes, update submodules.
 - **Interactive rebase** editor: drag to reorder, pick/reword/edit/squash/fixup/drop, keyboard shortcuts.
 - **Conflict resolver**: per-conflict ours/theirs/both choices, editable result, take whole file.

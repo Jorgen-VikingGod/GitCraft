@@ -56,7 +56,7 @@ fn commit_env() -> Vec<(&'static str, String)> {
 
 /// The tree of `base` (HEAD, or the empty tree before the first commit, when `None`)
 /// with the working-tree state of `list` written over it. Paths are taken literally.
-async fn snapshot(repo: &str, base: Option<&str>, list: &[String]) -> Result<String> {
+pub(crate) async fn snapshot(repo: &str, base: Option<&str>, list: &[String]) -> Result<String> {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|elapsed| elapsed.as_nanos())

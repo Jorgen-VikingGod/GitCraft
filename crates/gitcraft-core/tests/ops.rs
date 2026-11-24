@@ -2234,3 +2234,31 @@ async fn a_signed_commit_shows_its_signature() {
     assert_eq!(signature.status, 'G', "{signature:?}");
     assert_eq!(signature.signer, "test@example.com");
 }
+
+#[tokio::test]
+async fn patches_of_a_series_and_of_the_local_changes_apply_elsewhere() {
+    let f = Fixture::with_history();
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    f.commit("b.txt", "bee\n", "third");
+    let series = ops::format_patch_series(&f.repo, f.git(&["rev-parse", "HEAD~1"]).trim())
+        .await
+        .unwrap();
+    assert!(series.contains("Subject: [PATCH 1/2] second"), "{series}");
+    assert!(series.contains("Subject: [PATCH 2/2] third"), "{series}");
+    let all = ops::format_patch_series(&f.repo, &first).await.unwrap();
+    assert!(all.contains("[PATCH 1/3] first"), "the root commit too");
+
+    f.write("a.txt", "staged\n");
+    f.git(&["add", "a.txt"]);
+    f.write("a.txt", "staged and more\n");
+    f.write("new.txt", "new\n");
+    let patch = ops::working_patch(&f.repo).await.unwrap();
+    assert!(
+        f.git(&["status", "--porcelain"]).contains("?? new.txt"),
+        "nothing was staged"
+    );
+    f.git(&["stash", "push", "-q", "-u"]);
+    ops::apply_patch(&f.repo, &patch, "apply").await.unwrap();
+    assert_eq!(f.read("a.txt"), "staged and more\n");
+    assert_eq!(f.read("new.txt"), "new\n");
+}
