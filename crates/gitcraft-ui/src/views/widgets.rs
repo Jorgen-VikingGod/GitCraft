@@ -181,7 +181,9 @@ fn brighter(color: Color32) -> Color32 {
 /// The standard small button, drawn by egui so that it reacts like every other widget.
 /// True when it was clicked.
 pub fn button(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: bool) -> bool {
-    enabled && button_response(ui, look, label, kind, enabled).clicked()
+    // Drawn either way: a button that is off shows faded rather than vanishing.
+    let response = button_response(ui, look, label, kind, enabled);
+    enabled && response.clicked()
 }
 
 /// A [`button`] that says what it does when the pointer rests on it, also while it is off.
