@@ -811,16 +811,20 @@ pub async fn remove_remote(repo: &str, name: &str) -> Result<OpResult> {
     Ok(ok(&git(repo, &["remote", "remove", name]).await?))
 }
 
+/// Renames a remote and changes its URL. `push_url` sets where it pushes, if that differs:
+/// `Some("")` removes a separate push URL (pushes go to `url` again), `None` leaves it.
 pub async fn edit_remote(
     repo: &str,
     name: &str,
     new_name: Option<&str>,
     url: Option<&str>,
+    push_url: Option<&str>,
 ) -> Result<OpResult> {
     let name = check_ref(name)?;
     let url = url.filter(|url| !url.is_empty());
     // Remote URLs are shown with their password masked; saving that back would destroy the real one.
-    if url.is_some_and(|url| url.contains(":***@") || url.contains("://***@")) {
+    let masked = |url: &str| url.contains(":***@") || url.contains("://***@");
+    if url.is_some_and(masked) || push_url.is_some_and(masked) {
         return invalid(
             "The URL still contains the hidden password. Type the full URL, including the password.",
         );
@@ -829,6 +833,21 @@ pub async fn edit_remote(
     let _guard = lock.lock().await;
     if let Some(url) = url {
         git(repo, &["remote", "set-url", name, check_ref(url)?]).await?;
+    }
+    match push_url.map(str::trim) {
+        Some("") => {
+            let key = format!("remote.{name}.pushurl");
+            // Nothing to remove is fine (exit code 5).
+            git_unchecked(repo, &["config", "--local", "--unset-all", &key]).await?;
+        }
+        Some(push) => {
+            git(
+                repo,
+                &["remote", "set-url", "--push", name, check_ref(push)?],
+            )
+            .await?;
+        }
+        None => {}
     }
     if let Some(new_name) = new_name.filter(|new_name| !new_name.is_empty() && *new_name != name) {
         git(repo, &["remote", "rename", name, check_ref(new_name)?]).await?;

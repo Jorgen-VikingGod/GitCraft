@@ -730,10 +730,23 @@ impl App {
                     return Task::none();
                 };
                 let form = Form::new("Edit remote", "Save", move |values: &Values| {
-                    run(Command::EditRemote { name: name.clone(), new_name: values.text("newName"), url: values.text("url") })
+                    run(Command::EditRemote {
+                        name: name.clone(),
+                        new_name: values.text("newName"),
+                        url: values.text("url"),
+                        push_url: values.text("pushUrl"),
+                    })
                 })
                 .field(Field::text("newName", "Name", &remote.name).required())
-                .field(Field::text("url", "URL", &remote.fetch_url).required());
+                .field(Field::text("url", "URL", &remote.fetch_url).required())
+                .field(
+                    Field::text(
+                        "pushUrl",
+                        "Push URL",
+                        if remote.push_url == remote.fetch_url { "" } else { &remote.push_url },
+                    )
+                    .hint("Empty: push to the URL above"),
+                );
                 self.ask(form)
             }
             Action::RemoveRemote(name) => self.ask(Form::confirm(

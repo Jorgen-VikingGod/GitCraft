@@ -165,6 +165,8 @@ pub enum Command {
         name: String,
         new_name: String,
         url: String,
+        /// Empty: pushes go to `url`.
+        push_url: String,
     },
     RemoveRemote {
         name: String,
@@ -778,7 +780,8 @@ impl Command {
                 name,
                 new_name,
                 url,
-            } => ops::edit_remote(repo, &name, Some(&new_name), Some(&url)).await,
+                push_url,
+            } => ops::edit_remote(repo, &name, Some(&new_name), Some(&url), Some(&push_url)).await,
             Self::RemoveRemote { name } => ops::remove_remote(repo, &name).await,
             Self::Reset { target, mode, .. } => ops::reset(repo, &target, &mode).await,
             Self::ApplyPatch { patch, mode } => ops::apply_patch(repo, &patch, &mode).await,

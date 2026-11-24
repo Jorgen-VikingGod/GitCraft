@@ -1361,7 +1361,7 @@ async fn remote_passwords_are_masked_and_cannot_be_saved_back() {
     );
     let masked = refs.remotes[0].fetch_url.clone();
     assert!(matches!(
-        ops::edit_remote(&f.repo, "up", None, Some(&masked)).await,
+        ops::edit_remote(&f.repo, "up", None, Some(&masked), None).await,
         Err(Error::Invalid(_))
     ));
     assert_eq!(
@@ -1373,6 +1373,7 @@ async fn remote_passwords_are_masked_and_cannot_be_saved_back() {
         "up",
         None,
         Some("https://me:new@example.invalid/x.git"),
+        None,
     )
     .await
     .unwrap();
@@ -2774,4 +2775,34 @@ async fn a_shallow_clone_gets_more_history() {
             .map(|refs| !refs.shallow)
             .unwrap()
     );
+}
+
+#[tokio::test]
+async fn a_remote_can_push_somewhere_else_than_it_fetches_from() {
+    let f = Fixture::with_history();
+    f.git(&["remote", "add", "up", "https://example.com/a.git"]);
+    ops::edit_remote(&f.repo, "up", None, None, Some("git@example.com:a.git"))
+        .await
+        .unwrap();
+    assert_eq!(
+        f.git(&["remote", "get-url", "--push", "up"]).trim(),
+        "git@example.com:a.git"
+    );
+    assert_eq!(
+        f.git(&["remote", "get-url", "up"]).trim(),
+        "https://example.com/a.git"
+    );
+    let refs = queries::refs(&f.repo).await.unwrap();
+    assert_eq!(refs.remotes[0].push_url, "git@example.com:a.git");
+    ops::edit_remote(&f.repo, "up", None, None, Some(""))
+        .await
+        .unwrap();
+    assert_eq!(
+        f.git(&["remote", "get-url", "--push", "up"]).trim(),
+        "https://example.com/a.git",
+        "without a push URL it pushes where it fetches"
+    );
+    ops::edit_remote(&f.repo, "up", None, None, Some(""))
+        .await
+        .unwrap();
 }
