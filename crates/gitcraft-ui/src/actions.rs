@@ -110,7 +110,7 @@ pub enum Action {
     },
     Cloned(Result<String, String>),
     Init,
-    InitAt(String),
+    InitAt(String, gitcraft_core::model::InitOptions),
     ConflictOverwrite(Option<usize>, Choice),
     ConflictResolve {
         path: String,
@@ -264,7 +264,7 @@ impl App {
                 return clone_task(url, parent, name, options);
             }
             Action::Cloned(result) => return self.cloned(result),
-            Action::InitAt(path) => return init_task(path),
+            Action::InitAt(path, options) => return init_task(path, options),
             _ => {}
         }
         let Some(tab) = self.current() else {
@@ -1050,7 +1050,7 @@ impl App {
             )),
             Action::ConflictOverwrite(index, choice) => self.conflict_choose(index, choice, true),
             Action::ConflictResolve { path, side } => Task::done(run(Command::Resolve { path, content: None, side })),
-            Action::Clone | Action::Init | Action::CloneTo { .. } | Action::Cloned(_) | Action::InitAt(_) => Task::none(),
+            Action::Clone | Action::Init | Action::CloneTo { .. } | Action::Cloned(_) | Action::InitAt(..) => Task::none(),
         }
     }
 
@@ -1105,13 +1105,42 @@ impl App {
 
     fn init_dialog(&mut self) -> Task<Message> {
         let form = Form::new("New repository", "Create", |values: &Values| {
-            act(Action::InitAt(values.text("path")))
+            let options = gitcraft_core::model::InitOptions {
+                branch: values.opt("branch"),
+                gitignore: values.opt("gitignore"),
+                ignore_editors: values.check("editors"),
+                readme: values.check("readme"),
+                commit: values.check("commit"),
+            };
+            act(Action::InitAt(values.text("path"), options))
         })
         .field(
             Field::text("path", "Folder", "")
                 .required()
                 .hint("A new or existing folder"),
-        );
+        )
+        .field(Field::text("branch", "First branch", "").hint("Git's default, such as main"))
+        .field(Field::select(
+            "gitignore",
+            "Ignore what this language's tools make",
+            "",
+            {
+                let mut choices = vec![(String::new(), tr("Nothing").to_owned())];
+                choices.extend(
+                    gitcraft_core::gitignore::LANGUAGES
+                        .iter()
+                        .map(|(key, name)| ((*key).to_owned(), (*name).to_owned())),
+                );
+                choices
+            },
+        ))
+        .field(Field::check(
+            "editors",
+            "Ignore editor settings and system files",
+            true,
+        ))
+        .field(Field::check("readme", "Add a README", true))
+        .field(Field::check("commit", "Make a first commit", true));
         self.ask(form)
     }
 
@@ -1587,16 +1616,20 @@ fn clone_task(
     )
 }
 
-fn init_task(path: String) -> Task<Message> {
+fn init_task(path: String, options: gitcraft_core::model::InitOptions) -> Task<Message> {
     Task::perform(
         async move {
             let path = gitcraft_core::paths::expand(&path);
-            ops::init(&path).await.map_err(|error| error.to_string())
+            match ops::init_with(&path, &options).await {
+                Ok(top) => (Some(top), None),
+                // Created, but a later step failed: it opens all the same.
+                Err(error) => {
+                    let top = gitcraft_core::queries::toplevel(&path).await.ok();
+                    (top, Some(error.to_string()))
+                }
+            }
         },
-        |result| match result {
-            Ok(path) => Message::OpenPath(path),
-            Err(error) => Message::Located(Err(error)),
-        },
+        |(top, error)| Message::Created(top, error),
     )
 }
 

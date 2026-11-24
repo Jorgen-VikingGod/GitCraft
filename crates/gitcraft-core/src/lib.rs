@@ -2,6 +2,7 @@
 
 pub mod backups;
 pub mod editor;
+pub mod gitignore;
 pub mod graph;
 pub mod model;
 pub mod ops;

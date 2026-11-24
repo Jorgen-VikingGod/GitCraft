@@ -66,7 +66,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Hide or solo branches** in the graph from a branch's menu, remembered for each repository.
 - **Filter the history** (*View › Filter history…*) by author, file or folder, or changed text (`-S`,
   or a regular expression with `-G`); a file's menu shows the history of its folder.
-- Repository **tabs**, recent repositories, init, and clone with options: one branch, only the newest
+- Repository **tabs**, recent repositories, init (first branch name, a `.gitignore` for a language,
+  README, first commit), and clone with options: one branch, only the newest
   commits or those since a date, without submodules, blobless, or only some folders (sparse).
 - Live refresh through file watching, **light/dark** theme that follows the system, zoom, keyboard
   shortcuts, and a menu bar with the shortcuts beside each command.

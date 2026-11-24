@@ -295,6 +295,21 @@ pub struct BlameLine {
     pub summary: String,
 }
 
+/// What a new repository starts with.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InitOptions {
+    /// The first branch's name; git's default (`init.defaultBranch`) when `None`.
+    pub branch: Option<String>,
+    /// A `.gitignore` for this language (see `gitignore::LANGUAGES`).
+    pub gitignore: Option<String>,
+    /// Also ignore editor settings and operating-system clutter.
+    pub ignore_editors: bool,
+    /// A README.md with the folder's name as its title.
+    pub readme: bool,
+    /// Commit what was created (or an empty commit) as "Initial commit".
+    pub commit: bool,
+}
+
 /// How much of a repository a clone downloads, and which branch it checks out.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CloneOptions {

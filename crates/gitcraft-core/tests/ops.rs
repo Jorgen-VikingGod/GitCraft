@@ -2991,3 +2991,57 @@ async fn clones_can_be_shallow_sparse_on_one_branch_and_without_submodules() {
         Err(Error::Validation(_))
     ));
 }
+
+#[tokio::test]
+async fn a_new_repository_starts_with_a_branch_ignore_file_readme_and_commit() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("fresh");
+    let options = InitOptions {
+        branch: Some("trunk".into()),
+        gitignore: Some("rust".into()),
+        ignore_editors: true,
+        readme: true,
+        commit: false,
+    };
+    let repo = ops::init_with(path.to_str().unwrap(), &options)
+        .await
+        .unwrap();
+    let root = Path::new(&repo);
+    assert!(
+        std::fs::read_to_string(root.join(".gitignore"))
+            .unwrap()
+            .contains("/target/")
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("README.md")).unwrap(),
+        "# fresh\n"
+    );
+    // A commit needs an identity: set one, then make another repository that commits.
+    let committed = dir.path().join("committed");
+    std::fs::create_dir(&committed).unwrap();
+    raw_git(&committed, &["init", "-q"]);
+    raw_git(&committed, &["config", "user.name", "Test User"]);
+    raw_git(&committed, &["config", "user.email", "test@example.com"]);
+    raw_git(&committed, &["config", "commit.gpgsign", "false"]);
+    let with_commit = InitOptions {
+        branch: Some("trunk".into()),
+        readme: true,
+        commit: true,
+        ..InitOptions::default()
+    };
+    ops::init_with(committed.to_str().unwrap(), &with_commit)
+        .await
+        .unwrap();
+    assert_eq!(
+        raw_git(&committed, &["log", "--format=%s"]),
+        b"Initial commit\n"
+    );
+    assert_eq!(
+        raw_git(&committed, &["show", "--name-only", "--format="]),
+        b"README.md\n"
+    );
+    assert_eq!(
+        raw_git(Path::new(&repo), &["symbolic-ref", "--short", "HEAD"]),
+        b"trunk\n"
+    );
+}

@@ -1263,9 +1263,68 @@ pub async fn clone_with(
 }
 
 pub async fn init(path: &str) -> Result<String> {
+    init_with(path, &InitOptions::default()).await
+}
+
+/// Makes a repository in `path` and starts it as `options` says. Files that are there
+/// already are left as they are.
+pub async fn init_with(path: &str, options: &InitOptions) -> Result<String> {
+    let branch = options
+        .branch
+        .as_deref()
+        .map(str::trim)
+        .filter(|b| !b.is_empty());
+    if let Some(branch) = branch {
+        check_ref(branch)?;
+    }
     std::fs::create_dir_all(path)?;
-    git(path, &["init"]).await?;
-    queries::toplevel(path).await
+    let mut args = vec!["init"];
+    if let Some(branch) = branch {
+        args.extend(["-b", branch]);
+    }
+    git(path, &args).await?;
+    let top = queries::toplevel(path).await?;
+    // `init -b` is ignored for a repository that was there already; one without commits
+    // yet can still start on the branch asked for.
+    if let Some(branch) = branch
+        && !queries::has_head(&top).await?
+    {
+        let head = format!("refs/heads/{branch}");
+        git(&top, &["symbolic-ref", "HEAD", &head]).await?;
+    }
+    let root = PathBuf::from(&top);
+    let write_new = |name: &str, content: &str| -> Result<()> {
+        let file = root.join(name);
+        if !content.is_empty() && !file.exists() {
+            craft_atomic::atomic_write(&file, content.as_bytes())?;
+        }
+        Ok(())
+    };
+    write_new(
+        ".gitignore",
+        &crate::gitignore::file(options.gitignore.as_deref(), options.ignore_editors),
+    )?;
+    if options.readme {
+        let title = root.file_name().map_or_else(
+            || "Project".to_owned(),
+            |name| name.to_string_lossy().into_owned(),
+        );
+        write_new("README.md", &format!("# {title}\n"))?;
+    }
+    if options.commit {
+        git(&top, &["add", "-A"]).await?;
+        let committed = git(
+            &top,
+            &["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+        )
+        .await;
+        if let Err(error) = committed {
+            return Err(Error::Invalid(format!(
+                "The repository was created, but the first commit failed: {error}"
+            )));
+        }
+    }
+    Ok(top)
 }
 
 // -------------------------------------------------- merge / rebase / reset

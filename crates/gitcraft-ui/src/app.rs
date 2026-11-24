@@ -853,6 +853,8 @@ pub enum Message {
     /// No file dialog could be shown; the text says why.
     DialogFailed(String),
     OpenPath(String),
+    /// A new repository: where it is (when it was made) and what went wrong (when something did).
+    Created(Option<String>, Option<String>),
     Located(Answer<String>),
     /// A saved tab located at start-up (see `App::boot`).
     Restored(Answer<String>),
@@ -1291,6 +1293,15 @@ impl App {
                 Message::Located,
             ),
             Message::Located(Ok(path)) => self.opened(path),
+            Message::Created(path, error) => {
+                if let Some(error) = error {
+                    self.toast(ToastKind::Error, error, None);
+                }
+                match path {
+                    Some(path) => Task::done(Message::OpenPath(path)),
+                    None => Task::none(),
+                }
+            }
             Message::Located(Err(error)) => {
                 self.toast(ToastKind::Error, error, None);
                 Task::none()

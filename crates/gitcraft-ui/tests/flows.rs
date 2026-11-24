@@ -3186,3 +3186,47 @@ async fn the_clone_dialog_makes_a_shallow_clone_of_one_branch() {
     assert_eq!(tab.current_branch(), Some("side"));
     assert!(tab.refs.shallow);
 }
+
+#[tokio::test]
+async fn a_new_repository_is_made_with_a_first_commit_and_opened() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let path = root.join("brand-new");
+    std::fs::create_dir(&path).unwrap();
+    git(&path, &["init", "-q"]);
+    for (key, value) in [
+        ("user.name", "Test User"),
+        ("user.email", "t@example.com"),
+        ("commit.gpgsign", "false"),
+    ] {
+        git(&path, &["config", key, value]);
+    }
+    let store = RepoStore::at(root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(false), store);
+    drive(&mut app, Message::Action(Action::Init)).await;
+    let fields: Vec<&str> = app
+        .form
+        .as_ref()
+        .unwrap()
+        .fields
+        .iter()
+        .map(|field| field.key)
+        .collect();
+    let at = |key: &str| fields.iter().position(|field| *field == key).unwrap();
+    let (path_at, branch_at, ignore_at) = (at("path"), at("branch"), at("gitignore"));
+    drive(
+        &mut app,
+        Message::FormText(path_at, path.to_string_lossy().into_owned()),
+    )
+    .await;
+    drive(&mut app, Message::FormText(branch_at, "trunk".into())).await;
+    drive(&mut app, Message::FormSelect(ignore_at, "rust".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let tab = app.current().expect("the new repository opens");
+    assert_eq!(tab.current_branch(), Some("trunk"));
+    assert_eq!(git(&path, &["log", "--format=%s"]), "Initial commit\n");
+    assert_eq!(
+        git(&path, &["show", "--name-only", "--format="]),
+        ".gitignore\nREADME.md\n"
+    );
+}

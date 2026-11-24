@@ -21,6 +21,7 @@ Abort {kind}	{kind} abbrechen	Annuler : {kind}	Abortar {kind}
 Aborting	Wird abgebrochen	Annulation	Abortando
 About {app}	Über {app}	À propos de {app}	Acerca de {app}
 Actual size	Originalgröße	Taille réelle	Tamaño real
+Add a README	Ein README anlegen	Ajouter un README	Añadir un README
 Add remote	Remote hinzufügen	Ajouter un dépôt distant	Añadir remoto
 Add remote…	Remote hinzufügen…	Ajouter un dépôt distant…	Añadir remoto…
 Add worktree	Worktree hinzufügen	Ajouter un arbre de travail	Añadir árbol de trabajo
@@ -306,6 +307,7 @@ Filter history	Verlauf filtern	Filtrer l’historique	Filtrar historial
 Filter history…	Verlauf filtern…	Filtrer l’historique…	Filtrar historial…
 Filtered history: {commits} {filters}	Gefilterter Verlauf: {commits} {filters}	Historique filtré : {commits} {filters}	Historial filtrado: {commits} {filters}
 First bad commit: {commit}	Erster fehlerhafter Commit: {commit}	Premier commit cassé : {commit}	Primer commit roto: {commit}
+First branch	Erster Branch	Première branche	Primera rama
 Fixup commit for {commit} created; an interactive rebase with autosquash folds it in	Fixup-Commit für {commit} erstellt; ein interaktiver Rebase mit Autosquash fügt ihn ein	Commit fixup pour {commit} créé ; un rebase interactif avec autosquash l’intègre	Commit fixup para {commit} creado; un rebase interactivo con autosquash lo integra
 Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen	Commit fixup des modifications indexées	Commit fixup de los cambios preparados
 Fold “{subject}” into its parent commit.	„{subject}“ in den Eltern-Commit einfalten.	Fusionner « {subject} » dans son commit parent.	Integrar «{subject}» en su commit padre.
@@ -316,6 +318,7 @@ Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer
 Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
 Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
+Git's default, such as main	Standard von git, etwa main	Celle par défaut de git, par exemple main	La predeterminada de git, como main
 Give both ranges, such as main..topic	Gib beide Bereiche an, etwa main..topic	Indiquez les deux plages, par exemple main..topic	Indica ambos rangos, por ejemplo main..topic
 Good	Gut	Bon	Bueno
 Good commit	Guter Commit	Commit fonctionnel	Commit bueno
@@ -336,7 +339,9 @@ History rewritten	Verlauf neu geschrieben	Historique réécrit	Historial reescri
 How	Wie	Comment	Cómo
 Ignore	Ignorieren	Ignorer	Ignorar
 Ignore all “*{extension}” files	Alle „*{extension}“-Dateien ignorieren	Ignorer tous les fichiers « *{extension} »	Ignorar todos los archivos «*{extension}»
+Ignore editor settings and system files	Editor-Einstellungen und Systemdateien ignorieren	Ignorer les réglages d’éditeur et les fichiers système	Ignorar los ajustes del editor y los archivos del sistema
 Ignore folder “{dir}”	Ordner „{dir}“ ignorieren	Ignorer le dossier « {dir} »	Ignorar la carpeta «{dir}»
+Ignore what this language's tools make	Ignorieren, was die Werkzeuge dieser Sprache erzeugen	Ignorer ce que produisent les outils de ce langage	Ignorar lo que generan las herramientas de este lenguaje
 Ignore whitespace changes	Leerraum-Änderungen ignorieren	Ignorer les modifications d’espaces	Ignorar cambios de espacios
 Ignore {count} files	{count} Dateien ignorieren	Ignorer {count} fichiers	Ignorar {count} archivos
 Ignore “{path}”	„{path}“ ignorieren	Ignorer « {path} »	Ignorar «{path}»
@@ -384,6 +389,7 @@ locked	gesperrt	verrouillé	bloqueado
 main..topic	main..topic	main..topic	main..topic
 main..topic@{1}	main..topic@{1}	main..topic@{1}	main..topic@{1}
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
+Make a first commit	Einen ersten Commit machen	Faire un premier commit	Hacer un primer commit
 Mark as bad	Als fehlerhaft markieren	Marquer comme mauvais	Marcar como malo
 Mark as conflicted again	Wieder als Konflikt markieren	Marquer à nouveau comme conflit	Marcar de nuevo como conflicto
 Mark as good	Als gut markieren	Marquer comme bon	Marcar como bueno
@@ -450,6 +456,7 @@ No stashes	Keine Stashes	Aucune remise	No hay stashes
 No tags	Keine Tags	Aucun tag	No hay etiquetas
 No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non indexée	No hay cambios sin preparar
 No upstream	Kein Upstream	Pas d’amont	Sin upstream
+Nothing	Nichts	Rien	Nada
 Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún no hay nada preparado
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
 Old range	Alter Bereich	Ancienne plage	Rango antiguo
