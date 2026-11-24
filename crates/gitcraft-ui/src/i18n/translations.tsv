@@ -248,6 +248,8 @@ Ending bisect	Bisect wird beendet	Fin de la bisection	Terminando bisección
 Every position HEAD and each branch have been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD und die einzelnen Branches waren. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Chaque position où HEAD et chaque branche se sont trouvés. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que han estado HEAD y cada rama. Haz clic derecho en una entrada para todas las acciones de commit.
 Every position HEAD has been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD war. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Toutes les positions occupées par HEAD. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que ha estado HEAD. Haz clic derecho en una entrada para ver todas las acciones de commit.
 Exit	Beenden	Quitter	Salir
+Expect a conflict in {path}.	Ein Konflikt in {path} ist zu erwarten.	Un conflit est attendu dans {path}.	Se espera un conflicto en {path}.
+Expect conflicts in {files}: {names}	Konflikte in {files} zu erwarten: {names}	Conflits attendus dans {files} : {names}	Se esperan conflictos en {files}: {names}
 Fast-forward	Vorspulen	Avance rapide	Avance rápido
 Fast-forward only	Nur vorspulen	Avance rapide uniquement	Solo avance rápido
 Fast-forward to {upstream}	Auf {upstream} vorspulen	Avancer jusqu’à {upstream}	Avanzar hasta {upstream}
@@ -383,6 +385,7 @@ No branches	Keine Branches	Aucune branche	No hay ramas
 No commits between the base and HEAD.	Keine Commits zwischen Basis und HEAD.	Aucun commit entre la base et HEAD.	No hay commits entre la base y HEAD.
 No commits yet	Noch keine Commits	Aucun commit pour l’instant	Aún no hay commits
 No conflict markers found (binary file, or the markers were already removed). Edit the result below if needed, then mark the file as resolved.	Keine Konfliktmarkierungen gefunden (Binärdatei, oder die Markierungen wurden schon entfernt). Bearbeite bei Bedarf das Ergebnis unten und markiere die Datei dann als gelöst.	Aucun marqueur de conflit trouvé (fichier binaire, ou marqueurs déjà retirés). Modifiez le résultat ci-dessous si besoin, puis marquez le fichier comme résolu.	No se encontraron marcadores de conflicto (archivo binario, o ya se quitaron). Edita el resultado de abajo si hace falta y marca el archivo como resuelto.
+No conflicts expected.	Keine Konflikte zu erwarten.	Aucun conflit attendu.	No se esperan conflictos.
 No content changes (mode or rename only)	Keine inhaltlichen Änderungen (nur Modus oder Umbenennung)	Aucune modification de contenu (mode ou renommage seulement)	Sin cambios de contenido (solo modo o cambio de nombre)
 No differences	Keine Unterschiede	Aucune différence	Sin diferencias
 No discarded changes are kept	Keine verworfenen Änderungen gesichert	Aucune modification supprimée n’est conservée	No hay cambios descartados guardados
@@ -543,6 +546,7 @@ Save patch	Patch speichern	Enregistrer le patch	Guardar parche
 Saved {path}	{path} gespeichert	{path} enregistré	{path} guardado
 Saving remote	Remote wird gespeichert	Enregistrement du dépôt distant	Guardando remoto
 Saving writes the result to the file and stages it.	Speichern schreibt das Ergebnis in die Datei und merkt sie vor.	Enregistrer écrit le résultat dans le fichier et l’indexe.	Guardar escribe el resultado en el archivo y lo prepara.
+Say beforehand which files a merge or rebase would conflict in	Vorab anzeigen, in welchen Dateien ein Merge oder Rebase Konflikte hätte	Indiquer à l’avance les fichiers où une fusion ou un rebase entrerait en conflit	Indicar de antemano en qué archivos un merge o rebase tendría conflictos
 Search commits	Commits durchsuchen	Rechercher des commits	Buscar commits
 Search commits (Ctrl+F)	Commits durchsuchen (Strg+F)	Rechercher des commits (Ctrl+F)	Buscar commits (Ctrl+F)
 Search failed	Suche fehlgeschlagen	Échec de la recherche	Error en la búsqueda

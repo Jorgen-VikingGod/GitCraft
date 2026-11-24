@@ -680,6 +680,42 @@ pub async fn reflog_all(repo: &str, limit: usize) -> Result<Vec<ReflogEntry>> {
 }
 
 /// Files changed between two commits (base to target), plus commit counts each way.
+/// The files a merge of `target` into HEAD would leave conflicted, worked out without
+/// touching the working tree or the index (`git merge-tree --write-tree`). An empty list
+/// means it would merge cleanly; `None` that git can't tell (it is older than 2.38, or the
+/// two have no common history).
+pub async fn conflict_check(repo: &str, target: &str) -> Result<Option<Vec<String>>> {
+    let target = check_ref(target)?;
+    let result = git_unchecked(
+        repo,
+        &[
+            "merge-tree",
+            "--write-tree",
+            "--name-only",
+            "--no-messages",
+            "-z",
+            "HEAD",
+            target,
+        ],
+    )
+    .await?;
+    match result.code {
+        0 => Ok(Some(Vec::new())),
+        1 => {
+            let out = result.out();
+            // The tree written first, then one name per conflicted file.
+            let files = out
+                .split('\0')
+                .skip(1)
+                .filter(|path| !path.is_empty())
+                .map(str::to_owned)
+                .collect::<std::collections::BTreeSet<_>>();
+            Ok(Some(files.into_iter().collect()))
+        }
+        _ => Ok(None),
+    }
+}
+
 /// How two versions of a series of commits differ (`git range-diff old new`), for example a
 /// branch before and after a rebase: which commits match, which changed and how.
 /// Each range is `A..B`, or `A...B` for two branches from where they part.

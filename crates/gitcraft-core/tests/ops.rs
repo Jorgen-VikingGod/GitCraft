@@ -2481,3 +2481,23 @@ async fn two_versions_of_a_branch_are_compared_with_range_diff() {
             .is_err()
     );
 }
+
+#[tokio::test]
+async fn conflicts_are_foreseen_without_touching_anything() {
+    let f = Fixture::with_history();
+    f.make_conflict();
+    f.write("a.txt", "local edit stays\n");
+    let check = queries::conflict_check(&f.repo, "other").await.unwrap();
+    // Git older than 2.38 can't tell; then there is nothing more to check.
+    let Some(files) = check else { return };
+    assert_eq!(files, ["a.txt"]);
+    assert_eq!(f.read("a.txt"), "local edit stays\n");
+    assert!(queries::operation_state(&f.repo).await.unwrap().is_none());
+    f.git(&["checkout", "--", "a.txt"]);
+    f.git(&["switch", "-q", "-c", "clean", "HEAD~1"]);
+    f.commit("z.txt", "z\n", "unrelated");
+    assert_eq!(
+        queries::conflict_check(&f.repo, "main").await.unwrap(),
+        Some(vec![])
+    );
+}

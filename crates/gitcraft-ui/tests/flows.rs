@@ -2785,3 +2785,22 @@ async fn commit_ranges_are_compared_in_their_own_view() {
     assert!(text.contains("topic work, reworded"));
     assert!(Screen::new().show(&app).has("topic work, reworded"));
 }
+
+#[tokio::test]
+async fn the_merge_dialog_says_which_files_would_conflict() {
+    let f = fixture();
+    f.git(&["switch", "-q", "-c", "other"]);
+    f.commit("a.txt", "theirs\n", "theirs");
+    f.git(&["switch", "-q", "main"]);
+    f.commit("a.txt", "ours\n", "ours");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::Merge("other".into()))).await;
+    let message = app
+        .form
+        .as_ref()
+        .unwrap()
+        .message
+        .clone()
+        .unwrap_or_default();
+    assert!(message.contains("Expect a conflict in a.txt"), "{message}");
+}

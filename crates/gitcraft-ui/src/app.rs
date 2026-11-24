@@ -39,7 +39,7 @@ pub type Answer<T> = Result<T, String>;
 /// A list of file paths, the one that is current, and how to pick another.
 type FileList = (Vec<String>, Option<String>, Box<dyn Fn(String) -> Message>);
 
-fn answer<T>(result: Result<T, Error>) -> Answer<T> {
+pub(crate) fn answer<T>(result: Result<T, Error>) -> Answer<T> {
     result.map_err(|error| error.to_string())
 }
 
@@ -791,6 +791,8 @@ pub struct App {
     pub found_tools: FoundTools,
     /// Things only the shell can do, such as the clipboard; it drains them after each update.
     pub effects: Vec<Effect>,
+    /// The merge or rebase target whose dialog waits for a conflict check.
+    pub conflict_preview: Option<String>,
     next_id: u64,
     pub(crate) config_dir: PathBuf,
     pub(crate) store: RepoStore,
@@ -973,6 +975,9 @@ pub enum Message {
     SetSyntax(bool),
     SetLogLimit(String),
     SetFetchOnOpen(bool),
+    SetConflictCheck(bool),
+    /// The files a merge with this target would conflict in (see `queries::conflict_check`).
+    ConflictPreview(String, Answer<Option<Vec<String>>>),
     SetCommitGraph(bool),
     Zoom(f32),
     /// The desktop switched between light and dark.
@@ -1098,6 +1103,7 @@ impl App {
             restore_front: None,
             found_tools: FoundTools::default(),
             effects: Vec::new(),
+            conflict_preview: None,
             next_id: 1,
             config_dir: store.dir(),
             store,
@@ -2262,6 +2268,33 @@ impl App {
             Message::SetCommitGraph(value) => {
                 self.settings.history.commit_graph = value;
                 self.save_settings();
+                Task::none()
+            }
+            Message::SetConflictCheck(value) => {
+                self.settings.history.conflict_check = value;
+                self.save_settings();
+                Task::none()
+            }
+            Message::ConflictPreview(target, result) => {
+                // Only into the dialog it was asked for.
+                if self.conflict_preview.as_deref() == Some(target.as_str())
+                    && let Some(form) = &mut self.form
+                    && let Ok(Some(files)) = result
+                {
+                    let note = match &files[..] {
+                        [] => tr("No conflicts expected.").to_owned(),
+                        [one] => trf("Expect a conflict in {path}.", &[("path", one)]),
+                        many => trf(
+                            "Expect conflicts in {files}: {names}",
+                            &[
+                                ("files", &plural(many.len(), "file")),
+                                ("names", &crate::logic::list_short(many, 5)),
+                            ],
+                        ),
+                    };
+                    let message = form.message.take().unwrap_or_default();
+                    form.message = Some(format!("{message}\n{note}").trim().to_owned());
+                }
                 Task::none()
             }
             Message::SetFetchOnOpen(value) => {

@@ -88,6 +88,8 @@ pub struct History {
     pub fetch_on_open: bool,
     /// Keep a commit-graph file in the repository, which makes history load far faster.
     pub commit_graph: bool,
+    /// Merge and rebase dialogs say beforehand which files would conflict.
+    pub conflict_check: bool,
 }
 
 impl Default for History {
@@ -96,6 +98,7 @@ impl Default for History {
             log_limit: 2000,
             fetch_on_open: false,
             commit_graph: true,
+            conflict_check: true,
         }
     }
 }
@@ -256,6 +259,7 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
             log_limit: old.log_limit,
             fetch_on_open: old.fetch_on_open,
             commit_graph: old.commit_graph,
+            ..History::default()
         },
         pull: Pull {
             mode: old.pull_mode,

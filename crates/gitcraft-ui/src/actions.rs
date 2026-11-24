@@ -201,6 +201,28 @@ impl App {
         Task::none()
     }
 
+    /// Works out in the background which files merging `target` would conflict in, for the
+    /// dialog just opened (a rebase conflicts in the same files, near enough).
+    fn preview_conflicts(&mut self, target: &str) -> Task<Message> {
+        let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        if !self.settings.history.conflict_check {
+            return Task::none();
+        }
+        self.conflict_preview = Some(target.to_owned());
+        let target = target.to_owned();
+        Task::perform(
+            async move {
+                let result = crate::app::answer(
+                    gitcraft_core::queries::conflict_check(&repo, &target).await,
+                );
+                (target, result)
+            },
+            |(target, result)| Message::ConflictPreview(target, result),
+        )
+    }
+
     fn warn(&mut self, message: &str) -> Task<Message> {
         self.toast(ToastKind::Warning, message, None);
         Task::none()
@@ -492,16 +514,19 @@ impl App {
                         ("squash", "Squash (stage changes, do not commit)"),
                     ]),
                 ));
-                self.ask(form)
+                let check = self.preview_conflicts(&reference);
+                Task::batch([self.ask(form), check])
             }
             Action::Rebase { onto, label } => {
+                let target = onto.clone();
                 let form = Form::new("Rebase", "Rebase", move |values: &Values| Message::RebaseChosen {
                     onto: onto.clone(),
                     autostash: values.check("autostash"),
                 })
                 .message(&trf("Rebase {head} onto {label}?", &[("head", &head), ("label", &label)]))
                 .field(Field::check("autostash", "Stash and reapply local changes", self.settings.rebase.autostash));
-                self.ask(form)
+                let check = self.preview_conflicts(&target);
+                Task::batch([self.ask(form), check])
             }
             Action::RangeDiff => {
                 let upstream = tab.status.as_ref().and_then(|status| status.branch.upstream.clone());

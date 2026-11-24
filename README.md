@@ -20,6 +20,7 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Branches, tags, remotes**: sidebar with folder trees, ahead/behind counts, checkout (double-click),
   create, rename, delete, upstream tracking, push/delete remote branches and tags, add/edit/remove remotes.
 - **Fetch / pull / push** with live progress (merge, rebase or fast-forward pulls; force-with-lease).
+- **Conflict check**: the merge and rebase dialogs say beforehand which files would conflict (git 2.38+).
 - **Merge, rebase (with optional autostash), cherry-pick, revert, reset (soft/mixed/keep/hard), undo last
   commit** from context menus on commits, branch/tag badges and sidebar refs; banner with
   Continue/Skip/Abort while an operation is in progress.

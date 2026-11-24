@@ -1530,6 +1530,14 @@ fn settings(ctx: &Context, cx: &Cx) {
                     }
                     if let Some(on) = check(
                         ui,
+                        values.history.conflict_check,
+                        "Say beforehand which files a merge or rebase would conflict in",
+                        true,
+                    ) {
+                        cx.send(Message::SetConflictCheck(on));
+                    }
+                    if let Some(on) = check(
+                        ui,
                         values.history.commit_graph,
                         "Keep a commit-graph file for faster history",
                         true,

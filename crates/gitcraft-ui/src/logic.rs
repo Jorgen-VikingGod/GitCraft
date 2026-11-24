@@ -100,6 +100,23 @@ pub fn autosquash(steps: &[(String, String)]) -> Vec<(usize, Option<&'static str
     order
 }
 
+/// "a, b, c and 2 more files": at most `shown` names, then how many more.
+pub fn list_short(names: &[String], shown: usize) -> String {
+    let joined = names
+        .iter()
+        .take(shown)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    match names.len().saturating_sub(shown) {
+        0 => joined,
+        rest => trf(
+            "{path} and {more}",
+            &[("path", &joined), ("more", &plural(rest, "more file"))],
+        ),
+    }
+}
+
 /// How a signature's state is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
