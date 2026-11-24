@@ -2426,3 +2426,35 @@ async fn bisect_finds_the_first_bad_commit() {
     assert!(queries::bisect_state(&f.repo).await.unwrap().is_none());
     assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
 }
+
+#[tokio::test]
+async fn a_commit_is_compared_with_the_working_tree() {
+    let f = Fixture::with_history();
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    f.write("a.txt", "changed now\n");
+    f.write("new.txt", "new\n");
+    let comparison = queries::compare(&f.repo, &first, queries::WORKTREE)
+        .await
+        .unwrap();
+    assert_eq!(paths(&comparison.files), ["a.txt", "new.txt"]);
+    assert_eq!((comparison.base_only, comparison.target_only), (0, 1));
+    let diff = queries::range_diff(&f.repo, &first, queries::WORKTREE, "a.txt", 3)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        diff.hunks[0]
+            .lines
+            .iter()
+            .any(|line| line.text == "changed now")
+    );
+    let new = queries::range_diff(&f.repo, &first, queries::WORKTREE, "new.txt", 3)
+        .await
+        .unwrap();
+    assert!(new.is_some(), "untracked files show as new");
+    let swapped = queries::compare(&f.repo, queries::WORKTREE, &first)
+        .await
+        .unwrap();
+    assert_eq!(paths(&swapped.files), ["a.txt"]);
+    assert_eq!((swapped.base_only, swapped.target_only), (1, 0));
+}

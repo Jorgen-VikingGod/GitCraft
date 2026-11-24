@@ -2728,3 +2728,40 @@ async fn bisecting_from_the_commit_menu_and_the_bisect_bar() {
     assert!(app.current().unwrap().bisect.is_none());
     assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
 }
+
+#[tokio::test]
+async fn a_commit_is_compared_with_the_working_directory() {
+    let f = fixture();
+    f.write("a.txt", "edited\n");
+    let mut app = opened(&f, false).await;
+    let first = sha_of(&app, "first commit");
+    drive(
+        &mut app,
+        Message::CompareStart(first, gitcraft_core::queries::WORKTREE.to_owned()),
+    )
+    .await;
+    let compare = app.current().unwrap().compare.as_ref().unwrap();
+    let files: Vec<&str> = compare
+        .result
+        .as_ref()
+        .unwrap()
+        .files
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect();
+    assert!(
+        files.contains(&"a.txt") && files.contains(&"b.txt"),
+        "{files:?}"
+    );
+    assert!(Screen::new().show(&app).has("Working directory"));
+    drive(&mut app, Message::CompareSwap).await;
+    assert!(
+        app.current()
+            .unwrap()
+            .compare
+            .as_ref()
+            .unwrap()
+            .error
+            .is_none()
+    );
+}

@@ -353,8 +353,12 @@ pub fn compare(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                     for (prefix, sha) in [("", &state.base), ("→", &state.target)] {
                         ui.horizontal(|ui| {
                             muted(ui, look, prefix, 12.0);
-                            mono(ui, short_sha(sha), 12.0, c.text);
-                            muted(ui, look, subject(sha), 12.0);
+                            if sha.as_str() == gitcraft_core::queries::WORKTREE {
+                                text(ui, tr("Working directory"), 12.0, c.text);
+                            } else {
+                                mono(ui, short_sha(sha), 12.0, c.text);
+                                muted(ui, look, subject(sha), 12.0);
+                            }
                         });
                     }
                     if let Some(result) = &state.result {
@@ -394,7 +398,8 @@ pub fn compare(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                 "compare",
                 list,
                 state.selected.as_deref(),
-                Some(&state.target),
+                // A file of the working tree has no commit to check it out from.
+                Some(state.target.as_str()).filter(|target| !target.is_empty()),
                 "No differences",
             );
         },

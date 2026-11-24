@@ -292,8 +292,61 @@ pub async fn range_diff(
     let flags = diff_flags(context, false);
     let mut args = vec!["diff"];
     args.extend(flags.iter().map(String::as_str));
+    if target == WORKTREE || base == WORKTREE {
+        let commit = check_ref(if target == WORKTREE { base } else { target })?;
+        if base == WORKTREE {
+            args.push("-R");
+        }
+        args.extend([commit, "--", path]);
+        let diff = diff_one(repo, &args).await?;
+        if diff.is_none() && target == WORKTREE {
+            // A new file git doesn't track yet.
+            return working_diff(repo, path, false, context, false, None).await;
+        }
+        return Ok(diff);
+    }
     args.extend([check_ref(base)?, check_ref(target)?, "--", path]);
     diff_one(repo, &args).await
+}
+
+async fn compare_worktree(repo: &str, base: &str, target: &str) -> Result<Comparison> {
+    let reverse = base == WORKTREE;
+    let commit = check_ref(if reverse { target } else { base })?;
+    let mut args = vec!["diff", "--name-status", "-z", "-M"];
+    if reverse {
+        args.push("-R");
+    }
+    args.extend([commit, "--"]);
+    let mut files = parsers::parse_name_status(&git(repo, &args).await?.out());
+    if !reverse {
+        let status = status(repo).await?;
+        files.extend(
+            status
+                .unstaged
+                .into_iter()
+                .filter(|entry| entry.status == "?")
+                .map(|entry| FileChange {
+                    status: "A".to_owned(),
+                    ..entry
+                }),
+        );
+    }
+    // The working tree sits on HEAD: count the commits between it and the commit.
+    let range = format!("{commit}...HEAD");
+    let counts = git_unchecked(repo, &["rev-list", "--left-right", "--count", &range]).await?;
+    let text = counts.out();
+    let mut numbers = text.split_whitespace().map(|n| n.parse().unwrap_or(0));
+    let (commit_only, head_only) = (numbers.next().unwrap_or(0), numbers.next().unwrap_or(0));
+    let (base_only, target_only) = if reverse {
+        (head_only, commit_only)
+    } else {
+        (commit_only, head_only)
+    };
+    Ok(Comparison {
+        files,
+        base_only,
+        target_only,
+    })
 }
 
 pub async fn status(repo: &str) -> Result<Status> {
@@ -627,7 +680,15 @@ pub async fn reflog_all(repo: &str, limit: usize) -> Result<Vec<ReflogEntry>> {
 }
 
 /// Files changed between two commits (base to target), plus commit counts each way.
+/// Stands for the working tree (with what is staged) as either side of [`compare`].
+pub const WORKTREE: &str = "";
+
+/// Files changed between two commits (base to target), plus commit counts each way. Either
+/// side may be [`WORKTREE`]; new untracked files then count as added.
 pub async fn compare(repo: &str, base: &str, target: &str) -> Result<Comparison> {
+    if base == WORKTREE || target == WORKTREE {
+        return compare_worktree(repo, base, target).await;
+    }
     let (base, target) = (check_ref(base)?, check_ref(target)?);
     let files = git(
         repo,

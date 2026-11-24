@@ -34,7 +34,7 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Several commits at once**: pick them with Ctrl/Cmd+click or Shift+click, then cherry-pick them,
   squash or drop them (the interactive rebase editor opens with the plan), or replay them onto HEAD
   in the editor (interactive cherry-pick).
-- **Compare** any two commits (Ctrl/Cmd+click), filter history to the current branch, **reflog** to
+- **Compare** any two commits (Ctrl/Cmd+click), or a commit with the working directory, filter history to the current branch, **reflog** to
   recover lost commits, fast-forward branches without checking them out.
 - **Patches** (save a commit, the commits from one up to HEAD, or the local changes as a patch;
   apply / `git am`), **.gitignore** from the changes list, stash selected

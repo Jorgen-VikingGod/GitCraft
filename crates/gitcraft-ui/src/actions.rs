@@ -1795,6 +1795,10 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             Message::CompareStart(sha.clone(), head.to_owned()),
         ));
     }
+    items.push(MenuItem::entry(
+        "Compare with working directory",
+        Message::CompareStart(sha.clone(), gitcraft_core::queries::WORKTREE.to_owned()),
+    ));
     if let Some(selected) = tab.selected.as_deref().filter(|selected| *selected != sha) {
         items.push(MenuItem::entry(
             trf("Compare with {commit}", &[("commit", short_sha(selected))]),

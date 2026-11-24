@@ -139,6 +139,7 @@ Committer	Committer	Validateur	Committer
 Committing	Commit läuft	Validation	Haciendo commit
 Committing…	Commit läuft…	Validation…	Haciendo commit…
 Compare with HEAD	Mit HEAD vergleichen	Comparer avec HEAD	Comparar con HEAD
+Compare with working directory	Mit dem Arbeitsverzeichnis vergleichen	Comparer avec le répertoire de travail	Comparar con el directorio de trabajo
 Compare with {commit}	Mit {commit} vergleichen	Comparer avec {commit}	Comparar con {commit}
 Comparing commits	Commits vergleichen	Comparaison de commits	Comparando commits
 Conflict markers remain	Konfliktmarkierungen vorhanden	Des marqueurs de conflit subsistent	Quedan marcadores de conflicto
@@ -687,6 +688,7 @@ Use their file	Ihre Datei verwenden	Utiliser leur fichier	Usar su archivo
 Use theirs	Ihre verwenden	Utiliser le leur	Usar lo suyo
 View	Ansicht	Affichage	Ver
 Window	Fenster	Fenêtre	Ventana
+Working directory	Arbeitsverzeichnis	Répertoire de travail	Directorio de trabajo
 Working tree is clean	Arbeitsverzeichnis ist sauber	L’arbre de travail est propre	El árbol de trabajo está limpio
 worktree	Worktree	arbre de travail	árbol de trabajo
 Worktree removed	Worktree entfernt	Arbre de travail retiré	Árbol de trabajo quitado
