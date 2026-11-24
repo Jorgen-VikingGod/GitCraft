@@ -2654,3 +2654,29 @@ async fn stashes_sit_above_the_commit_they_were_made_on() {
         .unwrap();
     assert_eq!(subjects(&dated.commits), ["third", "second", "first"]);
 }
+
+#[tokio::test]
+async fn each_commit_says_how_much_it_changed() {
+    let f = Fixture::with_history();
+    f.write("b.txt", "1\n2\n");
+    f.write("a.txt", "one\ntwo\n");
+    f.git(&["add", "."]);
+    f.git(&["commit", "-q", "-m", "third"]);
+    let shas: Vec<String> = f
+        .git(&["rev-list", "HEAD"])
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    let stats = queries::commit_stats(&f.repo, &shas).await.unwrap();
+    assert_eq!(stats.len(), 3);
+    assert_eq!(stats[0].0, shas[0]);
+    assert_eq!(
+        stats[0].1,
+        CommitStats {
+            files: 2,
+            added: 2,
+            removed: 2
+        }
+    );
+    assert_eq!(stats[1].1.added, 1, "second adds the line four");
+}

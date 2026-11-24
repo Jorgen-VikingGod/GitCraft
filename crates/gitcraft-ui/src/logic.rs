@@ -117,6 +117,46 @@ pub fn list_short(names: &[String], shown: usize) -> String {
     }
 }
 
+/// Where the history list's columns start, from the right edge in: commit, date, author,
+/// changes. `None` for a hidden column; the description ends at `subject_end`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ColumnX {
+    pub sha: Option<f32>,
+    pub date: Option<f32>,
+    pub author: Option<f32>,
+    pub changes: Option<f32>,
+    /// The left edges of the date and author columns, where they are resized.
+    pub date_edge: Option<f32>,
+    pub author_edge: Option<f32>,
+    pub subject_end: f32,
+}
+
+pub const SHA_COLUMN: f32 = 76.0;
+pub const CHANGES_COLUMN: f32 = 100.0;
+
+pub fn column_x(right: f32, columns: &crate::settings::Columns) -> ColumnX {
+    let mut edge = right;
+    let mut take = |shown: bool, width: f32, pad: f32| {
+        shown.then(|| {
+            edge -= width;
+            (edge + pad, edge)
+        })
+    };
+    let sha = take(columns.sha, SHA_COLUMN, 4.0);
+    let date = take(columns.date, columns.date_width, 8.0);
+    let author = take(columns.author, columns.author_width, 8.0);
+    let changes = take(columns.changes, CHANGES_COLUMN, 8.0);
+    ColumnX {
+        sha: sha.map(|(x, _)| x),
+        date: date.map(|(x, _)| x),
+        author: author.map(|(x, _)| x),
+        changes: changes.map(|(x, _)| x),
+        date_edge: date.map(|(_, edge)| edge),
+        author_edge: author.map(|(_, edge)| edge),
+        subject_end: edge,
+    }
+}
+
 /// How a signature's state is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -535,6 +575,23 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn columns_are_laid_out_from_the_right() {
+        let mut columns = crate::settings::Columns::default();
+        let x = column_x(1000.0, &columns);
+        assert_eq!(x.sha, Some(1000.0 - 76.0 + 4.0));
+        assert_eq!(x.date, Some(1000.0 - 76.0 - 120.0 + 8.0));
+        assert_eq!(x.author, Some(1000.0 - 76.0 - 120.0 - 150.0 + 8.0));
+        assert_eq!(x.changes, None);
+        assert_eq!(x.subject_end, 1000.0 - 76.0 - 120.0 - 150.0);
+        columns.date = false;
+        columns.changes = true;
+        let x = column_x(1000.0, &columns);
+        assert_eq!(x.date, None);
+        assert_eq!(x.author, Some(1000.0 - 76.0 - 150.0 + 8.0));
+        assert_eq!(x.subject_end, 1000.0 - 76.0 - 150.0 - 100.0);
+    }
 
     #[test]
     fn autosquash_moves_fixups_after_their_commit() {

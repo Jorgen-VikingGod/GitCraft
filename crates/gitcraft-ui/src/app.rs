@@ -294,6 +294,8 @@ pub struct RepoTab {
     pub history_filter: Option<LogFilter>,
     /// Branches hidden from the graph, or the only ones shown.
     pub ref_view: RefView,
+    /// How much each loaded commit changed, for the Changes column.
+    pub stats: std::collections::HashMap<String, CommitStats>,
     /// Copies of the history settings, so the list can be reloaded from the tab alone.
     pub date_order: bool,
     pub show_stashes: bool,
@@ -347,6 +349,7 @@ impl RepoTab {
             ref_view: RefView::default(),
             date_order: false,
             show_stashes: true,
+            stats: std::collections::HashMap::new(),
             co_authors: String::new(),
             picked_commits: Vec::new(),
         }
@@ -1006,6 +1009,12 @@ pub enum Message {
     SetFetchOnOpen(bool),
     SetConflictCheck(bool),
     SetDateOrder(bool),
+    /// Shows or hides a column of the history list.
+    ToggleColumn(Column),
+    /// A new width for a resizable column; `done` once the drag ends, to save it.
+    ColumnWidth(Column, f32, bool),
+    ColumnsReset,
+    StatsLoaded(String, Answer<Vec<(String, CommitStats)>>),
     SetShowStashes(bool),
     /// The files a merge with this target would conflict in (see `queries::conflict_check`).
     ConflictPreview(String, Answer<Option<Vec<String>>>),
@@ -2347,6 +2356,52 @@ impl App {
                 self.save_settings();
                 Task::none()
             }
+            Message::ToggleColumn(column) => {
+                let columns = &mut self.settings.columns;
+                let flag = match column {
+                    Column::Author => &mut columns.author,
+                    Column::Date => &mut columns.date,
+                    Column::Sha => &mut columns.sha,
+                    Column::Changes => &mut columns.changes,
+                };
+                *flag = !*flag;
+                let changes = columns.changes;
+                self.save_settings();
+                if changes && column == Column::Changes {
+                    return self.load_stats();
+                }
+                Task::none()
+            }
+            Message::ColumnWidth(column, width, done) => {
+                let width = width.clamp(60.0, 480.0);
+                match column {
+                    Column::Author => self.settings.columns.author_width = width,
+                    Column::Date => self.settings.columns.date_width = width,
+                    Column::Sha | Column::Changes => {}
+                }
+                if done {
+                    self.save_settings();
+                }
+                Task::none()
+            }
+            Message::ColumnsReset => {
+                self.settings.columns = crate::settings::Columns::default();
+                self.save_settings();
+                Task::none()
+            }
+            Message::StatsLoaded(path, result) => {
+                match result {
+                    Ok(found) => {
+                        if let Some(tab) = self.tab_mut(&path) {
+                            tab.stats.extend(found);
+                        }
+                    }
+                    Err(error) => {
+                        self.toast(ToastKind::Error, "Could not count the changes", Some(error))
+                    }
+                }
+                Task::none()
+            }
             Message::SetDateOrder(value) | Message::SetShowStashes(value) => {
                 if matches!(message, Message::SetDateOrder(_)) {
                     self.settings.history.date_order = value;
@@ -2686,6 +2741,14 @@ impl App {
         tab.commits = commits;
         tab.has_more = has_more;
         tab.loading = false;
+        let stats = if self.settings.columns.changes {
+            self.load_stats_for(path)
+        } else {
+            Task::none()
+        };
+        let Some(tab) = self.tab_mut(path) else {
+            return stats;
+        };
         let still_there = tab
             .selected
             .as_ref()
@@ -2701,10 +2764,41 @@ impl App {
             tab.selected = None;
             tab.detail = None;
             if let Some(first) = first.filter(|_| is_current) {
-                return self.select(first);
+                return Task::batch([stats, self.select(first)]);
             }
         }
-        Task::none()
+        stats
+    }
+
+    /// Counts the changes of the current tab's commits that have no count yet.
+    fn load_stats(&mut self) -> Task<Message> {
+        match self.current().map(|tab| tab.path.clone()) {
+            Some(path) => self.load_stats_for(&path),
+            None => Task::none(),
+        }
+    }
+
+    fn load_stats_for(&mut self, path: &str) -> Task<Message> {
+        let Some(tab) = self.tabs.iter().find(|tab| tab.path == path) else {
+            return Task::none();
+        };
+        let missing: Vec<String> = tab
+            .commits
+            .iter()
+            .filter(|commit| commit.stash.is_none() && !tab.stats.contains_key(&commit.sha))
+            .map(|commit| commit.sha.clone())
+            .collect();
+        if missing.is_empty() {
+            return Task::none();
+        }
+        let path = path.to_owned();
+        Task::perform(
+            async move {
+                let result = answer(queries::commit_stats(&path, &missing).await);
+                (path, result)
+            },
+            |(path, result)| Message::StatsLoaded(path, result),
+        )
     }
 
     fn select(&mut self, sha: String) -> Task<Message> {
@@ -4202,6 +4296,15 @@ fn click_line(pane: &mut DiffPane, hunk: usize, line: usize, shift: bool) {
 fn scroll_to(tab: &mut RepoTab, offset: f32) {
     tab.offset = offset;
     tab.scroll_to.set(Some(offset));
+}
+
+/// A column of the history list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Column {
+    Author,
+    Date,
+    Sha,
+    Changes,
 }
 
 /// A change to which branches the graph shows (full ref names).

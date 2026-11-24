@@ -22,6 +22,7 @@ pub struct Settings {
     pub rebase: Rebase,
     pub commit: Commit,
     pub graph: Graph,
+    pub columns: Columns,
     pub layout: Layout,
     pub session: Session,
 }
@@ -125,6 +126,32 @@ impl Default for Pull {
             mode: "merge".to_owned(),
             autostash: false,
             backup: true,
+        }
+    }
+}
+
+/// The history list's columns: which show, and how wide the resizable ones are.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Columns {
+    pub author: bool,
+    pub date: bool,
+    pub sha: bool,
+    /// Files and lines each commit changed.
+    pub changes: bool,
+    pub author_width: f32,
+    pub date_width: f32,
+}
+
+impl Default for Columns {
+    fn default() -> Self {
+        Self {
+            author: true,
+            date: true,
+            sha: true,
+            changes: false,
+            author_width: 150.0,
+            date_width: 120.0,
         }
     }
 }
@@ -259,6 +286,7 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
         general: General::default(),
         commit: Commit::default(),
         graph: Graph::default(),
+        columns: Columns::default(),
         appearance: Appearance {
             theme: old.theme,
             zoom: old.zoom,

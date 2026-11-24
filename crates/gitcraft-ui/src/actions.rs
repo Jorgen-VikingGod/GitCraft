@@ -140,6 +140,8 @@ pub enum MenuRequest {
     Tab(usize),
     /// The options of the commit box.
     CommitOptions,
+    /// Which columns the history list shows.
+    Columns,
 }
 
 fn run(command: Command) -> Message {
@@ -1207,6 +1209,24 @@ impl App {
                 let tools = self.tool_labels();
                 let items = file_menu_items(tab, *area, path, rev.as_deref(), &tools);
                 self.menu_at_cursor(items);
+                Task::none()
+            }
+            MenuRequest::Columns => {
+                use crate::app::Column;
+                use crate::menu::Mark;
+                let columns = &self.settings.columns;
+                let toggle = |label: &str, column: Column, on: bool| {
+                    MenuItem::entry(label, Message::ToggleColumn(column)).marked(Mark::Check(on))
+                };
+                self.menu_at_cursor(vec![
+                    MenuItem::Header(tr("Columns").to_owned()),
+                    toggle("Author", Column::Author, columns.author),
+                    toggle("Date", Column::Date, columns.date),
+                    toggle("Commit", Column::Sha, columns.sha),
+                    toggle("Changes", Column::Changes, columns.changes),
+                    MenuItem::Separator,
+                    MenuItem::entry("Reset columns", Message::ColumnsReset),
+                ]);
                 Task::none()
             }
             MenuRequest::CommitOptions => {

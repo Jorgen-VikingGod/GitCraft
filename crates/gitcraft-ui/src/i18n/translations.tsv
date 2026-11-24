@@ -81,6 +81,7 @@ Cancelled	Abgebrochen	Annulé	Cancelado
 cargo test	cargo test	cargo test	cargo test
 Changed text	Geänderter Text	Texte modifié	Texto cambiado
 Changed text is a regular expression	Geänderter Text ist ein regulärer Ausdruck	Le texte modifié est une expression régulière	El texto cambiado es una expresión regular
+Changes	Änderungen	Modifications	Cambios
 Changes stashed	Änderungen im Stash abgelegt	Modifications remisées	Cambios guardados en el stash
 changing “{text}”	ändert „{text}“	modifiant « {text} »	que cambia «{text}»
 Check out a branch before pushing	Vor dem Pushen einen Branch auschecken	Extrayez une branche avant de pousser	Cambia a una rama antes de enviar
@@ -129,6 +130,7 @@ Close without changing anything	Schließen, ohne etwas zu ändern	Fermer sans ri
 Co-authors	Co-Autoren	Co-auteurs	Coautores
 Co-authors ({count})…	Co-Autoren ({count})…	Co-auteurs ({count})…	Coautores ({count})…
 Co-authors…	Co-Autoren…	Co-auteurs…	Coautores…
+Columns	Spalten	Colonnes	Columnas
 Combine both messages	Beide Nachrichten zusammenführen	Combiner les deux messages	Combinar ambos mensajes
 Command	Befehl	Commande	Comando
 Commit	Commit	Commit	Commit
@@ -172,6 +174,7 @@ Copy SHAs	SHAs kopieren	Copier les SHA	Copiar SHA
 Copy tag name	Tag-Namen kopieren	Copier le nom du tag	Copiar el nombre de la etiqueta
 Copy URL	URL kopieren	Copier l’URL	Copiar la URL
 Could not copy the file	Die Datei konnte nicht kopiert werden	Impossible de copier le fichier	No se pudo copiar el archivo
+Could not count the changes	Die Änderungen konnten nicht gezählt werden	Impossible de compter les modifications	No se pudieron contar los cambios
 Could not create patch	Patch konnte nicht erstellt werden	Impossible de créer le patch	No se pudo crear el parche
 Could not edit the commit	Commit konnte nicht bearbeitet werden	Impossible de modifier le commit	No se pudo editar el commit
 Could not load diff	Diff konnte nicht geladen werden	Impossible de charger le diff	No se pudo cargar el diff
@@ -518,6 +521,7 @@ Replace {path} in the working tree and index with its version from {commit}? Loc
 Repository	Repository	Dépôt	Repositorio
 Reset	Zurücksetzen	Réinitialiser	Restablecer
 Reset (hard)	Zurücksetzen (hart)	Réinitialiser (dur)	Restablecer (duro)
+Reset columns	Spalten zurücksetzen	Réinitialiser les colonnes	Restablecer columnas
 Reset to {commit}	Auf {commit} zurückgesetzt	Réinitialisé à {commit}	Restablecido a {commit}
 Reset {current} to here	{current} hierher zurücksetzen	Réinitialiser {current} ici	Restablecer {current} aquí
 Reset {head} to {commit} “{subject}” and discard ALL uncommitted changes? This cannot be undone.	{head} auf {commit} „{subject}“ zurücksetzen und ALLE nicht committeten Änderungen verwerfen? Das kann nicht rückgängig gemacht werden.	Réinitialiser {head} à {commit} « {subject} » et supprimer TOUTES les modifications non validées ? Cette action est irréversible.	¿Restablecer {head} a {commit} «{subject}» y descartar TODOS los cambios sin commit? No se puede deshacer.

@@ -17,9 +17,6 @@ use crate::logic::{plural, short_date, short_sha};
 
 /// Rows drawn beyond the visible ones, so that a small scroll never shows a gap.
 const OVERSCAN: usize = 4;
-const AUTHOR_WIDTH: f32 = 150.0;
-const DATE_WIDTH: f32 = 120.0;
-const SHA_WIDTH: f32 = 76.0;
 
 pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let look = cx.look();
@@ -195,21 +192,57 @@ fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
 fn header(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
     let look = cx.look();
     let c = &look.c;
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 25.0), Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 25.0), Sense::click());
     fill(ui, rect, c.panel);
+    if response.secondary_clicked() {
+        cx.send(Message::OpenMenu(crate::actions::MenuRequest::Columns));
+    }
     let mid = rect.center().y;
-    let right = rect.right();
-    let sha_x = right - SHA_WIDTH + 4.0;
-    let date_x = right - SHA_WIDTH - DATE_WIDTH + 8.0;
-    let author_x = right - SHA_WIDTH - DATE_WIDTH - AUTHOR_WIDTH + 8.0;
-    for (title, x) in [("Commit", sha_x), ("Date", date_x), ("Author", author_x)] {
+    let columns = &cx.app.settings.columns;
+    let x = crate::logic::column_x(rect.right(), columns);
+    for (title, at) in [
+        ("Commit", x.sha),
+        ("Date", x.date),
+        ("Author", x.author),
+        ("Changes", x.changes),
+    ] {
+        let Some(at) = at else { continue };
         paint_text(
             ui.painter(),
-            Pos2::new(x, mid),
+            Pos2::new(at, mid),
             &tr(title).to_uppercase(),
             look.ui(11.0),
             c.text_muted,
         );
+    }
+    // The date and author columns widen by dragging their left edge.
+    for (column, edge, width) in [
+        (crate::app::Column::Date, x.date_edge, columns.date_width),
+        (
+            crate::app::Column::Author,
+            x.author_edge,
+            columns.author_width,
+        ),
+    ] {
+        let Some(edge) = edge else { continue };
+        let handle = Rect::from_center_size(Pos2::new(edge, mid), vec2(8.0, rect.height()));
+        let drag = ui.interact(
+            handle,
+            ui.scope_id().with(("column-edge", column as u8)),
+            Sense::drag(),
+        );
+        if drag.hovered() || drag.dragged() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+            ui.painter()
+                .vline(edge, rect.y_range(), Stroke::new(1.0, c.border));
+        }
+        if drag.dragged() {
+            let delta = drag.drag_delta().x;
+            cx.send(Message::ColumnWidth(column, width - delta, false));
+        }
+        if drag.drag_stopped() {
+            cx.send(Message::ColumnWidth(column, width, true));
+        }
     }
     let description = paint_text(
         ui.painter(),
@@ -393,42 +426,73 @@ fn commit_row(
         }
         .paint(&painter, rect.min);
     }
-    let sha_x = rect.right() - SHA_WIDTH + 4.0;
-    let date_x = rect.right() - SHA_WIDTH - DATE_WIDTH + 8.0;
-    let author_x = rect.right() - SHA_WIDTH - DATE_WIDTH - AUTHOR_WIDTH + 8.0;
-    paint_text(
-        &painter,
-        Pos2::new(sha_x, mid),
-        short_sha(&commit.sha),
-        look.mono(12.0),
-        secondary,
-    );
-    let date = painter.with_clip_rect(Rect::from_min_max(
-        Pos2::new(date_x - 8.0, rect.top()),
-        Pos2::new(sha_x, rect.bottom()),
-    ));
-    paint_text(
-        &date,
-        Pos2::new(date_x, mid),
-        &short_date(commit.time),
-        look.ui(13.0),
-        secondary,
-    );
-    let author = painter.with_clip_rect(Rect::from_min_max(
-        Pos2::new(author_x - 8.0, rect.top()),
-        Pos2::new(date_x - 8.0, rect.bottom()),
-    ));
-    paint_text(
-        &author,
-        Pos2::new(author_x, mid),
-        &commit.author,
-        look.ui(13.0),
-        secondary,
-    );
+    let columns = &cx.app.settings.columns;
+    let x = crate::logic::column_x(rect.right(), columns);
+    // Each column is clipped to its own room, up to where the next one starts.
+    let clip = |from: f32, to: f32| {
+        painter.with_clip_rect(Rect::from_min_max(
+            Pos2::new(from, rect.top()),
+            Pos2::new(to, rect.bottom()),
+        ))
+    };
+    if let Some(sha_x) = x.sha {
+        paint_text(
+            &painter,
+            Pos2::new(sha_x, mid),
+            short_sha(&commit.sha),
+            look.mono(12.0),
+            secondary,
+        );
+    }
+    if let (Some(date_x), Some(edge)) = (x.date, x.date_edge) {
+        paint_text(
+            &clip(edge, edge + columns.date_width),
+            Pos2::new(date_x, mid),
+            &short_date(commit.time),
+            look.ui(13.0),
+            secondary,
+        );
+    }
+    if let (Some(author_x), Some(edge)) = (x.author, x.author_edge) {
+        paint_text(
+            &clip(edge, edge + columns.author_width),
+            Pos2::new(author_x, mid),
+            &commit.author,
+            look.ui(13.0),
+            secondary,
+        );
+    }
+    if let Some(changes_x) = x.changes {
+        let stats = cx
+            .app
+            .current()
+            .and_then(|tab| tab.stats.get(&commit.sha).copied());
+        if let Some(stats) = stats {
+            let room = clip(
+                changes_x - 8.0,
+                changes_x - 8.0 + crate::logic::CHANGES_COLUMN,
+            );
+            let added = format!("+{}", stats.added);
+            let width = paint_text(
+                &room,
+                Pos2::new(changes_x, mid),
+                &added,
+                look.mono(12.0),
+                c.diff_add_text,
+            );
+            paint_text(
+                &room,
+                Pos2::new(changes_x + width + 6.0, mid),
+                &format!("−{}", stats.removed),
+                look.mono(12.0),
+                c.diff_del_text,
+            );
+        }
+    }
 
     let subject_area = Rect::from_min_max(
         Pos2::new(rect.left() + graph_width, rect.top()),
-        Pos2::new(author_x - 8.0, rect.bottom()),
+        Pos2::new(x.subject_end, rect.bottom()),
     );
     let subject_painter = painter.with_clip_rect(subject_area.intersect(painter.clip_rect()));
     let mut x = subject_area.left();

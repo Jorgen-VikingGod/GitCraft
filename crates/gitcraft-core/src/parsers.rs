@@ -122,6 +122,31 @@ pub fn parse_commit_detail(out: &str) -> Option<CommitDetail> {
     })
 }
 
+/// `log --format=%x1e%H --shortstat`: each commit's sha, then a line such as
+/// " 3 files changed, 10 insertions(+), 2 deletions(-)" (absent when nothing changed).
+pub fn parse_shortstats(out: &str) -> Vec<(String, CommitStats)> {
+    let mut found = Vec::new();
+    for record in out.split(RS).skip(1) {
+        let mut lines = record.lines().filter(|line| !line.trim().is_empty());
+        let Some(sha) = lines.next() else { continue };
+        let mut stats = CommitStats::default();
+        if let Some(line) = lines.next() {
+            for part in line.split(',') {
+                let mut words = part.split_whitespace();
+                let number = words.next().and_then(|n| n.parse().ok()).unwrap_or(0);
+                match words.next() {
+                    Some(word) if word.starts_with("file") => stats.files = number,
+                    Some(word) if word.starts_with("insertion") => stats.added = number,
+                    Some(word) if word.starts_with("deletion") => stats.removed = number,
+                    _ => {}
+                }
+            }
+        }
+        found.push((sha.trim().to_owned(), stats));
+    }
+    found
+}
+
 /// The bisect log (`.git/BISECT_LOG`): git notes each verdict as `# good: [sha] subject`
 /// (also `bad`, `skip`, and those given at the start) and, once done,
 /// `# first bad commit: [sha] subject` (newer versions quote the term: `'bad'`).

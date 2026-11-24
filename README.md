@@ -57,6 +57,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
 - **Stashes in the history**, each right above the commit it was made on (click to open it), and an
   optional date order for the graph (Settings › Repository).
+- **History columns**: right-click the column header to choose author, date, commit and a Changes
+  column (lines added and removed); drag the date and author columns' left edge to resize them.
 - **Hide or solo branches** in the graph from a branch's menu, remembered for each repository.
 - **Filter the history** (*View › Filter history…*) by author, file or folder, or changed text (`-S`,
   or a regular expression with `-G`); a file's menu shows the history of its folder.

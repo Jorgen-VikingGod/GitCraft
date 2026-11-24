@@ -30,6 +30,37 @@ pub async fn common_dir(repo: &str) -> Result<PathBuf> {
     Ok(PathBuf::from(result.out().trim()))
 }
 
+/// How much each of the given commits changed, in one run of git.
+pub async fn commit_stats(repo: &str, shas: &[String]) -> Result<Vec<(String, CommitStats)>> {
+    if shas.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut input = String::new();
+    for sha in shas {
+        input.push_str(check_ref(sha)?);
+        input.push('\n');
+    }
+    let result = run(
+        repo,
+        &[
+            "log",
+            "--stdin",
+            "--no-walk=unsorted",
+            "--format=%x1e%H",
+            "--shortstat",
+            "--diff-merges=first-parent",
+            "--no-ext-diff",
+            "--no-textconv",
+        ],
+        Options {
+            stdin: Some(input.as_bytes()),
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(parsers::parse_shortstats(&result.out()))
+}
+
 /// The bisect in progress, if any.
 pub async fn bisect_state(repo: &str) -> Result<Option<Bisect>> {
     let log = git_dir(repo).await?.join("BISECT_LOG");

@@ -343,6 +343,15 @@ impl RefView {
     }
 }
 
+/// How much a commit changed: files, and lines added and removed (`--shortstat`; a merge
+/// against its first parent).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitStats {
+    pub files: u32,
+    pub added: u32,
+    pub removed: u32,
+}
+
 /// How the history is listed.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]

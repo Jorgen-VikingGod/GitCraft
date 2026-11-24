@@ -2897,3 +2897,34 @@ async fn a_stash_shows_in_the_history_and_opens_from_there() {
     }
     assert_eq!(app.current().unwrap().view, View::Stash);
 }
+
+#[tokio::test]
+async fn history_columns_are_chosen_and_resized() {
+    use gitcraft_ui::app::Column;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    assert!(Screen::new().show(&app).has("AUTHOR"));
+    drive(&mut app, Message::ToggleColumn(Column::Author)).await;
+    assert!(!Screen::new().show(&app).has("AUTHOR"));
+    drive(&mut app, Message::ToggleColumn(Column::Changes)).await;
+    let tab = app.current().unwrap();
+    let second = tab
+        .commits
+        .iter()
+        .find(|c| c.subject == "second commit")
+        .unwrap();
+    assert_eq!(tab.stats.get(&second.sha).map(|stats| stats.added), Some(1));
+    assert!(Screen::new().show(&app).has("CHANGES"));
+    drive(&mut app, Message::ColumnWidth(Column::Date, 200.0, true)).await;
+    assert_eq!(app.settings.columns.date_width, 200.0);
+    drive(&mut app, Message::OpenMenu(MenuRequest::Columns)).await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(reset)) = find_entry(&items, "Reset columns") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, reset).await;
+    assert_eq!(
+        app.settings.columns,
+        gitcraft_ui::settings::Columns::default()
+    );
+}
