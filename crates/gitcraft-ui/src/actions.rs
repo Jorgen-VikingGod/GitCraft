@@ -42,6 +42,8 @@ pub enum Action {
     Revert(String),
     /// Asks which parent counts for a merge commit; other commits are picked right away.
     CherryPick(String),
+    /// Asks what to narrow the history to.
+    FilterHistory,
     /// Asks for two ranges of commits to compare.
     RangeDiff,
     /// Asks for a commit that still worked, then bisects up to this broken one.
@@ -527,6 +529,24 @@ impl App {
                 .field(Field::check("autostash", "Stash and reapply local changes", self.settings.rebase.autostash));
                 let check = self.preview_conflicts(&target);
                 Task::batch([self.ask(form), check])
+            }
+            Action::FilterHistory => {
+                let current = tab.history_filter.clone().unwrap_or_default();
+                self.ask(
+                    Form::new("Filter history", "Filter", |values: &Values| {
+                        Message::SetHistoryFilter(Some(gitcraft_core::model::LogFilter {
+                            author: values.text("author"),
+                            path: values.text("path"),
+                            text: values.text("text"),
+                            regex: values.check("regex"),
+                        }))
+                    })
+                    .message("Shows only the commits that match every filled-in field.")
+                    .field(Field::text("author", "Author", &current.author).hint("Part of a name or address"))
+                    .field(Field::text("path", "File or folder", &current.path).hint("src/main.rs"))
+                    .field(Field::text("text", "Changed text", &current.text).hint("Text a commit added or removed"))
+                    .field(Field::check("regex", "Changed text is a regular expression", current.regex)),
+                )
             }
             Action::RangeDiff => {
                 let upstream = tab.status.as_ref().and_then(|status| status.branch.upstream.clone());
@@ -1407,6 +1427,7 @@ impl App {
                 .key(Shortcut::command(Key::A)),
             MenuItem::entry_if("Search commits", has_repo, Message::SearchFocus)
                 .key(Shortcut::command(Key::F)),
+            MenuItem::entry_if("Filter history…", has_repo, act(Action::FilterHistory)),
             MenuItem::entry_if("Refresh", has_repo, Message::Refresh).key(Shortcut::plain(Key::F5)),
             MenuItem::Separator,
             MenuItem::entry("Zoom in", Message::Zoom(1.1)).key(Shortcut::command(Key::Equals)),
@@ -2132,6 +2153,17 @@ fn file_menu_items(
     let full = join_path(&tab.path, path);
     items.extend([
         MenuItem::entry("File history", Message::OpenFileHistory(path.to_owned())),
+        MenuItem::entry(
+            "History of its folder",
+            Message::SetHistoryFilter(Some(gitcraft_core::model::LogFilter {
+                path: std::path::Path::new(path)
+                    .parent()
+                    .map(|dir| dir.to_string_lossy().replace('\\', "/"))
+                    .filter(|dir| !dir.is_empty())
+                    .unwrap_or_else(|| ".".to_owned()),
+                ..Default::default()
+            })),
+        ),
         MenuItem::entry(
             "Blame",
             Message::OpenBlame(path.to_owned(), rev.map(str::to_owned)),

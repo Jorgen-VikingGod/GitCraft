@@ -53,11 +53,48 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
 fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let look = cx.look();
     let c = &look.c;
-    let graph_width = if tab.search.is_some() {
+    // Search results and most filters leave gaps in the history, so no graph is drawn then.
+    let gaps = tab
+        .history_filter
+        .as_ref()
+        .is_some_and(|filter| !filter.keeps_graph());
+    let graph_width = if tab.search.is_some() || gaps {
         10.0
     } else {
         width_for(tab.graph_lanes)
     };
+    if let Some(filter) = tab.history_filter.as_ref().filter(|_| tab.search.is_none()) {
+        let mut parts = Vec::new();
+        if !filter.author.trim().is_empty() {
+            parts.push(trf("by “{author}”", &[("author", filter.author.trim())]));
+        }
+        if !filter.path.trim().is_empty() {
+            parts.push(trf("in {path}", &[("path", filter.path.trim())]));
+        }
+        if !filter.text.is_empty() {
+            parts.push(trf("changing “{text}”", &[("text", &filter.text)]));
+        }
+        let summary = trf(
+            "Filtered history: {commits} {filters}",
+            &[
+                ("commits", &plural(tab.commits.len(), "commit")),
+                ("filters", &parts.join(" · ")),
+            ],
+        );
+        super::widgets::bar(ui, 29.0, c.accent_soft, 10.0, |ui| {
+            icon::icon(ui, "search", 13.0, c.text_muted);
+            text(ui, summary, 12.0, c.text);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if btn(ui, look, "Clear filter", true) {
+                    cx.send(Message::SetHistoryFilter(None));
+                }
+                if btn(ui, look, "Edit…", true) {
+                    cx.send(Message::Action(crate::actions::Action::FilterHistory));
+                }
+            });
+        });
+        hline(ui, look);
+    }
     if let Some(search) = &tab.search {
         let summary = if search.loading {
             tr("Searching…").to_owned()

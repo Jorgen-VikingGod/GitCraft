@@ -2804,3 +2804,26 @@ async fn the_merge_dialog_says_which_files_would_conflict() {
         .unwrap_or_default();
     assert!(message.contains("Expect a conflict in a.txt"), "{message}");
 }
+
+#[tokio::test]
+async fn the_history_is_filtered_and_the_filter_cleared() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let all = app.current().unwrap().commits.len();
+    drive(&mut app, Message::Action(Action::FilterHistory)).await;
+    drive(&mut app, Message::FormText(1, "b.txt".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let tab = app.current().unwrap();
+    let subjects: Vec<&str> = tab
+        .commits
+        .iter()
+        .map(|commit| commit.subject.as_str())
+        .collect();
+    assert_eq!(subjects, ["second commit"]);
+    assert!(Screen::new().show(&app).has("Filtered history"));
+    for message in Screen::new().click(&app, "Clear filter", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert!(app.current().unwrap().history_filter.is_none());
+    assert_eq!(app.current().unwrap().commits.len(), all);
+}

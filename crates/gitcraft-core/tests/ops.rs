@@ -2501,3 +2501,79 @@ async fn conflicts_are_foreseen_without_touching_anything() {
         Some(vec![])
     );
 }
+
+#[tokio::test]
+async fn history_is_filtered_by_author_path_and_changed_text() {
+    let f = Fixture::with_history();
+    f.commit("docs/readme.md", "hello\n", "docs");
+    raw_git(
+        &f.path,
+        &[
+            "-c",
+            "user.name=Ada Other",
+            "-c",
+            "user.email=ada@example.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "by ada",
+        ],
+    );
+    f.commit("a.txt", "one\ntwo\nthree\nfour\nneedle 42\n", "needle");
+    let filtered = |filter: LogFilter| {
+        let repo = f.repo.clone();
+        async move {
+            queries::log_filtered(&repo, 100, true, None, &filter)
+                .await
+                .unwrap()
+        }
+    };
+    let by_ada = filtered(LogFilter {
+        author: "ADA".into(),
+        ..LogFilter::default()
+    })
+    .await;
+    assert_eq!(subjects(&by_ada.commits), ["by ada"]);
+    let in_a = filtered(LogFilter {
+        path: "a.txt".into(),
+        ..LogFilter::default()
+    })
+    .await;
+    assert_eq!(subjects(&in_a.commits), ["needle", "second", "first"]);
+    // The simplified history is joined up: each commit's parent is the next one shown.
+    assert_eq!(in_a.commits[0].parents, [in_a.commits[1].sha.clone()]);
+    let docs = filtered(LogFilter {
+        path: "docs".into(),
+        ..LogFilter::default()
+    })
+    .await;
+    assert_eq!(subjects(&docs.commits), ["docs"]);
+    let text = filtered(LogFilter {
+        text: "needle 42".into(),
+        ..LogFilter::default()
+    })
+    .await;
+    assert_eq!(subjects(&text.commits), ["needle"]);
+    let regex = filtered(LogFilter {
+        text: "needle [0-9]+".into(),
+        regex: true,
+        ..LogFilter::default()
+    })
+    .await;
+    assert_eq!(subjects(&regex.commits), ["needle"]);
+    assert!(
+        queries::log_filtered(
+            &f.repo,
+            10,
+            true,
+            None,
+            &LogFilter {
+                path: "../outside".into(),
+                ..LogFilter::default()
+            }
+        )
+        .await
+        .is_err()
+    );
+}

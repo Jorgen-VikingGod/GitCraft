@@ -290,6 +290,8 @@ pub struct RepoTab {
     pub undo: UndoLabels,
     /// The bisect in progress.
     pub bisect: Option<Bisect>,
+    /// What the history is narrowed to; `None` shows everything.
+    pub history_filter: Option<LogFilter>,
 }
 
 impl RepoTab {
@@ -336,6 +338,7 @@ impl RepoTab {
             filter: String::new(),
             undo: UndoLabels::default(),
             bisect: None,
+            history_filter: None,
             co_authors: String::new(),
             picked_commits: Vec::new(),
         }
@@ -371,6 +374,15 @@ impl RepoTab {
             ))
         } else {
             None
+        }
+    }
+
+    /// What the history list loads.
+    pub fn log_query(&self) -> LogQuery {
+        LogQuery {
+            limit: self.log_limit,
+            all: self.all_branches,
+            filter: self.history_filter.clone().unwrap_or_default(),
         }
     }
 
@@ -848,6 +860,8 @@ pub enum Message {
     SearchFocus,
     SearchDone(String, String, Answer<Vec<Commit>>),
     CompareStart(String, String),
+    /// Narrows the history; `None` or an empty filter shows it all again.
+    SetHistoryFilter(Option<LogFilter>),
     /// Opens the rebase editor with these commits dropped or squashed.
     PlanCommits(Preset),
     /// Opens the rebase editor to replay these commits on top of HEAD.
@@ -1276,7 +1290,7 @@ impl App {
                 Task::none()
             }
             Message::Refresh => match self.current() {
-                Some(tab) => load_all(tab.path.clone(), tab.log_limit, tab.all_branches),
+                Some(tab) => load_all(tab.path.clone(), tab.log_query()),
                 None => Task::none(),
             },
             Message::SetView(view) => {
@@ -1343,7 +1357,7 @@ impl App {
                 };
                 tab.log_limit += step;
                 tab.loading = true;
-                load_log(tab.path.clone(), tab.log_limit, tab.all_branches)
+                load_log(tab.path.clone(), tab.log_query())
             }
             Message::SetBranchFilter(all) => {
                 let Some(tab) = self.current_mut() else {
@@ -1352,7 +1366,7 @@ impl App {
                 tab.all_branches = all;
                 tab.loading = true;
                 scroll_to(tab, 0.0);
-                load_log(tab.path.clone(), tab.log_limit, all)
+                load_log(tab.path.clone(), tab.log_query())
             }
             Message::Select(sha) => {
                 let (command, shift) = (self.modifiers.command, self.modifiers.shift);
@@ -1388,6 +1402,17 @@ impl App {
                 self.select(sha)
             }
             Message::PlanCommits(preset) => self.plan_commits(preset),
+            Message::SetHistoryFilter(filter) => {
+                let Some(tab) = self.current_mut() else {
+                    return Task::none();
+                };
+                tab.history_filter = filter.filter(|filter| !filter.is_empty());
+                tab.view = View::History;
+                tab.search = None;
+                tab.loading = true;
+                scroll_to(tab, 0.0);
+                load_log(tab.path.clone(), tab.log_query())
+            }
             Message::OpenReplay(shas) => self.open_replay(shas),
             Message::ShowCommit(sha) => {
                 self.overlay = None;
@@ -2357,12 +2382,12 @@ impl App {
                     .tabs
                     .iter()
                     .find(|tab| tab.path == path)
-                    .map(|tab| (tab.log_limit, tab.all_branches));
-                let Some((limit, all)) = found else {
+                    .map(RepoTab::log_query);
+                let Some(query) = found else {
                     return Task::none();
                 };
                 if git {
-                    load_all(path, limit, all)
+                    load_all(path, query)
                 } else {
                     load_status(path)
                 }
@@ -2454,7 +2479,12 @@ impl App {
                 |(repo, result)| Message::TemplateLoaded(repo, result),
             )
         };
-        let mut tasks = vec![load_all(path, limit, true), template];
+        let query = LogQuery {
+            limit,
+            all: true,
+            filter: LogFilter::default(),
+        };
+        let mut tasks = vec![load_all(path, query), template];
         if self.settings.history.fetch_on_open {
             tasks.push(Task::done(Message::Run(Command::Fetch {
                 remote: None,
@@ -3301,8 +3331,8 @@ impl App {
             .tabs
             .iter()
             .find(|tab| tab.path == repo)
-            .map(|tab| (tab.log_limit, tab.all_branches));
-        let Some((limit, all)) = found else {
+            .map(RepoTab::log_query);
+        let Some(query) = found else {
             return Task::none();
         };
         // The checkout waiting for this commit goes straight to git: what is left uncommitted
@@ -3311,7 +3341,7 @@ impl App {
         let reload = if command.status_only() {
             load_status(repo)
         } else {
-            load_all(repo, limit, all)
+            load_all(repo, query)
         };
         let list = if refresh_list {
             self.open_discards()
@@ -4152,10 +4182,19 @@ fn load_refs(path: String) -> Task<Message> {
     )
 }
 
-fn load_log(path: String, limit: usize, all: bool) -> Task<Message> {
+/// How much of the history to load, from which branches, narrowed how.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogQuery {
+    pub limit: usize,
+    pub all: bool,
+    pub filter: LogFilter,
+}
+
+fn load_log(path: String, query: LogQuery) -> Task<Message> {
     Task::perform(
         async move {
-            let result = answer(queries::log(&path, limit, all, None).await)
+            let LogQuery { limit, all, filter } = query;
+            let result = answer(queries::log_filtered(&path, limit, all, None, &filter).await)
                 .map(|page| (page.commits, page.has_more));
             (path, result)
         },
@@ -4163,11 +4202,11 @@ fn load_log(path: String, limit: usize, all: bool) -> Task<Message> {
     )
 }
 
-fn load_all(path: String, limit: usize, all: bool) -> Task<Message> {
+fn load_all(path: String, query: LogQuery) -> Task<Message> {
     Task::batch([
         load_status(path.clone()),
         load_refs(path.clone()),
-        load_log(path, limit, all),
+        load_log(path, query),
     ])
 }
 

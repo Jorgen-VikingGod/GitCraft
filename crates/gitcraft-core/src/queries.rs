@@ -153,6 +153,17 @@ pub async fn log(
     all_refs: bool,
     reference: Option<&str>,
 ) -> Result<LogPage> {
+    log_filtered(repo, limit, all_refs, reference, &LogFilter::default()).await
+}
+
+/// The history, only with the commits `filter` lets through.
+pub async fn log_filtered(
+    repo: &str,
+    limit: usize,
+    all_refs: bool,
+    reference: Option<&str>,
+    filter: &LogFilter,
+) -> Result<LogPage> {
     let max_count = format!("--max-count={}", limit + 1);
     let mut args = vec![
         "log",
@@ -161,6 +172,19 @@ pub async fn log(
         LOG_FORMAT,
         &max_count,
     ];
+    let author = format!("--author={}", filter.author.trim());
+    let text = format!("{}{}", if filter.regex { "-G" } else { "-S" }, filter.text);
+    let path = filter.path.trim().trim_start_matches("./");
+    if !filter.author.trim().is_empty() {
+        args.extend(["--regexp-ignore-case", "--fixed-strings", &author]);
+    }
+    if !filter.text.is_empty() {
+        args.push(&text);
+    }
+    if !path.is_empty() {
+        // Parents as the simplified history has them, so the graph joins up.
+        args.push("--parents");
+    }
     if let Some(reference) = reference {
         args.push(check_ref(reference)?);
     } else if all_refs {
@@ -188,6 +212,11 @@ pub async fn log(
         }
     }
     args.push("--");
+    if !path.is_empty() {
+        paths::inside(repo, path)
+            .ok_or_else(|| Error::Validation(format!("Not inside the repository: {path}")))?;
+        args.push(path);
+    }
     let result = git(repo, &args).await?;
     let mut commits = parsers::parse_log(&result.out());
     let has_more = commits.len() > limit;

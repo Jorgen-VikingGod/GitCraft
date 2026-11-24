@@ -298,6 +298,32 @@ pub struct CommitOptions {
     pub trailers: Vec<String>,
 }
 
+/// What the history shows only: commits by an author, touching a path, or adding or removing
+/// some text. Empty parts don't filter.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LogFilter {
+    /// Part of the author's name or address, any case.
+    pub author: String,
+    /// A file or folder, relative to the repository.
+    pub path: String,
+    /// Text a commit adds or removes (`-S`), or a regular expression its changed lines match
+    /// (`-G`) when `regex` is set.
+    pub text: String,
+    pub regex: bool,
+}
+
+impl LogFilter {
+    pub fn is_empty(&self) -> bool {
+        self.author.trim().is_empty() && self.path.trim().is_empty() && self.text.is_empty()
+    }
+
+    /// With only a path, git connects the commits it keeps (history simplification), so the
+    /// graph still makes sense; other filters leave gaps.
+    pub fn keeps_graph(&self) -> bool {
+        self.author.trim().is_empty() && self.text.is_empty()
+    }
+}
+
 /// A bisect in progress, read from `BISECT_LOG`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bisect {

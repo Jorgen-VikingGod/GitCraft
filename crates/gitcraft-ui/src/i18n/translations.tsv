@@ -74,10 +74,14 @@ Branch overwritten	Branch überschrieben	Branche écrasée	Rama sobrescrita
 Branch {name}	Branch {name}	Branche {name}	Rama {name}
 Branches	Branches	Branches	Ramas
 Branch…	Branch…	Branche…	Rama…
+by “{author}”	von „{author}“	par « {author} »	de «{author}»
 Cancel	Abbrechen	Annuler	Cancelar
 Cancelled	Abgebrochen	Annulé	Cancelado
 cargo test	cargo test	cargo test	cargo test
+Changed text	Geänderter Text	Texte modifié	Texto cambiado
+Changed text is a regular expression	Geänderter Text ist ein regulärer Ausdruck	Le texte modifié est une expression régulière	El texto cambiado es una expresión regular
 Changes stashed	Änderungen im Stash abgelegt	Modifications remisées	Cambios guardados en el stash
+changing “{text}”	ändert „{text}“	modifiant « {text} »	que cambia «{text}»
 Check out a branch before pushing	Vor dem Pushen einen Branch auschecken	Extrayez une branche avant de pousser	Cambia a una rama antes de enviar
 Check out after creating	Nach dem Erstellen auschecken	Extraire après la création	Cambiar a ella después de crearla
 Check out {commit}? You will be in a “detached HEAD” state; create a branch to keep new commits.	{commit} auschecken? Du bist dann im Zustand „detached HEAD“; erstelle einen Branch, um neue Commits zu behalten.	Extraire {commit} ? Vous serez dans l’état « HEAD détachée » ; créez une branche pour conserver les nouveaux commits.	¿Cambiar a {commit}? Quedarás en estado «HEAD separado»; crea una rama para conservar los commits nuevos.
@@ -108,6 +112,7 @@ Clean untracked files…	Nicht verfolgte Dateien entfernen…	Supprimer les fich
 Clean working tree	Arbeitsverzeichnis bereinigen	Nettoyer l’arbre de travail	Limpiar el árbol de trabajo
 Cleaned	Bereinigt	Nettoyé	Limpiado
 Cleaning	Wird bereinigt	Nettoyage	Limpiando
+Clear filter	Filter entfernen	Effacer le filtre	Quitar filtro
 Clear search	Suche löschen	Effacer la recherche	Borrar la búsqueda
 Click lines to select them (Shift+click for a range), then revert just those lines in the working tree.	Zeilen anklicken, um sie auszuwählen (Umschalt+Klick für einen Bereich), dann nur diese Zeilen im Arbeitsverzeichnis zurücknehmen.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis annulez uniquement ces lignes dans le répertoire de travail.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y revierte solo esas líneas en el directorio de trabajo.
 Click lines to select them (Shift+click for a range), then stage or discard just those lines.	Klicke auf Zeilen, um sie auszuwählen (Umschalt+Klick für einen Bereich), und merke dann nur diese Zeilen vor oder verwirf sie.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis indexez ou supprimez seulement ces lignes.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y luego prepara o descarta solo esas líneas.
@@ -265,8 +270,13 @@ Fetching	Fetch läuft	Récupération	Recuperando
 Fetching {remote}	{remote} wird abgerufen	Récupération de {remote}	Recuperando {remote}
 File	Datei	Fichier	Archivo
 File history	Dateiverlauf	Historique du fichier	Historial del archivo
+File or folder	Datei oder Ordner	Fichier ou dossier	Archivo o carpeta
 Files stashed	Dateien im Stash abgelegt	Fichiers remisés	Archivos guardados en el stash
+Filter	Filtern	Filtrer	Filtrar
 Filter branches & tags	Branches & Tags filtern	Filtrer branches et tags	Filtrar ramas y etiquetas
+Filter history	Verlauf filtern	Filtrer l’historique	Filtrar historial
+Filter history…	Verlauf filtern…	Filtrer l’historique…	Filtrar historial…
+Filtered history: {commits} {filters}	Gefilterter Verlauf: {commits} {filters}	Historique filtré : {commits} {filters}	Historial filtrado: {commits} {filters}
 First bad commit: {commit}	Erster fehlerhafter Commit: {commit}	Premier commit cassé : {commit}	Primer commit roto: {commit}
 Fixup commit for {commit} created; an interactive rebase with autosquash folds it in	Fixup-Commit für {commit} erstellt; ein interaktiver Rebase mit Autosquash fügt ihn ein	Commit fixup pour {commit} créé ; un rebase interactif avec autosquash l’intègre	Commit fixup para {commit} creado; un rebase interactivo con autosquash lo integra
 Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen	Commit fixup des modifications indexées	Commit fixup de los cambios preparados
@@ -288,6 +298,7 @@ Hard: discard all changes	Hart: alle Änderungen verwerfen	Dur : supprimer toute
 Help	Hilfe	Aide	Ayuda
 Hide Others	Andere ausblenden	Masquer les autres	Ocultar otros
 Hide {app}	{app} ausblenden	Masquer {app}	Ocultar {app}
+History of its folder	Verlauf seines Ordners	Historique de son dossier	Historial de su carpeta
 History rewritten	Verlauf neu geschrieben	Historique réécrit	Historial reescrito
 How	Wie	Comment	Cómo
 Ignore	Ignorieren	Ignorer	Ignorar
@@ -301,6 +312,7 @@ in 1 minute	in 1 Minute	dans 1 minute	dentro de 1 minuto
 in {count} days	in {count} Tagen	dans {count} jours	dentro de {count} días
 in {count} hours	in {count} Stunden	dans {count} heures	dentro de {count} horas
 in {count} minutes	in {count} Minuten	dans {count} minutes	dentro de {count} minutos
+in {path}	in {path}	dans {path}	en {path}
 Include untracked files	Nicht verfolgte Dateien einschließen	Inclure les fichiers non suivis	Incluir archivos sin seguimiento
 Include untracked folders	Nicht verfolgte Ordner einschließen	Inclure les dossiers non suivis	Incluir carpetas sin seguimiento
 Interactive cherry-pick	Interaktives Cherry-Pick	Cherry-pick interactif	Cherry-pick interactivo
@@ -424,6 +436,7 @@ Overwrite only: keep a backup branch of the current state	Nur beim Überschreibe
 Overwriting from remote	Wird vom Remote überschrieben	Écrasement depuis le dépôt distant	Sobrescribiendo desde el remoto
 Parent	Elternteil	Parent	Padre
 Parents	Eltern	Parents	Padres
+Part of a name or address	Teil eines Namens oder einer Adresse	Partie d’un nom ou d’une adresse	Parte de un nombre o una dirección
 Patch applied	Patch angewendet	Patch appliqué	Parche aplicado
 Patches	Patches	Patchs	Parches
 Pop	Pop	Appliquer et supprimer	Pop
@@ -570,6 +583,7 @@ Show in Explorer	Im Explorer anzeigen	Afficher dans l’Explorateur	Mostrar en e
 Show in file manager	Im Dateimanager anzeigen	Afficher dans le gestionnaire de fichiers	Mostrar en el gestor de archivos
 Show in history	Im Verlauf anzeigen	Afficher dans l’historique	Mostrar en el historial
 Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.	Zeigt, wie sich zwei Fassungen einer Commit-Reihe unterscheiden, etwa ein Branch vor und nach einem Rebase: welche Commits übereinstimmen, welche sich geändert haben und wie.	Montre en quoi deux versions d’une série de commits diffèrent, comme une branche avant et après un rebase : quels commits correspondent, lesquels ont changé et comment.	Muestra en qué se diferencian dos versiones de una serie de commits, como una rama antes y después de un rebase: qué commits coinciden, cuáles cambiaron y cómo.
+Shows only the commits that match every filled-in field.	Zeigt nur Commits, die zu allen ausgefüllten Feldern passen.	N’affiche que les commits qui correspondent à tous les champs remplis.	Muestra solo los commits que coinciden con todos los campos rellenados.
 Side by side	Nebeneinander	Côte à côte	En paralelo
 Sign off (Signed-off-by line)	Abzeichnen (Signed-off-by-Zeile)	Signer (ligne Signed-off-by)	Firmar (línea Signed-off-by)
 Signature	Signatur	Signature	Firma
@@ -586,6 +600,7 @@ Squash (stage changes, do not commit)	Squash (Änderungen vormerken, nicht commi
 Squash into parent	In Eltern-Commit squashen	Fusionner dans le parent (squash)	Hacer squash en el padre
 Squash into parent…	In Eltern-Commit squashen…	Fusionner dans le parent (squash)…	Hacer squash en el padre…
 Squash {count} commits…	{count} Commits zusammenfassen…	Fusionner {count} commits…	Combinar {count} commits…
+src/main.rs	src/main.rs	src/main.rs	src/main.rs
 Stage	Vormerken	Indexer	Preparar
 Stage all	Alles vormerken	Tout indexer	Preparar todo
 Stage everything and commit	Alles stagen und committen	Tout indexer et valider	Preparar todo y hacer commit
@@ -636,6 +651,7 @@ Tags	Tags	Tags	Etiquetas
 Take this file from the stash	Diese Datei aus dem Stash holen	Récupérer ce fichier de la remise	Tomar este archivo del stash
 Taking the file from the stash	Datei wird aus dem Stash geholt	Récupération du fichier de la remise	Tomando el archivo del stash
 Test the commit checked out ({commit}), then mark it. {good} good so far.	Teste den ausgecheckten Commit ({commit}) und markiere ihn. Bisher {good} gut.	Testez le commit extrait ({commit}), puis marquez-le. {good} bons jusqu’ici.	Prueba el commit extraído ({commit}) y márcalo. {good} buenos hasta ahora.
+Text a commit added or removed	Text, den ein Commit hinzugefügt oder entfernt hat	Texte qu’un commit a ajouté ou supprimé	Texto que un commit añadió o eliminó
 The branch has changed since this plan was made; open the editor again	Der Branch hat sich geändert, seit dieser Plan erstellt wurde; öffne den Editor erneut	La branche a changé depuis la création de ce plan ; rouvrez l’éditeur	La rama ha cambiado desde que se hizo este plan; vuelve a abrir el editor
 The commit can't move further that way	Der Commit lässt sich nicht weiter in diese Richtung verschieben	Le commit ne peut pas aller plus loin dans ce sens	El commit no puede moverse más en esa dirección
 The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.	Der aktuelle Branch wird auf {source} zurückgesetzt. Lokale Commits und nicht committete Änderungen werden verworfen.	La branche actuelle sera réinitialisée à {source}. Les commits locaux et les modifications non validées sont supprimés.	La rama actual se restablecerá a {source}. Se descartan los commits locales y los cambios sin commit.
