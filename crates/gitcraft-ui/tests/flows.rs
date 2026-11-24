@@ -1444,7 +1444,10 @@ async fn checking_out_with_changes_asks_and_can_bring_them_along() {
         .collect();
     assert_eq!(
         (form.ok.as_str(), answers),
-        ("Stash and reapply", vec!["Commit first", "Discard changes"])
+        (
+            "Stash and reapply",
+            vec!["Bring them along", "Commit first", "Discard changes"]
+        )
     );
     assert_eq!(
         f.git(&["branch", "--show-current"]).trim(),
@@ -1462,7 +1465,7 @@ async fn checking_out_with_changes_asks_and_can_bring_them_along() {
 async fn discarding_before_a_checkout_keeps_the_changes_in_a_stash() {
     let (f, mut app) = changed_with_a_branch().await;
     drive(&mut app, checkout_side()).await;
-    drive(&mut app, Message::FormChoice(1)).await;
+    drive(&mut app, Message::FormChoice(2)).await;
     assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
     assert_eq!(f.read("a.txt"), "one\n");
     assert!(
@@ -1475,7 +1478,7 @@ async fn discarding_before_a_checkout_keeps_the_changes_in_a_stash() {
 async fn commit_first_checks_out_once_the_commit_is_made() {
     let (f, mut app) = changed_with_a_branch().await;
     drive(&mut app, checkout_side()).await;
-    drive(&mut app, Message::FormChoice(0)).await;
+    drive(&mut app, Message::FormChoice(1)).await;
     assert!(app.form.is_none());
     assert_eq!(
         app.current().unwrap().view,
@@ -1513,7 +1516,7 @@ async fn the_checkout_question_answers_for_its_own_repository() {
     )
     .await;
     assert_eq!(app.current().unwrap().name, "other");
-    drive(&mut app, Message::FormChoice(1)).await;
+    drive(&mut app, Message::FormChoice(2)).await;
     assert_eq!(
         f.git(&["branch", "--show-current"]).trim(),
         "side",
@@ -1535,7 +1538,7 @@ async fn commit_first_clears_amend_and_shows_the_asking_repository() {
         Message::OpenPath(other.to_str().unwrap().to_owned()),
     )
     .await;
-    drive(&mut app, Message::FormChoice(0)).await;
+    drive(&mut app, Message::FormChoice(1)).await;
     let tab = app.current().unwrap();
     assert_ne!(tab.name, "other", "back on the repository that asked");
     assert!(!tab.amend, "a new commit, as the question said");
@@ -3070,4 +3073,14 @@ async fn a_rejected_push_offers_to_pull_or_force_push() {
         "mine\n",
         "the branch replaced theirs"
     );
+}
+
+#[tokio::test]
+async fn changes_are_brought_along_as_they_are_when_they_fit() {
+    let (f, mut app) = changed_with_a_branch().await;
+    drive(&mut app, checkout_side()).await;
+    drive(&mut app, Message::FormChoice(0)).await;
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(f.read("a.txt"), "mine\n");
+    assert_eq!(f.git(&["stash", "list"]), "", "no stash involved");
 }

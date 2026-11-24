@@ -4390,6 +4390,12 @@ fn checkout_with_changes(repo: &str, reference: &str, kind: &'static str) -> cra
         stashing(true),
     )
     .choice(
+        "Bring them along",
+        false,
+        // Straight to git, which carries the changes over unless they clash with the target.
+        Message::RunIn(repo.to_owned(), checkout.clone()),
+    )
+    .choice(
         "Commit first",
         false,
         Message::CommitFirst(repo.to_owned(), checkout),
@@ -4399,6 +4405,7 @@ fn checkout_with_changes(repo: &str, reference: &str, kind: &'static str) -> cra
     let paragraphs = [
         trf("There are uncommitted changes. What should happen to them before {name} is checked out?", &name),
         trf("Stash and reapply puts them aside and brings them back on {name}. Where they clash with it, they stay in the stash and the clashes show in Local Changes.", &name),
+        trf("Bring them along checks out {name} with the changes as they are; git refuses if a changed file differs there.", &name),
         trf("Commit first takes you to the commit box and checks out {name} once you have committed.", &name),
         tr("Discard changes clears them away into a stash, from where they can still be brought back.").to_owned(),
     ];

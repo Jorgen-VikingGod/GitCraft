@@ -50,7 +50,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **External diff and merge tools**: GitCraft finds the ones git can start (KDiff3, Beyond Compare,
   Meld, P4Merge, WinMerge, VS Code… and any set up as `difftool.<name>.cmd`). Choose them in Settings,
   then open a file's change or a conflict in them from its right-click menu.
-- **Checkout with local changes** asks first: stash and reapply, commit first, or put them aside in a stash.
+- **Checkout with local changes** asks first: stash and reapply, bring them along as they are, commit
+  first, or put them aside in a stash.
 - **Stashes**: create (incl. untracked, staged only, only the untracked files, or just a hunk or some
   lines of a file), browse, rename, take a single file back,
   apply, pop, drop.

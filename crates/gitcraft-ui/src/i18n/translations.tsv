@@ -75,6 +75,8 @@ Branch overwritten	Branch überschrieben	Branche écrasée	Rama sobrescrita
 Branch {name}	Branch {name}	Branche {name}	Rama {name}
 Branches	Branches	Branches	Ramas
 Branch…	Branch…	Branche…	Rama…
+Bring them along	Mitnehmen	Les emporter	Llevarlos
+Bring them along checks out {name} with the changes as they are; git refuses if a changed file differs there.	„Mitnehmen“ checkt {name} mit den Änderungen aus, wie sie sind; git verweigert das, wenn eine geänderte Datei dort anders ist.	« Les emporter » extrait {name} avec les modifications telles quelles ; git refuse si un fichier modifié y est différent.	«Llevarlos» extrae {name} con los cambios tal como están; git se niega si un archivo cambiado es distinto allí.
 by “{author}”	von „{author}“	par « {author} »	de «{author}»
 Cancel	Abbrechen	Annuler	Cancelar
 Cancelled	Abgebrochen	Annulé	Cancelado
