@@ -585,17 +585,25 @@ async fn checkout_discarding_changes_keeps_them_in_a_stash() {
     assert!(stashes[0].message.contains("before checking out side"));
 }
 
-#[tokio::test]
-async fn checkout_whose_hook_fails_after_switching_keeps_the_stash() {
-    let f = Fixture::with_history();
-    f.git(&["branch", "side"]);
-    let hook = f.path.join(".git/hooks/post-checkout");
+/// A post-checkout hook that fails, so that git reports an error after it has switched.
+fn failing_post_checkout(f: &Fixture) {
+    // A global core.hooksPath would send git elsewhere: use this repository's hooks.
+    let hooks = f.path.join(".git/hooks");
+    f.git(&["config", "core.hooksPath", hooks.to_str().unwrap()]);
+    let hook = hooks.join("post-checkout");
     std::fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
     }
+}
+
+#[tokio::test]
+async fn checkout_whose_hook_fails_after_switching_keeps_the_stash() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "side"]);
+    failing_post_checkout(&f);
     f.write("a.txt", "mine\n");
     let result = ops::checkout_stashing(&f.repo, "side", "local", true).await;
     assert!(result.is_err(), "the hook's failure is reported");
@@ -604,6 +612,24 @@ async fn checkout_whose_hook_fails_after_switching_keeps_the_stash() {
         queries::refs(&f.repo).await.unwrap().stashes.len(),
         1,
         "the changes stay in the stash instead of landing on side"
+    );
+}
+
+#[tokio::test]
+async fn a_detached_checkout_whose_hook_fails_keeps_the_stash_too() {
+    let f = Fixture::with_history();
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    let second = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+    f.git(&["switch", "-q", "--detach", &first]);
+    failing_post_checkout(&f);
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, &second, "commit", true).await;
+    assert!(result.is_err());
+    assert_eq!(f.git(&["rev-parse", "HEAD"]).trim(), second, "it did move");
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().stashes.len(),
+        1,
+        "so the changes stay in the stash"
     );
 }
 

@@ -249,11 +249,12 @@ pub async fn checkout_stashing(
             .await
             .map(|result| result.out().trim().to_owned())
     };
-    let head = async || {
-        // The branch, and the commit for a detached HEAD.
-        git(repo, &["rev-parse", "--symbolic-full-name", "HEAD", "HEAD"])
-            .await
-            .map(|result| result.out().trim().to_owned())
+    // Where HEAD is: its name ("HEAD" when detached) and its commit, so that a detached
+    // checkout of another commit is seen too.
+    let head = async || -> Result<(String, String)> {
+        let name = git(repo, &["rev-parse", "--symbolic-full-name", "HEAD"]).await?;
+        let commit = git(repo, &["rev-parse", "--verify", "HEAD"]).await?;
+        Ok((name.out().trim().to_owned(), commit.out().trim().to_owned()))
     };
     let before = top().await?;
     let start = head().await?;

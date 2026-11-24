@@ -1184,9 +1184,9 @@ impl App {
                 self.diff_loaded(&repo, key, token, result)
             }
             Message::HighlightsLoaded(repo, key, token, dark, highlights) => {
-                // Only colours for the diff as it is now, and for the theme as it is now, count;
-                // anything older is dropped and made again when its diff is loaded.
-                let current = dark == self.look.dark;
+                // Only colours for the diff as it is now, for the theme as it is now, and while
+                // highlighting is still on, count; anything older is dropped.
+                let current = dark == self.look.dark && self.settings.diff.syntax_highlight;
                 let pane = self.pane_mut(&repo, key);
                 if let Some(pane) = pane.filter(|pane| pane.token == token && current) {
                     pane.highlights = highlights;
