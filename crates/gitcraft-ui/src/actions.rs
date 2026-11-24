@@ -50,6 +50,7 @@ pub enum Action {
     /// Asks what to narrow the history to.
     FilterHistory,
     AddSubmodule,
+    LockWorktree(String),
     RemoveSubmodule(String),
     /// Asks for two ranges of commits to compare.
     RangeDiff,
@@ -424,7 +425,18 @@ impl App {
             Action::AddWorktree(start) => {
                 let parent = std::path::Path::new(&tab.path).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
                 let suggested = join_path(&parent, &format!("{}-worktree", tab.name));
-                let based = start.as_deref().map_or_else(|| head.clone(), |s| short_sha(s).to_owned());
+                // A branch is checked out there as it is; anything else, detached or on a new branch.
+                let is_branch = start.as_ref().is_some_and(|start| tab.refs.local.iter().any(|b| b.name == *start));
+                let based = match start.as_deref() {
+                    Some(start) if is_branch => start.to_owned(),
+                    Some(start) => short_sha(start).to_owned(),
+                    None => head.clone(),
+                };
+                let hint = if is_branch {
+                    trf("Leave empty to check out {branch}", &[("branch", &based)])
+                } else {
+                    tr("Leave empty to check out detached").to_owned()
+                };
                 let form = Form::new("Add worktree", "Add worktree", move |values: &Values| {
                     let branch = values.text("branch").split_whitespace().collect::<Vec<_>>().join("-");
                     run(Command::WorktreeAdd {
@@ -435,7 +447,7 @@ impl App {
                 })
                 .message(&trf("Based on {based}", &[("based", &based)]))
                 .field(Field::text("path", "Folder", &suggested).required())
-                .field(Field::text("branch", "New branch", "").hint("Leave empty to check out detached"));
+                .field(Field::text("branch", "New branch", "").hint(&hint));
                 self.ask(form)
             }
             Action::RemoveWorktree(path) => self.ask(Form::confirm(
@@ -574,6 +586,19 @@ impl App {
                     .field(Field::text("path", "File or folder", &current.path).hint("src/main.rs"))
                     .field(Field::text("text", "Changed text", &current.text).hint("Text a commit added or removed"))
                     .field(Field::check("regex", "Changed text is a regular expression", current.regex)),
+                )
+            }
+            Action::LockWorktree(path) => {
+                let target = path.clone();
+                self.ask(
+                    Form::new("Lock worktree", "Lock", move |values: &Values| {
+                        run(Command::WorktreeLock { path: target.clone(), reason: values.opt("reason") })
+                    })
+                    .message(&trf(
+                        "A locked worktree isn't pruned or removed, even when its folder is gone for a while (on a drive that isn't plugged in, say): {path}",
+                        &[("path", &path)],
+                    ))
+                    .field(Field::text("reason", "Reason", "").hint("Optional")),
                 )
             }
             Action::AddSubmodule => self.ask(
@@ -1300,14 +1325,28 @@ impl App {
                     ),
                     MenuItem::entry("Copy path", Message::Copy(tree.path.clone())),
                 ];
-                if tree.prunable {
+                if !tree.main {
+                    items.push(if tree.locked {
+                        MenuItem::entry(
+                            "Unlock",
+                            run(Command::WorktreeUnlock {
+                                path: tree.path.clone(),
+                            }),
+                        )
+                    } else {
+                        MenuItem::entry("Lock…", act(Action::LockWorktree(tree.path.clone())))
+                    });
+                }
+                if tree.prunable && !tree.locked {
                     items.push(MenuItem::entry(
                         "Prune stale worktrees",
                         run(Command::WorktreePrune),
                     ));
                 } else if !tree.main && !tree.current {
-                    items.push(MenuItem::danger(
+                    // A locked worktree is kept on purpose: unlock it first.
+                    items.push(MenuItem::danger_if(
                         "Remove…",
+                        !tree.locked,
                         act(Action::RemoveWorktree(tree.path.clone())),
                     ));
                 }
@@ -1776,6 +1815,17 @@ fn local_ref_items(tab: &RepoTab, branch: &LocalBranch) -> Vec<MenuItem> {
         ),
         MenuItem::Separator,
     ]);
+    // A branch checked out somewhere already can't be checked out in another worktree.
+    let elsewhere = tab
+        .refs
+        .worktrees
+        .iter()
+        .any(|tree| tree.branch.as_deref() == Some(name.as_str()));
+    items.push(MenuItem::entry_if(
+        "Check out in a new worktree…",
+        !elsewhere,
+        act(Action::AddWorktree(Some(name.clone()))),
+    ));
     items.extend(visibility_items(tab, &format!("refs/heads/{name}")));
     items.push(MenuItem::entry("Copy branch name", Message::Copy(name)));
     items
@@ -1990,6 +2040,10 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             }),
         ),
         MenuItem::entry("New tag here…", act(Action::CreateTag(sha.clone()))),
+        MenuItem::entry(
+            "New worktree here…",
+            act(Action::AddWorktree(Some(sha.clone()))),
+        ),
         MenuItem::Separator,
         MenuItem::entry_if(
             trf("Merge into {current}…", &[("current", current)]),

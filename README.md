@@ -59,7 +59,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Stashes**: create (incl. untracked, staged only, only the untracked files, or just a hunk or some
   lines of a file), browse, rename, take a single file back,
   apply, pop, drop.
-- **Worktrees**: listed in the sidebar with their branch; add, open in a new tab, remove, prune. Tabs and the window title show when a repository is a linked worktree.
+- **Worktrees**: listed in the sidebar with their branch; add (also from a commit or branch menu), open in
+  a new tab, lock with a reason / unlock, remove, prune. Tabs and the window title show when a repository is a linked worktree.
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
 - **Stashes in the history**, each right above the commit it was made on (click to open it), and an
   optional date order for the graph (Settings › Repository).

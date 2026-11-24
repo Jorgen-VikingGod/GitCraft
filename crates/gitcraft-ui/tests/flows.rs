@@ -3301,3 +3301,53 @@ async fn a_submodule_is_added_and_removed_from_its_menu() {
     drive(&mut app, Message::FormSubmit).await;
     assert!(app.current().unwrap().refs.submodules.is_empty());
 }
+
+#[tokio::test]
+async fn a_worktree_is_locked_from_its_menu_and_cant_be_removed_then() {
+    let f = fixture();
+    let place = f.root.join("tree-two");
+    git(
+        &f.path,
+        &["worktree", "add", "-q", place.to_str().unwrap(), "side"],
+    );
+    let mut app = opened(&f, false).await;
+    let path = app
+        .current()
+        .unwrap()
+        .refs
+        .worktrees
+        .iter()
+        .find(|tree| tree.path.ends_with("tree-two"))
+        .unwrap()
+        .path
+        .clone();
+    drive(
+        &mut app,
+        Message::Action(Action::LockWorktree(path.clone())),
+    )
+    .await;
+    drive(&mut app, Message::FormText(0, "travelling".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    drive(&mut app, Message::OpenMenu(MenuRequest::Worktree(path))).await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    assert!(matches!(find_entry(&items, "Unlock"), Some(Some(_))));
+    assert!(
+        matches!(find_entry(&items, "Remove…"), Some(None)),
+        "disabled while locked"
+    );
+
+    let sha = sha_of(&app, "first commit");
+    let commit = app
+        .current()
+        .unwrap()
+        .commits
+        .iter()
+        .find(|c| c.sha == sha)
+        .unwrap()
+        .clone();
+    let items = commit_menu_items(app.current().unwrap(), &commit, None);
+    assert!(matches!(
+        find_entry(&items, "New worktree here…"),
+        Some(Some(_))
+    ));
+}

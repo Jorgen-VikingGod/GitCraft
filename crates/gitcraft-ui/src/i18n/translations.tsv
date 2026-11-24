@@ -13,6 +13,7 @@
 1 more file	1 weitere Datei	1 autre fichier	1 archivo más
 1 pattern	1 Muster	1 motif	1 patrón
 A date, such as 2024-01-01	Ein Datum, etwa 2024-01-01	Une date, par exemple 2024-01-01	Una fecha, por ejemplo 2024-01-01
+A locked worktree isn't pruned or removed, even when its folder is gone for a while (on a drive that isn't plugged in, say): {path}	Ein gesperrter Worktree wird weder bereinigt noch entfernt, auch wenn sein Ordner eine Weile fehlt (etwa auf einem nicht angeschlossenen Laufwerk): {path}	Un arbre de travail verrouillé n’est ni nettoyé ni supprimé, même si son dossier disparaît un moment (sur un disque débranché, par exemple) : {path}	Un árbol de trabajo bloqueado no se poda ni se elimina, aunque su carpeta falte un tiempo (en una unidad desconectada, por ejemplo): {path}
 A merge commit is taken as its changes against one parent: choose the mainline it was merged into.	Ein Merge-Commit wird als seine Änderungen gegenüber einem Elternteil übernommen: Wähle die Hauptlinie, in die er gemergt wurde.	Un commit de fusion est appliqué comme ses modifications par rapport à un parent : choisissez la ligne principale dans laquelle il a été fusionné.	Un commit de fusión se aplica como sus cambios respecto a un padre: elige la línea principal en la que se fusionó.
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
 A tag, branch or SHA	Ein Tag, Branch oder SHA	Un tag, une branche ou un SHA	Una etiqueta, rama o SHA
@@ -100,6 +101,7 @@ changing “{text}”	ändert „{text}“	modifiant « {text} »	que cambia «{
 Check out a branch before pushing	Vor dem Pushen einen Branch auschecken	Extrayez une branche avant de pousser	Cambia a una rama antes de enviar
 Check out after creating	Nach dem Erstellen auschecken	Extraire après la création	Cambiar a ella después de crearla
 Check out everything	Alles auschecken	Tout extraire	Extraer todo
+Check out in a new worktree…	In einem neuen Worktree auschecken…	Extraire dans un nouvel arbre de travail…	Extraer en un nuevo árbol de trabajo…
 Check out only part of the repository, such as the folders you work in. Everything else stays in the history, just not in the working tree.	Nur einen Teil des Repositorys auschecken, etwa die Ordner, in denen du arbeitest. Alles andere bleibt im Verlauf, nur nicht im Arbeitsverzeichnis.	N’extraire qu’une partie du dépôt, par exemple les dossiers sur lesquels vous travaillez. Le reste demeure dans l’historique, simplement pas dans le répertoire de travail.	Extraer solo una parte del repositorio, como las carpetas en las que trabajas. Lo demás sigue en el historial, solo que no en el directorio de trabajo.
 Check out {commit}? You will be in a “detached HEAD” state; create a branch to keep new commits.	{commit} auschecken? Du bist dann im Zustand „detached HEAD“; erstelle einen Branch, um neue Commits zu behalten.	Extraire {commit} ? Vous serez dans l’état « HEAD détachée » ; créez une branche pour conserver les nouveaux commits.	¿Cambiar a {commit}? Quedarás en estado «HEAD separado»; crea una rama para conservar los commits nuevos.
 Checking out file	Datei wird ausgecheckt	Extraction du fichier	Extrayendo archivo
@@ -386,6 +388,7 @@ Language	Sprache	Langue	Idioma
 Last commit undone; its changes are staged	Letzter Commit rückgängig gemacht; seine Änderungen sind vorgemerkt	Dernier commit annulé ; ses modifications sont indexées	Último commit deshecho; sus cambios están preparados
 Layout	Ansicht	Disposition	Diseño
 Leave empty to check out detached	Leer lassen, um losgelöst auszuchecken	Laisser vide pour extraire en HEAD détachée	Déjalo vacío para cambiar en modo separado
+Leave empty to check out {branch}	Leer lassen, um {branch} auszuchecken	Laisser vide pour extraire {branch}	Déjalo vacío para extraer {branch}
 Light	Hell	Clair	Claro
 Line staging is disabled while “Ignore whitespace” is on.	Zeilenweises Vormerken ist aus, solange „Leerraum ignorieren“ an ist.	L’indexation par ligne est désactivée tant que « Ignorer les espaces » est activé.	Preparar líneas está desactivado mientras «Ignorar espacios» esté activado.
 Live refresh stopped for {path}	Automatisches Aktualisieren für {path} beendet	Actualisation automatique arrêtée pour {path}	Actualización automática detenida para {path}
@@ -398,7 +401,11 @@ Loading…	Wird geladen…	Chargement…	Cargando…
 Local branches that look done with. Merged ones are ticked; look at the others first.	Lokale Branches, die erledigt aussehen. Gemergte sind angehakt; die anderen besser erst ansehen.	Branches locales qui semblent terminées. Les fusionnées sont cochées ; examinez d’abord les autres.	Ramas locales que parecen terminadas. Las fusionadas están marcadas; revisa primero las demás.
 Local changes	Lokale Änderungen	Modifications locales	Cambios locales
 Local Changes	Lokale Änderungen	Modifications locales	Cambios locales
+Lock	Sperren	Verrouiller	Bloquear
+Lock worktree	Worktree sperren	Verrouiller l’arbre de travail	Bloquear árbol de trabajo
 locked	gesperrt	verrouillé	bloqueado
+Locking worktree	Worktree wird gesperrt	Verrouillage de l’arbre de travail	Bloqueando el árbol de trabajo
+Lock…	Sperren…	Verrouiller…	Bloquear…
 main..topic	main..topic	main..topic	main..topic
 main..topic@{1}	main..topic@{1}	main..topic@{1}	main..topic@{1}
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
@@ -449,6 +456,7 @@ New repository	Neues Repository	Nouveau dépôt	Repositorio nuevo
 New repository…	Neues Repository…	Nouveau dépôt…	Repositorio nuevo…
 New tag	Neues Tag	Nouveau tag	Etiqueta nueva
 New tag here…	Neues Tag hier…	Nouveau tag ici…	Etiqueta nueva aquí…
+New worktree here…	Neuer Worktree hier…	Nouvel arbre de travail ici…	Nuevo árbol de trabajo aquí…
 New…	Neu…	Nouveau…	Nuevo…
 No branches	Keine Branches	Aucune branche	No hay ramas
 No branches to clean up	Keine Branches zum Aufräumen	Aucune branche à nettoyer	No hay ramas que limpiar
@@ -493,6 +501,7 @@ Open merge tool	Merge-Tool öffnen	Ouvrir l’outil de fusion	Abrir la herramien
 Open repository	Repository öffnen	Ouvrir un dépôt	Abrir repositorio
 Open repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir repositorio…
 Operation paused	Vorgang angehalten	Opération en pause	Operación en pausa
+Optional	Optional	Facultatif	Opcional
 Optional description	Optionale Beschreibung	Description facultative	Descripción opcional
 Options	Optionen	Options	Opciones
 Options ({count})	Optionen ({count})	Options ({count})	Opciones ({count})
@@ -541,6 +550,7 @@ Pushing tag	Tag wird gepusht	Envoi du tag	Enviando etiqueta
 Push…	Push…	Pousser…	Enviar…
 Quit	Beenden	Quitter	Salir
 Quit {app}	{app} beenden	Quitter {app}	Salir de {app}
+Reason	Grund	Raison	Motivo
 Rebase	Rebase	Rebaser	Rebase
 Rebase (replay local commits on top)	Rebase (lokale Commits obendrauf neu anwenden)	Rebaser (rejouer les commits locaux par-dessus)	Rebase (volver a aplicar los commits locales encima)
 Rebase complete	Rebase abgeschlossen	Rebase terminé	Rebase completado
@@ -784,6 +794,8 @@ Undoing	Wird rückgängig gemacht	Annulation	Deshaciendo
 Undoing commit	Commit wird rückgängig gemacht	Annulation du commit	Deshaciendo commit
 Undone: {action}	Rückgängig gemacht: {action}	Annulé : {action}	Deshecho: {action}
 Unified	Einheitlich	Unifié	Unificado
+Unlock	Entsperren	Déverrouiller	Desbloquear
+Unlocking worktree	Worktree wird entsperrt	Déverrouillage de l’arbre de travail	Desbloqueando el árbol de trabajo
 Unstage	Vormerkung aufheben	Désindexer	Quitar de preparados
 Unstage all	Alle Vormerkungen aufheben	Tout désindexer	Quitar todo de preparados
 Unstage file	Vormerkung der Datei aufheben	Désindexer le fichier	Quitar archivo de preparados
@@ -813,7 +825,9 @@ Window	Fenster	Fenêtre	Ventana
 Working directory	Arbeitsverzeichnis	Répertoire de travail	Directorio de trabajo
 Working tree is clean	Arbeitsverzeichnis ist sauber	L’arbre de travail est propre	El árbol de trabajo está limpio
 worktree	Worktree	arbre de travail	árbol de trabajo
+Worktree locked	Worktree gesperrt	Arbre de travail verrouillé	Árbol de trabajo bloqueado
 Worktree removed	Worktree entfernt	Arbre de travail retiré	Árbol de trabajo quitado
+Worktree unlocked	Worktree entsperrt	Arbre de travail déverrouillé	Árbol de trabajo desbloqueado
 Worktrees	Worktrees	Arbres de travail	Árboles de trabajo
 yesterday	gestern	hier	ayer
 Zoom	Zoom	Zoom	Zoom

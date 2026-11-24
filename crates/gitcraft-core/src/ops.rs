@@ -1803,6 +1803,26 @@ pub async fn worktree_remove(repo: &str, path: &str, force: bool) -> Result<OpRe
     Ok(ok(&git(repo, &args).await?))
 }
 
+/// Keeps a worktree from being pruned or removed (for one on a drive that isn't always
+/// there, say), with an optional reason.
+pub async fn worktree_lock(repo: &str, path: &str, reason: Option<&str>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["worktree", "lock"];
+    let reason = reason.map(str::trim).filter(|reason| !reason.is_empty());
+    if let Some(reason) = reason {
+        args.extend(["--reason", reason]);
+    }
+    args.extend(["--", path]);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+pub async fn worktree_unlock(repo: &str, path: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["worktree", "unlock", "--", path]).await?))
+}
+
 pub async fn worktree_prune(repo: &str) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;

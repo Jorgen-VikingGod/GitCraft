@@ -3121,3 +3121,29 @@ async fn a_submodule_is_added_updated_and_removed() {
     assert!(!f.exists("vendor/library/lib.txt"));
     assert!(queries::refs(&f.repo).await.unwrap().submodules.is_empty());
 }
+
+#[tokio::test]
+async fn a_worktree_is_locked_with_a_reason_and_unlocked() {
+    let f = Fixture::with_history();
+    let place = f.root.join("other-tree");
+    let place = place.to_str().unwrap();
+    ops::worktree_add(&f.repo, place, None, Some("elsewhere"))
+        .await
+        .unwrap();
+    ops::worktree_lock(&f.repo, place, Some("on a USB stick"))
+        .await
+        .unwrap();
+    let locked = |refs: &Refs| {
+        refs.worktrees
+            .iter()
+            .find(|tree| tree.path.ends_with("other-tree"))
+            .map(|tree| tree.locked)
+    };
+    assert_eq!(locked(&queries::refs(&f.repo).await.unwrap()), Some(true));
+    assert!(
+        f.git(&["worktree", "list", "--porcelain"])
+            .contains("locked on a USB stick")
+    );
+    ops::worktree_unlock(&f.repo, place).await.unwrap();
+    assert_eq!(locked(&queries::refs(&f.repo).await.unwrap()), Some(false));
+}
