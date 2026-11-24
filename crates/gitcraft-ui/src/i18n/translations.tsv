@@ -67,6 +67,7 @@ Bisect	Bisect	Bisection	Bisección
 Bisecting	Bisect läuft	Bisection en cours	Bisección en curso
 Blame	Blame	Annotations (blame)	Blame
 Blame at this commit	Blame bei diesem Commit	Annotations à ce commit	Blame en este commit
+Both ranges hold the same commits	Beide Bereiche enthalten dieselben Commits	Les deux plages contiennent les mêmes commits	Ambos rangos contienen los mismos commits
 Branch	Branch	Branche	Rama
 Branch name	Branch-Name	Nom de la branche	Nombre de la rama
 Branch overwritten	Branch überschrieben	Branche écrasée	Rama sobrescrita
@@ -138,6 +139,9 @@ Committed	Committet	Validé	Commit hecho
 Committer	Committer	Validateur	Committer
 Committing	Commit läuft	Validation	Haciendo commit
 Committing…	Commit läuft…	Validation…	Haciendo commit…
+Compare	Vergleichen	Comparer	Comparar
+Compare commit ranges	Commit-Bereiche vergleichen	Comparer des plages de commits	Comparar rangos de commits
+Compare commit ranges…	Commit-Bereiche vergleichen…	Comparer des plages de commits…	Comparar rangos de commits…
 Compare with HEAD	Mit HEAD vergleichen	Comparer avec HEAD	Comparar con HEAD
 Compare with working directory	Mit dem Arbeitsverzeichnis vergleichen	Comparer avec le répertoire de travail	Comparar con el directorio de trabajo
 Compare with {commit}	Mit {commit} vergleichen	Comparer avec {commit}	Comparar con {commit}
@@ -270,6 +274,7 @@ Folder name	Ordnername	Nom du dossier	Nombre de la carpeta
 Follow system	Wie das System	Comme le système	Como el sistema
 Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer la suppression, même si elle n’est pas fusionnée	Forzar la eliminación aunque no esté fusionada
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
+Give both ranges, such as main..topic	Gib beide Bereiche an, etwa main..topic	Indiquez les deux plages, par exemple main..topic	Indica ambos rangos, por ejemplo main..topic
 Good	Gut	Bon	Bueno
 Good commit	Guter Commit	Commit fonctionnel	Commit bueno
 Good signature	Gültige Signatur	Signature valide	Firma válida
@@ -326,6 +331,8 @@ Loading…	Wird geladen…	Chargement…	Cargando…
 Local changes	Lokale Änderungen	Modifications locales	Cambios locales
 Local Changes	Lokale Änderungen	Modifications locales	Cambios locales
 locked	gesperrt	verrouillé	bloqueado
+main..topic	main..topic	main..topic	main..topic
+main..topic@{1}	main..topic@{1}	main..topic@{1}	main..topic@{1}
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
 Mark as bad	Als fehlerhaft markieren	Marquer comme mauvais	Marcar como malo
 Mark as conflicted again	Wieder als Konflikt markieren	Marquer à nouveau comme conflit	Marcar de nuevo como conflicto
@@ -366,6 +373,7 @@ New branch from stash…	Neuer Branch aus Stash…	Nouvelle branche depuis la re
 New branch here…	Neuer Branch hier…	Nouvelle branche ici…	Nueva rama aquí…
 New branch…	Neuer Branch…	Nouvelle branche…	Nueva rama…
 New name	Neuer Name	Nouveau nom	Nombre nuevo
+New range	Neuer Bereich	Nouvelle plage	Rango nuevo
 New repository	Neues Repository	Nouveau dépôt	Repositorio nuevo
 New repository…	Neues Repository…	Nouveau dépôt…	Repositorio nuevo…
 New tag	Neues Tag	Nouveau tag	Etiqueta nueva
@@ -388,6 +396,7 @@ No tags	Keine Tags	Aucun tag	No hay etiquetas
 No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non indexée	No hay cambios sin preparar
 Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún no hay nada preparado
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
+Old range	Alter Bereich	Ancienne plage	Rango antiguo
 One per line	Einer pro Zeile	Un par ligne	Uno por línea
 Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
@@ -556,6 +565,7 @@ Show data folder	Datenordner anzeigen	Afficher le dossier de données	Mostrar la
 Show in Explorer	Im Explorer anzeigen	Afficher dans l’Explorateur	Mostrar en el Explorador
 Show in file manager	Im Dateimanager anzeigen	Afficher dans le gestionnaire de fichiers	Mostrar en el gestor de archivos
 Show in history	Im Verlauf anzeigen	Afficher dans l’historique	Mostrar en el historial
+Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.	Zeigt, wie sich zwei Fassungen einer Commit-Reihe unterscheiden, etwa ein Branch vor und nach einem Rebase: welche Commits übereinstimmen, welche sich geändert haben und wie.	Montre en quoi deux versions d’une série de commits diffèrent, comme une branche avant et après un rebase : quels commits correspondent, lesquels ont changé et comment.	Muestra en qué se diferencian dos versiones de una serie de commits, como una rama antes y después de un rebase: qué commits coinciden, cuáles cambiaron y cómo.
 Side by side	Nebeneinander	Côte à côte	En paralelo
 Sign off (Signed-off-by line)	Abzeichnen (Signed-off-by-Zeile)	Signer (ligne Signed-off-by)	Firmar (línea Signed-off-by)
 Signature	Signatur	Signature	Firma

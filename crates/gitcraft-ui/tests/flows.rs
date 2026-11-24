@@ -2765,3 +2765,23 @@ async fn a_commit_is_compared_with_the_working_directory() {
             .is_none()
     );
 }
+
+#[tokio::test]
+async fn commit_ranges_are_compared_in_their_own_view() {
+    let f = fixture();
+    f.git(&["switch", "-q", "-c", "topic"]);
+    f.commit("t.txt", "t\n", "topic work");
+    f.git(&["branch", "topic-old"]);
+    f.git(&["commit", "-q", "--amend", "-m", "topic work, reworded"]);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::RangeDiff)).await;
+    drive(&mut app, Message::FormText(0, "main..topic-old".into())).await;
+    drive(&mut app, Message::FormText(1, "main..topic".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let Some(Overlay::RangeDiff { text, error, .. }) = &app.overlay else {
+        panic!("open")
+    };
+    assert!(error.is_none(), "{error:?}");
+    assert!(text.contains("topic work, reworded"));
+    assert!(Screen::new().show(&app).has("topic work, reworded"));
+}

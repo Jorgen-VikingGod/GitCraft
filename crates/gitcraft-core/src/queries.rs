@@ -680,6 +680,37 @@ pub async fn reflog_all(repo: &str, limit: usize) -> Result<Vec<ReflogEntry>> {
 }
 
 /// Files changed between two commits (base to target), plus commit counts each way.
+/// How two versions of a series of commits differ (`git range-diff old new`), for example a
+/// branch before and after a rebase: which commits match, which changed and how.
+/// Each range is `A..B`, or `A...B` for two branches from where they part.
+pub async fn range_diff_ranges(repo: &str, old: &str, new: &str) -> Result<String> {
+    const LIMIT: usize = 2 * 1024 * 1024;
+    let (old, new) = (check_ref(old.trim())?, check_ref(new.trim())?);
+    if old.is_empty() || new.is_empty() {
+        return Err(Error::Validation(
+            "Give both ranges, such as main..topic".into(),
+        ));
+    }
+    let result = git_unchecked(
+        repo,
+        &["range-diff", "--no-color", "--no-ext-diff", old, new],
+    )
+    .await?;
+    if result.code != 0 {
+        return Err(Error::Invalid(result.output()));
+    }
+    let mut text = result.out().into_owned();
+    if text.len() > LIMIT {
+        let mut cut = LIMIT;
+        while !text.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        text.truncate(cut);
+        text.push_str("\n…");
+    }
+    Ok(text)
+}
+
 /// Stands for the working tree (with what is staged) as either side of [`compare`].
 pub const WORKTREE: &str = "";
 

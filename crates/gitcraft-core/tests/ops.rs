@@ -2458,3 +2458,26 @@ async fn a_commit_is_compared_with_the_working_tree() {
     assert_eq!(paths(&swapped.files), ["a.txt"]);
     assert_eq!((swapped.base_only, swapped.target_only), (1, 0));
 }
+
+#[tokio::test]
+async fn two_versions_of_a_branch_are_compared_with_range_diff() {
+    let f = Fixture::with_history();
+    f.git(&["switch", "-q", "-c", "topic"]);
+    f.commit("t.txt", "one\n", "topic work");
+    f.git(&["branch", "topic-old"]);
+    f.git(&["commit", "-q", "--amend", "-m", "topic work, reworded"]);
+    let text = queries::range_diff_ranges(&f.repo, "main..topic-old", "main..topic")
+        .await
+        .unwrap();
+    assert!(text.contains("topic work, reworded"), "{text}");
+    assert!(
+        queries::range_diff_ranges(&f.repo, "--help", "main..topic")
+            .await
+            .is_err()
+    );
+    assert!(
+        queries::range_diff_ranges(&f.repo, "nope..nothing", "main..topic")
+            .await
+            .is_err()
+    );
+}

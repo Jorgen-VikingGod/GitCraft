@@ -640,6 +640,14 @@ pub enum Overlay {
     },
     Conflict(Box<ConflictState>),
     Rebase(Box<RebaseState>),
+    /// `git range-diff old new`.
+    RangeDiff {
+        old: String,
+        new: String,
+        text: String,
+        loading: bool,
+        error: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -908,6 +916,9 @@ pub enum Message {
     ReflogAll(bool),
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenDiscards,
+    /// Compares two ranges of commits: (old, new).
+    RangeDiff(String, String),
+    RangeDiffLoaded(Answer<String>),
     DiscardsLoaded(Answer<Vec<DiscardBackup>>),
     OpenBlame(String, Option<String>),
     BlameLoaded(Answer<Vec<BlameLine>>),
@@ -1906,6 +1917,38 @@ impl App {
                 Task::none()
             }
             Message::OpenDiscards => self.open_discards(),
+            Message::RangeDiff(old, new) => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                self.overlay = Some(Overlay::RangeDiff {
+                    old: old.clone(),
+                    new: new.clone(),
+                    text: String::new(),
+                    loading: true,
+                    error: None,
+                });
+                Task::perform(
+                    async move { answer(queries::range_diff_ranges(&repo, &old, &new).await) },
+                    Message::RangeDiffLoaded,
+                )
+            }
+            Message::RangeDiffLoaded(result) => {
+                if let Some(Overlay::RangeDiff {
+                    text,
+                    loading,
+                    error,
+                    ..
+                }) = &mut self.overlay
+                {
+                    *loading = false;
+                    match result {
+                        Ok(found) => *text = found,
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
             Message::DiscardsLoaded(result) => {
                 if let Some(Overlay::Discards {
                     entries,

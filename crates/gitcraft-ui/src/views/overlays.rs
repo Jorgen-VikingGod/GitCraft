@@ -135,6 +135,13 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
             error.as_deref(),
         ),
         Overlay::Conflict(state) => conflict(ctx, cx, state),
+        Overlay::RangeDiff {
+            old,
+            new,
+            text,
+            loading,
+            error,
+        } => range_diff(ctx, cx, old, new, text, *loading, error.as_deref()),
         Overlay::Rebase(state) => rebase(ctx, cx, state),
     }
 }
@@ -177,6 +184,66 @@ fn reflog(
             super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
         }
     });
+}
+
+fn range_diff(
+    ctx: &Context,
+    cx: &Cx,
+    old: &str,
+    new: &str,
+    content: &str,
+    loading: bool,
+    error: Option<&str>,
+) {
+    let look = cx.look();
+    let c = &look.c;
+    let subtitle = format!("{old}  →  {new}");
+    dialog(
+        ctx,
+        cx,
+        "Compare commit ranges",
+        &subtitle,
+        None,
+        |ui, _| {
+            if loading {
+                placeholder(ui, look, "Loading…");
+            } else if let Some(error) = error {
+                placeholder(ui, look, error);
+            } else if content.trim().is_empty() {
+                placeholder(ui, look, "Both ranges hold the same commits");
+            } else {
+                let scrolled = scroll("range_diff").show(ui, |ui| {
+                    egui::Frame::new()
+                        .inner_margin(Margin::symmetric(14, 10))
+                        .show(ui, |ui| {
+                            ui.spacing_mut().item_spacing.y = 0.0;
+                            for line in content.lines() {
+                                // Pair lines read "1:  abc = 1:  def subject"; = same, ! changed,
+                                // < only in the old range, > only in the new one.
+                                let inner = line.trim_start();
+                                let color = if line.starts_with(' ') && inner.starts_with('+') {
+                                    c.diff_add_text
+                                } else if line.starts_with(' ') && inner.starts_with('-') {
+                                    c.diff_del_text
+                                } else if line.contains(" ! ") {
+                                    c.warning
+                                } else if line.contains(" < ") {
+                                    c.danger
+                                } else if line.contains(" > ") {
+                                    c.success
+                                } else if line.contains(" = ") {
+                                    c.text_muted
+                                } else {
+                                    c.text
+                                };
+                                super::widgets::mono(ui, line, look.text_size, color);
+                            }
+                        });
+                });
+                super::widgets::scroll_shadows(ui, look, &scrolled);
+            }
+        },
+    );
 }
 
 fn discards(ctx: &Context, cx: &Cx, entries: &[DiscardBackup], loading: bool, error: Option<&str>) {

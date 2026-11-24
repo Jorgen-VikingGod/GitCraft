@@ -42,6 +42,8 @@ pub enum Action {
     Revert(String),
     /// Asks which parent counts for a merge commit; other commits are picked right away.
     CherryPick(String),
+    /// Asks for two ranges of commits to compare.
+    RangeDiff,
     /// Asks for a commit that still worked, then bisects up to this broken one.
     BisectStart(String),
     /// Asks for a command to run after step `index` of the rebase editor.
@@ -500,6 +502,21 @@ impl App {
                 .message(&trf("Rebase {head} onto {label}?", &[("head", &head), ("label", &label)]))
                 .field(Field::check("autostash", "Stash and reapply local changes", self.settings.rebase.autostash));
                 self.ask(form)
+            }
+            Action::RangeDiff => {
+                let upstream = tab.status.as_ref().and_then(|status| status.branch.upstream.clone());
+                let new = match &upstream {
+                    Some(upstream) => format!("{upstream}..HEAD"),
+                    None => String::new(),
+                };
+                self.ask(
+                    Form::new("Compare commit ranges", "Compare", |values: &Values| {
+                        Message::RangeDiff(values.text("old"), values.text("new"))
+                    })
+                    .message("Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.")
+                    .field(Field::text("old", "Old range", "").required().hint("main..topic@{1}"))
+                    .field(Field::text("new", "New range", &new).required().hint("main..topic")),
+                )
             }
             Action::BisectStart(bad) => {
                 let subject = self.commit_by_sha(&bad).map_or_else(String::new, |commit| commit.subject.clone());
@@ -1882,6 +1899,7 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
         MenuItem::danger("Clean untracked files…", act(Action::Clean)),
         MenuItem::entry("Reflog (recover lost commits)…", Message::OpenReflog),
         MenuItem::entry("Recover discarded changes…", Message::OpenDiscards),
+        MenuItem::entry("Compare commit ranges…", act(Action::RangeDiff)),
         MenuItem::Separator,
         MenuItem::entry_if(
             "Fetch all remotes (incl. tags)",
