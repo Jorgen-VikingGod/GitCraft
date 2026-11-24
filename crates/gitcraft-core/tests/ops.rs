@@ -2941,3 +2941,53 @@ async fn done_branches_are_found_for_cleaning_up() {
         "busy\nmain\n"
     );
 }
+
+#[tokio::test]
+async fn clones_can_be_shallow_sparse_on_one_branch_and_without_submodules() {
+    let f = Fixture::with_history();
+    f.commit("docs/guide.md", "guide\n", "docs");
+    f.commit("src/main.rs", "fn main() {}\n", "code");
+    f.git(&["branch", "release", "HEAD~1"]);
+    // A local "server" only hands out partial clones when asked to allow them.
+    f.git(&["config", "uploadpack.allowFilter", "true"]);
+    let url = format!("file://{}", f.repo.replace('\\', "/"));
+    let parent = f.root.join("clones");
+    let parent = parent.to_str().unwrap();
+    let options = CloneOptions {
+        depth: Some(1),
+        sparse: vec!["/src/".into()],
+        ..CloneOptions::default()
+    };
+    let shallow = ops::clone_with(parent, &url, Some("shallow"), &options, None)
+        .await
+        .unwrap();
+    let here = Path::new(&shallow);
+    assert_eq!(raw_git(here, &["rev-list", "--count", "HEAD"]), b"1\n");
+    assert!(here.join("src/main.rs").exists());
+    assert!(
+        !here.join("docs/guide.md").exists(),
+        "only the sparse paths are checked out"
+    );
+    let release = CloneOptions {
+        branch: Some("release".into()),
+        blobless: true,
+        submodules: false,
+        ..CloneOptions::default()
+    };
+    let other = ops::clone_with(parent, &url, Some("release"), &release, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        raw_git(Path::new(&other), &["branch", "--show-current"]),
+        b"release\n"
+    );
+    assert!(queries::refs(&other).await.unwrap().partial);
+    let bad = CloneOptions {
+        depth: Some(0),
+        ..CloneOptions::default()
+    };
+    assert!(matches!(
+        ops::clone_with(parent, &url, Some("bad"), &bad, None).await,
+        Err(Error::Validation(_))
+    ));
+}

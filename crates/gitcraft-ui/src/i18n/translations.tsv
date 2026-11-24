@@ -11,6 +11,7 @@
 1 minute ago	vor 1 Minute	il y a 1 minute	hace 1 minuto
 1 more file	1 weitere Datei	1 autre fichier	1 archivo más
 1 pattern	1 Muster	1 motif	1 patrón
+A date, such as 2024-01-01	Ein Datum, etwa 2024-01-01	Une date, par exemple 2024-01-01	Una fecha, por ejemplo 2024-01-01
 A merge commit is taken as its changes against one parent: choose the mainline it was merged into.	Ein Merge-Commit wird als seine Änderungen gegenüber einem Elternteil übernommen: Wähle die Hauptlinie, in die er gemergt wurde.	Un commit de fusion est appliqué comme ses modifications par rapport à un parent : choisissez la ligne principale dans laquelle il a été fusionné.	Un commit de fusión se aplica como sus cambios respecto a un padre: elige la línea principal en la que se fusionó.
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
 A tag, branch or SHA	Ein Tag, Branch oder SHA	Un tag, une branche ou un SHA	Una etiqueta, rama o SHA
@@ -35,6 +36,7 @@ All Commits	Alle Commits	Tous les commits	Todos los commits
 All commits / Local changes	Alle Commits / Lokale Änderungen	Tous les commits / Modifications locales	Todos los commits / Cambios locales
 All commits are dropped.	Alle Commits werden verworfen.	Tous les commits sont supprimés.	Se descartan todos los commits.
 All conflicts resolved. Continue to finish.	Alle Konflikte gelöst. Zum Abschließen fortsetzen.	Tous les conflits sont résolus. Continuez pour terminer.	Todos los conflictos resueltos. Continúa para terminar.
+All of them; or a number, such as 50	Alle; oder eine Zahl, etwa 50	Tous ; ou un nombre, par exemple 50	Todos; o un número, por ejemplo 50
 All ours	Alles von uns	Tout le nôtre	Todo lo nuestro
 All theirs	Alles von ihnen	Tout le leur	Todo lo suyo
 Also delete from all remotes	Auch auf allen Remotes löschen	Supprimer aussi de tous les dépôts distants	Eliminar también de todos los remotos
@@ -128,6 +130,7 @@ Clone complete	Klonen abgeschlossen	Clonage terminé	Clonación completada
 Clone failed	Klonen fehlgeschlagen	Échec du clonage	Error al clonar
 Clone repository	Repository klonen	Cloner un dépôt	Clonar repositorio
 Clone repository…	Repository klonen…	Cloner un dépôt…	Clonar repositorio…
+Clone submodules too	Submodule mitklonen	Cloner aussi les sous-modules	Clonar también los submódulos
 Clone…	Klonen…	Cloner…	Clonar…
 Close	Schließen	Fermer	Cerrar
 Close tab	Tab schließen	Fermer l’onglet	Cerrar pestaña
@@ -250,6 +253,7 @@ Discarded changes restored	Verworfene Änderungen wiederhergestellt	Modification
 Discarding	Wird verworfen	Suppression	Descartando
 Done	Fertig	Terminé	Listo
 Download everything the partial clone left out	Alles herunterladen, was der Teilklon ausgelassen hat	Télécharger tout ce que le clone partiel a laissé de côté	Descargar todo lo que el clon parcial omitió
+Download files' contents only when needed (blobless)	Dateiinhalte erst bei Bedarf herunterladen (blobless)	Télécharger le contenu des fichiers seulement si nécessaire (blobless)	Descargar el contenido de los archivos solo cuando haga falta (blobless)
 Drag up or down to move this commit (or Alt + ↑ / ↓)	Nach oben oder unten ziehen, um diesen Commit zu verschieben (oder Alt + ↑ / ↓)	Faites glisser vers le haut ou le bas pour déplacer ce commit (ou Alt + ↑ / ↓)	Arrastra arriba o abajo para mover este commit (o Alt + ↑ / ↓)
 Drop	Verwerfen	Supprimer	Descartar
 Drop commit	Commit verwerfen	Supprimer le commit	Descartar commit
@@ -450,9 +454,13 @@ Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
 Old range	Alter Bereich	Ancienne plage	Rango antiguo
 One per line	Einer pro Zeile	Un par ligne	Uno por línea
+One per line, such as /src/; empty for everything	Einer pro Zeile, etwa /src/; leer für alles	Un par ligne, par exemple /src/ ; vide pour tout	Una por línea, por ejemplo /src/; vacío para todo
 Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
+Only commits since	Nur Commits seit	Seulement les commits depuis	Solo los commits desde
 Only in this repository	Nur in diesem Repository	Uniquement dans ce dépôt	Solo en este repositorio
+Only the newest commits	Nur die neuesten Commits	Seulement les commits les plus récents	Solo los commits más recientes
+Only these folders (sparse checkout)	Nur diese Ordner (Sparse-Checkout)	Seulement ces dossiers (extraction partielle)	Solo estas carpetas (checkout parcial)
 Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non suivis	Solo archivos sin seguimiento
 Only {names}	Nur {names}	Seulement {names}	Solo {names}
 Open	Öffnen	Ouvrir	Abrir
@@ -705,6 +713,7 @@ The branch has changed since this plan was made; open the editor again	Der Branc
 The commit can't move further that way	Der Commit lässt sich nicht weiter in diese Richtung verschieben	Le commit ne peut pas aller plus loin dans ce sens	El commit no puede moverse más en esa dirección
 The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.	Der aktuelle Branch wird auf {source} zurückgesetzt. Lokale Commits und nicht committete Änderungen werden verworfen.	La branche actuelle sera réinitialisée à {source}. Les commits locaux et les modifications non validées sont supprimés.	La rama actual se restablecerá a {source}. Se descartan los commits locales y los cambios sin commit.
 The current state is kept as a backup branch first.	Der aktuelle Stand wird vorher als Backup-Branch behalten.	L’état actuel est d’abord conservé dans une branche de sauvegarde.	Antes se guarda el estado actual en una rama de respaldo.
+The depth must be a number of commits above 0	Die Tiefe muss eine Anzahl Commits über 0 sein	La profondeur doit être un nombre de commits supérieur à 0	La profundidad debe ser un número de commits mayor que 0
 The file dialog couldn't be shown	Der Dateidialog konnte nicht angezeigt werden	Impossible d’afficher la boîte de dialogue des fichiers	No se pudo mostrar el diálogo de archivos
 The file was deleted on one side. Keep one side, or mark it as resolved to keep the current state.	Die Datei wurde auf einer Seite gelöscht. Behalte eine Seite oder markiere sie als gelöst, um den aktuellen Stand zu behalten.	Le fichier a été supprimé d’un côté. Gardez un côté, ou marquez-le comme résolu pour garder l’état actuel.	El archivo se eliminó en un lado. Conserva un lado o márcalo como resuelto para mantener el estado actual.
 The first commit has no parent to squash into	Der erste Commit hat keinen Eltern-Commit zum Squashen	Le premier commit n’a pas de parent dans lequel fusionner	El primer commit no tiene un padre en el que hacer squash
@@ -712,6 +721,7 @@ The first commit has nothing below it	Unter dem ersten Commit liegt nichts	Rien 
 The first remaining commit cannot be squashed or fixed up (there is nothing above it).	Der erste verbleibende Commit kann nicht gesquasht oder per Fixup eingefaltet werden (darüber ist nichts).	Le premier commit restant ne peut pas être fusionné (squash ou fixup) : il n’y a rien au-dessus.	El primer commit restante no admite squash ni fixup (no hay nada encima).
 The last commit is already on {upstream}. Amending it rewrites history others may have, and the branch then needs a force push.	Der letzte Commit ist bereits auf {upstream}. Ihn zu ändern schreibt Verlauf um, den andere womöglich schon haben, und der Branch braucht danach einen Force-Push.	Le dernier commit est déjà sur {upstream}. Le modifier réécrit un historique que d’autres ont peut-être déjà, et la branche devra ensuite être poussée de force.	El último commit ya está en {upstream}. Enmendarlo reescribe un historial que otros quizá ya tengan, y la rama necesitará después un push forzado.
 The reflog is empty	Das Reflog ist leer	Le reflog est vide	El reflog está vacío
+The remote's default branch	Standard-Branch des Remotes	La branche par défaut du dépôt distant	La rama predeterminada del remoto
 The result still contains conflict markers. Save and mark the file as resolved anyway?	Das Ergebnis enthält noch Konfliktmarkierungen. Trotzdem speichern und die Datei als gelöst markieren?	Le résultat contient encore des marqueurs de conflit. Enregistrer et marquer le fichier comme résolu quand même ?	El resultado aún contiene marcadores de conflicto. ¿Guardar y marcar el archivo como resuelto de todos modos?
 the root commit	den Wurzel-Commit	le commit racine	el commit raíz
 The stash moves to the top of the list.	Der Stash rückt an den Anfang der Liste.	La remise passe en tête de liste.	El stash pasa al principio de la lista.

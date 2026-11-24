@@ -106,6 +106,7 @@ pub enum Action {
         url: String,
         parent: String,
         name: Option<String>,
+        options: gitcraft_core::model::CloneOptions,
     },
     Cloned(Result<String, String>),
     Init,
@@ -254,7 +255,14 @@ impl App {
         match action {
             Action::Clone => return self.clone_dialog(),
             Action::Init => return self.init_dialog(),
-            Action::CloneTo { url, parent, name } => return clone_task(url, parent, name),
+            Action::CloneTo {
+                url,
+                parent,
+                name,
+                options,
+            } => {
+                return clone_task(url, parent, name, options);
+            }
             Action::Cloned(result) => return self.cloned(result),
             Action::InitAt(path) => return init_task(path),
             _ => {}
@@ -1051,10 +1059,22 @@ impl App {
             .to_string_lossy()
             .into_owned();
         let form = Form::new("Clone repository", "Clone", |values: &Values| {
+            let options = gitcraft_core::model::CloneOptions {
+                branch: values.opt("branch"),
+                // Anything but a number is refused by the clone (as depth 0).
+                depth: values
+                    .opt("depth")
+                    .map(|depth| depth.trim().parse().unwrap_or(0)),
+                since: values.opt("since"),
+                submodules: values.check("submodules"),
+                blobless: values.check("blobless"),
+                sparse: values.text("sparse").lines().map(str::to_owned).collect(),
+            };
             act(Action::CloneTo {
                 url: values.text("url"),
                 parent: values.text("parent"),
                 name: values.opt("name"),
+                options,
             })
         })
         .field(
@@ -1063,7 +1083,23 @@ impl App {
                 .hint("https://… or git@…"),
         )
         .field(Field::text("parent", "Into folder", &home).required())
-        .field(Field::text("name", "Folder name", "").hint("Derived from the URL"));
+        .field(Field::text("name", "Folder name", "").hint("Derived from the URL"))
+        .field(Field::text("branch", "Branch", "").hint("The remote's default branch"))
+        .field(
+            Field::text("depth", "Only the newest commits", "")
+                .hint("All of them; or a number, such as 50"),
+        )
+        .field(Field::text("since", "Only commits since", "").hint("A date, such as 2024-01-01"))
+        .field(Field::check("submodules", "Clone submodules too", true))
+        .field(Field::check(
+            "blobless",
+            "Download files' contents only when needed (blobless)",
+            false,
+        ))
+        .field(
+            Field::area("sparse", "Only these folders (sparse checkout)", "")
+                .hint("One per line, such as /src/; empty for everything"),
+        );
         self.ask(form)
     }
 
@@ -1534,11 +1570,16 @@ impl App {
     }
 }
 
-fn clone_task(url: String, parent: String, name: Option<String>) -> Task<Message> {
+fn clone_task(
+    url: String,
+    parent: String,
+    name: Option<String>,
+    options: gitcraft_core::model::CloneOptions,
+) -> Task<Message> {
     Task::perform(
         async move {
             let parent = gitcraft_core::paths::expand(&parent);
-            ops::clone(&parent, url.trim(), name.as_deref(), None)
+            ops::clone_with(&parent, url.trim(), name.as_deref(), &options, None)
                 .await
                 .map_err(|error| error.to_string())
         },

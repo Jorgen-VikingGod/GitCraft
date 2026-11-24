@@ -1181,7 +1181,45 @@ pub async fn clone(
     name: Option<&str>,
     progress: Option<&Progress>,
 ) -> Result<String> {
+    clone_with(parent, url, name, &CloneOptions::default(), progress).await
+}
+
+/// Clones with `options`; returns the new repository's path.
+pub async fn clone_with(
+    parent: &str,
+    url: &str,
+    name: Option<&str>,
+    options: &CloneOptions,
+    progress: Option<&Progress>,
+) -> Result<String> {
     check_ref(url)?;
+    let branch = options
+        .branch
+        .as_deref()
+        .map(str::trim)
+        .filter(|b| !b.is_empty());
+    let since = options
+        .since
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    if let Some(value) = branch.or(since) {
+        check_ref(value)?;
+    }
+    if options.depth == Some(0) {
+        return Err(Error::Validation(
+            "The depth must be a number of commits above 0".into(),
+        ));
+    }
+    let sparse: Vec<&str> = options
+        .sparse
+        .iter()
+        .map(|path| path.trim())
+        .filter(|path| !path.is_empty())
+        .collect();
+    for path in &sparse {
+        check_ref(path)?;
+    }
     std::fs::create_dir_all(parent)?;
     let last = url.trim_end_matches('/').rsplit('/').next().unwrap_or("");
     let last = last.rsplit(':').next().unwrap_or("");
@@ -1196,14 +1234,31 @@ pub async fn clone(
             destination.display()
         ));
     }
-    let args = [
-        "clone",
-        "--progress",
-        "--recurse-submodules",
-        url,
-        &destination.to_string_lossy(),
-    ];
+    let depth = options.depth.map(|depth| format!("--depth={depth}"));
+    let since = since.map(|since| format!("--shallow-since={since}"));
+    let mut args = vec!["clone", "--progress"];
+    if options.submodules {
+        args.push("--recurse-submodules");
+    }
+    if let Some(branch) = branch {
+        args.extend(["--branch", branch]);
+    }
+    args.extend(depth.as_deref());
+    args.extend(since.as_deref());
+    if options.blobless {
+        args.push("--filter=blob:none");
+    }
+    if !sparse.is_empty() {
+        args.push("--sparse");
+    }
+    let target = destination.to_string_lossy().into_owned();
+    args.extend(["--", url, &target]);
     run(parent, &args, with_progress(progress)).await?;
+    if !sparse.is_empty() {
+        let mut set = vec!["sparse-checkout", "set", "--no-cone", "--"];
+        set.extend(&sparse);
+        run(&target, &set, with_progress(progress)).await?;
+    }
     Ok(paths::resolve_str(destination))
 }
 

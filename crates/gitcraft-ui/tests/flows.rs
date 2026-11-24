@@ -3151,3 +3151,38 @@ async fn merged_branches_are_cleaned_up_and_come_back_with_undo() {
         "busy\ndone\nmain\nside\n"
     );
 }
+
+#[tokio::test]
+async fn the_clone_dialog_makes_a_shallow_clone_of_one_branch() {
+    let f = fixture();
+    let url = format!("file://{}", f.repo.replace('\\', "/"));
+    let store = RepoStore::at(f.root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(false), store);
+    drive(&mut app, Message::Action(Action::Clone)).await;
+    let fields: Vec<&str> = app
+        .form
+        .as_ref()
+        .unwrap()
+        .fields
+        .iter()
+        .map(|field| field.key)
+        .collect();
+    let at = |key: &str| fields.iter().position(|field| *field == key).unwrap();
+    let (url_at, parent_at, branch_at, depth_at) =
+        (at("url"), at("parent"), at("branch"), at("depth"));
+    drive(&mut app, Message::FormText(url_at, url)).await;
+    drive(
+        &mut app,
+        Message::FormText(
+            parent_at,
+            f.root.join("clones").to_string_lossy().into_owned(),
+        ),
+    )
+    .await;
+    drive(&mut app, Message::FormText(branch_at, "side".into())).await;
+    drive(&mut app, Message::FormText(depth_at, "1".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let tab = app.current().expect("the clone opens");
+    assert_eq!(tab.current_branch(), Some("side"));
+    assert!(tab.refs.shallow);
+}

@@ -295,6 +295,35 @@ pub struct BlameLine {
     pub summary: String,
 }
 
+/// How much of a repository a clone downloads, and which branch it checks out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CloneOptions {
+    /// The branch to check out instead of the remote's default.
+    pub branch: Option<String>,
+    /// Only the newest commits (a shallow clone)…
+    pub depth: Option<u32>,
+    /// …or only those since a date, such as `2024-01-01`.
+    pub since: Option<String>,
+    pub submodules: bool,
+    /// Files' contents are downloaded only when needed (`--filter=blob:none`).
+    pub blobless: bool,
+    /// Only these folders or patterns are checked out (sparse checkout); empty for all.
+    pub sparse: Vec<String>,
+}
+
+impl Default for CloneOptions {
+    fn default() -> Self {
+        Self {
+            branch: None,
+            depth: None,
+            since: None,
+            submodules: true,
+            blobless: false,
+            sparse: Vec::new(),
+        }
+    }
+}
+
 /// How a commit is made, besides its message and whether it amends.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitOptions {

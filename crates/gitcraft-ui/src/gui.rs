@@ -257,6 +257,7 @@ impl Shell {
                 Some("split") => Message::SetSplit(true),
                 Some("settings") => Message::OpenSettings,
                 Some("discards") => Message::OpenDiscards,
+                Some("clone") => Message::Action(crate::actions::Action::Clone),
                 Some("rebase") => Message::OpenRebase(None),
                 Some("delete") => Message::Action(crate::actions::Action::DeleteBranch(
                     "rust-migration".to_owned(),
