@@ -1,8 +1,54 @@
-//! Context menus: plain data, so that what a menu offers can be tested without drawing it.
+//! Context menus and the menu bar: plain data, so that what a menu offers can be tested without
+//! drawing it.
 
 use egui::Pos2;
 
 use crate::app::Message;
+use crate::i18n::tr;
+
+/// Labels are given in English and stored in the interface language (see `i18n.rs`); names of
+/// branches, files and the like come back unchanged.
+fn shown(label: impl Into<String>) -> String {
+    let label = label.into();
+    tr(&label).to_owned()
+}
+
+/// A key with its modifiers. `command` is Ctrl, or ⌘ on a Mac.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Shortcut {
+    pub key: egui::Key,
+    pub command: bool,
+    pub shift: bool,
+}
+
+impl Shortcut {
+    pub const fn command(key: egui::Key) -> Self {
+        Self {
+            key,
+            command: true,
+            shift: false,
+        }
+    }
+
+    pub const fn plain(key: egui::Key) -> Self {
+        Self {
+            key,
+            command: false,
+            shift: false,
+        }
+    }
+}
+
+/// A tick or a dot in front of an entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Mark {
+    #[default]
+    None,
+    /// An option that is on or off.
+    Check(bool),
+    /// One of a group of choices; `true` is the chosen one.
+    Radio(bool),
+}
 
 // Menus are short-lived and small, so entries simply hold their message.
 #[allow(clippy::large_enum_variant)]
@@ -15,6 +61,9 @@ pub enum MenuItem {
         label: String,
         message: Option<Message>,
         danger: bool,
+        /// The key that does the same, shown beside the label (the app handles the key itself).
+        shortcut: Option<Shortcut>,
+        mark: Mark,
     },
     Sub {
         label: String,
@@ -25,38 +74,62 @@ pub enum MenuItem {
 impl MenuItem {
     pub fn entry(label: impl Into<String>, message: Message) -> Self {
         Self::Entry {
-            label: label.into(),
+            label: shown(label),
             message: Some(message),
             danger: false,
+            shortcut: None,
+            mark: Mark::None,
         }
     }
     pub fn entry_if(label: impl Into<String>, enabled: bool, message: Message) -> Self {
         Self::Entry {
-            label: label.into(),
+            label: shown(label),
             message: enabled.then_some(message),
             danger: false,
+            shortcut: None,
+            mark: Mark::None,
         }
     }
     pub fn danger(label: impl Into<String>, message: Message) -> Self {
         Self::Entry {
-            label: label.into(),
+            label: shown(label),
             message: Some(message),
             danger: true,
+            shortcut: None,
+            mark: Mark::None,
         }
     }
     pub fn danger_if(label: impl Into<String>, enabled: bool, message: Message) -> Self {
         Self::Entry {
-            label: label.into(),
+            label: shown(label),
             message: enabled.then_some(message),
             danger: true,
+            shortcut: None,
+            mark: Mark::None,
         }
     }
     pub fn sub(label: impl Into<String>, children: Vec<MenuItem>) -> Self {
         Self::Sub {
-            label: label.into(),
+            label: shown(label),
             children,
         }
     }
+    /// Shows `shortcut` beside the entry.
+    pub fn key(mut self, key: Shortcut) -> Self {
+        if let Self::Entry { shortcut, .. } = &mut self {
+            *shortcut = Some(key);
+        }
+        self
+    }
+
+    /// Puts a tick or a dot in front of the entry.
+    pub fn marked(mut self, with: Mark) -> Self {
+        if let Self::Entry { mark, .. } = &mut self {
+            *mark = with;
+        }
+        self
+    }
+
     pub fn label(&self) -> Option<&str> {
         match self {
             Self::Header(label) | Self::Entry { label, .. } | Self::Sub { label, .. } => {

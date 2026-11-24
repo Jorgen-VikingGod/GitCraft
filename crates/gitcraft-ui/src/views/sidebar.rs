@@ -9,6 +9,7 @@ use super::{Cx, icon};
 use crate::actions::{Action, MenuRequest, RefTarget};
 use crate::app::{Message, RepoTab, View};
 use crate::command::Command;
+use crate::i18n::tr;
 use crate::logic::{build_tree, short_sha};
 
 const INDENT: f32 = 14.0;
@@ -26,7 +27,7 @@ fn nav(
     let look = cx.look();
     let c = &look.c;
     let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 28.0), Sense::click());
-    let body = rect.shrink2(vec2(6.0, 0.0));
+    let body = rect.shrink2(vec2(6.0, super::widgets::ROW_INSET));
     if active {
         ui.painter().rect_filled(body, 6.0, c.selection);
     } else if response.hovered() {
@@ -45,7 +46,7 @@ fn nav(
     paint_text(
         ui.painter(),
         Pos2::new(body.left() + 32.0, rect.center().y),
-        label,
+        tr(label),
         look.ui(13.0),
         color,
     );
@@ -80,7 +81,6 @@ fn section(
 ) {
     let look = cx.look();
     let c = &look.c;
-    ui.add_space(6.0);
     let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 28.0), Sense::click());
     let name = if cx.app.collapsed.contains(key) {
         "chevron-right"
@@ -99,7 +99,7 @@ fn section(
     paint_text(
         ui.painter(),
         Pos2::new(rect.left() + 22.0, rect.center().y),
-        &title.to_uppercase(),
+        &tr(title).to_uppercase(),
         look.ui(11.0),
         c.text_muted,
     );
@@ -129,12 +129,35 @@ fn section(
     }
 }
 
+/// A section of the sidebar as a card on the sidebar's ground, as the panels of the other Craft
+/// apps are.
+fn card(ui: &mut Ui, cx: &Cx, add: impl FnOnce(&mut Ui)) {
+    let c = cx.c();
+    ui.add_space(8.0);
+    egui::Frame::new()
+        .fill(c.panel)
+        .stroke(egui::Stroke::new(1.0, c.card_line))
+        .corner_radius(6)
+        .inner_margin(egui::Margin {
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 4,
+        })
+        .outer_margin(egui::Margin::symmetric(8, 0))
+        .show(ui, |ui| {
+            ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+            ui.set_width(ui.available_width());
+            add(ui);
+        });
+}
+
 fn none(ui: &mut Ui, cx: &Cx, note: &str) {
     ui.add_space(2.0);
     ui.horizontal(|ui| {
         ui.add_space(26.0);
         ui.label(
-            egui::RichText::new(note)
+            egui::RichText::new(tr(note))
                 .size(12.0)
                 .italics()
                 .color(cx.c().text_faint),
@@ -146,14 +169,14 @@ fn none(ui: &mut Ui, cx: &Cx, note: &str) {
 /// A row of the sidebar tree: the rectangle, with a hover or selection fill drawn.
 fn tree_row(ui: &mut Ui, cx: &Cx, selected: bool, related: bool) -> (Rect, Response) {
     let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 24.0), Sense::click());
-    let body = rect.shrink2(vec2(4.0, 0.0));
+    let body = rect.shrink2(vec2(4.0, super::widgets::ROW_INSET));
     if selected {
         ui.painter().rect_filled(body, 5.0, cx.c().selection);
     } else if related {
         // Another name for the selected commit: marked, but not as the selection.
         let c = cx.c();
         ui.painter()
-            .rect_filled(body, 5.0, crate::theme::mix(c.sidebar, c.text, 0.13));
+            .rect_filled(body, 5.0, crate::theme::mix(c.panel, c.text, 0.13));
     } else if response.hovered() {
         hover_fill(ui, cx.look(), body, 5.0);
     }
@@ -335,13 +358,18 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     });
 
     super::widgets::region(ui, list_area, |ui| {
-        scroll(("sidebar", &tab.path)).show(ui, |ui| {
+        let scrolled = scroll(("sidebar", &tab.path)).show(ui, |ui| {
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-            branches(ui, cx, tab, &matches, &marks, &collapsed);
-            remotes(ui, cx, tab, &matches, &marks, &collapsed);
+            card(ui, cx, |ui| {
+                branches(ui, cx, tab, &matches, &marks, &collapsed)
+            });
+            card(ui, cx, |ui| {
+                remotes(ui, cx, tab, &matches, &marks, &collapsed)
+            });
             tags_and_more(ui, cx, tab, &matches, &marks, &collapsed);
             ui.add_space(16.0);
         });
+        super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
     });
 }
 
@@ -549,63 +577,67 @@ fn tags_and_more(
         .iter()
         .filter(|tag| matches(&tag.name))
         .collect();
-    section(ui, cx, "s:tags", "Tags", Some(tags.len()), None);
-    if !collapsed("s:tags") {
-        if tags.is_empty() {
-            none(ui, cx, "No tags");
-        }
-        for tag in tags {
-            let item = simple(
-                tag.name.clone(),
-                "tag",
-                marks(&format!("t:{}", tag.name), &tag.sha),
-                Vec::new(),
-            );
-            let response = leaf(ui, cx, &item);
-            if response.clicked() {
-                cx.send(Message::ShowRef(format!("t:{}", tag.name), tag.sha.clone()));
-            } else if response.secondary_clicked() {
-                cx.send(Message::OpenMenu(MenuRequest::Commit {
-                    sha: tag.sha.clone(),
-                    focus: Some(RefTarget::Tag(tag.name.clone())),
-                }));
+    card(ui, cx, |ui| {
+        section(ui, cx, "s:tags", "Tags", Some(tags.len()), None);
+        if !collapsed("s:tags") {
+            if tags.is_empty() {
+                none(ui, cx, "No tags");
+            }
+            for tag in tags {
+                let item = simple(
+                    tag.name.clone(),
+                    "tag",
+                    marks(&format!("t:{}", tag.name), &tag.sha),
+                    Vec::new(),
+                );
+                let response = leaf(ui, cx, &item);
+                if response.clicked() {
+                    cx.send(Message::ShowRef(format!("t:{}", tag.name), tag.sha.clone()));
+                } else if response.secondary_clicked() {
+                    cx.send(Message::OpenMenu(MenuRequest::Commit {
+                        sha: tag.sha.clone(),
+                        focus: Some(RefTarget::Tag(tag.name.clone())),
+                    }));
+                }
             }
         }
-    }
+    });
 
     // Stashes
-    section(
-        ui,
-        cx,
-        "s:stashes",
-        "Stashes",
-        Some(tab.refs.stashes.len()),
-        None,
-    );
-    if !collapsed("s:stashes") {
-        if tab.refs.stashes.is_empty() {
-            none(ui, cx, "No stashes");
-        }
-        for stash in &tab.refs.stashes {
-            let selected = tab.view == View::Stash
-                && tab
-                    .stash
-                    .as_ref()
-                    .is_some_and(|open| open.name == stash.name);
-            let item = simple(
-                stash.message.clone(),
-                "stash",
-                (selected, false),
-                Vec::new(),
-            );
-            let response = leaf(ui, cx, &item);
-            if response.clicked() {
-                cx.send(Message::OpenStash(stash.name.clone()));
-            } else if response.secondary_clicked() {
-                cx.send(Message::OpenMenu(MenuRequest::Stash(stash.name.clone())));
+    card(ui, cx, |ui| {
+        section(
+            ui,
+            cx,
+            "s:stashes",
+            "Stashes",
+            Some(tab.refs.stashes.len()),
+            None,
+        );
+        if !collapsed("s:stashes") {
+            if tab.refs.stashes.is_empty() {
+                none(ui, cx, "No stashes");
+            }
+            for stash in &tab.refs.stashes {
+                let selected = tab.view == View::Stash
+                    && tab
+                        .stash
+                        .as_ref()
+                        .is_some_and(|open| open.name == stash.name);
+                let item = simple(
+                    stash.message.clone(),
+                    "stash",
+                    (selected, false),
+                    Vec::new(),
+                );
+                let response = leaf(ui, cx, &item);
+                if response.clicked() {
+                    cx.send(Message::OpenStash(stash.name.clone()));
+                } else if response.secondary_clicked() {
+                    cx.send(Message::OpenMenu(MenuRequest::Stash(stash.name.clone())));
+                }
             }
         }
-    }
+    });
 
     // Worktrees
     let trees: Vec<_> = tab
@@ -615,73 +647,79 @@ fn tags_and_more(
         .filter(|tree| !tree.bare)
         .filter(|tree| matches(&tree_name(tree)) || tree.branch.as_deref().is_some_and(matches))
         .collect();
-    section(
-        ui,
-        cx,
-        "s:worktrees",
-        "Worktrees",
-        Some(trees.len()),
-        Some(Message::Action(Action::AddWorktree(None))),
-    );
-    if !collapsed("s:worktrees") {
-        for tree in trees {
-            let mut badges = Vec::new();
-            match (&tree.branch, tree.detached) {
-                (Some(branch), _) => badges.push((branch.clone(), c.text_muted)),
-                (None, true) => badges.push((format!("@{}", short_sha(&tree.sha)), c.text_muted)),
-                _ => {}
-            }
-            if tree.locked {
-                badges.push(("locked".to_owned(), c.text_muted));
-            }
-            if tree.prunable {
-                badges.push(("missing".to_owned(), c.text_muted));
-            }
-            let mut item = simple(tree_name(tree), "worktree", (false, false), badges);
-            item.current = tree.current;
-            let response = leaf(ui, cx, &item).on_hover_text(&tree.path);
-            if response.double_clicked() && !tree.current {
-                cx.send(Message::OpenPath(tree.path.clone()));
-            } else if response.secondary_clicked() {
-                cx.send(Message::OpenMenu(MenuRequest::Worktree(tree.path.clone())));
+    card(ui, cx, |ui| {
+        section(
+            ui,
+            cx,
+            "s:worktrees",
+            "Worktrees",
+            Some(trees.len()),
+            Some(Message::Action(Action::AddWorktree(None))),
+        );
+        if !collapsed("s:worktrees") {
+            for tree in trees {
+                let mut badges = Vec::new();
+                match (&tree.branch, tree.detached) {
+                    (Some(branch), _) => badges.push((branch.clone(), c.text_muted)),
+                    (None, true) => {
+                        badges.push((format!("@{}", short_sha(&tree.sha)), c.text_muted))
+                    }
+                    _ => {}
+                }
+                if tree.locked {
+                    badges.push((tr("locked").to_owned(), c.text_muted));
+                }
+                if tree.prunable {
+                    badges.push((tr("missing").to_owned(), c.text_muted));
+                }
+                let mut item = simple(tree_name(tree), "worktree", (false, false), badges);
+                item.current = tree.current;
+                let response = leaf(ui, cx, &item).on_hover_text(&tree.path);
+                if response.double_clicked() && !tree.current {
+                    cx.send(Message::OpenPath(tree.path.clone()));
+                } else if response.secondary_clicked() {
+                    cx.send(Message::OpenMenu(MenuRequest::Worktree(tree.path.clone())));
+                }
             }
         }
-    }
+    });
 
     // Submodules
     if tab.refs.submodules.is_empty() {
         return;
     }
-    section(
-        ui,
-        cx,
-        "s:submodules",
-        "Submodules",
-        Some(tab.refs.submodules.len()),
-        None,
-    );
-    if collapsed("s:submodules") {
-        return;
-    }
-    for module in &tab.refs.submodules {
-        let badges = if module.state != "ok" {
-            vec![(module.state.clone(), c.text_muted)]
-        } else {
-            Vec::new()
-        };
-        let item = simple(module.path.clone(), "box", (false, false), badges);
-        let response = leaf(ui, cx, &item);
-        if response.double_clicked() {
-            cx.send(Message::OpenPath(crate::actions::join_path(
-                &tab.path,
-                &module.path,
-            )));
-        } else if response.secondary_clicked() {
-            cx.send(Message::OpenMenu(MenuRequest::File {
-                area: None,
-                path: module.path.clone(),
-                rev: None,
-            }));
+    card(ui, cx, |ui| {
+        section(
+            ui,
+            cx,
+            "s:submodules",
+            "Submodules",
+            Some(tab.refs.submodules.len()),
+            None,
+        );
+        if collapsed("s:submodules") {
+            return;
         }
-    }
+        for module in &tab.refs.submodules {
+            let badges = if module.state != "ok" {
+                vec![(module.state.clone(), c.text_muted)]
+            } else {
+                Vec::new()
+            };
+            let item = simple(module.path.clone(), "box", (false, false), badges);
+            let response = leaf(ui, cx, &item);
+            if response.double_clicked() {
+                cx.send(Message::OpenPath(crate::actions::join_path(
+                    &tab.path,
+                    &module.path,
+                )));
+            } else if response.secondary_clicked() {
+                cx.send(Message::OpenMenu(MenuRequest::File {
+                    area: None,
+                    path: module.path.clone(),
+                    rev: None,
+                }));
+            }
+        }
+    });
 }

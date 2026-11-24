@@ -12,6 +12,7 @@ use super::{Cx, details, icon};
 use crate::actions::{MenuRequest, RefTarget};
 use crate::app::{Message, ROW_HEIGHT, RepoTab, Splitter, View};
 use crate::command::Command;
+use crate::i18n::{tr, trf};
 use crate::logic::{plural, short_date, short_sha};
 
 /// Rows drawn beyond the visible ones, so that a small scroll never shows a gap.
@@ -26,7 +27,11 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let area = ui.max_rect();
     let (top, rest) = split_y(
         area,
-        cx.app.settings.history_height.min(area.height() - 60.0),
+        cx.app
+            .settings
+            .layout
+            .history_height
+            .min(area.height() - 60.0),
     );
     let (grip, bottom) = split_y(rest, super::widgets::GRIP);
     region(ui, top, |ui| {
@@ -55,13 +60,15 @@ fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     };
     if let Some(search) = &tab.search {
         let summary = if search.loading {
-            "Searching…".to_owned()
+            tr("Searching…").to_owned()
         } else {
-            format!(
-                "{} matching “{}” ({})",
-                plural(search.results.len(), "commit"),
-                search.query,
-                search.mode.key()
+            trf(
+                "{commits} matching “{query}” ({mode})",
+                &[
+                    ("commits", &plural(search.results.len(), "commit")),
+                    ("query", &search.query),
+                    ("mode", tr(search.mode.key())),
+                ],
             )
         };
         super::widgets::bar(ui, 29.0, c.accent_soft, 10.0, |ui| {
@@ -88,7 +95,7 @@ fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         paint_text(
             ui.painter(),
             Pos2::new(rect.left() + graph_width, rect.center().y),
-            "Uncommitted changes",
+            tr("Uncommitted changes"),
             look.ui(13.0),
             c.text_muted,
         );
@@ -119,11 +126,11 @@ fn header(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
     let sha_x = right - SHA_WIDTH + 4.0;
     let date_x = right - SHA_WIDTH - DATE_WIDTH + 8.0;
     let author_x = right - SHA_WIDTH - DATE_WIDTH - AUTHOR_WIDTH + 8.0;
-    for (title, x) in [("COMMIT", sha_x), ("DATE", date_x), ("AUTHOR", author_x)] {
+    for (title, x) in [("Commit", sha_x), ("Date", date_x), ("Author", author_x)] {
         paint_text(
             ui.painter(),
             Pos2::new(x, mid),
-            title,
+            &tr(title).to_uppercase(),
             look.ui(11.0),
             c.text_muted,
         );
@@ -131,7 +138,7 @@ fn header(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
     let description = paint_text(
         ui.painter(),
         Pos2::new(rect.left() + graph_width, mid),
-        "DESCRIPTION",
+        &tr("Description").to_uppercase(),
         look.ui(11.0),
         c.text_muted,
     );
@@ -157,11 +164,11 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
     let commits = tab.visible();
     if commits.is_empty() {
         let note = if tab.loading {
-            "Loading history…"
+            tr("Loading history…")
         } else if tab.search.is_some() {
-            "No matching commits"
+            tr("No matching commits")
         } else {
-            "No commits yet"
+            tr("No commits yet")
         };
         placeholder(ui, look, note);
         return;
@@ -214,9 +221,9 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
                 ui.with_layout(Layout::top_down(Align::Center), |ui| {
                     ui.add_space(10.0);
                     let label = if tab.loading {
-                        "Loading…"
+                        tr("Loading…")
                     } else {
-                        "Load more commits"
+                        tr("Load more commits")
                     };
                     if btn(ui, look, label, !tab.loading) {
                         cx.send(Message::LoadMore);
@@ -225,6 +232,7 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
             });
         }
     });
+    super::widgets::scroll_shadows(ui, cx.look(), &output);
     let offset = output.state.clamped_offset().y;
     let height = output.inner_rect.height();
     if (offset - tab.offset).abs() > 0.5 || (height - tab.viewport).abs() > 0.5 {

@@ -533,6 +533,72 @@ async fn stash_cycle() {
 }
 
 #[tokio::test]
+async fn checkout_with_changes_stashes_and_reapplies_them() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "side"]);
+    f.write("a.txt", "one\ntwo\nthree\nfour\nmine\n");
+    f.write("staged.txt", "new\n");
+    f.git(&["add", "staged.txt"]);
+    let result = ops::checkout_stashing(&f.repo, "side", "local", true)
+        .await
+        .unwrap();
+    assert!(result.ok);
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert!(f.read("a.txt").ends_with("mine\n"), "the change came along");
+    let status = queries::status(&f.repo).await.unwrap();
+    assert_eq!(paths(&status.staged), ["staged.txt"], "and stays staged");
+    assert!(queries::refs(&f.repo).await.unwrap().stashes.is_empty());
+}
+
+#[tokio::test]
+async fn checkout_with_changes_that_conflict_keeps_the_stash() {
+    let f = Fixture::with_history();
+    f.git(&["switch", "-q", "-c", "side"]);
+    f.commit("a.txt", "side\n", "side changes a");
+    f.git(&["switch", "-q", "main"]);
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, "side", "local", true)
+        .await
+        .unwrap();
+    assert!(!result.ok && result.conflicts, "reported as conflicts");
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().stashes.len(),
+        1,
+        "the changes are still in the stash"
+    );
+}
+
+#[tokio::test]
+async fn checkout_discarding_changes_keeps_them_in_a_stash() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "side"]);
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, "side", "local", false)
+        .await
+        .unwrap();
+    assert!(result.ok);
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\n", "a clean tree");
+    let stashes = queries::refs(&f.repo).await.unwrap().stashes;
+    assert_eq!(stashes.len(), 1);
+    assert!(stashes[0].message.contains("before checking out side"));
+}
+
+#[tokio::test]
+async fn checkout_that_fails_puts_the_changes_back() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "mine\n");
+    assert!(
+        ops::checkout_stashing(&f.repo, "no-such-branch", "local", true)
+            .await
+            .is_err()
+    );
+    assert_eq!(f.read("a.txt"), "mine\n");
+    assert!(queries::refs(&f.repo).await.unwrap().stashes.is_empty());
+}
+
+#[tokio::test]
 async fn cherry_pick_revert_reset() {
     let f = Fixture::with_history();
     f.git(&["switch", "-q", "-c", "side"]);

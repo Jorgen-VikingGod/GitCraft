@@ -8,6 +8,8 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Shared Craft libraries (MIT OR Apache-2.0), pinned to the same commit of https://github.com/storytold/craft-libs 
+craft-atomic = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f" }
 dirs = "6"
 dunce = "1"
 notify = "8"

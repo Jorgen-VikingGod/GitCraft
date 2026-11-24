@@ -8,37 +8,157 @@ use egui::{
 use gitcraft_core::model::Operation;
 
 use super::widgets::{
-    bar, bar_with, bare_edit, btn, choice, danger_text, hline, icon_button, muted, paint_text,
-    primary, scroll, text, text_width, tool_text,
+    accent, bar, bar_with, bare_edit, btn, choice, danger, hline, icon_button, muted, paint_text,
+    scroll, text, text_width,
 };
 use super::{Cx, icon};
 use crate::actions::{Action, MenuRequest};
 use crate::app::{RepoTab, SearchMode, View};
 use crate::command::Command;
+use crate::i18n::tr;
+use crate::i18n::trf;
 use crate::logic::{plural, short_sha};
+use crate::menu::{Mark, MenuItem};
 
+/// The title bar, when the app draws it (see `frame.rs`).
 pub fn menu_bar(ui: &mut Ui, cx: &Cx) {
-    if cx.app.csd {
-        super::frame::title_bar(ui, cx);
-        return;
-    }
-    bar(ui, 26.0, cx.c().toolbar, 4.0, |ui| {
-        for (label, request) in [
-            ("File", MenuRequest::BarFile),
-            ("View", MenuRequest::BarView),
-            ("Help", MenuRequest::BarHelp),
-        ] {
-            if tool_text(ui, label, 13.0).clicked() {
-                cx.send(crate::app::Message::OpenMenu(request));
+    super::frame::title_bar(ui, cx);
+}
+
+/// A menu bar entry as craft-menu takes it. The command id is the entry's place in
+/// [`crate::app::App::bar_menus`], `bar.<menu>.<entry>[.<sub-entry>]`, so that the message can
+/// be found again when it is chosen.
+fn bar_node(item: &MenuItem, path: &str) -> Option<craft_menu::Node> {
+    use craft_menu::{CommandRef, Item, Node};
+    match item {
+        MenuItem::Separator => Some(Node::Separator),
+        MenuItem::Header(_) => None,
+        MenuItem::Entry {
+            label,
+            message,
+            shortcut,
+            mark,
+            ..
+        } => {
+            let mut entry = Item::new(CommandRef::new(path), tr(label)).enabled(message.is_some());
+            if let Some(shortcut) = shortcut
+                && let Some(key) = craft_keymap::Key::from_egui(shortcut.key)
+            {
+                let mods = craft_keymap::Mods {
+                    cmd: shortcut.command,
+                    ctrl: false,
+                    alt: false,
+                    shift: shortcut.shift,
+                };
+                entry = entry.shortcut(craft_menu::Chord { mods, key });
             }
+            entry = match mark {
+                Mark::None => entry,
+                Mark::Check(on) => entry.check(*on),
+                Mark::Radio(on) => entry.radio(*on),
+            };
+            if matches!(message, Some(crate::app::Message::Quit)) {
+                entry = entry.role(craft_menu::ItemRole::Quit);
+            }
+            Some(entry.into())
         }
-    });
+        MenuItem::Sub { label, children } => {
+            let nodes = children
+                .iter()
+                .enumerate()
+                .filter_map(|(index, child)| bar_node(child, &format!("{path}.{index}")))
+                .collect();
+            Some(Node::submenu(tr(label), nodes))
+        }
+    }
+}
+
+/// The message of the entry at `path` (see [`bar_node`]).
+fn bar_message(menus: &[(&str, Vec<MenuItem>)], path: &str) -> Option<crate::app::Message> {
+    let mut steps = path
+        .strip_prefix("bar.")?
+        .split('.')
+        .map(str::parse::<usize>);
+    let mut items = &menus.get(steps.next()?.ok()?)?.1;
+    loop {
+        match items.get(steps.next()?.ok()?)? {
+            MenuItem::Entry { message, .. } => return message.clone(),
+            MenuItem::Sub { children, .. } => items = children,
+            _ => return None,
+        }
+    }
+}
+
+/// The menu bar (craft-menu): drawn like a desktop app's menus, with the shortcuts in their own
+/// column. A press on a title opens its menu, moving onto another title opens that one, and the
+/// arrow keys, Alt and F10 work as in other programs.
+fn menus(ui: &mut Ui, cx: &Cx) {
+    use craft_menu::{LayoutOptions, Menu, MenuBar, MenuBarUi, MenuRole, Target};
+    let menus = cx.app.bar_menus();
+    let roles = [
+        Some(MenuRole::File),
+        None,
+        Some(MenuRole::View),
+        Some(MenuRole::Help),
+    ];
+    let bar = MenuBar {
+        menus: menus
+            .iter()
+            .enumerate()
+            .map(|(index, (title, items))| {
+                let nodes = items
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(entry, item)| bar_node(item, &format!("bar.{index}.{entry}")))
+                    .collect();
+                let menu = Menu::new(tr(title), nodes);
+                match roles.get(index).copied().flatten() {
+                    Some(role) => menu.role(role),
+                    None => menu,
+                }
+            })
+            .collect(),
+        documents: Vec::new(),
+    };
+    // The menus stay in the window on every system, laid out as on Windows and Linux.
+    let target = if cfg!(windows) {
+        Target::Windows
+    } else {
+        Target::Linux
+    };
+    let label = |english: &'static str| tr(english).to_owned();
+    let options = LayoutOptions {
+        label: &label,
+        ..LayoutOptions::new("GitCraft")
+    };
+    let bar = craft_menu::desktop_layout(&bar, target, &options).bar;
+    let gate = craft_menu::Gate {
+        modal: cx.app.form.is_some(),
+        recording_shortcut: false,
+        text_editing: ui.ctx().egui_wants_keyboard_input(),
+    };
+    // egui's built-in fonts have no ✓ or ●, craft-menu's default marks.
+    let style = craft_menu::BarStyle {
+        check_mark: "•".into(),
+        radio_mark: "•".into(),
+        ..craft_menu::BarStyle::from_style(ui.style())
+    };
+    let chosen = MenuBarUi::new(&bar)
+        .style(style)
+        .gate(gate)
+        .label(&label)
+        .shrink_to_fit(f32::INFINITY)
+        .show(ui);
+    for command in chosen {
+        if let Some(message) = bar_message(&menus, &command.id) {
+            cx.send(crate::app::Message::FromMenu(Box::new(message)));
+        }
+    }
 }
 
 fn tab_width(ui: &Ui, cx: &Cx, tab: &RepoTab) -> f32 {
     let look = cx.look();
-    let mut width =
-        12.0 + 13.0 + 6.0 + text_width(ui, &tab.name, &look.ui(13.0)) + 6.0 + 20.0 + 6.0;
+    let mut width = 10.0 + text_width(ui, &tab.name, &look.ui(13.0)) + 6.0 + 18.0 + 4.0;
     if let Some(branch) = tab.current_branch() {
         width += 6.0 + text_width(ui, branch, &look.ui(11.0));
     }
@@ -48,38 +168,45 @@ fn tab_width(ui: &Ui, cx: &Cx, tab: &RepoTab) -> f32 {
     width.min(260.0)
 }
 
-fn tab_view(ui: &mut Ui, cx: &Cx, index: usize, tab: &RepoTab) {
+/// One open repository, as a part of the tab group: the one in front filled with the accent, as
+/// the mode switches of the other Craft apps are.
+/// Draws one tab; gives its place and response. The id comes from the repository, not the
+/// tab's position, so that a drag stays with its tab while the tabs change places under it.
+fn tab_view(ui: &mut Ui, cx: &Cx, index: usize, tab: &RepoTab) -> (Rect, egui::Response) {
     let look = cx.look();
     let c = &look.c;
     let active = index == cx.app.active;
     let width = tab_width(ui, cx, tab);
-    let (rect, response) = ui.allocate_exact_size(vec2(width, 35.0), Sense::click());
+    let (rect, _) = ui.allocate_exact_size(vec2(width, TAB_HEIGHT), Sense::hover());
+    let response = ui.interact(
+        rect,
+        Id::unique(("repo_tab", &tab.path)),
+        Sense::click_and_drag(),
+    );
     let hovered = ui.rect_contains_pointer(rect);
     let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
-    painter.rect_filled(rect, 0.0, if active { c.bg } else { c.titlebar });
     if active {
-        painter.rect_filled(
-            Rect::from_min_size(rect.min, vec2(rect.width(), 2.0)),
-            0.0,
-            c.accent,
-        );
+        let fill = if look.dark {
+            c.accent.gamma_multiply(0.85)
+        } else {
+            c.accent
+        };
+        painter.rect_filled(rect, 4.0, fill);
     } else if hovered {
-        painter.rect_filled(rect, 0.0, c.hover);
+        painter.rect_filled(rect, 4.0, c.hover_strong);
     }
-    let color = if active { c.text } else { c.text_muted };
-    let mid = rect.center().y + 1.0;
-    icon::paint(
-        ui,
-        "repo",
-        Rect::from_center_size(Pos2::new(rect.left() + 18.5, mid), vec2(13.0, 13.0)),
-        color,
-    );
-    let close = Rect::from_center_size(Pos2::new(rect.right() - 16.0, mid), vec2(20.0, 20.0));
+    let (color, dim) = if active {
+        (Color32::WHITE, Color32::from_white_alpha(200))
+    } else {
+        (c.text, c.text_muted)
+    };
+    let mid = rect.center().y;
+    let close = Rect::from_center_size(Pos2::new(rect.right() - 13.0, mid), vec2(18.0, 18.0));
     let text_area = painter.with_clip_rect(Rect::from_min_max(
         rect.min,
         Pos2::new(close.left() - 2.0, rect.max.y),
     ));
-    let mut x = rect.left() + 31.0;
+    let mut x = rect.left() + 10.0;
     x += paint_text(
         &text_area,
         Pos2::new(x, mid),
@@ -88,42 +215,32 @@ fn tab_view(ui: &mut Ui, cx: &Cx, index: usize, tab: &RepoTab) {
         color,
     ) + 6.0;
     if let Some(branch) = tab.current_branch() {
-        x += paint_text(
-            &text_area,
-            Pos2::new(x, mid),
-            branch,
-            look.ui(11.0),
-            c.text_muted,
-        ) + 6.0;
+        x += paint_text(&text_area, Pos2::new(x, mid), branch, look.ui(11.0), dim) + 6.0;
     }
     if let Some(note) = tab.worktree_note() {
-        paint_text(
-            &text_area,
-            Pos2::new(x, mid),
-            &note,
-            look.ui(11.0),
-            c.accent,
-        );
+        let tint = if active { dim } else { c.accent };
+        paint_text(&text_area, Pos2::new(x, mid), &note, look.ui(11.0), tint);
     }
-    // Inactive tabs only show their close button under the pointer.
+    // Tabs not in front only show their close button under the pointer.
     let mut closed = false;
     if active || hovered {
         let button = ui.interact(close, response.id.with("close"), Sense::click());
         if button.hovered() {
-            painter.rect_filled(close, 6.0, c.hover_strong);
+            let shade = if active {
+                Color32::from_white_alpha(40)
+            } else {
+                c.hover
+            };
+            painter.rect_filled(close, 4.0, shade);
         }
         icon::paint(
             ui,
             "x",
-            Rect::from_center_size(close.center(), vec2(12.0, 12.0)),
+            Rect::from_center_size(close.center(), vec2(11.0, 11.0)),
             color,
         );
-        closed = button.clicked();
+        closed = button.on_hover_text(tr("Close")).clicked();
     }
-    ui.painter().line_segment(
-        [rect.right_top(), rect.right_bottom()],
-        Stroke::new(1.0, c.border),
-    );
     if closed || response.middle_clicked() {
         cx.send(crate::app::Message::Close(index));
     } else if response.clicked() {
@@ -131,35 +248,234 @@ fn tab_view(ui: &mut Ui, cx: &Cx, index: usize, tab: &RepoTab) {
     } else if response.secondary_clicked() {
         cx.send(crate::app::Message::OpenMenu(MenuRequest::Tab(index)));
     }
+    (rect, response)
 }
 
+const TAB_HEIGHT: f32 = 26.0;
+/// Space around the tabs inside their group, and between two tabs.
+const TAB_GAP: f32 = 2.0;
+
+/// The open repositories on a shared ground exactly as tall as the tabs, scrolling sideways when
+/// they don't fit. A tab dragged past the middle of its neighbour swaps places with it.
+/// What the tab strip remembers between frames: how far it is scrolled, how far it can be, a
+/// jump an arrow asked for, and the tab that was in front (a new one is scrolled into view).
+#[derive(Clone, Default)]
+struct Strip {
+    offset: f32,
+    max: f32,
+    jump: Option<f32>,
+    /// By path: tabs opening one after another can change which index is in front.
+    active: Option<String>,
+}
+
+/// Short, firm shadows inside the strip's rounded ground where tabs go on past an edge. Drawn as
+/// layers that narrow away from the edge, each with the ground's round corners on that side, so
+/// the shade follows the corners instead of stopping short of them.
+fn strip_shadows(ui: &Ui, look: &crate::theme::Look, ground: Rect, left: bool, right: bool) {
+    const DEPTH: f32 = 12.0;
+    const LAYERS: usize = 12;
+    let strength = if look.dark { 120.0 } else { 60.0 };
+    let color = egui::Color32::from_black_alpha((strength / LAYERS as f32) as u8);
+    let round = |west: bool| {
+        let (a, b) = if west { (5, 0) } else { (0, 5) };
+        egui::CornerRadius {
+            nw: a,
+            sw: a,
+            ne: b,
+            se: b,
+        }
+    };
+    for layer in 1..=LAYERS {
+        let width = DEPTH * layer as f32 / LAYERS as f32;
+        if left {
+            let rect = Rect::from_min_max(
+                ground.min,
+                Pos2::new(ground.left() + width, ground.bottom()),
+            );
+            ui.painter().rect_filled(rect, round(true), color);
+        }
+        if right {
+            let rect =
+                Rect::from_min_max(Pos2::new(ground.right() - width, ground.top()), ground.max);
+            ui.painter().rect_filled(rect, round(false), color);
+        }
+    }
+}
+
+/// An arrow beside the tab strip, on the same grey as the strip so that it is seen; lighter
+/// under the pointer, faint when the strip can't move that way.
+fn strip_arrow(ui: &mut Ui, look: &crate::theme::Look, name: &str, enabled: bool) -> bool {
+    let c = &look.c;
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
+    let (rect, response) = ui.allocate_exact_size(vec2(24.0, TAB_HEIGHT + 2.0 * TAB_GAP), sense);
+    // Off, it is only a faint arrow on the bar.
+    let fill = if !enabled {
+        None
+    } else if response.is_pointer_button_down_on() {
+        Some(crate::theme::mix(c.hover_strong, c.text, 0.08))
+    } else if response.hovered() {
+        Some(c.hover_strong)
+    } else {
+        Some(c.panel_2)
+    };
+    if let Some(fill) = fill {
+        ui.painter().rect_filled(rect, 5.0, fill);
+    }
+    let color = if !enabled {
+        c.text_faint.gamma_multiply(0.6)
+    } else if response.hovered() {
+        c.text
+    } else {
+        c.text_muted
+    };
+    icon::paint(
+        ui,
+        name,
+        Rect::from_center_size(rect.center(), vec2(14.0, 14.0)),
+        color,
+    );
+    enabled && response.clicked()
+}
+
+fn tab_group(ui: &mut Ui, cx: &Cx) {
+    let look = cx.look();
+    let c = &look.c;
+    let tabs = &cx.app.tabs;
+    let content: f32 = tabs.iter().map(|tab| tab_width(ui, cx, tab)).sum::<f32>()
+        + TAB_GAP * (tabs.len().saturating_sub(1)) as f32;
+    let room = (ui.available_width() - 80.0).max(60.0);
+    // When the tabs don't fit, arrows on both sides scroll the strip.
+    let overflow = content + 2.0 * TAB_GAP > room;
+    let room = if overflow { room - 2.0 * 28.0 } else { room };
+    let memory = egui::Id::unique("tab_strip");
+    let mut strip_state: Strip = ui.data(|data| data.get_temp(memory).unwrap_or_default());
+    let step = (room * 0.6).max(120.0);
+    let jump = |ui: &Ui, state: &mut Strip, to: f32| {
+        state.jump = Some(to.clamp(0.0, state.max));
+        ui.ctx().request_repaint();
+    };
+    if overflow && strip_arrow(ui, look, "chevron-left", strip_state.offset > 0.5) {
+        let to = strip_state.offset - step;
+        jump(ui, &mut strip_state, to);
+    }
+    let size = vec2(
+        (content + 2.0 * TAB_GAP).min(room),
+        TAB_HEIGHT + 2.0 * TAB_GAP,
+    );
+    let (ground, _) = ui.allocate_exact_size(size, Sense::hover());
+    ui.painter().rect_filled(ground, 5.0, c.panel_2);
+    let inner = ground.shrink(TAB_GAP);
+    let mut strip = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(inner)
+            .layout(Layout::left_to_right(Align::Min)),
+    );
+    let mut placed: Vec<(Rect, egui::Response)> = Vec::new();
+    let mut area = ScrollArea::horizontal();
+    if let Some(to) = strip_state.jump.take() {
+        area = area.horizontal_scroll_offset(to);
+    }
+    let front = tabs.get(cx.app.active).map(|tab| tab.path.clone());
+    let reveal = strip_state.active != front;
+    let scrolled = area
+        .id_salt("tabs")
+        // A drag on the tabs moves a tab; the strip scrolls with the wheel.
+        .scroll_source(egui::scroll_area::ScrollSource::MOUSE_WHEEL)
+        .max_width(inner.width())
+        .max_height(TAB_HEIGHT)
+        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+        .show(&mut strip, |ui| {
+            ui.spacing_mut().item_spacing = vec2(TAB_GAP, 0.0);
+            // Exactly as tall as a tab and aligned to the top, so the ground's border is the
+            // same all round (`horizontal` would centre the tabs in a row of its own height).
+            let row = Layout::left_to_right(Align::Min);
+            ui.allocate_ui_with_layout(vec2(content, TAB_HEIGHT), row, |ui| {
+                for (index, tab) in tabs.iter().enumerate() {
+                    let (rect, response) = tab_view(ui, cx, index, tab);
+                    if reveal && index == cx.app.active {
+                        ui.scroll_to_rect_animation(
+                            rect,
+                            None,
+                            egui::style::ScrollAnimation::none(),
+                        );
+                    }
+                    placed.push((rect, response));
+                }
+            });
+        });
+    strip_state.offset = scrolled.state.clamped_offset().x;
+    strip_state.max = (scrolled.content_size.x - scrolled.inner_rect.width()).max(0.0);
+    // Shaded where tabs go on past the edge.
+    strip_shadows(
+        ui,
+        look,
+        ground,
+        strip_state.offset > 0.5,
+        strip_state.offset < strip_state.max - 0.5,
+    );
+    // Until the tab in front is wholly in view (the strip only knows its width after a frame),
+    // it is asked for again next time; then the strip is the user's to scroll.
+    let shown = placed
+        .get(cx.app.active)
+        .is_some_and(|(rect, _)| inner.expand(0.5).contains_rect(*rect));
+    if !reveal || shown {
+        strip_state.active = front;
+    } else {
+        ui.ctx().request_repaint();
+    }
+    if overflow
+        && strip_arrow(
+            ui,
+            look,
+            "chevron-right",
+            strip_state.offset < strip_state.max - 0.5,
+        )
+    {
+        let to = strip_state.offset + step;
+        jump(ui, &mut strip_state, to);
+    }
+    ui.data_mut(|data| data.insert_temp(memory, strip_state));
+    let Some(dragged) = placed.iter().position(|(_, response)| response.dragged()) else {
+        return;
+    };
+    ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+    let Some(x) = ui.ctx().pointer_interact_pos().map(|pos| pos.x) else {
+        return;
+    };
+    let past = |other: usize| placed.get(other).map(|(rect, _)| rect.center().x);
+    if past(dragged + 1).is_some_and(|middle| x > middle) {
+        cx.send(crate::app::Message::MoveTab(dragged, 1));
+    } else if dragged > 0 && past(dragged - 1).is_some_and(|middle| x < middle) {
+        cx.send(crate::app::Message::MoveTab(dragged, -1));
+    }
+}
+
+/// The app's row: its name, the menus and the open repositories, as in the other Craft apps.
 pub fn tab_bar(ui: &mut Ui, cx: &Cx) {
     use crate::app::Message;
     let look = cx.look();
     let c = &look.c;
-    bar(ui, 35.0, c.titlebar, 0.0, |ui| {
+    bar(ui, 40.0, c.toolbar, 0.0, |ui| {
         ui.add_space(12.0);
-        icon::icon(ui, "merge", 16.0, c.accent);
-        text(ui, "GitCraft", 13.0, c.accent);
-        ui.add_space(8.0);
-        let reserve = 90.0;
-        ScrollArea::horizontal()
-            .id_salt("tabs")
-            .max_width((ui.available_width() - reserve).max(60.0))
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-            .show(ui, |ui| {
-                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-                ui.horizontal(|ui| {
-                    for (index, tab) in cx.app.tabs.iter().enumerate() {
-                        tab_view(ui, cx, index, tab);
-                    }
-                });
-            });
-        if icon_button(ui, look, "plus", 16.0, true) {
+        icon::icon(ui, "merge", 17.0, c.accent);
+        ui.add_space(2.0);
+        text(ui, "GitCraft", 14.0, c.text);
+        ui.add_space(10.0);
+        menus(ui, cx);
+        ui.add_space(10.0);
+        if !cx.app.tabs.is_empty() {
+            tab_group(ui, cx);
+        }
+        let plus = ui.scope(|ui| icon_button(ui, look, "plus", 15.0, true));
+        if plus.inner {
             cx.send(Message::OpenDialog);
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.add_space(6.0);
+            ui.add_space(8.0);
             if icon_button(ui, look, "settings", 16.0, true) {
                 cx.send(Message::OpenSettings);
             }
@@ -206,7 +522,7 @@ fn tool_button(
     ui.painter().text(
         Pos2::new(rect.center().x, rect.top() + 34.0),
         Align2::CENTER_CENTER,
-        label,
+        tr(label),
         look.ui(11.0),
         color,
     );
@@ -243,9 +559,16 @@ fn search_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab, rect: Rect) {
         c.text_muted,
     );
     let id = Id::unique("search_box");
+    // The search kind's drop-down is as wide as its longest name in the interface language.
+    let mode_width = SearchMode::ALL
+        .iter()
+        .map(|mode| text_width(ui, &mode.to_string(), &look.ui(13.0)))
+        .fold(0.0, f32::max)
+        + 34.0;
+    let mode_width = mode_width.max(86.0);
     let field = Rect::from_min_max(
         Pos2::new(rect.left() + 30.0, rect.top() + 6.5),
-        Pos2::new(rect.right() - 92.0, rect.bottom() - 1.5),
+        Pos2::new(rect.right() - mode_width - 6.0, rect.bottom() - 1.5),
     );
     super::widgets::region(ui, field, |ui| {
         // Centred, so that the hint text sits in the middle of the box, not at its top.
@@ -278,19 +601,28 @@ fn search_box(ui: &mut Ui, cx: &Cx, tab: &RepoTab, rect: Rect) {
         });
     });
     let mode = Rect::from_min_max(
-        Pos2::new(rect.right() - 90.0, rect.top() + 3.0),
+        Pos2::new(rect.right() - mode_width - 4.0, rect.top() + 3.0),
         Pos2::new(rect.right() - 4.0, rect.bottom() - 3.0),
     );
     super::widgets::region(ui, mode, |ui| {
-        let options: Vec<(String, String)> = SearchMode::ALL
-            .iter()
-            .map(|mode| (mode.key().to_owned(), mode.to_string()))
-            .collect();
-        if let Some(key) = choice(ui, "search_mode", &options, tab.search_mode.key(), 76.0)
-            && let Some(mode) = SearchMode::ALL.into_iter().find(|mode| mode.key() == key)
-        {
-            cx.send(Message::SearchModeChanged(mode));
-        }
+        // Against the right end, whichever kind is shown: a shorter name leaves room on the left,
+        // where the field goes on.
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let options: Vec<(String, String)> = SearchMode::ALL
+                .iter()
+                .map(|mode| (mode.key().to_owned(), mode.to_string()))
+                .collect();
+            if let Some(key) = choice(
+                ui,
+                "search_mode",
+                &options,
+                tab.search_mode.key(),
+                mode_width - 14.0,
+            ) && let Some(mode) = SearchMode::ALL.into_iter().find(|mode| mode.key() == key)
+            {
+                cx.send(Message::SearchModeChanged(mode));
+            }
+        });
     });
 }
 
@@ -397,7 +729,10 @@ pub fn toolbar(ui: &mut Ui, cx: &Cx) {
         c.text,
     );
     let info = match branch {
-        Some(b) if b.detached => format!("detached at {}", b.oid.as_deref().map_or("", short_sha)),
+        Some(b) if b.detached => trf(
+            "detached at {commit}",
+            &[("commit", b.oid.as_deref().map_or("", short_sha))],
+        ),
         Some(b) => {
             let name = b.head.clone().unwrap_or_else(|| "…".to_owned());
             match &b.upstream {
@@ -430,11 +765,11 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     };
     let conflicts = status.conflicts.len();
     let mut title = match operation {
-        Operation::Merge { .. } => "Merge in progress".to_owned(),
-        Operation::Rebase { .. } => "Rebase in progress".to_owned(),
-        Operation::CherryPick { .. } => "Cherry-pick in progress".to_owned(),
-        Operation::Revert { .. } => "Revert in progress".to_owned(),
-        Operation::Am => "Applying patches (git am)".to_owned(),
+        Operation::Merge { .. } => tr("Merge in progress").to_owned(),
+        Operation::Rebase { .. } => tr("Rebase in progress").to_owned(),
+        Operation::CherryPick { .. } => tr("Cherry-pick in progress").to_owned(),
+        Operation::Revert { .. } => tr("Revert in progress").to_owned(),
+        Operation::Am => tr("Applying patches (git am)").to_owned(),
     };
     if let Operation::Rebase {
         step: Some(step),
@@ -442,7 +777,11 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         ..
     } = operation
     {
-        title.push_str(&format!(" · step {step} of {total}"));
+        title.push_str(" · ");
+        title.push_str(&trf(
+            "step {step} of {total}",
+            &[("step", &step.to_string()), ("total", &total.to_string())],
+        ));
     }
     if let Operation::Rebase {
         branch: Some(branch),
@@ -452,21 +791,21 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         title.push_str(&format!(" · {branch}"));
     }
     let hint = if conflicts > 0 {
-        format!(
-            "{} conflicted. Resolve them in Local Changes, then continue.",
-            plural(conflicts, "file")
+        trf(
+            "{files} conflicted. Resolve them in Local Changes, then continue.",
+            &[("files", &plural(conflicts, "file"))],
         )
     } else if let Operation::Rebase {
         stopped_sha: Some(sha),
         ..
     } = operation
     {
-        format!(
-            "Stopped at {}. Amend or make changes, then continue.",
-            short_sha(sha)
+        trf(
+            "Stopped at {commit}. Amend or make changes, then continue.",
+            &[("commit", short_sha(sha))],
         )
     } else {
-        "All conflicts resolved. Continue to finish.".to_owned()
+        tr("All conflicts resolved. Continue to finish.").to_owned()
     };
     Frame::new()
         .fill(c.warning_bg)
@@ -486,10 +825,10 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                     muted(ui, look, hint, 12.0);
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if primary(ui, look, "Continue", conflicts == 0) {
+                    if accent(ui, look, "Continue", conflicts == 0) {
                         cx.send(Message::Run(Command::Continue));
                     }
-                    if danger_text(ui, look, "Abort", true) {
+                    if danger(ui, look, "Abort", true) {
                         cx.send(Message::Action(Action::Abort));
                     }
                     if !matches!(operation, Operation::Merge { .. }) && btn(ui, look, "Skip", true)
@@ -511,7 +850,11 @@ pub fn status_bar(ui: &mut Ui, cx: &Cx) {
     let look = cx.look();
     let c = &look.c;
     hline(ui, look);
-    let corner = if app.csd && !app.maximized { 10 } else { 0 };
+    let corner = if app.rounded() {
+        super::frame::RADIUS
+    } else {
+        0
+    };
     let radius = egui::CornerRadius {
         sw: corner,
         se: corner,
@@ -521,7 +864,10 @@ pub fn status_bar(ui: &mut Ui, cx: &Cx) {
         ui.spacing_mut().item_spacing.x = 10.0;
         let right = app.current().map(|tab| {
             let more = if tab.has_more { "+" } else { "" };
-            format!("{}{more} commits", tab.commits.len())
+            trf(
+                "{count} commits",
+                &[("count", &format!("{}{more}", tab.commits.len()))],
+            )
         });
         let reserve = right
             .as_ref()
@@ -550,7 +896,7 @@ pub fn status_bar(ui: &mut Ui, cx: &Cx) {
             } else {
                 let path = app
                     .current()
-                    .map_or("No repository open", |tab| tab.path.as_str());
+                    .map_or(tr("No repository open"), |tab| tab.path.as_str());
                 text(ui, path, 12.0, c.text_muted);
             }
         });
@@ -583,7 +929,7 @@ pub fn welcome(ui: &mut Ui, cx: &Cx) {
         });
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            if super::widgets::primary(ui, look, "Open a repository…", true) {
+            if super::widgets::accent(ui, look, "Open a repository…", true) {
                 cx.send(Message::OpenDialog);
             }
             if btn(ui, look, "Clone…", true) {
@@ -597,8 +943,8 @@ pub fn welcome(ui: &mut Ui, cx: &Cx) {
             return;
         }
         ui.add_space(8.0);
-        text(ui, "RECENT", 11.0, c.text_muted);
-        scroll("recent").show(ui, |ui| {
+        text(ui, tr("Recent").to_uppercase(), 11.0, c.text_muted);
+        let scrolled = scroll("recent").show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
             for repo in &cx.app.recent {
                 let exists = repo.exists.unwrap_or(true);
@@ -646,5 +992,6 @@ pub fn welcome(ui: &mut Ui, cx: &Cx) {
                 }
             }
         });
+        super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
     });
 }

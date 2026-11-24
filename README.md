@@ -32,9 +32,14 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Worktrees**: listed in the sidebar with their branch; add, open in a new tab, remove, prune. Tabs and the window title show when a repository is a linked worktree.
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
 - Repository **tabs**, recent repositories, clone, init.
-- Live refresh through file watching, **light/dark** theme, zoom, keyboard shortcuts.
-- On **GNOME with Wayland** GitCraft draws its own GNOME-style title bar and window edges (the window
-  toolkit would otherwise show a flat grey frame). Set `GITCRAFT_SYSTEM_FRAME=1` to use the toolkit's frame.
+- Live refresh through file watching, **light/dark** theme that follows the system, zoom, keyboard
+  shortcuts, and a menu bar with the shortcuts beside each command.
+- **Languages**: English, German, French and Spanish (*View › Language*, or the system's language).
+- On most desktops GitCraft draws its own title bar, with the window buttons in the desktop's look and
+  order (GNOME, KDE, Windows); on macOS the traffic lights sit in it, and tiling window managers keep
+  their own frame. *View › Use system title bar* gives the frame to the system (after a restart), as do
+  `GITCRAFT_TITLEBAR=system` and the older `GITCRAFT_SYSTEM_FRAME=1`. The window opens with the size and
+  place it had last time.
 
 ### Pull and rebase options
 
@@ -69,11 +74,13 @@ and can be resolved in the built-in conflict resolver.
 | --- | --- |
 | Ctrl/⌘ + 1 / 2 | All commits / Local changes |
 | Ctrl/⌘ + F | Search commits |
+| Ctrl/⌘ + A | Select every file of the list in Local changes |
 | Ctrl/⌘ + T or O | Open repository |
 | Ctrl/⌘ + W | Close tab |
 | Ctrl/⌘ + Enter | Commit |
 | Ctrl/⌘ + + / − / 0 | Zoom |
 | F5 or Ctrl/⌘ + R | Refresh repository |
+| F11 | Full screen |
 | ↑ ↓ PgUp PgDn | Move through commits, or through the files of the list you clicked last |
 
 In the interactive rebase editor, ↑ ↓ moves the focus, Alt + ↑ ↓ moves the commit, and
@@ -98,9 +105,11 @@ The program takes one optional argument, the repository to open, and is called `
 (`target/release/gitcraft`). A second launch hands its repository to the window that is already open
 and exits.
 
-Settings, tabs and recent repositories are stored in the user config folder: `~/.config/gitcraft` on
-Linux, `~/Library/Application Support/gitcraft` on macOS and `%LOCALAPPDATA%\gitcraft` on Windows. Set
-`GITCRAFT_CONFIG_DIR` to use a different folder.
+Settings and open tabs (`config.toml`), recent repositories (`repos.json`) and the window's size and
+place (`window.json`) are stored in the user config folder: `~/.config/gitcraft` on Linux,
+`~/Library/Application Support/gitcraft` on macOS and `%LOCALAPPDATA%\gitcraft` on Windows. Set
+`GITCRAFT_CONFIG_DIR` to use a different folder. A `settings.json` from GitCraft 0.3 or older is read
+once, when there is no `config.toml` yet.
 
 Authentication for remotes uses your normal git setup: credential helpers (e.g. Git Credential Manager,
 macOS keychain, libsecret) and the SSH agent. GitCraft never prompts for passwords itself.

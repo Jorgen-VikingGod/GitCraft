@@ -1,7 +1,7 @@
 //! Application state, messages and the update loop.
 
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -18,6 +18,7 @@ use crate::actions::{Action, MenuRequest};
 use crate::command::Command;
 use crate::form::{FieldKind, Form};
 use crate::highlight::{self, Highlights};
+use crate::i18n::{tr, trf};
 use crate::logic::{self, Choice, plural, short_sha};
 use crate::menu::{Menu, MenuItem};
 use crate::settings::Settings;
@@ -76,6 +77,8 @@ pub struct DiffPane {
     pub diff: Option<FileDiff>,
     pub rows: Vec<DiffRow>,
     pub highlights: Option<Arc<Highlights>>,
+    /// Whether the colours asked for were made for the dark theme; `None` when none were.
+    pub highlighted_dark: Option<bool>,
     pub loading: bool,
     pub token: u64,
     pub offset: f32,
@@ -98,6 +101,7 @@ impl Default for DiffPane {
             diff: None,
             rows: Vec::new(),
             highlights: None,
+            highlighted_dark: None,
             loading: false,
             token: 0,
             offset: 0.0,
@@ -121,6 +125,7 @@ impl DiffPane {
         self.max_cols.set(None);
         self.hscroll.set(0.0);
         self.highlights = None;
+        self.highlighted_dark = None;
         self.loading = false;
         self.selection.clear();
         self.anchor = None;
@@ -201,12 +206,12 @@ impl SearchMode {
 
 impl std::fmt::Display for SearchMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
+        f.write_str(tr(match self {
             Self::Message => "Message",
             Self::Author => "Author",
             Self::Sha => "SHA",
             Self::Content => "Content",
-        })
+        }))
     }
 }
 
@@ -273,6 +278,8 @@ pub struct RepoTab {
     pub body: String,
     pub amend: bool,
     pub committing: bool,
+    /// "Commit first" in the checkout dialog: the checkout to run once the commit succeeds.
+    pub after_commit: Option<Command>,
     pub filter: String,
 }
 
@@ -316,6 +323,7 @@ impl RepoTab {
             body: String::new(),
             amend: false,
             committing: false,
+            after_commit: None,
             filter: String::new(),
         }
     }
@@ -342,9 +350,12 @@ impl RepoTab {
         let trees = &self.refs.worktrees;
         let current = trees.iter().find(|tree| tree.current)?;
         if !current.main {
-            Some("worktree".to_owned())
+            Some(tr("worktree").to_owned())
         } else if trees.len() > 1 {
-            Some(format!("{} worktrees", trees.len()))
+            Some(trf(
+                "{count} worktrees",
+                &[("count", &trees.len().to_string())],
+            ))
         } else {
             None
         }
@@ -529,6 +540,37 @@ pub enum Effect {
     Copy(String),
     Quit,
     Window(WindowAction),
+    /// Show a file dialog; the shell answers with [`Message::Picked`] or
+    /// [`Message::DialogFailed`].
+    Ask(Pick),
+}
+
+/// What a file dialog was opened for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Pick {
+    OpenRepository,
+    SavePatch {
+        repo: String,
+        sha: String,
+        name: String,
+    },
+    ApplyPatch,
+}
+
+impl Pick {
+    /// The dialog to show for it (craft-dialogs: it never blocks the window).
+    pub fn dialog(&self) -> craft_dialogs::FileDialog {
+        use craft_dialogs::FileDialog;
+        match self {
+            Self::OpenRepository => FileDialog::folder().title("Open repository"),
+            Self::SavePatch { name, .. } => FileDialog::save()
+                .title("Save patch")
+                .file_name(name.clone()),
+            Self::ApplyPatch => FileDialog::open()
+                .title("Apply patch")
+                .filter("Patches", &["patch", "diff", "eml", "txt"]),
+        }
+    }
 }
 
 /// What the app's own title bar asks of the window.
@@ -536,6 +578,8 @@ pub enum Effect {
 pub enum WindowAction {
     Minimize,
     ToggleMaximize,
+    /// F11: the window fills the screen, without a title bar.
+    ToggleFullscreen,
     /// Start moving the window with the pointer.
     Drag,
     /// Start resizing from an edge or corner.
@@ -567,12 +611,19 @@ pub struct App {
     pub cursor: Pos2,
     pub window: Vec2,
     pub modifiers: Modifiers,
-    /// The app draws its own title bar and window edges, as the desktop doesn't.
-    pub csd: bool,
+    /// Who draws the title bar and window edges (craft-window decides, before the window opens).
+    pub frame: craft_window::policy::Frame,
     pub maximized: bool,
+    pub fullscreen: bool,
+    /// The desktop is set to dark; decides the look while the theme setting is "system".
+    pub system_dark: bool,
     pub collapsed: HashSet<String>,
     /// Set when the search box should take the keyboard; the view clears it.
     pub focus_search: Cell<bool>,
+    /// The saved tabs still to open at start-up, one after another so that they keep their
+    /// order, and the one to bring to the front once all are open.
+    restoring: VecDeque<String>,
+    restore_front: Option<String>,
     /// Things only the shell can do, such as the clipboard; it drains them after each update.
     pub effects: Vec<Effect>,
     next_id: u64,
@@ -583,7 +634,10 @@ pub struct App {
 #[derive(Debug, Clone)]
 pub enum Message {
     OpenDialog,
-    Picked(Option<PathBuf>),
+    /// A file dialog was answered with this path.
+    Picked(Pick, PathBuf),
+    /// No file dialog could be shown; the text says why.
+    DialogFailed(String),
     OpenPath(String),
     Located(Answer<String>),
     Forget(String),
@@ -624,6 +678,8 @@ pub enum Message {
     OpenStash(String),
     StashFilesLoaded(String, String, Answer<Vec<FileChange>>),
     FilePicked(Area, String),
+    /// Ctrl+A in Local Changes: every file of the list that has the focus.
+    SelectAllFiles,
     FileActivated(Area, String),
     SummaryInput(String),
     BodyInput(String),
@@ -660,6 +716,12 @@ pub enum Message {
     FormSelect(usize, String),
     FormSubmit,
     FormCancel,
+    /// One of a form's own answers (see [`crate::form::Form::choice`]).
+    FormChoice(usize),
+    /// Show the commit box, and run this checkout once the commit succeeds.
+    CommitFirst(Command),
+    /// Don't run the checkout waiting for the commit after all.
+    CommitFirstCancel,
     OverlayClose,
     OpenReflog,
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
@@ -687,6 +749,10 @@ pub enum Message {
     RebaseStart,
     OpenSettings,
     SetTheme(String),
+    /// A language code, or `auto` for the system's.
+    SetLanguage(String),
+    /// The system draws the title bar from the next start on, or no longer does.
+    ToggleSystemTitleBar,
     SetSplit(bool),
     SetContext(String),
     SetIgnoreWhitespace(bool),
@@ -695,7 +761,8 @@ pub enum Message {
     SetFetchOnOpen(bool),
     SetCommitGraph(bool),
     Zoom(f32),
-    ThemeChanged,
+    /// The desktop switched between light and dark.
+    SystemTheme(bool),
     Copy(String),
     Reveal(String),
     OpenFile(String),
@@ -716,24 +783,50 @@ pub enum Message {
 }
 
 impl App {
-    pub fn boot(repo: Option<String>, look: Look) -> (Self, Task<Message>) {
-        let store = RepoStore::open();
+    /// `system_dark`: the desktop is set to dark.
+    pub fn boot(repo: Option<String>, system_dark: bool) -> (Self, Task<Message>) {
+        Self::boot_with(repo, system_dark, RepoStore::open())
+    }
+
+    /// [`App::boot`] with a store of the caller's.
+    pub fn boot_with(
+        repo: Option<String>,
+        system_dark: bool,
+        store: RepoStore,
+    ) -> (Self, Task<Message>) {
         let settings = Settings::load(&store.dir());
+        let look = Look::for_setting(&settings.appearance.theme, system_dark);
         let mut app = Self::new(look, store, settings);
+        // What the desktop is set to, not what is shown: with "Light" chosen on a dark desktop,
+        // "Follow system" must still turn dark later.
+        app.system_dark = system_dark;
         if let Err(problem) = gitcraft_core::runner::check_git() {
             app.toast(ToastKind::Error, problem, None);
         }
-        let mut tasks: Vec<Task<Message>> = app
-            .settings
-            .tabs
-            .clone()
-            .into_iter()
-            .map(|path| Task::done(Message::OpenPath(path)))
-            .collect();
-        if let Some(path) = repo {
-            tasks.push(Task::done(Message::OpenPath(path)));
+        let session = &app.settings.session;
+        // A repository named on the command line opens last and stays in front.
+        app.restore_front = repo
+            .is_none()
+            .then(|| session.tabs.get(session.active_tab).cloned())
+            .flatten();
+        app.restoring = session.tabs.iter().cloned().chain(repo).collect();
+        let task = app.restore_next();
+        (app, task)
+    }
+
+    /// Opens the next saved tab, or, when all are open, brings the saved front tab forward.
+    fn restore_next(&mut self) -> Task<Message> {
+        if let Some(path) = self.restoring.pop_front() {
+            return Task::done(Message::OpenPath(path));
         }
-        (app, Task::batch(tasks))
+        if let Some(front) = self.restore_front.take()
+            && let Some(index) = self.tabs.iter().position(|tab| tab.path == front)
+            && index != self.active
+        {
+            self.active = index;
+            self.save_settings();
+        }
+        Task::none()
     }
 
     /// An app with a fixed look and a store of the caller's, without saved tabs.
@@ -744,10 +837,11 @@ impl App {
 
     fn new(look: Look, store: RepoStore, settings: Settings) -> Self {
         let recent = store.list();
+        let system_dark = look.dark;
         Self {
             look,
-            collapsed: settings.collapsed.iter().cloned().collect(),
-            window: Vec2::new(settings.window_width, settings.window_height),
+            collapsed: settings.layout.collapsed.iter().cloned().collect(),
+            window: Vec2::new(1280.0, 800.0),
             settings,
             tabs: Vec::new(),
             active: 0,
@@ -761,9 +855,13 @@ impl App {
             progress_line: String::new(),
             cursor: Pos2::ZERO,
             modifiers: Modifiers::NONE,
-            csd: false,
+            frame: craft_window::policy::Frame::Native,
+            system_dark,
             maximized: false,
+            fullscreen: false,
             focus_search: Cell::new(false),
+            restoring: VecDeque::new(),
+            restore_front: None,
             effects: Vec::new(),
             next_id: 1,
             config_dir: store.dir(),
@@ -783,14 +881,30 @@ impl App {
     }
 
     pub fn scale(&self) -> f32 {
-        self.settings.zoom
+        self.settings.appearance.zoom
     }
 
-    /// Reads the theme setting again, keeping what was measured on screen.
-    fn restyle(&mut self) {
-        let char_width = self.look.char_width;
-        self.look = Look::for_setting(&self.settings.theme);
+    /// The app draws the title bar row (its own window buttons, or room for the traffic lights).
+    pub fn draws_title_bar(&self) -> bool {
+        !matches!(self.frame, craft_window::policy::Frame::Native)
+    }
+
+    /// The window has round corners the app paints right now.
+    pub fn rounded(&self) -> bool {
+        crate::window::rounded_for(&self.frame) && !self.maximized && !self.fullscreen
+    }
+
+    /// Reads the theme setting again, keeping what was measured on screen. Diffs are loaded
+    /// again when it turns light or dark, so that their colours follow.
+    fn restyle(&mut self) -> Task<Message> {
+        let (char_width, was_dark) = (self.look.char_width, self.look.dark);
+        self.look = Look::for_setting(&self.settings.appearance.theme, self.system_dark);
         self.look.char_width = char_width;
+        if self.look.dark == was_dark {
+            Task::none()
+        } else {
+            self.reload_diffs()
+        }
     }
 
     pub fn current(&self) -> Option<&RepoTab> {
@@ -816,21 +930,21 @@ impl App {
         self.toasts.push(Toast {
             id,
             kind,
-            message: message.into(),
+            message: crate::i18n::tr(&message.into()).to_owned(),
             detail,
             expires: Instant::now() + Duration::from_secs(seconds),
         });
     }
 
     fn save_settings(&mut self) {
-        self.settings.tabs = self.tabs.iter().map(|tab| tab.path.clone()).collect();
-        self.settings.active_tab = self.active;
-        self.settings.collapsed = self.collapsed.iter().cloned().collect();
-        self.settings.collapsed.sort();
+        self.settings.session.tabs = self.tabs.iter().map(|tab| tab.path.clone()).collect();
+        self.settings.session.active_tab = self.active;
+        self.settings.layout.collapsed = self.collapsed.iter().cloned().collect();
+        self.settings.layout.collapsed.sort();
         if let Err(error) = self.settings.save(&self.config_dir) {
             self.toast(
                 ToastKind::Error,
-                format!("Could not save settings: {error}"),
+                trf("Could not save settings: {error}", &[("error", &error)]),
                 None,
             );
         }
@@ -838,28 +952,30 @@ impl App {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::OpenDialog => Task::perform(
-                async {
-                    rfd::AsyncFileDialog::new()
-                        .set_title("Open repository")
-                        .pick_folder()
-                        .await
-                        .map(|folder| folder.path().to_path_buf())
-                },
-                Message::Picked,
-            ),
-            Message::Picked(Some(folder)) => {
-                Task::done(Message::OpenPath(folder.to_string_lossy().into_owned()))
+            Message::OpenDialog => {
+                self.effects.push(Effect::Ask(Pick::OpenRepository));
+                Task::none()
             }
-            Message::Picked(None) => Task::none(),
+            Message::Picked(pick, path) => self.picked(pick, path),
+            Message::DialogFailed(why) => {
+                self.toast(
+                    ToastKind::Error,
+                    "The file dialog couldn't be shown",
+                    Some(why),
+                );
+                Task::none()
+            }
             Message::OpenPath(path) | Message::Instance(path) => Task::perform(
                 async move { answer(repos::locate(&path).await) },
                 Message::Located,
             ),
-            Message::Located(Ok(path)) => self.opened(path),
+            Message::Located(Ok(path)) => {
+                let opened = self.opened(path);
+                Task::batch([opened, self.restore_next()])
+            }
             Message::Located(Err(error)) => {
                 self.toast(ToastKind::Error, error, None);
-                Task::none()
+                self.restore_next()
             }
             Message::Forget(path) => {
                 if let Err(error) = self.store.remove(&path) {
@@ -940,7 +1056,7 @@ impl App {
             }
             Message::LogLoaded(path, result) => self.log_loaded(&path, result),
             Message::LoadMore => {
-                let step = self.settings.log_limit;
+                let step = self.settings.history.log_limit;
                 let Some(tab) = self.current_mut() else {
                     return Task::none();
                 };
@@ -1058,7 +1174,7 @@ impl App {
             }
             Message::HunkAction(hunk, mode) => self.hunk_action(hunk, mode),
             Message::ToggleSplit => {
-                let split = !self.settings.diff_split;
+                let split = !self.settings.diff.split;
                 self.set_split(split);
                 Task::none()
             }
@@ -1116,6 +1232,17 @@ impl App {
                 self.stash_files_loaded(&repo, &name, result)
             }
             Message::FilePicked(area, path) => self.file_picked(area, path),
+            Message::SelectAllFiles => {
+                let picked = self
+                    .current_mut()
+                    .filter(|tab| tab.view == View::Changes)
+                    .is_some_and(pick_all_in);
+                if picked {
+                    self.reload_changes()
+                } else {
+                    Task::none()
+                }
+            }
             Message::FileActivated(area, path) => match area {
                 Area::Unstaged => Task::done(Message::Run(Command::Stage { paths: vec![path] })),
                 Area::Staged => Task::done(Message::Run(Command::Unstage { paths: vec![path] })),
@@ -1201,20 +1328,20 @@ impl App {
             } => {
                 // Overwriting is never remembered as the usual strategy.
                 if mode != "overwrite" {
-                    self.settings.pull_mode = mode.clone();
+                    self.settings.pull.mode = mode.clone();
                 }
-                self.settings.pull_autostash = autostash;
-                self.settings.pull_backup = backup;
+                self.settings.pull.autostash = autostash;
+                self.settings.pull.backup = backup;
                 self.save_settings();
                 if mode == "overwrite" {
                     let source = match (&remote, &branch) {
                         (Some(remote), Some(branch)) => format!("{remote}/{branch}"),
-                        _ => "its upstream".to_owned(),
+                        _ => tr("its upstream").to_owned(),
                     };
                     let kept = if backup {
-                        " The current state is kept as a backup branch first."
+                        tr("The current state is kept as a backup branch first.")
                     } else {
-                        " There is no backup: commits only on this branch are lost."
+                        tr("There is no backup: commits only on this branch are lost.")
                     };
                     let command = Command::Pull {
                         remote,
@@ -1226,7 +1353,11 @@ impl App {
                     self.form = Some(Form::confirm(
                         "Overwrite local branch?",
                         &format!(
-                            "The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.{kept}"
+                            "{} {kept}",
+                            trf(
+                                "The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.",
+                                &[("source", &source)],
+                            )
                         ),
                         "Overwrite",
                         true,
@@ -1243,7 +1374,7 @@ impl App {
                 })
             }
             Message::RebaseChosen { onto, autostash } => {
-                self.settings.rebase_autostash = autostash;
+                self.settings.rebase.autostash = autostash;
                 self.save_settings();
                 self.run_command(Command::Rebase { onto, autostash })
             }
@@ -1343,6 +1474,28 @@ impl App {
                 };
                 let next = (form.on_ok)(&form.values());
                 self.update(next)
+            }
+            Message::CommitFirst(checkout) => {
+                if let Some(tab) = self.current_mut() {
+                    tab.after_commit = Some(checkout);
+                    tab.view = View::Changes;
+                }
+                Task::none()
+            }
+            Message::CommitFirstCancel => {
+                if let Some(tab) = self.current_mut() {
+                    tab.after_commit = None;
+                }
+                Task::none()
+            }
+            Message::FormChoice(index) => {
+                let Some(form) = self.form.take() else {
+                    return Task::none();
+                };
+                match form.choices.into_iter().nth(index) {
+                    Some(choice) => self.update(choice.message),
+                    None => Task::none(),
+                }
             }
             Message::FormCancel => {
                 self.form = None;
@@ -1496,62 +1649,77 @@ impl App {
                 self.overlay = Some(Overlay::Settings);
                 Task::none()
             }
-            Message::SetTheme(choice) => {
-                self.settings.theme = choice;
-                self.restyle();
+            Message::SetLanguage(code) => {
+                crate::i18n::set_language(&code);
+                self.settings.general.language = code;
                 self.save_settings();
                 Task::none()
             }
-            Message::ThemeChanged => {
-                native_theme::detect::invalidate_caches();
-                self.restyle();
+            Message::ToggleSystemTitleBar => {
+                let system = &mut self.settings.appearance.system_title_bar;
+                *system = !*system;
+                self.save_settings();
+                self.toast(
+                    ToastKind::Info,
+                    "The title bar changes when GitCraft starts again.",
+                    None,
+                );
                 Task::none()
+            }
+            Message::SetTheme(choice) => {
+                self.settings.appearance.theme = choice;
+                self.save_settings();
+                self.restyle()
+            }
+            Message::SystemTheme(dark) => {
+                self.system_dark = dark;
+                self.restyle()
             }
             Message::SetSplit(split) => {
                 self.set_split(split);
                 Task::none()
             }
             Message::SetContext(text) => {
-                self.settings.diff_context = text
+                self.settings.diff.context = text
                     .trim()
                     .parse::<i64>()
-                    .map_or(self.settings.diff_context, |n| n.clamp(0, 100));
+                    .map_or(self.settings.diff.context, |n| n.clamp(0, 100));
                 self.save_settings();
                 self.reload_diffs()
             }
             Message::SetIgnoreWhitespace(value) => {
-                self.settings.ignore_whitespace = value;
+                self.settings.diff.ignore_whitespace = value;
                 self.save_settings();
                 self.reload_diffs()
             }
             Message::SetSyntax(value) => {
-                self.settings.syntax_highlight = value;
+                self.settings.diff.syntax_highlight = value;
                 self.save_settings();
                 self.reload_diffs()
             }
             Message::SetLogLimit(text) => {
-                self.settings.log_limit = text
+                self.settings.history.log_limit = text
                     .trim()
                     .parse::<usize>()
-                    .map_or(self.settings.log_limit, |n| n.clamp(100, 100_000));
+                    .map_or(self.settings.history.log_limit, |n| n.clamp(100, 100_000));
                 self.save_settings();
                 Task::none()
             }
             Message::SetCommitGraph(value) => {
-                self.settings.commit_graph = value;
+                self.settings.history.commit_graph = value;
                 self.save_settings();
                 Task::none()
             }
             Message::SetFetchOnOpen(value) => {
-                self.settings.fetch_on_open = value;
+                self.settings.history.fetch_on_open = value;
                 self.save_settings();
                 Task::none()
             }
             Message::Zoom(factor) => {
-                self.settings.zoom = if factor == 0.0 {
+                self.settings.appearance.zoom = if factor == 0.0 {
                     1.0
                 } else {
-                    (self.settings.zoom * factor).clamp(0.5, 3.0)
+                    (self.settings.appearance.zoom * factor).clamp(0.5, 3.0)
                 };
                 self.save_settings();
                 Task::none()
@@ -1599,7 +1767,7 @@ impl App {
             Message::Watched(path, WatchEvent::Error(error)) => {
                 self.toast(
                     ToastKind::Warning,
-                    format!("Live refresh stopped for {path}"),
+                    trf("Live refresh stopped for {path}", &[("path", &path)]),
                     Some(error),
                 );
                 Task::none()
@@ -1623,8 +1791,6 @@ impl App {
             }
             Message::WindowResized(size) => {
                 self.window = size;
-                self.settings.window_width = size.x * self.settings.zoom;
-                self.settings.window_height = size.y * self.settings.zoom;
                 Task::none()
             }
             Message::CloseRequested => {
@@ -1656,7 +1822,10 @@ impl App {
         if let Err(error) = self.store.add(&path) {
             self.toast(
                 ToastKind::Error,
-                format!("Could not save the recent list: {error}"),
+                trf(
+                    "Could not save the recent list: {error}",
+                    &[("error", &error.to_string())],
+                ),
                 None,
             );
         }
@@ -1666,7 +1835,7 @@ impl App {
             self.save_settings();
             return Task::none();
         }
-        let limit = self.settings.log_limit;
+        let limit = self.settings.history.log_limit;
         let mut tab = RepoTab::new(path.clone(), limit);
         tab.viewport = self.history_list_height();
         self.tabs.push(tab);
@@ -1683,13 +1852,13 @@ impl App {
             )
         };
         let mut tasks = vec![load_all(path, limit, true), template];
-        if self.settings.fetch_on_open {
+        if self.settings.history.fetch_on_open {
             tasks.push(Task::done(Message::Run(Command::Fetch {
                 remote: None,
                 tags: false,
             })));
         }
-        if self.settings.commit_graph {
+        if self.settings.history.commit_graph {
             let repo = self.tabs[self.active].path.clone();
             // Best effort, and it only makes history faster: a failure changes nothing.
             tasks.push(Task::future(async move {
@@ -1711,7 +1880,7 @@ impl App {
     }
 
     fn set_split(&mut self, split: bool) {
-        self.settings.diff_split = split;
+        self.settings.diff.split = split;
         for tab in &mut self.tabs {
             tab.changes_pane.rebuild_rows(split);
             tab.commit_pane.rebuild_rows(split);
@@ -1724,25 +1893,29 @@ impl App {
 
     /// Roughly the commit list's height: the top pane without its header rows.
     fn history_list_height(&self) -> f32 {
-        (self.settings.history_height - 60.0).max(ROW_HEIGHT)
+        (self.settings.layout.history_height - 60.0).max(ROW_HEIGHT)
     }
 
     fn resize(&mut self, splitter: Splitter, delta: f32) {
         let settings = &mut self.settings;
         match splitter {
             Splitter::Sidebar => {
-                settings.sidebar_width = (settings.sidebar_width + delta).clamp(160.0, 600.0);
+                settings.layout.sidebar_width =
+                    (settings.layout.sidebar_width + delta).clamp(160.0, 600.0);
             }
             Splitter::History => {
-                settings.history_height = (settings.history_height + delta).clamp(120.0, 2000.0);
+                settings.layout.history_height =
+                    (settings.layout.history_height + delta).clamp(120.0, 2000.0);
                 let height = self.history_list_height();
                 self.tabs.iter_mut().for_each(|tab| tab.viewport = height);
             }
             Splitter::Details => {
-                settings.details_width = (settings.details_width + delta).clamp(220.0, 900.0);
+                settings.layout.details_width =
+                    (settings.layout.details_width + delta).clamp(220.0, 900.0);
             }
             Splitter::Changes => {
-                settings.changes_width = (settings.changes_width + delta).clamp(260.0, 900.0);
+                settings.layout.changes_width =
+                    (settings.layout.changes_width + delta).clamp(260.0, 900.0);
             }
         }
     }
@@ -1955,7 +2128,10 @@ impl App {
     }
 
     fn load_diff(&mut self, key: PaneKey, request: DiffRequest) -> Task<Message> {
-        let (context, ignore_ws) = (self.settings.diff_context, self.settings.ignore_whitespace);
+        let (context, ignore_ws) = (
+            self.settings.diff.context,
+            self.settings.diff.ignore_whitespace,
+        );
         let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
             return Task::none();
         };
@@ -2010,8 +2186,8 @@ impl App {
         token: u64,
         result: Answer<Option<FileDiff>>,
     ) -> Task<Message> {
-        let split = self.settings.diff_split;
-        let syntax = self.settings.syntax_highlight;
+        let split = self.settings.diff.split;
+        let syntax = self.settings.diff.syntax_highlight;
         let dark = self.look.dark;
         let mut failure = None;
         let Some(pane) = self.pane_mut(repo, key).filter(|pane| pane.token == token) else {
@@ -2027,26 +2203,33 @@ impl App {
                     pane.selection.clear();
                     pane.anchor = None;
                     pane.highlights = None;
+                    pane.highlighted_dark = None;
                     pane.offset = 0.0;
                     pane.rebuild_rows(split);
                     pane.scroll_to.set(Some(0.0));
-                    if syntax && let Some(diff) = pane.diff.clone() {
-                        let repo = repo.to_owned();
-                        let colours = Task::perform(
-                            async move {
-                                tokio::task::spawn_blocking(move || {
-                                    highlight::highlight(&diff, dark)
-                                })
+                }
+                // Colours are made for one theme: the same diff is coloured again after the
+                // theme changes, and loses them when highlighting is turned off.
+                if !syntax {
+                    pane.highlights = None;
+                    pane.highlighted_dark = None;
+                } else if pane.highlighted_dark != Some(dark)
+                    && let Some(diff) = pane.diff.clone()
+                {
+                    pane.highlighted_dark = Some(dark);
+                    let repo = repo.to_owned();
+                    let colours = Task::perform(
+                        async move {
+                            tokio::task::spawn_blocking(move || highlight::highlight(&diff, dark))
                                 .await
                                 .ok()
                                 .flatten()
-                            },
-                            move |highlights| {
-                                Message::HighlightsLoaded(repo.clone(), key, token, highlights)
-                            },
-                        );
-                        task = colours;
-                    }
+                        },
+                        move |highlights| {
+                            Message::HighlightsLoaded(repo.clone(), key, token, highlights)
+                        },
+                    );
+                    task = colours;
                 }
             }
             Err(error) => {
@@ -2061,7 +2244,7 @@ impl App {
     }
 
     fn hunk_action(&mut self, hunk: usize, mode: &'static str) -> Task<Message> {
-        let context = self.settings.diff_context;
+        let context = self.settings.diff.context;
         let Some(tab) = self.current() else {
             return Task::none();
         };
@@ -2080,13 +2263,13 @@ impl App {
         };
         if mode == "discard" {
             let what = if count > 0 {
-                format!("{} selected", plural(count, "line"))
+                trf("{lines} selected", &[("lines", &plural(count, "line"))])
             } else {
-                "this hunk".to_owned()
+                tr("this hunk").to_owned()
             };
             self.form = Some(Form::confirm(
                 "Discard changes",
-                &format!("Discard {what}? This cannot be undone."),
+                &trf("Discard {what}? This cannot be undone.", &[("what", &what)]),
                 "Discard",
                 true,
                 Message::Run(command),
@@ -2252,6 +2435,36 @@ impl App {
 
     // ------------------------------------------------------------ changes
 
+    /// What the user chose in a file dialog.
+    fn picked(&mut self, pick: Pick, path: PathBuf) -> Task<Message> {
+        let act = |action| Message::Action(crate::actions::Action::PatchSaved(action));
+        match pick {
+            Pick::OpenRepository => {
+                Task::done(Message::OpenPath(path.to_string_lossy().into_owned()))
+            }
+            Pick::SavePatch { repo, sha, .. } => Task::perform(
+                async move {
+                    let patch = gitcraft_core::ops::format_patch(&repo, &sha)
+                        .await
+                        .map_err(|error| error.to_string())?;
+                    craft_atomic::atomic_write(&path, patch.as_bytes())
+                        .map_err(|error| error.to_string())?;
+                    Ok(Some(path.to_string_lossy().into_owned()))
+                },
+                act,
+            ),
+            Pick::ApplyPatch => {
+                let picked = std::fs::read(&path).ok().map(|bytes| {
+                    let name = path
+                        .file_name()
+                        .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+                    (name, String::from_utf8_lossy(&bytes).into_owned())
+                });
+                Task::done(Message::Action(crate::actions::Action::PatchPicked(picked)))
+            }
+        }
+    }
+
     fn file_picked(&mut self, area: Area, path: String) -> Task<Message> {
         let modifiers = self.modifiers;
         let Some(tab) = self.current_mut() else {
@@ -2264,9 +2477,17 @@ impl App {
     // ----------------------------------------------------------- commands
 
     fn run_command(&mut self, command: Command) -> Task<Message> {
-        let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+        let Some(tab) = self.current() else {
             return Task::none();
         };
+        // A checkout with uncommitted changes in the way first asks what to do with them.
+        if let Command::Checkout { reference, kind } = &command
+            && tab.status.as_ref().is_some_and(logic::changes_in_the_way)
+        {
+            self.form = Some(checkout_with_changes(reference, kind));
+            return Task::none();
+        }
+        let repo = tab.path.clone();
         self.run_in(repo, command)
     }
 
@@ -2341,8 +2562,13 @@ impl App {
                     self.toast(ToastKind::Success, message, None);
                 }
             }
-            Err(error) => self.toast(ToastKind::Error, format!("{label} failed"), Some(error)),
+            Err(error) => self.toast(
+                ToastKind::Error,
+                trf("{label} failed", &[("label", &label)]),
+                Some(error),
+            ),
         }
+        let mut then = None;
         match &command {
             Command::Commit { .. } => {
                 if let Some(tab) = self.tab_mut(&repo) {
@@ -2351,6 +2577,7 @@ impl App {
                         tab.summary.clear();
                         tab.body.clear();
                         tab.amend = false;
+                        then = tab.after_commit.take();
                     }
                 }
             }
@@ -2383,11 +2610,15 @@ impl App {
         let Some((limit, all)) = found else {
             return Task::none();
         };
-        if command.status_only() {
+        // The checkout waiting for this commit goes straight to git: what is left uncommitted
+        // was left on purpose, so it isn't asked about again.
+        let then = then.map_or_else(Task::none, |checkout| self.run_in(repo.clone(), checkout));
+        let reload = if command.status_only() {
             load_status(repo)
         } else {
             load_all(repo, limit, all)
-        }
+        };
+        Task::batch([reload, then])
     }
 
     // ----------------------------------------------------------- overlays
@@ -2582,7 +2813,7 @@ impl App {
         };
         let repo = tab.path.clone();
         let base_label = match &base {
-            None => "the root commit".to_owned(),
+            None => tr("the root commit").to_owned(),
             Some(base) => match tab.commits.iter().find(|commit| commit.sha == *base) {
                 Some(commit) => format!("{} “{}”", short_sha(base), commit.subject),
                 None => short_sha(base).to_owned(),
@@ -2729,6 +2960,7 @@ impl App {
         let command = modifiers.command;
         match key {
             Key::F5 => return Task::done(Message::Refresh),
+            Key::F11 => return Task::done(Message::Window(WindowAction::ToggleFullscreen)),
             Key::R if command => return Task::done(Message::Refresh),
             Key::O | Key::T if command => return Task::done(Message::OpenDialog),
             Key::W if command => return Task::done(Message::Close(self.active)),
@@ -2740,6 +2972,7 @@ impl App {
             Key::Minus if command => return Task::done(Message::Zoom(1.0 / 1.1)),
             Key::Num0 if command => return Task::done(Message::Zoom(0.0)),
             Key::Enter if command => return Task::done(Message::CommitNow),
+            Key::A if command => return Task::done(Message::SelectAllFiles),
             _ => {}
         }
         if self.overlay.is_some() {
@@ -2885,6 +3118,70 @@ fn ensure_focus(tab: &mut RepoTab) {
         None => (Area::Unstaged, Vec::new()),
     };
     tab.focus = next;
+}
+
+/// What to do with uncommitted changes before checking out `reference`.
+fn checkout_with_changes(reference: &str, kind: &'static str) -> crate::form::Form {
+    let name = if kind == "commit" {
+        logic::short_sha(reference)
+    } else {
+        reference
+    };
+    let checkout = Command::Checkout {
+        reference: reference.to_owned(),
+        kind,
+    };
+    let stashing = |reapply| {
+        Message::Run(Command::CheckoutStashing {
+            reference: reference.to_owned(),
+            kind,
+            reapply,
+        })
+    };
+    let mut form = crate::form::Form::confirm(
+        "Uncommitted changes",
+        "",
+        "Stash and reapply",
+        false,
+        stashing(true),
+    )
+    .choice("Commit first", false, Message::CommitFirst(checkout))
+    .choice("Discard changes", true, stashing(false));
+    let name = [("name", name)];
+    let paragraphs = [
+        trf("There are uncommitted changes. What should happen to them before {name} is checked out?", &name),
+        trf("Stash and reapply puts them aside and brings them back on {name}. Where they clash with it, they stay in the stash and the clashes show in Local Changes.", &name),
+        trf("Commit first takes you to the commit box and checks out {name} once you have committed.", &name),
+        tr("Discard changes clears them away into a stash, from where they can still be brought back.").to_owned(),
+    ];
+    form.message = Some(paragraphs.join("\n\n"));
+    form
+}
+
+/// Picks every file of the list with the focus (the unstaged files when none has it), keeping
+/// the focused file in view. False when that list is empty.
+fn pick_all_in(tab: &mut RepoTab) -> bool {
+    let area = match &tab.focus {
+        Some((area, _)) => *area,
+        None if !tab.files_in(Area::Unstaged).is_empty() => Area::Unstaged,
+        None => Area::Staged,
+    };
+    let paths: Vec<String> = tab
+        .files_in(area)
+        .into_iter()
+        .map(|file| file.path)
+        .collect();
+    let Some(first) = paths.first().cloned() else {
+        return false;
+    };
+    let focus = match &tab.focus {
+        Some((at, path)) if *at == area && paths.contains(path) => path.clone(),
+        _ => first.clone(),
+    };
+    tab.pick_anchor = Some(first);
+    tab.picked = (area, paths);
+    tab.focus = Some((area, focus));
+    true
 }
 
 /// Ctrl toggles, Shift selects a range from the anchor, a plain click selects one file.

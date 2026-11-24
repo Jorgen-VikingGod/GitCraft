@@ -31,11 +31,13 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-ui/src/gui.rs`, `task.rs` | The eframe window: runs `Task`s on tokio, turns egui input into `Message`s, draws each frame; `Task` is the toolkit-free "work for the shell" type |
 | `crates/gitcraft-ui/src/command.rs` | `Command`: every git operation the UI can start, as data (label, success text, how to run it) |
 | `crates/gitcraft-ui/src/actions.rs` | `Action`: user-facing commands with their dialogs, and all context menus (`commit_menu_items()`) |
-| `crates/gitcraft-ui/src/form.rs`, `menu.rs` | Modal forms; context menus as plain data (`MenuItem`) |
+| `crates/gitcraft-ui/src/form.rs`, `menu.rs` | Modal forms; context menus and the menu bar as plain data (`MenuItem`) |
 | `crates/gitcraft-ui/src/logic.rs` | UI decisions that need no toolkit, so they can be tested directly |
 | `crates/gitcraft-ui/src/theme.rs`, `views/widgets.rs`, `views/icon.rs` | Colours and egui styling; shared widgets; SVG icons |
 | `crates/gitcraft-ui/src/views/` | Everything drawn on screen: `shell`, `sidebar`, `history`, `graph_cell`, `details`, `changes`, `diff`, `overlays`, `popups`, `widgets` |
-| `crates/gitcraft-ui/src/environment.rs`, `instance.rs`, `settings.rs` | Env for git when not started from a terminal; single-window hand-over; `settings.json` |
+| `crates/gitcraft-ui/src/environment.rs`, `instance.rs`, `settings.rs` | Env for git when not started from a terminal; single-window hand-over; `config.toml` (craft-settings, reads an old `settings.json` once) |
+| `crates/gitcraft-ui/src/window.rs`, `appearance.rs` | Who draws the title bar, and the window's size and place in `window.json` (craft-window); the desktop's light or dark setting (craft-platform) |
+| `crates/gitcraft-ui/src/i18n.rs`, `i18n/translations.tsv`, `build.rs` | Interface languages (craft-i18n): `tr()` and `trf()`; the table of English, German, French and Spanish; `build.rs` turns it into catalogs |
 | `crates/gitcraft-ui/tests/flows.rs` | Drives the real UI against real repositories |
 | `crates/gitcraft-core/tests/goldens/` | Recorded commit logs, read by the unit test in `graph.rs` |
 | `crates/gitcraft-ui/assets/icon.png` | App icon used for the installers |
@@ -97,11 +99,25 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   `Message::Run`, which handles the busy state, toasts, progress and refresh.
 - If it needs a dialog, add an `Action` in `actions.rs`. Forms are in `form.rs`; a confirmation is a form
   without fields. Menus are `MenuItem` lists with one level of submenus.
+- The menu bar is `App::bar_menus()`, drawn by craft-menu in `views/shell.rs`. Give an entry its key with
+  `.key(Shortcut::…)` (the key itself is handled in `App::key`) and a tick or dot with `.marked(Mark::…)`.
+- File dialogs never block the window: push `Effect::Ask(Pick::…)`, the shell shows it (craft-dialogs)
+  and answers with `Message::Picked(pick, path)`. Add the `Pick` variant and its dialog in `app.rs`.
+- Interface text is written in English and goes through `crate::i18n::tr("…")`, or `trf("… {name} …",
+  &[("name", value)])` for text with values in it; never build a sentence with `format!`. `MenuItem`,
+  `Form`, `Field`, toasts, `Command` labels and the shared widgets (`btn`, `primary`, `placeholder`,
+  `check`, field hints…) translate their text themselves. Every new string needs a line in
+  `src/i18n/translations.tsv` with all four languages (tab-separated); a test fails for a `tr("…")`
+  without one. Plurals are `logic::plural(count, "file")`, whose forms ("1 file", "{count} files") are
+  lines of their own.
+- Settings are sections of `settings::Settings` (one `[section]` each in `config.toml`). Every struct has
+  `#[serde(default)]`, so files from older versions still load.
 - Commit menus are built by `commit_menu_items()`. Branch, tag and remote menus reuse it so that commit
   actions (reset, cherry-pick…) are available everywhere.
 - Put decisions that need no toolkit in `logic.rs`, with a unit test.
 - Colours come from `theme.rs` and widgets from `views/widgets.rs`. Don't hard-code colours in a view.
-  The OS only decides light or dark.
+  The OS only decides light or dark. The look follows the other Craft apps (HybridSliceCraft): neutral
+  grey panels, sections as cards (`card_line`, `panel_2`), GitCraft's blue as the accent.
 - Icons: add SVG path data to `PATHS` in `views/icon.rs`.
 - Don't block the UI thread: slow work runs in a `Task`.
 - Views are immediate-mode egui: each frame `views::root` reads `&App` and returns the `Message`s the user's
@@ -116,8 +132,13 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 
 **All crates:**
 - `unsafe_code` is denied in the workspace, and clippy warnings fail CI.
-- Add dependencies to the crate's `Cargo.toml` and commit `Cargo.lock`. `eframe`, `egui`, `egui_extras` and `native-theme`
+- Add dependencies to the crate's `Cargo.toml` and commit `Cargo.lock`. `eframe`, `egui` and `egui_extras`
   are pinned to exact versions.
+- Shared libraries come from `storytold/craft-libs` (`craft-*` crates: atomic, dialogs, i18n, keymap, menu,
+  platform, quit, settings, window), all pinned to **one** commit, the same as HybridSliceCraft's. If you
+  move one pin, move them all to the same commit.
+- Files that belong to the user (settings, the recent list, a file in the working tree) are saved with
+  craft-atomic (`store::write_private`, `craft_atomic::atomic_write`), so a failed save leaves the old file.
 
 ## Gotchas
 
@@ -125,8 +146,15 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   touching `runner::editor_command()` or `editor.rs`. The core's tests use `gitcraft-editor-stub` in its place.
 - Set `GITCRAFT_SHOT=<file.png>` to have the app save a picture of its window once the first repository has
   loaded, then quit (handy for looking at the UI without a screenshot tool).
-- On GNOME with Wayland the app draws its own title bar and window edges (`views/frame.rs`), because the
-  toolkit would otherwise draw a flat grey frame. `GITCRAFT_SYSTEM_FRAME=1` turns that off.
+- craft-window decides before the window opens who draws the title bar (`window::decide`); the app draws
+  it in `views/frame.rs`. `GITCRAFT_TITLEBAR=app|system` (or `CRAFT_TITLEBAR`) overrides the setting, and
+  `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
+- The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
+- `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`) opens that
+  before the picture is taken. Set `language = "de"` under `[general]` in the test folder's `config.toml`
+  to look at a translated window.
+- Tests run side by side in one process, and the interface language is global: don't switch it to another
+  language in a test (look up with `I18N.t(lang, …)` instead, as `i18n.rs` does).
 - Set `GITCRAFT_CONFIG_DIR=<dir>` when launching the app in tests. Otherwise it touches the user's real
   settings and recent repositories, and it may hand over to a running GitCraft through
   `instance.port` and exit immediately.

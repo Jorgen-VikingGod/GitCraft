@@ -80,15 +80,20 @@ pub fn root(ui: &mut Ui, app: &App) -> Vec<Message> {
     let c = cx.c();
     let flat = |color| Frame::NONE.fill(color);
     // With a window of our own making, the corners are rounded and what is outside is clear.
-    let (top_fill, bottom_fill) = if app.csd {
+    let (top_fill, bottom_fill) = if app.rounded() {
         (egui::Color32::TRANSPARENT, egui::Color32::TRANSPARENT)
     } else {
         (c.bg, c.titlebar)
     };
 
-    if app.csd {
-        // Underneath everything, so that no gap between panes shows what is behind the window.
-        let radius = if app.maximized { 0 } else { 10 };
+    // The window is transparent whenever it may have round corners, also while maximized (see
+    // `clear_color`): fill it underneath everything, so that no gap between panes shows what is
+    // behind the window. Square while maximized.
+    if let Some(radius) = crate::logic::underlay_corner(
+        crate::window::rounded_for(&app.frame),
+        app.rounded(),
+        frame::RADIUS,
+    ) {
         ui.painter().rect_filled(
             ui.ctx().content_rect(),
             egui::CornerRadius::same(radius),
@@ -149,6 +154,7 @@ fn workspace(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let rect = ui.available_rect_before_wrap();
     let side = app
         .settings
+        .layout
         .sidebar_width
         .min(rect.width() - 100.0)
         .max(100.0);

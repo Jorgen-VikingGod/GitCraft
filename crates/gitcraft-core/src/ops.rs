@@ -227,6 +227,67 @@ pub async fn checkout(repo: &str, reference: &str, kind: &str) -> Result<OpResul
     check_ref(reference)?;
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    switch_to(repo, reference, kind).await
+}
+
+/// Checks out `reference` with uncommitted changes in the way: they are put in a stash first.
+/// `reapply` brings them back on the new branch; if they conflict there, the conflicts are
+/// reported and the stash is kept. Without it they stay in the stash, so they can still be
+/// restored. If the checkout itself fails, the changes are put back where they were.
+pub async fn checkout_stashing(
+    repo: &str,
+    reference: &str,
+    kind: &str,
+    reapply: bool,
+) -> Result<OpResult> {
+    check_ref(reference)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let note = format!("GitCraft: uncommitted changes before checking out {reference}");
+    let top = async || {
+        git_unchecked(repo, &["rev-parse", "-q", "--verify", "refs/stash"])
+            .await
+            .map(|result| result.out().trim().to_owned())
+    };
+    let before = top().await?;
+    git(repo, &["stash", "push", "-m", &note]).await?;
+    // With nothing to save git makes no stash, and none must be popped later.
+    let made = top().await? != before;
+    let switched = match switch_to(repo, reference, kind).await {
+        Ok(switched) => switched,
+        Err(error) => {
+            if made {
+                git(repo, &["stash", "pop", "--index"]).await?;
+            }
+            return Err(error);
+        }
+    };
+    if !reapply || !made {
+        return Ok(switched);
+    }
+    if git_unchecked(repo, &["stash", "pop", "--index"])
+        .await?
+        .code
+        == 0
+    {
+        return Ok(switched);
+    }
+    // The staged part couldn't be restored as staged: apply it all as plain changes.
+    let popped = git_unchecked(repo, &["stash", "pop"]).await?;
+    if popped.code == 0 {
+        return Ok(ok(&popped));
+    }
+    let status = queries::status(repo).await?;
+    Ok(OpResult {
+        ok: false,
+        conflicts: !status.conflicts.is_empty(),
+        message: popped.output(),
+        operation: None,
+        files: None,
+    })
+}
+
+async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> {
     let result = match kind {
         "remote" => {
             let local = reference
@@ -1007,7 +1068,7 @@ pub async fn resolve_conflict(
                          Take one side, or resolve it in another editor and mark it as resolved.",
                 );
             }
-            std::fs::write(target, content)?;
+            craft_atomic::atomic_write(&target, content.as_bytes())?;
         }
         _ => {
             if !safe_path(repo, path)?.exists() {
@@ -1087,7 +1148,7 @@ pub async fn add_to_gitignore(repo: &str, pattern: &str) -> Result<OpResult> {
     }
     updated.extend_from_slice(pattern.as_bytes());
     updated.push(b'\n');
-    std::fs::write(&path, updated)?;
+    craft_atomic::atomic_write(&path, &updated)?;
     // Ignoring a tracked file has no effect unless it is removed from the index.
     let target = pattern.trim_start_matches('/');
     let tracked = git_unchecked(repo, &["ls-files", "--", target]).await?;
