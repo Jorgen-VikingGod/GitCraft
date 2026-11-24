@@ -249,14 +249,23 @@ pub async fn checkout_stashing(
             .await
             .map(|result| result.out().trim().to_owned())
     };
+    let head = async || {
+        // The branch, and the commit for a detached HEAD.
+        git(repo, &["rev-parse", "--symbolic-full-name", "HEAD", "HEAD"])
+            .await
+            .map(|result| result.out().trim().to_owned())
+    };
     let before = top().await?;
+    let start = head().await?;
     git(repo, &["stash", "push", "-m", &note]).await?;
     // With nothing to save git makes no stash, and none must be popped later.
     let made = top().await? != before;
     let switched = match switch_to(repo, reference, kind).await {
         Ok(switched) => switched,
         Err(error) => {
-            if made {
+            // A failing post-checkout hook reports an error after the switch was made: then the
+            // changes stay in the stash rather than landing on the other branch.
+            if made && head().await? == start {
                 git(repo, &["stash", "pop", "--index"]).await?;
             }
             return Err(error);

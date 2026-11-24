@@ -586,6 +586,28 @@ async fn checkout_discarding_changes_keeps_them_in_a_stash() {
 }
 
 #[tokio::test]
+async fn checkout_whose_hook_fails_after_switching_keeps_the_stash() {
+    let f = Fixture::with_history();
+    f.git(&["branch", "side"]);
+    let hook = f.path.join(".git/hooks/post-checkout");
+    std::fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    f.write("a.txt", "mine\n");
+    let result = ops::checkout_stashing(&f.repo, "side", "local", true).await;
+    assert!(result.is_err(), "the hook's failure is reported");
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().stashes.len(),
+        1,
+        "the changes stay in the stash instead of landing on side"
+    );
+}
+
+#[tokio::test]
 async fn checkout_that_fails_puts_the_changes_back() {
     let f = Fixture::with_history();
     f.write("a.txt", "mine\n");

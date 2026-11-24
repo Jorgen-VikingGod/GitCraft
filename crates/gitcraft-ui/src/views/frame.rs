@@ -44,7 +44,7 @@ fn window_button(ui: &mut Ui, cx: &Cx, bar: Rect, x: f32, family: CaptionFamily,
     );
     let hovered = response.hovered();
     let close = kind == Button::Close;
-    let red = Color32::from_rgb(196, 43, 28);
+    let red = c.close_hover;
     let painter = ui.painter();
     let mut ink = c.text;
     match family {

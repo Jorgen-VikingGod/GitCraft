@@ -174,12 +174,11 @@ impl Shell {
     /// Reads what the window reports and tells the app about changes.
     fn read_input(&mut self, ctx: &egui::Context) {
         let size = ctx.content_rect().size();
-        let (events, modifiers, pointer, closing) = ctx.input(|input| {
+        let (events, modifiers, pointer) = ctx.input(|input| {
             (
                 input.events.clone(),
                 input.modifiers,
                 input.pointer.latest_pos(),
-                input.viewport().close_requested(),
             )
         });
         let system_dark = self.desktop.dark(ctx);
@@ -196,9 +195,6 @@ impl Shell {
         }
         if size != self.app.window {
             self.handle(Message::WindowResized(size));
-        }
-        if closing {
-            self.handle(Message::CloseRequested);
         }
         if Some(system_dark) != self.shown.system_dark {
             self.shown.system_dark = Some(system_dark);
@@ -316,6 +312,11 @@ impl eframe::App for Shell {
     /// Runs before `ui`, also while the window is minimized: a close goes through the platform's
     /// own quit where it has one (craft-quit).
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Here rather than in `ui`, which a minimized window may not run: the settings are
+        // saved before the window goes.
+        if ctx.input(|input| input.viewport().close_requested()) {
+            self.handle(Message::CloseRequested);
+        }
         craft_quit::on_close_request(ctx);
     }
 

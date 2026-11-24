@@ -3,7 +3,7 @@
 //! there is read once, when no `config.toml` exists yet, and left in place.
 //!
 //! The window's size and place are not here: craft-window keeps them in `window.json`
-//! (see `placement.rs`).
+//! (see `window.rs`).
 
 use std::path::Path;
 
@@ -277,6 +277,23 @@ fn open(dir: &Path) -> SettingsStore<Settings> {
     store
 }
 
+/// The window size an older version kept in `settings.json`, if there is one: the window opens
+/// at that size until craft-window has saved its own `window.json`.
+pub fn old_window_size(dir: &Path) -> Option<[f32; 2]> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Old {
+        window_width: f32,
+        window_height: f32,
+    }
+    let bytes = std::fs::read(dir.join("settings.json")).ok()?;
+    let old: Old = serde_json::from_slice(&bytes).ok()?;
+    let size = [old.window_width, old.window_height];
+    size.iter()
+        .all(|v| v.is_finite() && *v > 0.0)
+        .then_some(size)
+}
+
 impl Settings {
     /// What was saved last time. A missing or damaged file gives the defaults.
     pub fn load(dir: &Path) -> Self {
@@ -306,6 +323,21 @@ mod tests {
         assert_eq!(Settings::load(dir.path()), changed);
         std::fs::write(dir.path().join("config.toml"), "not = [toml").unwrap();
         assert_eq!(Settings::load(dir.path()), Settings::default());
+    }
+
+    #[test]
+    fn the_old_window_size_is_found() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(old_window_size(dir.path()), None);
+        let old = dir.path().join("settings.json");
+        std::fs::write(&old, r#"{"windowWidth":900,"windowHeight":600}"#).unwrap();
+        assert_eq!(old_window_size(dir.path()), Some([900.0, 600.0]));
+        std::fs::write(&old, r#"{"windowWidth":900}"#).unwrap();
+        assert_eq!(
+            old_window_size(dir.path()),
+            None,
+            "only a whole size counts"
+        );
     }
 
     #[test]

@@ -72,7 +72,9 @@ pub fn rounded_for(frame: &Frame) -> bool {
 }
 
 /// The window to create: the frame's decorations and the size and place of the last run.
-pub fn viewport(frame: &Frame) -> egui::ViewportBuilder {
+/// `legacy`: the size an older version saved in `settings.json`, used while there is no
+/// `window.json` yet.
+pub fn viewport(frame: &Frame, legacy: Option<[f32; 2]>) -> egui::ViewportBuilder {
     let viewport = egui::ViewportBuilder::default()
         .with_app_id("gitcraft")
         .with_title("GitCraft")
@@ -80,7 +82,7 @@ pub fn viewport(frame: &Frame) -> egui::ViewportBuilder {
         .with_min_inner_size(MIN);
     let viewport =
         craft_window::policy::apply(viewport, frame).with_transparent(rounded_for(frame));
-    restored(viewport)
+    restored(viewport, legacy)
 }
 
 // ---------------------------------------------------------------- placement
@@ -120,10 +122,13 @@ fn lock() -> MutexGuard<'static, Restore> {
 /// The window as it was last time. The monitors aren't known before the window exists, so the
 /// saved geometry is applied as it is (raised to the smallest size) and the system keeps the
 /// window on screen.
-fn restored(viewport: egui::ViewportBuilder) -> egui::ViewportBuilder {
+fn restored(viewport: egui::ViewportBuilder, legacy: Option<[f32; 2]>) -> egui::ViewportBuilder {
     let restore = lock();
     let Some(saved) = restore.store.get(MAIN) else {
-        return viewport;
+        return match legacy {
+            Some([w, h]) => viewport.with_inner_size([w.max(MIN[0]), h.max(MIN[1])]),
+            None => viewport,
+        };
     };
     let defaults = Defaults::new(SIZE, MIN).with_no_position(restore.no_position);
     let placed = place(Some(&saved), &[], None, &defaults);
@@ -146,6 +151,8 @@ pub fn track(ctx: &egui::Context) {
         return save_when_due(&mut restore);
     }
     let scale = info.native_pixels_per_point.unwrap_or(1.0);
+    // Points here are zoomed points: a physical pixel is `scale * zoom` of them.
+    let pixels = scale * zoom;
     let maximized = info.maximized.unwrap_or(false);
     let fullscreen = info.fullscreen.unwrap_or(false);
     let mut placement = restore
@@ -154,16 +161,19 @@ pub fn track(ctx: &egui::Context) {
         .unwrap_or_else(|| Placement::new(SIZE, scale));
     let before = placement.clone();
     if !maximized && !fullscreen {
-        if let Some(inner) = info.inner_rect {
-            placement.normal.size = [inner.width() * zoom, inner.height() * zoom];
-        }
+        // Wayland doesn't tell a window where it is, and then egui has no inner rectangle:
+        // the size is still known from the content.
+        let inner = info
+            .inner_rect
+            .map_or_else(|| ctx.content_rect().size(), |inner| inner.size());
+        placement.normal.size = [inner.x * zoom, inner.y * zoom];
         placement.position_px = if restore.no_position {
             None
         } else {
             info.outer_rect.map(|outer| {
                 [
-                    (outer.min.x * scale).round() as i32,
-                    (outer.min.y * scale).round() as i32,
+                    (outer.min.x * pixels).round() as i32,
+                    (outer.min.y * pixels).round() as i32,
                 ]
             })
         };
@@ -179,8 +189,8 @@ pub fn track(ctx: &egui::Context) {
         placement.monitor = Some(MonitorKey::new(
             "",
             [
-                (size.x * scale).round() as u32,
-                (size.y * scale).round() as u32,
+                (size.x * pixels).round() as u32,
+                (size.y * pixels).round() as u32,
             ],
         ));
     }

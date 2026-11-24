@@ -65,7 +65,8 @@ fn dialog(
                         ui.add_space(if subtitle.is_empty() { 18.0 } else { 9.0 });
                         text(ui, tr(title), 22.0, c.text);
                         if !subtitle.is_empty() {
-                            muted(ui, look, tr(subtitle), look.text_size);
+                            // As given: it may be a path, which must not be translated.
+                            muted(ui, look, subtitle, look.text_size);
                         }
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -137,7 +138,7 @@ fn reflog(ctx: &Context, cx: &Cx, entries: &[ReflogEntry], loading: bool, error:
         ctx,
         cx,
         "Reflog",
-        "Every position HEAD has been at. Right-click an entry for all commit actions.",
+        tr("Every position HEAD has been at. Right-click an entry for all commit actions."),
         None,
         |ui, _| {
             if loading {

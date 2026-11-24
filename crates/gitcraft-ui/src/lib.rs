@@ -26,12 +26,13 @@ pub fn run() -> eframe::Result {
         return Ok(());
     }
     environment::prepare();
-    let saved = settings::Settings::load(&gitcraft_core::store::config_dir());
+    let dir = gitcraft_core::store::config_dir();
+    let saved = settings::Settings::load(&dir);
     i18n::set_language(&saved.general.language);
     let frame = window::decide(saved.appearance.system_title_bar);
     let desktop = appearance::Desktop::start();
     let options = eframe::NativeOptions {
-        viewport: window::viewport(&frame),
+        viewport: window::viewport(&frame, settings::old_window_size(&dir)),
         ..eframe::NativeOptions::default()
     };
     eframe::run_native(

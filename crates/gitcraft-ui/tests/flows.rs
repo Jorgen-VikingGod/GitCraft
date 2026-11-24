@@ -1122,6 +1122,30 @@ async fn a_stale_scroll_position_cant_blank_a_shorter_diff() {
 }
 
 #[tokio::test]
+async fn a_tab_in_the_background_is_coloured_again_for_a_new_theme() {
+    let f = empty_fixture();
+    f.commit("a.rs", "fn main() {}\n", "first");
+    f.write("a.rs", "fn main() { let x = 1; }\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetSyntax(true)).await;
+    drive(&mut app, Message::SetTheme("light".into())).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    let other = f.root.join("other");
+    std::fs::create_dir(&other).unwrap();
+    git(&other, &["init", "-q", "-b", "main"]);
+    drive(
+        &mut app,
+        Message::OpenPath(other.to_str().unwrap().to_owned()),
+    )
+    .await;
+    assert_eq!(app.current().unwrap().name, "other");
+    drive(&mut app, Message::SetTheme("dark".into())).await;
+    let first = &app.tabs[0];
+    assert_eq!(first.changes_pane.highlighted_dark, Some(true));
+    assert!(first.changes_pane.highlights.is_some());
+}
+
+#[tokio::test]
 async fn a_diff_is_coloured_again_when_the_theme_turns_dark() {
     let f = empty_fixture();
     f.commit("a.rs", "fn main() {}\n", "first");
@@ -1241,6 +1265,15 @@ async fn saved_tabs_open_in_their_order_with_the_saved_one_in_front() {
             .map(|tab| tab.name.clone())
             .collect::<Vec<_>>()
     };
+
+    // Closing before the saved tabs have all opened keeps the session as it was.
+    let (mut early, _) = App::boot_with(None, true, store());
+    drive(&mut early, Message::CloseRequested).await;
+    let kept = std::fs::read_to_string(dir.join("config.toml")).unwrap();
+    assert!(
+        kept.contains("four") && kept.contains("active_tab = 2"),
+        "{kept}"
+    );
 
     let app = booted(None, store()).await;
     assert_eq!(
@@ -1396,6 +1429,49 @@ async fn commit_first_checks_out_once_the_commit_is_made() {
         "then checked out"
     );
     assert!(app.current().unwrap().after_commit.is_none());
+}
+
+#[tokio::test]
+async fn the_checkout_question_answers_for_its_own_repository() {
+    let (f, mut app) = changed_with_a_branch().await;
+    let other = f.root.join("other");
+    std::fs::create_dir(&other).unwrap();
+    git(&other, &["init", "-q", "-b", "main"]);
+    drive(&mut app, checkout_side()).await;
+    // Another repository comes to the front before the question is answered.
+    drive(
+        &mut app,
+        Message::OpenPath(other.to_str().unwrap().to_owned()),
+    )
+    .await;
+    assert_eq!(app.current().unwrap().name, "other");
+    drive(&mut app, Message::FormChoice(1)).await;
+    assert_eq!(
+        f.git(&["branch", "--show-current"]).trim(),
+        "side",
+        "the asking one switched"
+    );
+    assert_eq!(git(&other, &["branch", "--show-current"]).trim(), "main");
+}
+
+#[tokio::test]
+async fn commit_first_clears_amend_and_shows_the_asking_repository() {
+    let (f, mut app) = changed_with_a_branch().await;
+    drive(&mut app, Message::AmendToggled(true)).await;
+    drive(&mut app, checkout_side()).await;
+    let other = f.root.join("other");
+    std::fs::create_dir(&other).unwrap();
+    git(&other, &["init", "-q", "-b", "main"]);
+    drive(
+        &mut app,
+        Message::OpenPath(other.to_str().unwrap().to_owned()),
+    )
+    .await;
+    drive(&mut app, Message::FormChoice(0)).await;
+    let tab = app.current().unwrap();
+    assert_ne!(tab.name, "other", "back on the repository that asked");
+    assert!(!tab.amend, "a new commit, as the question said");
+    assert!(tab.after_commit.is_some());
 }
 
 #[tokio::test]

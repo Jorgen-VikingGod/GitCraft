@@ -562,13 +562,13 @@ impl Pick {
     pub fn dialog(&self) -> craft_dialogs::FileDialog {
         use craft_dialogs::FileDialog;
         match self {
-            Self::OpenRepository => FileDialog::folder().title("Open repository"),
+            Self::OpenRepository => FileDialog::folder().title(tr("Open repository")),
             Self::SavePatch { name, .. } => FileDialog::save()
-                .title("Save patch")
+                .title(tr("Save patch"))
                 .file_name(name.clone()),
             Self::ApplyPatch => FileDialog::open()
-                .title("Apply patch")
-                .filter("Patches", &["patch", "diff", "eml", "txt"]),
+                .title(tr("Apply patch"))
+                .filter(tr("Patches"), &["patch", "diff", "eml", "txt"]),
         }
     }
 }
@@ -621,8 +621,11 @@ pub struct App {
     /// Set when the search box should take the keyboard; the view clears it.
     pub focus_search: Cell<bool>,
     /// The saved tabs still to open at start-up, one after another so that they keep their
-    /// order, and the one to bring to the front once all are open.
-    restoring: VecDeque<String>,
+    /// order; `true` marks the one to bring to the front once all are open.
+    restoring: VecDeque<(String, bool)>,
+    /// The restore request on its way: whether it is the front tab.
+    restore_waiting: Option<bool>,
+    /// The front tab once it has opened, as git names its folder.
     restore_front: Option<String>,
     /// Things only the shell can do, such as the clipboard; it drains them after each update.
     pub effects: Vec<Effect>,
@@ -640,6 +643,8 @@ pub enum Message {
     DialogFailed(String),
     OpenPath(String),
     Located(Answer<String>),
+    /// A saved tab located at start-up (see `App::boot`).
+    Restored(Answer<String>),
     Forget(String),
     Activate(usize),
     Close(usize),
@@ -660,7 +665,8 @@ pub enum Message {
     PickFile(String),
     Scrolled(f32, f32),
     DiffLoaded(String, PaneKey, u64, Answer<Option<FileDiff>>),
-    HighlightsLoaded(String, PaneKey, u64, Option<Arc<Highlights>>),
+    /// Colours for a diff: its repository, pane, request, and whether they are for the dark theme.
+    HighlightsLoaded(String, PaneKey, u64, bool, Option<Arc<Highlights>>),
     DiffScrolled(PaneKey, f32, Vec2),
     DiffLineClicked(PaneKey, usize, usize),
     HunkAction(usize, &'static str),
@@ -690,6 +696,8 @@ pub enum Message {
     FilterInput(String),
     ToggleCollapsed(String),
     Run(Command),
+    /// Run a command in this repository, whichever tab is in front; nothing if it was closed.
+    RunIn(String, Command),
     PullChosen {
         remote: Option<String>,
         branch: Option<String>,
@@ -718,8 +726,8 @@ pub enum Message {
     FormCancel,
     /// One of a form's own answers (see [`crate::form::Form::choice`]).
     FormChoice(usize),
-    /// Show the commit box, and run this checkout once the commit succeeds.
-    CommitFirst(Command),
+    /// Show the commit box of this repository, and run this checkout once the commit succeeds.
+    CommitFirst(String, Command),
     /// Don't run the checkout waiting for the commit after all.
     CommitFirstCancel,
     OverlayClose,
@@ -805,25 +813,40 @@ impl App {
         }
         let session = &app.settings.session;
         // A repository named on the command line opens last and stays in front.
-        app.restore_front = repo
-            .is_none()
-            .then(|| session.tabs.get(session.active_tab).cloned())
-            .flatten();
-        app.restoring = session.tabs.iter().cloned().chain(repo).collect();
+        let front = repo.is_none().then_some(session.active_tab);
+        app.restoring = session
+            .tabs
+            .iter()
+            .enumerate()
+            .map(|(index, path)| (path.clone(), Some(index) == front))
+            .chain(repo.map(|path| (path, false)))
+            .collect();
         let task = app.restore_next();
         (app, task)
     }
 
-    /// Opens the next saved tab, or, when all are open, brings the saved front tab forward.
+    /// Start-up is still opening the saved tabs: the saved session is left as it is until then.
+    fn restoring(&self) -> bool {
+        !self.restoring.is_empty() || self.restore_waiting.is_some()
+    }
+
+    /// Opens the next saved tab, or, when all are open, brings the saved front tab forward and
+    /// saves the session as it now is.
     fn restore_next(&mut self) -> Task<Message> {
-        if let Some(path) = self.restoring.pop_front() {
-            return Task::done(Message::OpenPath(path));
+        if let Some((path, front)) = self.restoring.pop_front() {
+            self.restore_waiting = Some(front);
+            return Task::perform(
+                async move { answer(repos::locate(&path).await) },
+                Message::Restored,
+            );
         }
+        let was_restoring = self.restore_waiting.take().is_some();
         if let Some(front) = self.restore_front.take()
             && let Some(index) = self.tabs.iter().position(|tab| tab.path == front)
-            && index != self.active
         {
             self.active = index;
+        }
+        if was_restoring {
             self.save_settings();
         }
         Task::none()
@@ -861,6 +884,7 @@ impl App {
             fullscreen: false,
             focus_search: Cell::new(false),
             restoring: VecDeque::new(),
+            restore_waiting: None,
             restore_front: None,
             effects: Vec::new(),
             next_id: 1,
@@ -894,8 +918,8 @@ impl App {
         crate::window::rounded_for(&self.frame) && !self.maximized && !self.fullscreen
     }
 
-    /// Reads the theme setting again, keeping what was measured on screen. Diffs are loaded
-    /// again when it turns light or dark, so that their colours follow.
+    /// Reads the theme setting again, keeping what was measured on screen. Diffs are coloured
+    /// again when it turns light or dark.
     fn restyle(&mut self) -> Task<Message> {
         let (char_width, was_dark) = (self.look.char_width, self.look.dark);
         self.look = Look::for_setting(&self.settings.appearance.theme, self.system_dark);
@@ -903,7 +927,7 @@ impl App {
         if self.look.dark == was_dark {
             Task::none()
         } else {
-            self.reload_diffs()
+            self.recolour_all()
         }
     }
 
@@ -937,8 +961,11 @@ impl App {
     }
 
     fn save_settings(&mut self) {
-        self.settings.session.tabs = self.tabs.iter().map(|tab| tab.path.clone()).collect();
-        self.settings.session.active_tab = self.active;
+        // Quitting half-way through start-up keeps the saved tabs that weren't opened yet.
+        if !self.restoring() {
+            self.settings.session.tabs = self.tabs.iter().map(|tab| tab.path.clone()).collect();
+            self.settings.session.active_tab = self.active;
+        }
         self.settings.layout.collapsed = self.collapsed.iter().cloned().collect();
         self.settings.layout.collapsed.sort();
         if let Err(error) = self.settings.save(&self.config_dir) {
@@ -969,13 +996,26 @@ impl App {
                 async move { answer(repos::locate(&path).await) },
                 Message::Located,
             ),
-            Message::Located(Ok(path)) => {
-                let opened = self.opened(path);
-                Task::batch([opened, self.restore_next()])
-            }
+            Message::Located(Ok(path)) => self.opened(path),
             Message::Located(Err(error)) => {
                 self.toast(ToastKind::Error, error, None);
-                self.restore_next()
+                Task::none()
+            }
+            Message::Restored(result) => {
+                let front = self.restore_waiting == Some(true);
+                let opened = match result {
+                    Ok(path) => {
+                        if front {
+                            self.restore_front = Some(path.clone());
+                        }
+                        self.opened(path)
+                    }
+                    Err(error) => {
+                        self.toast(ToastKind::Error, error, None);
+                        Task::none()
+                    }
+                };
+                Task::batch([opened, self.restore_next()])
             }
             Message::Forget(path) => {
                 if let Err(error) = self.store.remove(&path) {
@@ -1143,10 +1183,14 @@ impl App {
             Message::DiffLoaded(repo, key, token, result) => {
                 self.diff_loaded(&repo, key, token, result)
             }
-            Message::HighlightsLoaded(repo, key, token, highlights) => {
+            Message::HighlightsLoaded(repo, key, token, dark, highlights) => {
+                // Only colours for the diff as it is now, and for the theme as it is now, count;
+                // anything older is dropped and made again when its diff is loaded.
+                let current = dark == self.look.dark;
                 let pane = self.pane_mut(&repo, key);
-                if let Some(pane) = pane.filter(|pane| pane.token == token) {
+                if let Some(pane) = pane.filter(|pane| pane.token == token && current) {
                     pane.highlights = highlights;
+                    pane.highlighted_dark = Some(dark);
                 }
                 Task::none()
             }
@@ -1319,6 +1363,13 @@ impl App {
                 Task::none()
             }
             Message::Run(command) => self.run_command(command),
+            Message::RunIn(repo, command) => {
+                if self.tabs.iter().any(|tab| tab.path == repo) {
+                    self.run_in(repo, command)
+                } else {
+                    Task::none()
+                }
+            }
             Message::PullChosen {
                 remote,
                 branch,
@@ -1475,12 +1526,18 @@ impl App {
                 let next = (form.on_ok)(&form.values());
                 self.update(next)
             }
-            Message::CommitFirst(checkout) => {
-                if let Some(tab) = self.current_mut() {
-                    tab.after_commit = Some(checkout);
-                    tab.view = View::Changes;
-                }
-                Task::none()
+            Message::CommitFirst(repo, checkout) => {
+                let Some(index) = self.tabs.iter().position(|tab| tab.path == repo) else {
+                    return Task::none();
+                };
+                self.active = index;
+                let tab = &mut self.tabs[index];
+                tab.after_commit = Some(checkout);
+                // The note about the checkout takes the place of "Amend last commit": a new
+                // commit is what the dialog promised.
+                tab.amend = false;
+                tab.view = View::Changes;
+                self.reload_changes()
             }
             Message::CommitFirstCancel => {
                 if let Some(tab) = self.current_mut() {
@@ -1695,7 +1752,7 @@ impl App {
             Message::SetSyntax(value) => {
                 self.settings.diff.syntax_highlight = value;
                 self.save_settings();
-                self.reload_diffs()
+                self.recolour_all()
             }
             Message::SetLogLimit(text) => {
                 self.settings.history.log_limit = text
@@ -2187,8 +2244,6 @@ impl App {
         result: Answer<Option<FileDiff>>,
     ) -> Task<Message> {
         let split = self.settings.diff.split;
-        let syntax = self.settings.diff.syntax_highlight;
-        let dark = self.look.dark;
         let mut failure = None;
         let Some(pane) = self.pane_mut(repo, key).filter(|pane| pane.token == token) else {
             return Task::none();
@@ -2208,29 +2263,7 @@ impl App {
                     pane.rebuild_rows(split);
                     pane.scroll_to.set(Some(0.0));
                 }
-                // Colours are made for one theme: the same diff is coloured again after the
-                // theme changes, and loses them when highlighting is turned off.
-                if !syntax {
-                    pane.highlights = None;
-                    pane.highlighted_dark = None;
-                } else if pane.highlighted_dark != Some(dark)
-                    && let Some(diff) = pane.diff.clone()
-                {
-                    pane.highlighted_dark = Some(dark);
-                    let repo = repo.to_owned();
-                    let colours = Task::perform(
-                        async move {
-                            tokio::task::spawn_blocking(move || highlight::highlight(&diff, dark))
-                                .await
-                                .ok()
-                                .flatten()
-                        },
-                        move |highlights| {
-                            Message::HighlightsLoaded(repo.clone(), key, token, highlights)
-                        },
-                    );
-                    task = colours;
-                }
+                task = self.colour(repo, key);
             }
             Err(error) => {
                 pane.clear();
@@ -2241,6 +2274,67 @@ impl App {
             self.toast(ToastKind::Error, "Could not load diff", Some(error));
         }
         task
+    }
+
+    /// Colours a pane's diff for the current theme, unless it already has them. Colours are made
+    /// for one theme: they are made again after it changes, and dropped when highlighting is off.
+    fn colour(&mut self, repo: &str, key: PaneKey) -> Task<Message> {
+        let syntax = self.settings.diff.syntax_highlight;
+        let dark = self.look.dark;
+        let Some(pane) = self.pane_mut(repo, key) else {
+            return Task::none();
+        };
+        if !syntax {
+            pane.highlights = None;
+            pane.highlighted_dark = None;
+            return Task::none();
+        }
+        let Some(diff) = pane
+            .diff
+            .clone()
+            .filter(|_| pane.highlighted_dark != Some(dark))
+        else {
+            return Task::none();
+        };
+        let (repo, token) = (repo.to_owned(), pane.token);
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || highlight::highlight(&diff, dark))
+                    .await
+                    .ok()
+                    .flatten()
+            },
+            move |highlights| Message::HighlightsLoaded(repo.clone(), key, token, dark, highlights),
+        )
+    }
+
+    /// After the theme turned light or dark: every open diff, in every tab and in the file
+    /// history, is coloured again. The old colours are dropped at once, as they don't fit.
+    fn recolour_all(&mut self) -> Task<Message> {
+        let mut panes: Vec<(String, PaneKey)> = self
+            .tabs
+            .iter()
+            .flat_map(|tab| {
+                [
+                    (tab.path.clone(), PaneKey::Changes),
+                    (tab.path.clone(), PaneKey::Commit),
+                ]
+            })
+            .collect();
+        if let Some(repo) = self.current().map(|tab| tab.path.clone()) {
+            panes.push((repo, PaneKey::Overlay));
+        }
+        let tasks: Vec<Task<Message>> = panes
+            .into_iter()
+            .map(|(repo, key)| {
+                if let Some(pane) = self.pane_mut(&repo, key) {
+                    pane.highlights = None;
+                    pane.highlighted_dark = None;
+                }
+                self.colour(&repo, key)
+            })
+            .collect();
+        Task::batch(tasks)
     }
 
     fn hunk_action(&mut self, hunk: usize, mode: &'static str) -> Task<Message> {
@@ -2453,15 +2547,23 @@ impl App {
                 },
                 act,
             ),
-            Pick::ApplyPatch => {
-                let picked = std::fs::read(&path).ok().map(|bytes| {
+            // Read in the background: the file may sit on a slow drive.
+            Pick::ApplyPatch => Task::perform(
+                async move {
+                    let bytes = tokio::task::spawn_blocking({
+                        let path = path.clone();
+                        move || std::fs::read(path)
+                    })
+                    .await
+                    .ok()?
+                    .ok()?;
                     let name = path
                         .file_name()
                         .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
-                    (name, String::from_utf8_lossy(&bytes).into_owned())
-                });
-                Task::done(Message::Action(crate::actions::Action::PatchPicked(picked)))
-            }
+                    Some((name, String::from_utf8_lossy(&bytes).into_owned()))
+                },
+                |picked| Message::Action(crate::actions::Action::PatchPicked(picked)),
+            ),
         }
     }
 
@@ -2484,7 +2586,7 @@ impl App {
         if let Command::Checkout { reference, kind } = &command
             && tab.status.as_ref().is_some_and(logic::changes_in_the_way)
         {
-            self.form = Some(checkout_with_changes(reference, kind));
+            self.form = Some(checkout_with_changes(&tab.path, reference, kind));
             return Task::none();
         }
         let repo = tab.path.clone();
@@ -3121,7 +3223,9 @@ fn ensure_focus(tab: &mut RepoTab) {
 }
 
 /// What to do with uncommitted changes before checking out `reference`.
-fn checkout_with_changes(reference: &str, kind: &'static str) -> crate::form::Form {
+/// Every answer is bound to `repo`, the repository the question was asked for, even if another
+/// tab is in front by the time it is answered.
+fn checkout_with_changes(repo: &str, reference: &str, kind: &'static str) -> crate::form::Form {
     let name = if kind == "commit" {
         logic::short_sha(reference)
     } else {
@@ -3132,11 +3236,14 @@ fn checkout_with_changes(reference: &str, kind: &'static str) -> crate::form::Fo
         kind,
     };
     let stashing = |reapply| {
-        Message::Run(Command::CheckoutStashing {
-            reference: reference.to_owned(),
-            kind,
-            reapply,
-        })
+        Message::RunIn(
+            repo.to_owned(),
+            Command::CheckoutStashing {
+                reference: reference.to_owned(),
+                kind,
+                reapply,
+            },
+        )
     };
     let mut form = crate::form::Form::confirm(
         "Uncommitted changes",
@@ -3145,7 +3252,11 @@ fn checkout_with_changes(reference: &str, kind: &'static str) -> crate::form::Fo
         false,
         stashing(true),
     )
-    .choice("Commit first", false, Message::CommitFirst(checkout))
+    .choice(
+        "Commit first",
+        false,
+        Message::CommitFirst(repo.to_owned(), checkout),
+    )
     .choice("Discard changes", true, stashing(false));
     let name = [("name", name)];
     let paragraphs = [

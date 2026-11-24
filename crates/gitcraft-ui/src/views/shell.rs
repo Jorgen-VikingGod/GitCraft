@@ -419,9 +419,11 @@ fn tab_group(ui: &mut Ui, cx: &Cx) {
     );
     // Until the tab in front is wholly in view (the strip only knows its width after a frame),
     // it is asked for again next time; then the strip is the user's to scroll.
-    let shown = placed
-        .get(cx.app.active)
-        .is_some_and(|(rect, _)| inner.expand(0.5).contains_rect(*rect));
+    let shown = placed.get(cx.app.active).is_some_and(|(rect, _)| {
+        // A tab wider than the strip is as shown as it can be once it fills the strip.
+        let seen = rect.intersect(inner).width();
+        seen >= rect.width().min(inner.width()) - 0.5
+    });
     if !reveal || shown {
         strip_state.active = front;
     } else {

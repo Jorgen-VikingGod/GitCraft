@@ -55,10 +55,34 @@ pub fn tr(text: &str) -> &str {
 
 /// `template` in the chosen language, with each `{name}` replaced by its value.
 pub fn trf(template: &str, args: &[(&str, &str)]) -> String {
-    let mut out = tr(template).to_owned();
-    for (name, value) in args {
-        out = out.replace(&format!("{{{name}}}"), value);
+    fill(tr(template), args)
+}
+
+/// Replaces each `{name}` in one pass over `template`: a value is put in as it is, so a file
+/// called `{commit}.txt` stays that, and a `{…}` without a value is kept.
+fn fill(template: &str, args: &[(&str, &str)]) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        let value = after.find('}').and_then(|close| {
+            let name = &after[..close];
+            let (_, value) = args.iter().find(|(key, _)| *key == name)?;
+            Some((*value, close))
+        });
+        match value {
+            Some((value, close)) => {
+                out.push_str(value);
+                rest = &after[close + 1..];
+            }
+            None => {
+                out.push('{');
+                rest = after;
+            }
+        }
     }
+    out.push_str(rest);
     out
 }
 
@@ -66,6 +90,16 @@ pub fn trf(template: &str, args: &[(&str, &str)]) -> String {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn values_are_put_in_as_they_are() {
+        let args = [("path", "{commit}.txt"), ("commit", "abc1234")];
+        assert_eq!(
+            fill("{path} restored from {commit}", &args),
+            "{commit}.txt restored from abc1234"
+        );
+        assert_eq!(fill("{a}{a} {missing} {", &[("a", "x")]), "xx {missing} {");
+    }
 
     const TABLE: &str = include_str!("i18n/translations.tsv");
 
@@ -173,23 +207,9 @@ mod tests {
                 continue;
             }
             let src = std::fs::read_to_string(&path).unwrap();
-            for opener in ["tr(\"", "trf(\""] {
-                let mut rest = src.as_str();
-                while let Some(i) = rest.find(opener) {
-                    // `push_str("` ends in `tr("` too: only a call of `tr` itself counts.
-                    let named = rest[..i]
-                        .chars()
-                        .next_back()
-                        .is_some_and(|c| c.is_alphanumeric() || c == '_');
-                    rest = &rest[i + opener.len()..];
-                    if named {
-                        continue;
-                    }
-                    let end = rest.find('"').unwrap_or(0);
-                    let key = rest[..end].to_owned();
-                    if !table.contains_key(key.as_str()) && !EXEMPT.contains(&key.as_str()) {
-                        missing.push(format!("{}: {key}", path.display()));
-                    }
+            for key in literal_keys(&src) {
+                if !table.contains_key(key.as_str()) && !EXEMPT.contains(&key.as_str()) {
+                    missing.push(format!("{}: {key}", path.display()));
                 }
             }
         }
@@ -204,4 +224,46 @@ mod tests {
 
     /// Names and strings that stay as they are in every language.
     const EXEMPT: &[&str] = &["GitCraft"];
+
+    /// The string literals passed first to `tr(` or `trf(` in Rust source, also when rustfmt has
+    /// put the literal on a line of its own, with `\"` and `\\` read as Rust reads them.
+    fn literal_keys(src: &str) -> Vec<String> {
+        let mut keys = Vec::new();
+        for opener in ["tr(", "trf("] {
+            let mut rest = src;
+            while let Some(i) = rest.find(opener) {
+                // `push_str(` and `ptr(` end in `tr(` too: only a call of `tr` itself counts.
+                let named = rest[..i]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_');
+                rest = &rest[i + opener.len()..];
+                let Some(literal) = rest.trim_start().strip_prefix('"').filter(|_| !named) else {
+                    continue;
+                };
+                let mut key = String::new();
+                let mut chars = literal.chars();
+                while let Some(c) = chars.next() {
+                    match c {
+                        '"' => break,
+                        '\\' => match chars.next() {
+                            Some('n') => key.push('\n'),
+                            Some(other) => key.push(other),
+                            None => break,
+                        },
+                        c => key.push(c),
+                    }
+                }
+                keys.push(key);
+            }
+        }
+        keys
+    }
+
+    #[test]
+    fn the_scan_finds_calls_split_over_lines() {
+        let src =
+            "trf(\n    \"Copied {what}\",\n    &[]);\nx.push_str(\"no\"); tr(\"say \\\"hi\\\"\")";
+        assert_eq!(literal_keys(src), ["say \"hi\"", "Copied {what}"]);
+    }
 }

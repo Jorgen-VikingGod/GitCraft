@@ -45,6 +45,8 @@ pub struct Colors {
     /// Buttons that undo a step without losing anything, such as unstaging: orange.
     pub caution: Color32,
     pub danger: Color32,
+    /// The close button of a Windows-style title bar under the pointer.
+    pub close_hover: Color32,
     pub warning_bg: Color32,
     pub backdrop: Color32,
     pub shadow: Color32,
@@ -100,6 +102,7 @@ pub const LIGHT: Colors = Colors {
     warning: hex(0x946200),
     caution: hex(0xe07800),
     danger: hex(0xc4302a),
+    close_hover: hex(0xc42b1c),
     warning_bg: hex(0xfff4dc),
     backdrop: rgba(20, 26, 36, 0.22),
     shadow: rgba(20, 30, 50, 0.22),
@@ -164,6 +167,7 @@ pub const DARK: Colors = Colors {
     warning: hex(0xe8ba4a),
     caution: hex(0xf0883e),
     danger: hex(0xe8544c),
+    close_hover: hex(0xc42b1c),
     warning_bg: hex(0x3a2f17),
     backdrop: rgba(0, 0, 0, 0.5),
     shadow: rgba(0, 0, 0, 0.55),
@@ -265,8 +269,9 @@ impl Look {
     /// so that they look the same in every part of the window, and as in the other Craft apps.
     pub fn apply(&self, ctx: &egui::Context) {
         use egui::{CornerRadius, Stroke, TextStyle, Vec2};
-        ctx.add_widget_theme::<egui::widget_style::ButtonStyle>(SelectedOutline);
-        ctx.add_widget_theme::<egui::widget_style::TextEditStyle>(FieldBorder {
+        // Replaced, not added: egui keeps the first provider, which would keep the first theme.
+        ctx.replace_widget_theme::<egui::widget_style::ButtonStyle>(SelectedOutline);
+        ctx.replace_widget_theme::<egui::widget_style::TextEditStyle>(FieldBorder {
             light: !self.dark,
         });
         let c = &self.c;
