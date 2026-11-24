@@ -1181,6 +1181,17 @@ async fn run_todo(
         }
         check_ref(&step.sha)?;
         lines.push(format!("{} {}", step.action, step.sha));
+        if let Some(command) = step
+            .exec
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
+        {
+            if command.contains(['\n', '\r']) {
+                return invalid("A command to run must be one line");
+            }
+            lines.push(format!("exec {command}"));
+        }
         if matches!(step.action.as_str(), "reword" | "squash")
             && let Some(message) = step.message.as_ref().filter(|message| !message.is_empty())
         {

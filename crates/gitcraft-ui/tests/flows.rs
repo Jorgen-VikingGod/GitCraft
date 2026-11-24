@@ -2603,6 +2603,7 @@ async fn several_commits_are_picked_then_cherry_picked_squashed_or_replayed() {
     assert_eq!(&f.subjects()[..3], ["topic 3", "topic 2", "topic 1"]);
 
     f.git(&["reset", "-q", "--hard", "HEAD~3"]);
+    drive(&mut app, Message::Refresh).await;
     drive(&mut app, Message::OpenReplay(picked)).await;
     let Some(Overlay::Rebase(state)) = &app.overlay else {
         panic!("the editor opens for a cherry-pick")
@@ -2623,4 +2624,52 @@ async fn cherry_picking_a_merge_asks_for_the_mainline() {
     let form = app.form.as_ref().expect("asks which parent");
     assert_eq!(form.fields.len(), 1);
     drive(&mut app, Message::FormCancel).await;
+}
+
+#[tokio::test]
+async fn the_rebase_editor_autosquashes_moves_and_refuses_a_stale_plan() {
+    let f = empty_fixture();
+    f.commit("a.txt", "a\n", "add a");
+    f.commit("b.txt", "b\n", "add b");
+    f.commit("a.txt", "a fixed\n", "fixup! add a");
+    let mut app = opened(&f, false).await;
+    let first = sha_of(&app, "add a");
+    drive(&mut app, Message::OpenRebase(Some(first.clone()))).await;
+    drive(&mut app, Message::OverlayClose).await;
+    // From the root: every commit is in the plan.
+    drive(&mut app, Message::OpenRebase(None)).await;
+    drive(&mut app, Message::RebaseAutosquash).await;
+    let Some(Overlay::Rebase(state)) = &app.overlay else {
+        panic!("open")
+    };
+    let plan: Vec<(String, &str)> = state
+        .steps
+        .iter()
+        .map(|step| (step.commit.subject.clone(), step.action))
+        .collect();
+    assert_eq!(
+        plan,
+        [
+            ("add a".to_owned(), "pick"),
+            ("fixup! add a".to_owned(), "fixup"),
+            ("add b".to_owned(), "pick")
+        ]
+    );
+    // Someone commits meanwhile: the plan no longer fits.
+    f.commit("c.txt", "c\n", "meanwhile");
+    drive(&mut app, Message::RebaseStart).await;
+    assert_eq!(
+        f.subjects(),
+        ["meanwhile", "fixup! add a", "add b", "add a"]
+    );
+    assert!(toast_kinds(&app).contains(&ToastKind::Error));
+    drive(&mut app, Message::OverlayClose).await;
+    drive(&mut app, Message::Refresh).await;
+
+    let b = sha_of(&app, "add b");
+    drive(&mut app, Message::Action(Action::MoveCommit(b, false))).await;
+    assert_eq!(
+        f.subjects(),
+        ["meanwhile", "fixup! add a", "add a", "add b"]
+    );
 }

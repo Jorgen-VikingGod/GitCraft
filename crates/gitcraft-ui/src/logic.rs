@@ -55,6 +55,51 @@ pub fn pick_commits(
     chosen
 }
 
+/// The order and actions `git rebase --autosquash` would give: `(subject, sha)` oldest
+/// first in, `(index into steps, new action)` out. `fixup!`/`amend!` become fixups and
+/// `squash!` squashes, each right after the commit it names (by subject or sha prefix) and
+/// after earlier ones for the same commit. Those naming nothing in the list stay put.
+pub fn autosquash(steps: &[(String, String)]) -> Vec<(usize, Option<&'static str>)> {
+    let marker = |subject: &str| -> Option<(&'static str, String)> {
+        for (prefix, action) in [
+            ("fixup! ", "fixup"),
+            ("amend! ", "fixup"),
+            ("squash! ", "squash"),
+        ] {
+            if let Some(rest) = subject.strip_prefix(prefix) {
+                return Some((action, rest.to_owned()));
+            }
+        }
+        None
+    };
+    let mut order: Vec<(usize, Option<&'static str>)> = Vec::new();
+    for (index, (subject, _)) in steps.iter().enumerate() {
+        if let Some((action, target)) = marker(subject) {
+            // A marker on a marker ("fixup! fixup! x") names the same commit.
+            let mut target = target;
+            while let Some((_, inner)) = marker(&target) {
+                target = inner;
+            }
+            let found = order.iter().position(|(other, _)| {
+                let (other_subject, other_sha) = &steps[*other];
+                *other != index
+                    && (*other_subject == target
+                        || (target.len() >= 4 && other_sha.starts_with(&target)))
+            });
+            if let Some(found) = found {
+                let mut at = found + 1;
+                while at < order.len() && order[at].1.is_some() {
+                    at += 1;
+                }
+                order.insert(at, (index, Some(action)));
+                continue;
+            }
+        }
+        order.push((index, None));
+    }
+    order
+}
+
 /// How a signature's state is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -473,6 +518,29 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn autosquash_moves_fixups_after_their_commit() {
+        let steps: Vec<(String, String)> = [
+            ("add a", "aaaa1111"),
+            ("add b", "bbbb2222"),
+            ("fixup! add a", "cccc3333"),
+            ("squash! aaaa1111", "dddd4444"),
+            ("fixup! nothing here", "eeee5555"),
+        ]
+        .map(|(s, h)| (s.to_owned(), h.to_owned()))
+        .to_vec();
+        assert_eq!(
+            autosquash(&steps),
+            [
+                (0, None),
+                (2, Some("fixup")),
+                (3, Some("squash")),
+                (1, None),
+                (4, None)
+            ]
+        );
+    }
 
     #[test]
     fn commits_are_picked_one_by_one_or_as_a_range_in_list_order() {

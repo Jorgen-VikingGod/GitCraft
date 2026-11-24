@@ -56,6 +56,7 @@ Applying patches (git am)	Patches werden angewendet (git am)	Application des pat
 Applying stash	Stash wird angewendet	Application de la remise	Aplicando stash
 author	Autor	auteur	autor
 Author	Autor	Auteur	Autor
+Autosquash	Autosquash	Autosquash	Autosquash
 Backup deleted	Sicherung gelöscht	Sauvegarde supprimée	Copia de seguridad eliminada
 Bad signature	Ungültige Signatur	Signature invalide	Firma no válida
 Based on {based}	Basierend auf {based}	À partir de {based}	Basado en {based}
@@ -70,6 +71,7 @@ Branches	Branches	Branches	Ramas
 Branch…	Branch…	Branche…	Rama…
 Cancel	Abbrechen	Annuler	Cancelar
 Cancelled	Abgebrochen	Annulé	Cancelado
+cargo test	cargo test	cargo test	cargo test
 Changes stashed	Änderungen im Stash abgelegt	Modifications remisées	Cambios guardados en el stash
 Check out a branch before pushing	Vor dem Pushen einen Branch auschecken	Extrayez une branche avant de pousser	Cambia a una rama antes de enviar
 Check out after creating	Nach dem Erstellen auschecken	Extraire après la création	Cambiar a ella después de crearla
@@ -117,6 +119,7 @@ Co-authors	Co-Autoren	Co-auteurs	Coautores
 Co-authors ({count})…	Co-Autoren ({count})…	Co-auteurs ({count})…	Coautores ({count})…
 Co-authors…	Co-Autoren…	Co-auteurs…	Coautores…
 Combine both messages	Beide Nachrichten zusammenführen	Combiner les deux messages	Combinar ambos mensajes
+Command	Befehl	Commande	Comando
 Commit	Commit	Commit	Commit
 Commit amended	Commit ergänzt	Commit modifié	Commit enmendado
 Commit message	Commit-Nachricht	Message de commit	Mensaje del commit
@@ -336,11 +339,14 @@ Minimize	Minimieren	Réduire	Minimizar
 missing	fehlt	manquant	falta
 Mixed: keep changes, unstaged	Gemischt: Änderungen behalten, nicht vorgemerkt	Mixte : garder les modifications, non indexées	Mixto: conservar los cambios sin preparar
 More	Mehr	Plus	Más
+Move down (before its parent)	Nach unten (vor sein Elternteil)	Descendre (avant son parent)	Bajar (antes de su padre)
+Move fixup! and squash! commits under the commit they name	fixup!- und squash!-Commits unter den genannten Commit verschieben	Placer les commits fixup! et squash! sous le commit qu’ils nomment	Mover los commits fixup! y squash! bajo el commit que nombran
 Move left	Nach links	Déplacer à gauche	Mover a la izquierda
 Move right	Nach rechts	Déplacer à droite	Mover a la derecha
 Move this commit down (Alt + ↓)	Diesen Commit nach unten verschieben (Alt + ↓)	Déplacer ce commit vers le bas (Alt + ↓)	Mover este commit hacia abajo (Alt + ↓)
 Move this commit up (Alt + ↑)	Diesen Commit nach oben verschieben (Alt + ↑)	Déplacer ce commit vers le haut (Alt + ↑)	Mover este commit hacia arriba (Alt + ↑)
 Move through commits or files	Durch Commits oder Dateien bewegen	Parcourir les commits ou les fichiers	Moverse por los commits o archivos
+Move up (after its child)	Nach oben (hinter sein Kind)	Monter (après son enfant)	Subir (después de su hijo)
 Name	Name	Nom	Nombre
 Name <name@example.com>	Name <name@example.com>	Nom <nom@example.com>	Nombre <nombre@example.com>
 New branch	Neuer Branch	Nouvelle branche	Nueva rama
@@ -501,6 +507,10 @@ Reworded commits need a message.	Umformulierte Commits brauchen eine Nachricht.	
 Rewrite the history as planned above	Den Verlauf wie oben geplant neu schreiben	Réécrire l’historique comme prévu ci-dessus	Reescribir el historial como se planeó arriba
 Rewrite {branch} on top of {base}. Commits are applied from top to bottom.	{branch} auf {base} neu schreiben. Commits werden von oben nach unten angewendet.	Réécrire {branch} sur {base}. Les commits sont appliqués de haut en bas.	Reescribir {branch} sobre {base}. Los commits se aplican de arriba abajo.
 Rewriting history	Verlauf wird neu geschrieben	Réécriture de l’historique	Reescribiendo el historial
+Run a command	Befehl ausführen	Exécuter une commande	Ejecutar un comando
+Run a command after the highlighted commit, such as the tests	Nach dem markierten Commit einen Befehl ausführen, etwa die Tests	Exécuter une commande après le commit sélectionné, par exemple les tests	Ejecutar un comando tras el commit resaltado, por ejemplo las pruebas
+Run after…	Danach ausführen…	Exécuter après…	Ejecutar después…
+Runs in the repository right after this commit is applied (exec). The rebase stops when it fails, for example to fix a failing test. Leave it empty to remove it.	Läuft im Repository direkt nach diesem Commit (exec). Schlägt er fehl, hält der Rebase an, etwa um einen fehlschlagenden Test zu beheben. Leer lassen, um ihn zu entfernen.	S’exécute dans le dépôt juste après l’application de ce commit (exec). Le rebase s’arrête en cas d’échec, par exemple pour corriger un test. Laissez vide pour la supprimer.	Se ejecuta en el repositorio justo después de aplicar este commit (exec). El rebase se detiene si falla, por ejemplo para corregir una prueba. Déjalo vacío para quitarlo.
 Save	Speichern	Enregistrer	Guardar
 Save & mark resolved	Speichern & als gelöst markieren	Enregistrer et marquer comme résolu	Guardar y marcar como resuelto
 Save anyway	Trotzdem speichern	Enregistrer quand même	Guardar de todos modos
@@ -595,11 +605,14 @@ Tag {name}	Tag {name}	Tag {name}	Etiqueta {name}
 Tags	Tags	Tags	Etiquetas
 Take this file from the stash	Diese Datei aus dem Stash holen	Récupérer ce fichier de la remise	Tomar este archivo del stash
 Taking the file from the stash	Datei wird aus dem Stash geholt	Récupération du fichier de la remise	Tomando el archivo del stash
+The branch has changed since this plan was made; open the editor again	Der Branch hat sich geändert, seit dieser Plan erstellt wurde; öffne den Editor erneut	La branche a changé depuis la création de ce plan ; rouvrez l’éditeur	La rama ha cambiado desde que se hizo este plan; vuelve a abrir el editor
+The commit can't move further that way	Der Commit lässt sich nicht weiter in diese Richtung verschieben	Le commit ne peut pas aller plus loin dans ce sens	El commit no puede moverse más en esa dirección
 The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.	Der aktuelle Branch wird auf {source} zurückgesetzt. Lokale Commits und nicht committete Änderungen werden verworfen.	La branche actuelle sera réinitialisée à {source}. Les commits locaux et les modifications non validées sont supprimés.	La rama actual se restablecerá a {source}. Se descartan los commits locales y los cambios sin commit.
 The current state is kept as a backup branch first.	Der aktuelle Stand wird vorher als Backup-Branch behalten.	L’état actuel est d’abord conservé dans une branche de sauvegarde.	Antes se guarda el estado actual en una rama de respaldo.
 The file dialog couldn't be shown	Der Dateidialog konnte nicht angezeigt werden	Impossible d’afficher la boîte de dialogue des fichiers	No se pudo mostrar el diálogo de archivos
 The file was deleted on one side. Keep one side, or mark it as resolved to keep the current state.	Die Datei wurde auf einer Seite gelöscht. Behalte eine Seite oder markiere sie als gelöst, um den aktuellen Stand zu behalten.	Le fichier a été supprimé d’un côté. Gardez un côté, ou marquez-le comme résolu pour garder l’état actuel.	El archivo se eliminó en un lado. Conserva un lado o márcalo como resuelto para mantener el estado actual.
 The first commit has no parent to squash into	Der erste Commit hat keinen Eltern-Commit zum Squashen	Le premier commit n’a pas de parent dans lequel fusionner	El primer commit no tiene un padre en el que hacer squash
+The first commit has nothing below it	Unter dem ersten Commit liegt nichts	Rien ne se trouve sous le premier commit	No hay nada debajo del primer commit
 The first remaining commit cannot be squashed or fixed up (there is nothing above it).	Der erste verbleibende Commit kann nicht gesquasht oder per Fixup eingefaltet werden (darüber ist nichts).	Le premier commit restant ne peut pas être fusionné (squash ou fixup) : il n’y a rien au-dessus.	El primer commit restante no admite squash ni fixup (no hay nada encima).
 The last commit is already on {upstream}. Amending it rewrites history others may have, and the branch then needs a force push.	Der letzte Commit ist bereits auf {upstream}. Ihn zu ändern schreibt Verlauf um, den andere womöglich schon haben, und der Branch braucht danach einen Force-Push.	Le dernier commit est déjà sur {upstream}. Le modifier réécrit un historique que d’autres ont peut-être déjà, et la branche devra ensuite être poussée de force.	El último commit ya está en {upstream}. Enmendarlo reescribe un historial que otros quizá ya tengan, y la rama necesitará después un push forzado.
 The reflog is empty	Das Reflog ist leer	Le reflog est vide	El reflog está vacío
@@ -610,6 +623,7 @@ The title bar changes when GitCraft starts again.	Die Titelleiste ändert sich b
 Theirs	Ihre	Le leur	Lo suyo
 Theirs + ours	Ihre + unsere	Le leur + le nôtre	Lo suyo + lo nuestro
 Theme	Design	Thème	Tema
+then runs: {command}	danach: {command}	puis exécute : {command}	luego ejecuta: {command}
 There are no commits to rebase.	Es gibt keine Commits für einen Rebase.	Il n’y a aucun commit à rebaser.	No hay commits para hacer rebase.
 There are no local changes	Es gibt keine lokalen Änderungen	Il n’y a aucune modification locale	No hay cambios locales
 There are no local changes to stash	Es gibt keine lokalen Änderungen für den Stash	Il n’y a aucune modification locale à remiser	No hay cambios locales que guardar en el stash

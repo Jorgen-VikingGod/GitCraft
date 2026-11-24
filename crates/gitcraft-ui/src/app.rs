@@ -454,6 +454,8 @@ impl ConflictState {
 pub struct RebaseStepState {
     pub commit: Commit,
     pub action: &'static str,
+    /// A shell command to run after this step.
+    pub exec: Option<String>,
     pub message: String,
     /// The message body, loaded when the commit is reworded.
     pub body: Option<String>,
@@ -469,6 +471,8 @@ pub enum Preset {
 }
 
 pub struct RebaseState {
+    /// HEAD when the plan was made: the rebase refuses to start once it has moved.
+    pub head: Option<String>,
     /// Replays `original` on top of HEAD (an interactive cherry-pick) instead of rewriting
     /// the branch since `base`.
     pub replay: bool,
@@ -500,11 +504,31 @@ impl RebaseState {
     }
     pub fn unchanged(&self) -> bool {
         self.steps.len() == self.original.len()
-            && self
-                .steps
-                .iter()
-                .zip(&self.original)
-                .all(|(step, commit)| step.action == "pick" && step.commit.sha == commit.sha)
+            && self.steps.iter().zip(&self.original).all(|(step, commit)| {
+                step.action == "pick" && step.commit.sha == commit.sha && step.exec.is_none()
+            })
+    }
+
+    /// Moves `fixup!`, `squash!` and `amend!` commits right after the commit they name and
+    /// gives them that action, as `git rebase --autosquash` would.
+    pub fn autosquash(&mut self) {
+        let subjects: Vec<(String, String)> = self
+            .steps
+            .iter()
+            .map(|step| (step.commit.subject.clone(), step.commit.sha.clone()))
+            .collect();
+        let plan = crate::logic::autosquash(&subjects);
+        let old = std::mem::take(&mut self.steps);
+        self.steps = plan
+            .into_iter()
+            .map(|(index, action)| {
+                let mut step = old[index].clone();
+                if let Some(action) = action {
+                    step.action = action;
+                }
+                step
+            })
+            .collect();
     }
     /// Applies the preset after the commits are loaded. False when a commit of the preset is
     /// not among them (it isn't on the branch since the base).
@@ -566,6 +590,7 @@ impl RebaseState {
             .map(|commit| RebaseStepState {
                 commit: commit.clone(),
                 action: "pick",
+                exec: None,
                 message: commit.subject.clone(),
                 body: None,
             })
@@ -901,6 +926,9 @@ pub enum Message {
     RebaseFocus(usize),
     RebaseAutostash(bool),
     RebaseReset,
+    RebaseAutosquash,
+    /// A command to run after step `index`; empty removes it.
+    RebaseExec(usize, String),
     RebaseStart,
     OpenSettings,
     /// The external tools git can start: diff tools, then merge tools.
@@ -2009,6 +2037,22 @@ impl App {
             Message::RebaseReset => {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.reset();
+                }
+                Task::none()
+            }
+            Message::RebaseAutosquash => {
+                if let Some(Overlay::Rebase(state)) = &mut self.overlay {
+                    state.autosquash();
+                }
+                Task::none()
+            }
+            Message::RebaseExec(index, command) => {
+                if let Some(Overlay::Rebase(state)) = &mut self.overlay
+                    && let Some(step) = state.steps.get_mut(index)
+                {
+                    let command = command.trim().to_owned();
+                    step.exec = (!command.is_empty()).then_some(command);
+                    state.focused = index;
                 }
                 Task::none()
             }
@@ -3405,6 +3449,10 @@ impl App {
             return Task::none();
         };
         let repo = tab.path.clone();
+        let head = tab
+            .status
+            .as_ref()
+            .and_then(|status| status.branch.oid.clone());
         let base_label = match &base {
             None => tr("the root commit").to_owned(),
             Some(base) => match tab.commits.iter().find(|commit| commit.sha == *base) {
@@ -3413,6 +3461,7 @@ impl App {
             },
         };
         self.overlay = Some(Overlay::Rebase(Box::new(RebaseState {
+            head,
             replay: false,
             preset: None,
             base: base.clone(),
@@ -3470,6 +3519,10 @@ impl App {
             return Task::none();
         }
         let mut state = RebaseState {
+            head: tab
+                .status
+                .as_ref()
+                .and_then(|status| status.branch.oid.clone()),
             replay: true,
             preset: None,
             base: None,
@@ -3536,9 +3589,11 @@ impl App {
                             None => step.message.trim().to_owned(),
                         },
                     ),
+                exec: step.exec.clone(),
             })
             .collect();
         let command = Command::InteractiveRebase {
+            expected_head: state.head.clone(),
             base: state.base.clone(),
             steps,
             autostash: state.autostash,
@@ -4136,6 +4191,7 @@ mod tests {
             file: None,
         };
         let mut state = RebaseState {
+            head: None,
             replay: false,
             preset: None,
             base: None,
@@ -4174,6 +4230,7 @@ mod tests {
         };
         let state = |preset| {
             let mut state = RebaseState {
+                head: None,
                 replay: false,
                 preset: Some(preset),
                 base: None,

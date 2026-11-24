@@ -1003,6 +1003,31 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                         ) {
                             cx.send(Message::RebaseReset);
                         }
+                        let markers = state.steps.iter().any(|step| {
+                            ["fixup! ", "squash! ", "amend! "]
+                                .iter()
+                                .any(|prefix| step.commit.subject.starts_with(prefix))
+                        });
+                        if button_tip(
+                            ui,
+                            look,
+                            "Autosquash",
+                            Kind::Normal,
+                            markers,
+                            "Move fixup! and squash! commits under the commit they name",
+                        ) {
+                            cx.send(Message::RebaseAutosquash);
+                        }
+                        if button_tip(
+                            ui,
+                            look,
+                            "Run after…",
+                            Kind::Normal,
+                            !state.steps.is_empty(),
+                            "Run a command after the highlighted commit, such as the tests",
+                        ) {
+                            cx.send(Message::Action(Action::RebaseExec(state.focused)));
+                        }
                     });
                 });
             });
@@ -1169,13 +1194,22 @@ fn rebase_row(
         } else {
             c.text
         };
-        paint_text(
+        let width = paint_text(
             &painter.with_clip_rect(subject_area),
             Pos2::new(x, mid),
             &step.commit.subject,
             look.ui(size),
             color,
         );
+        if let Some(command) = &step.exec {
+            paint_text(
+                &painter.with_clip_rect(subject_area),
+                Pos2::new(x + width + 12.0, mid),
+                &trf("then runs: {command}", &[("command", command)]),
+                look.mono(size - 1.0),
+                c.text_muted,
+            );
+        }
     }
     paint_text(
         &painter.with_clip_rect(Rect::from_min_size(

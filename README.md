@@ -37,7 +37,10 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Patches** (save a commit, the commits from one up to HEAD, or the local changes as a patch;
   apply / `git am`), **.gitignore** from the changes list, stash selected
   files, clean untracked files, checkout a file at a revision, prune remotes, update submodules.
-- **Interactive rebase** editor: drag to reorder, pick/reword/edit/squash/fixup/drop, keyboard shortcuts.
+- **Interactive rebase** editor: drag to reorder, pick/reword/edit/squash/fixup/drop, keyboard shortcuts,
+  **Autosquash** for `fixup!`/`squash!` commits, and a command to run after any commit (`exec`, e.g. the
+  tests). A plan is refused once the branch has moved since it was made. Commits can also be moved up
+  or down one place from the commit menu.
 - **Conflict resolver**: per-conflict ours/theirs/both choices, editable result, take whole file.
 - **External diff and merge tools**: GitCraft finds the ones git can start (KDiff3, Beyond Compare,
   Meld, P4Merge, WinMerge, VS Code… and any set up as `difftool.<name>.cmd`). Choose them in Settings,

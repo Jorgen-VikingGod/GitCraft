@@ -109,6 +109,8 @@ pub enum Command {
         autostash: bool,
     },
     InteractiveRebase {
+        /// HEAD when the plan was made; the rebase is refused once HEAD has moved.
+        expected_head: Option<String>,
         base: Option<String>,
         steps: Vec<RebaseStep>,
         autostash: bool,
@@ -646,17 +648,24 @@ impl Command {
             Self::Merge { reference, mode } => ops::merge(repo, &reference, &mode).await,
             Self::Rebase { onto, autostash } => ops::rebase(repo, &onto, autostash).await,
             Self::InteractiveRebase {
-                steps,
-                autostash,
-                replay: true,
-                ..
-            } => ops::interactive_cherry_pick(repo, &steps, autostash).await,
-            Self::InteractiveRebase {
+                expected_head,
                 base,
                 steps,
                 autostash,
-                ..
-            } => ops::interactive_rebase(repo, base.as_deref(), &steps, autostash).await,
+                replay,
+            } => {
+                if expected_head.is_some() && queries::head_sha(repo).await? != expected_head {
+                    return Err(gitcraft_core::Error::Invalid(
+                        tr("The branch has changed since this plan was made; open the editor again")
+                            .to_owned(),
+                    ));
+                }
+                if replay {
+                    ops::interactive_cherry_pick(repo, &steps, autostash).await
+                } else {
+                    ops::interactive_rebase(repo, base.as_deref(), &steps, autostash).await
+                }
+            }
             Self::QuickRebase {
                 sha,
                 base,
@@ -669,6 +678,31 @@ impl Command {
                         "Only commits on the current branch can be edited".to_owned(),
                     ));
                 }
+                if let Some(up) = match action {
+                    "up" => Some(true),
+                    "down" => Some(false),
+                    _ => None,
+                } {
+                    let mut steps: Vec<RebaseStep> = candidates
+                        .into_iter()
+                        .map(|commit| RebaseStep {
+                            sha: commit.sha,
+                            action: "pick".to_owned(),
+                            message: None,
+                            exec: None,
+                        })
+                        .collect();
+                    let at = steps.iter().position(|step| step.sha == sha).unwrap_or(0);
+                    // Oldest first: "up" (newer) is later in the list.
+                    let other = if up { at + 1 } else { at.wrapping_sub(1) };
+                    if other >= steps.len() {
+                        return Err(gitcraft_core::Error::Invalid(
+                            tr("The commit can't move further that way").to_owned(),
+                        ));
+                    }
+                    steps.swap(at, other);
+                    return ops::interactive_rebase(repo, base.as_deref(), &steps, true).await;
+                }
                 let steps: Vec<RebaseStep> = candidates
                     .into_iter()
                     .map(|commit| {
@@ -677,6 +711,7 @@ impl Command {
                             action: if chosen { action } else { "pick" }.to_owned(),
                             message: if chosen { message.clone() } else { None },
                             sha: commit.sha,
+                            exec: None,
                         }
                     })
                     .collect();

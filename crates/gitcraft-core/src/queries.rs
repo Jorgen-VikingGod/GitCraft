@@ -30,6 +30,12 @@ pub async fn common_dir(repo: &str) -> Result<PathBuf> {
     Ok(PathBuf::from(result.out().trim()))
 }
 
+/// The commit HEAD points at, if there is one yet.
+pub async fn head_sha(repo: &str) -> Result<Option<String>> {
+    let result = git_unchecked(repo, &["rev-parse", "--verify", "-q", "HEAD"]).await?;
+    Ok((result.code == 0).then(|| result.out().trim().to_owned()))
+}
+
 pub async fn has_head(repo: &str) -> Result<bool> {
     Ok(
         git_unchecked(repo, &["rev-parse", "--verify", "-q", "HEAD"])

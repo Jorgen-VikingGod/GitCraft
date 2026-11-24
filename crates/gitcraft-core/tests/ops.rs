@@ -562,6 +562,7 @@ async fn interactive_rebase_squash_reword_reorder() {
         sha: sha.to_owned(),
         action: action.to_owned(),
         message: message.map(str::to_owned),
+        exec: None,
     };
     let steps = [
         step(&c, "reword", Some("add d (reworded)")),
@@ -2307,11 +2308,13 @@ async fn commits_of_another_branch_are_replayed_onto_head() {
             sha: two,
             action: "pick".into(),
             message: None,
+            exec: None,
         },
         RebaseStep {
             sha: one,
             action: "squash".into(),
             message: Some("both side commits".into()),
+            exec: None,
         },
     ];
     let result = ops::interactive_cherry_pick(&f.repo, &steps, true)
@@ -2340,4 +2343,38 @@ async fn a_merge_commit_is_cherry_picked_against_its_mainline() {
     assert!(result.ok, "{}", result.message);
     assert!(f.exists("f.txt"), "the feature's changes came along");
     assert!(!f.exists("m.txt"), "the mainline's own changes did not");
+}
+
+#[tokio::test]
+async fn an_exec_step_runs_after_its_commit() {
+    let f = Fixture::with_history();
+    f.commit("b.txt", "b\n", "third");
+    let candidates = queries::rebase_candidates(&f.repo, Some("HEAD~2"))
+        .await
+        .unwrap();
+    let steps: Vec<RebaseStep> = candidates
+        .iter()
+        .map(|commit| RebaseStep {
+            sha: commit.sha.clone(),
+            action: "pick".into(),
+            message: None,
+            exec: (commit.subject == "second").then(|| "git tag after-second".to_owned()),
+        })
+        .collect();
+    let result = ops::interactive_rebase(&f.repo, Some("HEAD~2"), &steps, true)
+        .await
+        .unwrap();
+    assert!(result.ok, "{}", result.message);
+    assert_eq!(
+        f.git(&["log", "-1", "--format=%s", "after-second"]),
+        "second\n"
+    );
+    let bad = vec![RebaseStep {
+        exec: Some("one\ntwo".into()),
+        ..steps[0].clone()
+    }];
+    assert!(matches!(
+        ops::interactive_rebase(&f.repo, Some("HEAD~2"), &bad, true).await,
+        Err(Error::Invalid(_))
+    ));
 }

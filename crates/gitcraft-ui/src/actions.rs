@@ -42,6 +42,10 @@ pub enum Action {
     Revert(String),
     /// Asks which parent counts for a merge commit; other commits are picked right away.
     CherryPick(String),
+    /// Asks for a command to run after step `index` of the rebase editor.
+    RebaseExec(usize),
+    /// Swaps a commit with its child (`up`) or its parent.
+    MoveCommit(String, bool),
     Abort,
     CreateTag(String),
     DeleteTag(String),
@@ -494,6 +498,41 @@ impl App {
                 .message(&trf("Rebase {head} onto {label}?", &[("head", &head), ("label", &label)]))
                 .field(Field::check("autostash", "Stash and reapply local changes", self.settings.rebase.autostash));
                 self.ask(form)
+            }
+            Action::RebaseExec(index) => {
+                let current = match &self.overlay {
+                    Some(crate::app::Overlay::Rebase(state)) => {
+                        state.steps.get(index).and_then(|step| step.exec.clone()).unwrap_or_default()
+                    }
+                    _ => return Task::none(),
+                };
+                self.ask(
+                    Form::new("Run a command", "Save", move |values: &Values| {
+                        Message::RebaseExec(index, values.text("command"))
+                    })
+                    .message("Runs in the repository right after this commit is applied (exec). The rebase stops when it fails, for example to fix a failing test. Leave it empty to remove it.")
+                    .field(Field::text("command", "Command", &current).hint("cargo test")),
+                )
+            }
+            Action::MoveCommit(sha, up) => {
+                let Some(commit) = self.commit_by_sha(&sha).cloned() else { return Task::none() };
+                if commit.parents.len() > 1 {
+                    return self.warn("Merge commits cannot be edited this way");
+                }
+                let Some(parent) = commit.parents.first().cloned() else {
+                    return self.warn("The first commit has nothing below it");
+                };
+                // Moving down swaps it with its parent, so the rebase starts one further back.
+                let base = if up {
+                    Some(parent)
+                } else {
+                    match self.commit_by_sha(&parent).map(|parent| parent.parents.clone()) {
+                        Some(grand) if grand.is_empty() => None,
+                        Some(grand) => grand.first().cloned(),
+                        None => Some(format!("{parent}^")),
+                    }
+                };
+                Task::done(run(Command::QuickRebase { sha, base, action: if up { "up" } else { "down" }, message: None }))
             }
             Action::CherryPick(sha) => {
                 let Some(commit) = self.commit_by_sha(&sha).cloned() else {
@@ -1692,6 +1731,16 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
                 act(Action::Squash(sha.clone())),
             ),
             MenuItem::danger("Drop commit…", act(Action::DropCommit(sha.clone()))),
+            MenuItem::entry_if(
+                "Move up (after its child)",
+                !is_head,
+                act(Action::MoveCommit(sha.clone(), true)),
+            ),
+            MenuItem::entry_if(
+                "Move down (before its parent)",
+                has_parent,
+                act(Action::MoveCommit(sha.clone(), false)),
+            ),
             MenuItem::Separator,
             MenuItem::entry_if(
                 "Fixup commit of the staged changes",

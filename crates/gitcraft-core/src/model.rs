@@ -377,6 +377,10 @@ pub struct RebaseStep {
     pub action: String,
     #[serde(default)]
     pub message: Option<String>,
+    /// A shell command run right after this step (an `exec` line); the rebase stops when it
+    /// fails.
+    #[serde(default)]
+    pub exec: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
