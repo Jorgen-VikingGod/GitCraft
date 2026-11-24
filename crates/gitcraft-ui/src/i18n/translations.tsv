@@ -483,6 +483,8 @@ Searching…	Suche läuft…	Recherche…	Buscando…
 Select a commit	Commit auswählen	Sélectionnez un commit	Selecciona un commit
 Select a commit to see its details	Wähle einen Commit, um seine Details zu sehen	Sélectionnez un commit pour voir ses détails	Selecciona un commit para ver sus detalles
 Select a file to see its changes	Wähle eine Datei, um ihre Änderungen zu sehen	Sélectionnez un fichier pour voir ses modifications	Selecciona un archivo para ver sus cambios
+Selected changes in {path}	Ausgewählte Änderungen in {path}	Modifications sélectionnées dans {path}	Cambios seleccionados en {path}
+Selected changes stashed	Ausgewählte Änderungen gestasht	Modifications sélectionnées remisées	Cambios seleccionados guardados en stash
 Set upstream…	Upstream setzen…	Définir la branche amont…	Establecer upstream…
 Setting upstream	Upstream wird gesetzt	Définition de la branche amont	Estableciendo upstream
 Settings	Einstellungen	Paramètres	Ajustes
@@ -523,12 +525,14 @@ Stash	Stash	Remiser	Stash
 Stash and reapply local changes	Lokale Änderungen in den Stash legen und wieder anwenden	Remiser puis réappliquer les modifications locales	Guardar en el stash y volver a aplicar los cambios locales
 Stash applied	Stash angewendet	Remise appliquée	Stash aplicado
 Stash changes	Änderungen in den Stash legen	Remiser les modifications	Guardar cambios en el stash
+Stash hunk	Hunk stashen	Remiser le bloc	Guardar bloque en stash
 Stash local changes automatically	Lokale Änderungen automatisch in den Stash legen	Remiser automatiquement les modifications locales	Guardar los cambios locales en el stash automáticamente
 Stash not found	Stash nicht gefunden	Remise introuvable	Stash no encontrado
 Stash popped	Stash angewendet und verworfen	Remise appliquée et supprimée	Stash aplicado y descartado
 Stash selected files	Ausgewählte Dateien in den Stash legen	Remiser les fichiers sélectionnés	Guardar los archivos seleccionados en el stash
 Stash staged changes only	Nur vorgemerkte Änderungen in den Stash legen	Remiser seulement les modifications indexées	Guardar solo los cambios preparados en el stash
 Stash {count} files…	{count} Dateien in den Stash legen…	Remiser {count} fichiers…	Guardar {count} archivos en el stash…
+Stash {lines}	{lines} stashen	Remiser {lines}	Guardar {lines} en stash
 Stashes	Stashes	Remises	Stashes
 Stashing	Wird in den Stash gelegt	Remisage	Guardando en el stash
 Stash…	Stash…	Remiser…	Stash…

@@ -186,6 +186,12 @@ pub enum Command {
     RestoreDiscard {
         name: String,
     },
+    /// Stashes the selected hunks/lines of one file.
+    StashSelection {
+        path: String,
+        selection: Selection,
+        context: i64,
+    },
     DeleteDiscard {
         name: String,
     },
@@ -302,6 +308,7 @@ impl Command {
             Self::UnstageAll => "Unstaging all".into(),
             Self::Discard { .. } => "Discarding".into(),
             Self::RestoreDiscard { .. } => "Restoring discarded changes".into(),
+            Self::StashSelection { .. } => "Stashing".into(),
             Self::DeleteDiscard { .. } => "Deleting backup".into(),
             Self::Selection { mode, .. } => match *mode {
                 "stage" => "Staging".into(),
@@ -367,6 +374,7 @@ impl Command {
             Self::Undo { label } => trf("Undone: {action}", &[("action", tr(label))]),
             Self::Redo { label } => trf("Redone: {action}", &[("action", tr(label))]),
             Self::RestoreDiscard { .. } => "Discarded changes restored".into(),
+            Self::StashSelection { .. } => "Selected changes stashed".into(),
             Self::DeleteDiscard { .. } => "Backup deleted".into(),
             Self::Resolve { path, .. } => trf("Resolved {path}", &[("path", path)]),
             Self::CheckoutStashing { reapply: true, .. } => {
@@ -658,6 +666,14 @@ impl Command {
             Self::Unstage { paths } => ops::unstage_files(repo, &paths).await.map(|()| done()),
             Self::UnstageAll => ops::unstage_all(repo).await.map(|()| done()),
             Self::Discard { paths } => ops::discard_files(repo, &paths).await.map(|()| done()),
+            Self::StashSelection {
+                path,
+                selection,
+                context,
+            } => {
+                let message = trf("Selected changes in {path}", &[("path", &path)]);
+                ops::stash_selection(repo, &path, &selection, context, &message).await
+            }
             Self::RestoreDiscard { name } => {
                 ops::restore_discard(repo, &name).await.map(|()| done())
             }

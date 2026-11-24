@@ -2614,6 +2614,13 @@ impl App {
         let count = lines.len();
         let chosen = (!lines.is_empty()).then(|| lines.into_iter().collect());
         let selection: Selection = BTreeMap::from([(hunk, chosen)]);
+        if mode == "stash" {
+            return Task::done(Message::Run(Command::StashSelection {
+                path: path.clone(),
+                selection,
+                context,
+            }));
+        }
         let command = Command::Selection {
             path: path.clone(),
             mode,

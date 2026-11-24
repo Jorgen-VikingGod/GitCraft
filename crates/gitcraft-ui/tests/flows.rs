@@ -2393,3 +2393,37 @@ async fn commit_options_sign_off_co_authors_and_push_after() {
     drive(&mut app, Message::FormCancel).await;
     assert_eq!(f.subjects(), ["second", "first"]);
 }
+
+#[tokio::test]
+async fn a_hunk_goes_into_a_stash_of_its_own() {
+    let f = empty_fixture();
+    let lines: String = (1..=20).map(|n| format!("line {n}\n")).collect();
+    f.commit("a.txt", &lines, "first");
+    let changed = lines
+        .replace("line 2\n", "line 2 changed\n")
+        .replace("line 18\n", "line 18 changed\n");
+    f.write("a.txt", &changed);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    drive(
+        &mut app,
+        Message::FilePicked(Area::Unstaged, "a.txt".into()),
+    )
+    .await;
+    let clicked = Screen::new().click(&app, "Stash hunk", PointerButton::Primary);
+    assert!(!clicked.is_empty());
+    for message in clicked {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(f.git(&["stash", "list"]).lines().count(), 1);
+    assert!(
+        f.git(&["stash", "list"])
+            .contains("Selected changes in a.txt")
+    );
+    assert_eq!(
+        app.current().unwrap().refs.stashes.len(),
+        1,
+        "the sidebar shows it"
+    );
+    assert_ne!(f.read("a.txt"), changed, "one of the changes left the file");
+}

@@ -2042,3 +2042,46 @@ async fn commit_options_sign_off_trailers_skip_hooks_and_stage_all() {
         Err(Error::Invalid(_))
     ));
 }
+
+#[tokio::test]
+async fn stashing_one_hunk_keeps_the_rest_and_applies_back() {
+    let f = Fixture::empty();
+    let lines: String = (1..=20).map(|n| format!("line {n}\n")).collect();
+    f.commit("a.txt", &lines, "first");
+    let changed = lines
+        .replace("line 2\n", "line 2 changed\n")
+        .replace("line 18\n", "line 18 changed\n");
+    f.write("a.txt", &changed);
+    let diff = queries::working_diff(&f.repo, "a.txt", false, 3, false, None)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(diff.hunks.len(), 2);
+    ops::stash_selection(&f.repo, "a.txt", &whole(1), 3, "the second change")
+        .await
+        .unwrap();
+    assert_eq!(
+        f.read("a.txt"),
+        lines.replace("line 2\n", "line 2 changed\n")
+    );
+    assert!(f.git(&["stash", "list"]).contains("the second change"));
+    let stashed = f.git(&["stash", "show", "-p", "stash@{0}"]);
+    assert!(stashed.contains("+line 18 changed") && !stashed.contains("line 2 changed"));
+    // Like any stash, it applies to a file without local changes.
+    f.git(&["checkout", "--", "a.txt"]);
+    ops::stash_apply(&f.repo, "stash@{0}", true).await.unwrap();
+    assert_eq!(
+        f.read("a.txt"),
+        lines.replace("line 18\n", "line 18 changed\n")
+    );
+    assert!(
+        f.git(&["diff", "--cached"]).is_empty(),
+        "nothing comes back staged"
+    );
+
+    f.git(&["add", "a.txt"]);
+    assert!(matches!(
+        ops::stash_selection(&f.repo, "a.txt", &whole(0), 3, "x").await,
+        Err(Error::Invalid(_))
+    ));
+}

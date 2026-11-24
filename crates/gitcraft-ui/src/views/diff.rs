@@ -10,8 +10,8 @@ use egui::{
 use gitcraft_core::model::{DiffLine, FileDiff};
 
 use super::widgets::{
-    accent, bar, danger, fill, hline, paint_text, placeholder, region, scroll, segmented, split_x,
-    text, warning,
+    accent, bar, btn, danger, fill, hline, paint_text, placeholder, region, scroll, segmented,
+    split_x, text, warning,
 };
 use super::{Cx, icon};
 use crate::app::{DIFF_ROW_HEIGHT, DiffPane, DiffRow, Message, PaneKey};
@@ -322,16 +322,18 @@ impl Lines<'_> {
         let name = |verb: &str| match (verb, count > 0) {
             ("Stage", true) => trf("Stage {lines}", &[("lines", &lines)]),
             ("Discard", true) => trf("Discard {lines}", &[("lines", &lines)]),
+            ("Stash", true) => trf("Stash {lines}", &[("lines", &lines)]),
             (_, true) => trf("Unstage {lines}", &[("lines", &lines)]),
             ("Stage", false) => tr("Stage hunk").to_owned(),
             ("Discard", false) => tr("Discard hunk").to_owned(),
+            ("Stash", false) => tr("Stash hunk").to_owned(),
             (_, false) => tr("Unstage hunk").to_owned(),
         };
         let Some(mode) = stage_mode.filter(|_| show_buttons) else {
             return;
         };
         let slot = Rect::from_min_max(
-            Pos2::new((visible_right - 420.0).max(rect.left()), rect.top() + 4.0),
+            Pos2::new((visible_right - 560.0).max(rect.left()), rect.top() + 4.0),
             Pos2::new(visible_right - 10.0, rect.bottom() - 4.0),
         );
         region(ui, slot, |ui| {
@@ -343,6 +345,9 @@ impl Lines<'_> {
                     }
                     if danger(ui, look, &name("Discard"), true) {
                         self.cx.send(Message::HunkAction(index, "discard"));
+                    }
+                    if btn(ui, look, &name("Stash"), true) {
+                        self.cx.send(Message::HunkAction(index, "stash"));
                     }
                 } else if warning(ui, look, &name("Unstage"), true) {
                     self.cx.send(Message::HunkAction(index, "unstage"));

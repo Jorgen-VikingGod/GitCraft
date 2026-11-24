@@ -213,6 +213,145 @@ pub async fn apply_selection(
     }
 }
 
+/// Stashes only the selected hunks/lines of one file, and takes them out of the working tree.
+/// The file must have no staged changes, so the stash holds exactly the selection on top of
+/// HEAD and applies (with or without `--index`) like any other stash.
+pub async fn stash_selection(
+    repo: &str,
+    path: &str,
+    selection: &Selection,
+    context: i64,
+    message: &str,
+) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let status = queries::status(repo).await?;
+    if status.branch.oid.is_none() {
+        return invalid("Stashing needs a first commit");
+    }
+    if status.staged.iter().any(|entry| entry.path == path) {
+        return invalid("This file has staged changes: unstage it, or stash the whole file");
+    }
+    let Some(file_diff) = queries::working_diff(repo, path, false, context, false, None).await?
+    else {
+        return invalid("No changes to stash in this file");
+    };
+    if file_diff.status == "?" {
+        return invalid("Untracked files can only be stashed as a whole");
+    }
+    if file_diff.hunks.is_empty() || selection.keys().any(|hunk| *hunk >= file_diff.hunks.len()) {
+        return invalid("The diff changed, please refresh");
+    }
+    let forward = parsers::build_partial_patch(&file_diff, selection, false);
+    let reverse = parsers::build_partial_patch(&file_diff, selection, true);
+    let mut apply = vec!["apply", "--recount", "--whitespace=nowarn"];
+    if context <= 0 {
+        apply.push("--unidiff-zero");
+    }
+    // Checked before anything is written, so a stale diff changes nothing.
+    let mut check = apply.clone();
+    check.extend(["--check", "-R", "-"]);
+    run(
+        repo,
+        &check,
+        Options {
+            stdin: Some(&reverse),
+            ..Options::default()
+        },
+    )
+    .await?;
+
+    let head = git(repo, &["rev-parse", "HEAD"])
+        .await?
+        .out()
+        .trim()
+        .to_owned();
+    let head_tree = format!("{head}^{{tree}}");
+    let index_file = queries::git_dir(repo)
+        .await?
+        .join(format!("gitcraft-stash-{}.index", std::process::id()));
+    let env = || vec![("GIT_INDEX_FILE", index_file.to_string_lossy().into_owned())];
+    let tree = async {
+        run(
+            repo,
+            &["read-tree", "HEAD"],
+            Options {
+                env: env(),
+                ..Options::default()
+            },
+        )
+        .await?;
+        let mut cached = apply.clone();
+        cached.extend(["--cached", "-"]);
+        run(
+            repo,
+            &cached,
+            Options {
+                stdin: Some(&forward),
+                env: env(),
+                ..Options::default()
+            },
+        )
+        .await?;
+        let tree = run(
+            repo,
+            &["write-tree"],
+            Options {
+                env: env(),
+                ..Options::default()
+            },
+        )
+        .await?;
+        Ok::<String, Error>(tree.out().trim().to_owned())
+    }
+    .await;
+    let _ = std::fs::remove_file(&index_file);
+    let tree = tree?;
+
+    let branch = status
+        .branch
+        .head
+        .clone()
+        .unwrap_or_else(|| "(no branch)".to_owned());
+    let short: String = head.chars().take(7).collect();
+    let commit = |tree: String, parents: Vec<String>, text: String| async move {
+        let mut args = vec!["commit-tree".to_owned(), "--no-gpg-sign".to_owned(), tree];
+        for parent in parents {
+            args.extend(["-p".to_owned(), parent]);
+        }
+        args.extend(["-m".to_owned(), text]);
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        Ok::<String, Error>(git(repo, &args).await?.out().trim().to_owned())
+    };
+    // The index part holds nothing beyond HEAD.
+    let index = commit(
+        head_tree.clone(),
+        vec![head.clone()],
+        format!("index on {branch}: {short}"),
+    )
+    .await?;
+    let stash = commit(
+        tree,
+        vec![head.clone(), index],
+        format!("On {branch}: {message}"),
+    )
+    .await?;
+    let store_message = format!("On {branch}: {message}");
+    git(repo, &["stash", "store", "-m", &store_message, &stash]).await?;
+    let mut remove = apply;
+    remove.extend(["-R", "-"]);
+    run(
+        repo,
+        &remove,
+        Options {
+            stdin: Some(&reverse),
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(ok_empty())
+}
+
 /// Puts discarded changes back from their backup (see [`queries::discard_backups`]).
 /// Refuses, changing nothing, when any of the files changed since the discard.
 pub async fn restore_discard(repo: &str, name: &str) -> Result<()> {

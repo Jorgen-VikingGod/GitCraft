@@ -36,7 +36,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
   Meld, P4Merge, WinMerge, VS Code… and any set up as `difftool.<name>.cmd`). Choose them in Settings,
   then open a file's change or a conflict in them from its right-click menu.
 - **Checkout with local changes** asks first: stash and reapply, commit first, or put them aside in a stash.
-- **Stashes**: create (incl. untracked / staged only), browse, apply, pop, drop.
+- **Stashes**: create (incl. untracked / staged only, or just a hunk or some lines of a file), browse,
+  apply, pop, drop.
 - **Worktrees**: listed in the sidebar with their branch; add, open in a new tab, remove, prune. Tabs and the window title show when a repository is a linked worktree.
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).
 - Repository **tabs**, recent repositories, clone, init.
