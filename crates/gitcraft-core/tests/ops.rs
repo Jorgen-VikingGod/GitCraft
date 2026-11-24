@@ -2174,3 +2174,30 @@ async fn stash_untracked_only_rename_take_one_file_and_find_by_sha() {
     ));
     assert_eq!(f.git(&["stash", "list"]).lines().count(), 1);
 }
+
+#[tokio::test]
+async fn a_fixup_commit_names_its_target() {
+    let f = Fixture::with_history();
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    assert!(
+        matches!(
+            ops::commit_fixup(&f.repo, &first).await,
+            Err(Error::Invalid(_))
+        ),
+        "nothing staged"
+    );
+    f.write("b.txt", "fix\n");
+    f.git(&["add", "b.txt"]);
+    ops::commit_fixup(&f.repo, &first).await.unwrap();
+    assert_eq!(f.git(&["log", "-1", "--format=%s"]), "fixup! first\n");
+    f.git(&["switch", "-q", "--orphan", "elsewhere"]);
+    f.write("c.txt", "c\n");
+    f.git(&["add", "c.txt"]);
+    assert!(
+        matches!(
+            ops::commit_fixup(&f.repo, &first).await,
+            Err(Error::Invalid(_))
+        ),
+        "not on this branch"
+    );
+}

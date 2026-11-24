@@ -2501,3 +2501,26 @@ async fn stashes_are_renamed_and_untracked_files_stashed_alone() {
     drive(&mut app, take).await;
     assert_eq!(f.read("new.txt"), "new\n");
 }
+
+#[tokio::test]
+async fn the_commit_menu_makes_a_fixup_commit() {
+    let f = fixture();
+    f.write("a.txt", "fixed\n");
+    f.git(&["add", "a.txt"]);
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "first commit");
+    let commit = app
+        .current()
+        .unwrap()
+        .commits
+        .iter()
+        .find(|c| c.sha == sha)
+        .unwrap()
+        .clone();
+    let items = commit_menu_items(app.current().unwrap(), &commit, None);
+    let Some(Some(fixup)) = find_entry(&items, "Fixup commit of the staged changes") else {
+        panic!("offered with staged changes")
+    };
+    drive(&mut app, fixup).await;
+    assert_eq!(f.subjects()[0], "fixup! first commit");
+}

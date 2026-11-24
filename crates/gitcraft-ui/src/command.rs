@@ -230,6 +230,10 @@ pub enum Command {
         amend: bool,
         options: CommitOptions,
     },
+    /// A `fixup!` commit of the staged changes for `sha`.
+    FixupCommit {
+        sha: String,
+    },
     /// `label` is the English label of what is undone, for the messages.
     Undo {
         label: String,
@@ -341,6 +345,7 @@ impl Command {
             Self::Resolve { .. } => "Resolving conflict".into(),
             Self::Commit { amend: true, .. } => "Amending commit".into(),
             Self::Commit { .. } => "Committing".into(),
+            Self::FixupCommit { .. } => "Committing".into(),
             Self::Undo { .. } => "Undoing".into(),
             Self::Redo { .. } => "Redoing".into(),
         };
@@ -397,6 +402,10 @@ impl Command {
             ),
             Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
+            Self::FixupCommit { sha } => trf(
+                "Fixup commit for {commit} created; an interactive rebase with autosquash folds it in",
+                &[("commit", short_sha(sha))],
+            ),
             Self::Undo { label } => trf("Undone: {action}", &[("action", tr(label))]),
             Self::Redo { label } => trf("Redone: {action}", &[("action", tr(label))]),
             Self::RestoreDiscard { .. } => "Discarded changes restored".into(),
@@ -424,7 +433,7 @@ impl Command {
     pub fn undo_kind(&self) -> Option<(&'static str, Mode)> {
         Some(match self {
             Self::Commit { amend: true, .. } => ("Amend", Mode::Soft),
-            Self::Commit { .. } => ("Commit", Mode::Soft),
+            Self::Commit { .. } | Self::FixupCommit { .. } => ("Commit", Mode::Soft),
             Self::Reset { undo: true, .. } => ("Undo last commit", Mode::Soft),
             Self::Reset { mode, .. } => (
                 "Reset",
@@ -738,6 +747,7 @@ impl Command {
                 amend,
                 options,
             } => ops::commit_with(repo, &message, amend, &options).await,
+            Self::FixupCommit { sha } => ops::commit_fixup(repo, &sha).await,
             Self::Undo { .. } => ops::undo(repo).await.map(|_| done()),
             Self::Redo { .. } => ops::redo(repo).await.map(|_| done()),
         }

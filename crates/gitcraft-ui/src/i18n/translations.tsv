@@ -238,6 +238,8 @@ File	Datei	Fichier	Archivo
 File history	Dateiverlauf	Historique du fichier	Historial del archivo
 Files stashed	Dateien im Stash abgelegt	Fichiers remisés	Archivos guardados en el stash
 Filter branches & tags	Branches & Tags filtern	Filtrer branches et tags	Filtrar ramas y etiquetas
+Fixup commit for {commit} created; an interactive rebase with autosquash folds it in	Fixup-Commit für {commit} erstellt; ein interaktiver Rebase mit Autosquash fügt ihn ein	Commit fixup pour {commit} créé ; un rebase interactif avec autosquash l’intègre	Commit fixup para {commit} creado; un rebase interactivo con autosquash lo integra
+Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen	Commit fixup des modifications indexées	Commit fixup de los cambios preparados
 Fold “{subject}” into its parent commit.	„{subject}“ in den Eltern-Commit einfalten.	Fusionner « {subject} » dans son commit parent.	Integrar «{subject}» en su commit padre.
 Folder	Ordner	Dossier	Carpeta
 Folder name	Ordnername	Nom du dossier	Nombre de la carpeta

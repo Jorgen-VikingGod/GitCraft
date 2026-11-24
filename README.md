@@ -22,7 +22,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Merge, rebase (with optional autostash), cherry-pick, revert, reset (soft/mixed/keep/hard), undo last
   commit** from context menus on commits, branch/tag badges and sidebar refs; banner with
   Continue/Skip/Abort while an operation is in progress.
-- **Edit history** from the commit menu: edit message, squash/fixup into parent, drop commit. In a
+- **Edit history** from the commit menu: edit message, squash/fixup into parent, drop commit, make a
+  `fixup!` commit of the staged changes for any commit of the branch. In a
   commit's diff, **Revert hunk** (or selected lines) takes just that part back out of the working tree.
 - **Undo and redo** (*Edit* menu, Ctrl/⌘ + Z) for commits, amends, resets, checkouts, branches, tags,
   merges, rebases, cherry-picks, reverts, pulls and discards. Discarded changes are also kept for 30

@@ -1638,6 +1638,14 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
                 act(Action::Squash(sha.clone())),
             ),
             MenuItem::danger("Drop commit…", act(Action::DropCommit(sha.clone()))),
+            MenuItem::Separator,
+            MenuItem::entry_if(
+                "Fixup commit of the staged changes",
+                tab.status
+                    .as_ref()
+                    .is_some_and(|status| !status.staged.is_empty()),
+                run(Command::FixupCommit { sha: sha.clone() }),
+            ),
         ],
     ));
     items.push(MenuItem::Separator);

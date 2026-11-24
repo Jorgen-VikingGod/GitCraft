@@ -213,6 +213,26 @@ pub async fn apply_selection(
     }
 }
 
+/// Commits the staged changes as `fixup! <subject of sha>`, to be folded into `sha` by an
+/// interactive rebase with autosquash. `sha` must be on the current branch.
+pub async fn commit_fixup(repo: &str, sha: &str) -> Result<OpResult> {
+    let sha = check_ref(sha)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if queries::operation_state(repo).await?.is_some() {
+        return invalid("Finish or abort the operation in progress first");
+    }
+    if queries::status(repo).await?.staged.is_empty() {
+        return invalid("Stage the changes that belong to that commit first");
+    }
+    let ancestor = git_unchecked(repo, &["merge-base", "--is-ancestor", sha, "HEAD"]).await?;
+    if ancestor.code != 0 {
+        return invalid("That commit is not on the current branch");
+    }
+    let fixup = format!("--fixup={sha}");
+    Ok(ok(&git(repo, &["commit", "-q", &fixup]).await?))
+}
+
 /// Stashes only the selected hunks/lines of one file, and takes them out of the working tree.
 /// The file must have no staged changes, so the stash holds exactly the selection on top of
 /// HEAD and applies (with or without `--index`) like any other stash.
