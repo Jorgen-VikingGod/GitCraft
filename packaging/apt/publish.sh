@@ -70,7 +70,7 @@ curl -fsSL https://jorgen-vikinggod.github.io/GitCraft/gitcraft.gpg \
 echo "deb [signed-by=/etc/apt/keyrings/gitcraft.gpg] https://jorgen-vikinggod.github.io/GitCraft stable main" \
   | sudo tee /etc/apt/sources.list.d/gitcraft.list
 sudo apt update
-sudo apt install gitcraft</pre>
+sudo apt install git-craft</pre>
 <p>Updates then come with the rest of your system.</p>
 <p><a href="https://github.com/Jorgen-VikingGod/GitCraft">Project page</a></p>
 HTML
