@@ -235,6 +235,7 @@ Discarded changes are kept for 30 days (the last 50). Putting them back never ov
 Discarded changes restored	Verworfene Änderungen wiederhergestellt	Modifications supprimées restaurées	Cambios descartados restaurados
 Discarding	Wird verworfen	Suppression	Descartando
 Done	Fertig	Terminé	Listo
+Download everything the partial clone left out	Alles herunterladen, was der Teilklon ausgelassen hat	Télécharger tout ce que le clone partiel a laissé de côté	Descargar todo lo que el clon parcial omitió
 Drag up or down to move this commit (or Alt + ↑ / ↓)	Nach oben oder unten ziehen, um diesen Commit zu verschieben (oder Alt + ↑ / ↓)	Faites glisser vers le haut ou le bas pour déplacer ce commit (ou Alt + ↑ / ↓)	Arrastra arriba o abajo para mover este commit (o Alt + ↑ / ↓)
 Drop	Verwerfen	Supprimer	Descartar
 Drop commit	Commit verwerfen	Supprimer le commit	Descartar commit
@@ -265,13 +266,16 @@ Fast-forward to {upstream}	Auf {upstream} vorspulen	Avancer jusqu’à {upstream
 Fast-forward {branch} to here	{branch} bis hierher vorspulen	Avancer {branch} jusqu’ici	Avanzar {branch} hasta aquí
 Fast-forwarding	Wird vorgespult	Avance rapide	Avanzando
 Fetch	Fetch	Récupérer	Recuperar
+Fetch 500 more commits	500 weitere Commits abrufen	Récupérer 500 commits de plus	Obtener 500 commits más
 Fetch after adding	Nach dem Hinzufügen abrufen	Récupérer après l’ajout	Recuperar después de añadir
 Fetch all remotes (incl. tags)	Alle Remotes abrufen (inkl. Tags)	Récupérer tous les dépôts distants (tags compris)	Recuperar todos los remotos (con etiquetas)
 Fetch complete	Fetch abgeschlossen	Récupération terminée	Recuperación completada
 Fetch in the background every (minutes, 0 = never)	Im Hintergrund abrufen alle (Minuten, 0 = nie)	Récupérer en arrière-plan toutes les (minutes, 0 = jamais)	Obtener en segundo plano cada (minutos, 0 = nunca)
+Fetch the whole history	Den ganzen Verlauf abrufen	Récupérer tout l’historique	Obtener todo el historial
 Fetch when opening a repository	Beim Öffnen eines Repositorys abrufen	Récupérer à l’ouverture d’un dépôt	Recuperar al abrir un repositorio
 Fetch {name}	{name} abrufen	Récupérer {name}	Recuperar {name}
 Fetching	Fetch läuft	Récupération	Recuperando
+Fetching more history	Weiterer Verlauf wird abgerufen	Récupération de l’historique supplémentaire	Obteniendo más historial
 Fetching {remote}	{remote} wird abgerufen	Récupération de {remote}	Recuperando {remote}
 File	Datei	Fichier	Archivo
 File history	Dateiverlauf	Historique du fichier	Historial del archivo
@@ -378,6 +382,7 @@ Minimize	Minimieren	Réduire	Minimizar
 missing	fehlt	manquant	falta
 Mixed: keep changes, unstaged	Gemischt: Änderungen behalten, nicht vorgemerkt	Mixte : garder les modifications, non indexées	Mixto: conservar los cambios sin preparar
 More	Mehr	Plus	Más
+More history fetched	Weiterer Verlauf abgerufen	Historique supplémentaire récupéré	Más historial obtenido
 Move down (before its parent)	Nach unten (vor sein Elternteil)	Descendre (avant son parent)	Bajar (antes de su padre)
 Move fixup! and squash! commits under the commit they name	fixup!- und squash!-Commits unter den genannten Commit verschieben	Placer les commits fixup! et squash! sous le commit qu’ils nomment	Mover los commits fixup! y squash! bajo el commit que nombran
 Move left	Nach links	Déplacer à gauche	Mover a la izquierda

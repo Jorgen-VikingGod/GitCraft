@@ -243,6 +243,10 @@ pub enum Command {
         amend: bool,
         options: CommitOptions,
     },
+    /// Downloads what a shallow or partial clone left out: deepen, unshallow or refetch.
+    FetchMore {
+        how: &'static str,
+    },
     BisectStart {
         bad: String,
         good: String,
@@ -377,6 +381,7 @@ impl Command {
             Self::FixupCommit { .. } => "Committing".into(),
             Self::MarkConflicted { .. } => "Marking as conflicted".into(),
             Self::BisectStart { .. } | Self::BisectMark { .. } => "Bisecting".into(),
+            Self::FetchMore { .. } => "Fetching more history".into(),
             Self::BisectReset => "Ending bisect".into(),
             Self::Undo { .. } => "Undoing".into(),
             Self::Redo { .. } => "Redoing".into(),
@@ -439,6 +444,7 @@ impl Command {
             ),
             Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
+            Self::FetchMore { .. } => "More history fetched".into(),
             Self::FixupCommit { sha } => trf(
                 "Fixup commit for {commit} created; an interactive rebase with autosquash folds it in",
                 &[("commit", short_sha(sha))],
@@ -517,6 +523,7 @@ impl Command {
                 | Self::PushTag { .. }
                 | Self::PruneRemote { .. }
                 | Self::UpdateSubmodules
+                | Self::FetchMore { .. }
         )
     }
 
@@ -835,6 +842,7 @@ impl Command {
             Self::FixupCommit { sha } => ops::commit_fixup(repo, &sha).await,
             Self::MarkConflicted { paths } => ops::mark_conflicted(repo, &paths).await,
             Self::BisectStart { bad, good } => ops::bisect_start(repo, &bad, &good).await,
+            Self::FetchMore { how } => ops::fetch_more(repo, how, report).await,
             Self::BisectMark { verdict, sha } => {
                 ops::bisect_mark(repo, verdict, sha.as_deref()).await
             }

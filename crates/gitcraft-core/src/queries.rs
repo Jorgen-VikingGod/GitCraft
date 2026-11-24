@@ -564,6 +564,12 @@ pub async fn refs(repo: &str) -> Result<Refs> {
     }
     let head = git_unchecked(repo, &["rev-parse", "HEAD"]).await?;
     data.head = (head.code == 0).then(|| head.out().trim().to_owned());
+    let (shallow, partial) = tokio::join!(
+        git_unchecked(repo, &["rev-parse", "--is-shallow-repository"]),
+        git_unchecked(repo, &["config", "--get", "extensions.partialClone"]),
+    );
+    data.shallow = shallow?.out().trim() == "true";
+    data.partial = partial?.code == 0;
     Ok(data)
 }
 

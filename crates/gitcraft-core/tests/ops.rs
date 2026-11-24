@@ -2743,3 +2743,35 @@ async fn a_background_fetch_says_whether_anything_came_in() {
         "FETCH_HEAD is left alone"
     );
 }
+
+#[tokio::test]
+async fn a_shallow_clone_gets_more_history() {
+    let f = Fixture::with_history();
+    f.commit("b.txt", "b\n", "third");
+    let url = format!("file://{}", f.repo.replace('\\', "/"));
+    let clone = f.root.join("shallow");
+    raw_git(
+        &f.root,
+        &["clone", "-q", "--depth", "1", &url, clone.to_str().unwrap()],
+    );
+    let repo = clone.to_str().unwrap();
+    let refs = queries::refs(repo).await.unwrap();
+    assert!(refs.shallow && !refs.partial);
+    assert_eq!(raw_git(&clone, &["rev-list", "--count", "HEAD"]), b"1\n");
+    ops::fetch_more(repo, "deepen", None).await.unwrap();
+    assert_eq!(raw_git(&clone, &["rev-list", "--count", "HEAD"]), b"3\n");
+    let other = f.root.join("shallow-too");
+    raw_git(
+        &f.root,
+        &["clone", "-q", "--depth", "1", &url, other.to_str().unwrap()],
+    );
+    let other = other.to_str().unwrap();
+    ops::fetch_more(other, "unshallow", None).await.unwrap();
+    assert!(!queries::refs(other).await.unwrap().shallow);
+    assert!(
+        queries::refs(&f.repo)
+            .await
+            .map(|refs| !refs.shallow)
+            .unwrap()
+    );
+}

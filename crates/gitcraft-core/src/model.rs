@@ -233,6 +233,12 @@ pub struct Refs {
     pub worktrees: Vec<Worktree>,
     pub submodules: Vec<Submodule>,
     pub head: Option<String>,
+    /// A shallow clone: older history wasn't downloaded.
+    #[serde(default)]
+    pub shallow: bool,
+    /// A partial clone: some files' contents are downloaded only when needed.
+    #[serde(default)]
+    pub partial: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

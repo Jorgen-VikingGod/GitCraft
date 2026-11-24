@@ -2017,8 +2017,30 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
             }),
         ),
         MenuItem::entry("Add remote…", act(Action::AddRemote)),
-        MenuItem::entry("Add worktree…", act(Action::AddWorktree(None))),
     ];
+    // A shallow or partial clone can get what it left out.
+    if tab.refs.shallow {
+        items.extend([
+            MenuItem::entry(
+                "Fetch 500 more commits",
+                run(Command::FetchMore { how: "deepen" }),
+            ),
+            MenuItem::entry(
+                "Fetch the whole history",
+                run(Command::FetchMore { how: "unshallow" }),
+            ),
+        ]);
+    }
+    if tab.refs.partial {
+        items.push(MenuItem::entry(
+            "Download everything the partial clone left out",
+            run(Command::FetchMore { how: "refetch" }),
+        ));
+    }
+    items.extend([MenuItem::entry(
+        "Add worktree…",
+        act(Action::AddWorktree(None)),
+    )]);
     if !tab.refs.submodules.is_empty() {
         items.push(MenuItem::entry(
             "Update submodules",

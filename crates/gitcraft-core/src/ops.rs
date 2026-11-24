@@ -910,6 +910,20 @@ pub async fn fetch_background(repo: &str, prune: bool) -> Result<bool> {
     Ok(refs().await?.out() != before)
 }
 
+/// Downloads history a shallow or partial clone left out: `deepen` 500 more commits,
+/// `unshallow` all of it, or `refetch` everything a partial clone filtered out.
+pub async fn fetch_more(repo: &str, how: &str, progress: Option<&Progress>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let args: Vec<&str> = match how {
+        "deepen" => vec!["fetch", "--progress", "--deepen=500"],
+        "unshallow" => vec!["fetch", "--progress", "--unshallow"],
+        "refetch" => vec!["fetch", "--progress", "--refetch", "--no-filter"],
+        other => return invalid(format!("Unknown way to fetch more: {other}")),
+    };
+    Ok(ok(&run(repo, &args, with_progress(progress)).await?))
+}
+
 /// Pulls with mode merge, rebase or ff-only; autostash stashes local changes and reapplies them.
 pub async fn pull(
     repo: &str,

@@ -2990,3 +2990,29 @@ async fn repositories_are_fetched_in_the_background_when_due() {
         "the sidebar shows what came in"
     );
 }
+
+#[tokio::test]
+async fn a_shallow_clone_offers_to_fetch_more_history() {
+    let f = fixture();
+    let url = format!("file://{}", f.repo.replace('\\', "/"));
+    let clone = f.root.join("shallow");
+    git(
+        &f.root,
+        &["clone", "-q", "--depth", "1", &url, clone.to_str().unwrap()],
+    );
+    let store = RepoStore::at(f.root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(false), store);
+    drive(
+        &mut app,
+        Message::OpenPath(clone.to_string_lossy().into_owned()),
+    )
+    .await;
+    assert!(app.current().unwrap().refs.shallow);
+    drive(&mut app, Message::OpenMenu(MenuRequest::Repository)).await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(whole)) = find_entry(&items, "Fetch the whole history") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, whole).await;
+    assert!(!app.current().unwrap().refs.shallow);
+}
