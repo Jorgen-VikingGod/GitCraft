@@ -1870,9 +1870,20 @@ fn file_menu_items(
                     ),
                     MenuItem::entry(
                         label("Stash…", "Stash {count} files…"),
-                        act(Action::StashFiles(paths)),
+                        act(Action::StashFiles(paths.clone())),
                     ),
                 ]);
+                // A file resolved during a merge, rebase or cherry-pick can be taken up again.
+                if tab
+                    .status
+                    .as_ref()
+                    .is_some_and(|status| status.operation.is_some())
+                {
+                    items.push(MenuItem::entry(
+                        "Mark as conflicted again",
+                        run(Command::MarkConflicted { paths }),
+                    ));
+                }
                 if one {
                     let orig = file_in(area).and_then(|file| file.orig_path);
                     items.push(diff_tool_item(
@@ -1955,6 +1966,10 @@ fn file_menu_items(
                 sha: rev.to_owned(),
                 path: path.to_owned(),
             }),
+        ));
+        items.push(MenuItem::entry(
+            "Copy file contents",
+            Message::CopyFileText(rev.to_owned(), path.to_owned()),
         ));
         let stash = tab
             .stash

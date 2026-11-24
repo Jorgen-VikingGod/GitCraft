@@ -860,6 +860,9 @@ pub enum Message {
     /// The desktop switched between light and dark.
     SystemTheme(bool),
     Copy(String),
+    /// Copies a file's text as it is in a commit: (rev, path).
+    CopyFileText(String, String),
+    FileTextLoaded(Answer<String>),
     Reveal(String),
     OpenFile(String),
     Instance(String),
@@ -2080,6 +2083,22 @@ impl App {
                 self.effects.push(Effect::Copy(text));
                 Task::none()
             }
+            Message::CopyFileText(rev, path) => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                Task::perform(
+                    async move { answer(queries::file_text(&repo, &rev, &path).await) },
+                    Message::FileTextLoaded,
+                )
+            }
+            Message::FileTextLoaded(result) => match result {
+                Ok(text) => Task::done(Message::Copy(text)),
+                Err(error) => {
+                    self.toast(ToastKind::Error, "Could not copy the file", Some(error));
+                    Task::none()
+                }
+            },
             Message::Reveal(path) => {
                 if let Err(error) = opener::reveal(&path) {
                     self.toast(

@@ -138,11 +138,13 @@ Continuing	Wird fortgesetzt	Poursuite	Continuando
 Copied to clipboard	In die Zwischenablage kopiert	Copié dans le presse-papiers	Copiado al portapapeles
 Copy	Kopieren	Copier	Copiar
 Copy branch name	Branch-Namen kopieren	Copier le nom de la branche	Copiar el nombre de la rama
+Copy file contents	Dateiinhalt kopieren	Copier le contenu du fichier	Copiar el contenido del archivo
 Copy full path	Vollständigen Pfad kopieren	Copier le chemin complet	Copiar la ruta completa
 Copy path	Pfad kopieren	Copier le chemin	Copiar la ruta
 Copy repository path	Repository-Pfad kopieren	Copier le chemin du dépôt	Copiar la ruta del repositorio
 Copy tag name	Tag-Namen kopieren	Copier le nom du tag	Copiar el nombre de la etiqueta
 Copy URL	URL kopieren	Copier l’URL	Copiar la URL
+Could not copy the file	Die Datei konnte nicht kopiert werden	Impossible de copier le fichier	No se pudo copiar el archivo
 Could not create patch	Patch konnte nicht erstellt werden	Impossible de créer le patch	No se pudo crear el parche
 Could not edit the commit	Commit konnte nicht bearbeitet werden	Impossible de modifier le commit	No se pudo editar el commit
 Could not load diff	Diff konnte nicht geladen werden	Impossible de charger le diff	No se pudo cargar el diff
@@ -300,7 +302,9 @@ Local changes	Lokale Änderungen	Modifications locales	Cambios locales
 Local Changes	Lokale Änderungen	Modifications locales	Cambios locales
 locked	gesperrt	verrouillé	bloqueado
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
+Mark as conflicted again	Wieder als Konflikt markieren	Marquer à nouveau comme conflit	Marcar de nuevo como conflicto
 Mark as resolved	Als gelöst markieren	Marquer comme résolu	Marcar como resuelto
+Marking as conflicted	Wird als Konflikt markiert	Marquage comme conflit	Marcando como conflicto
 Maximize	Maximieren	Agrandir	Maximizar
 Meld into the commit above, combine messages	Mit dem Commit darüber verschmelzen, Nachrichten zusammenführen	Fusionner avec le commit au-dessus, combiner les messages	Fundir con el commit de arriba, combinar mensajes
 Meld into the commit above, discard this message	Mit dem Commit darüber verschmelzen, diese Nachricht verwerfen	Fusionner avec le commit au-dessus, supprimer ce message	Fundir con el commit de arriba, descartar este mensaje

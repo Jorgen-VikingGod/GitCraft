@@ -565,6 +565,25 @@ pub async fn rebase_candidates(repo: &str, base: Option<&str>) -> Result<Vec<Com
 }
 
 /// A blob by `git show` spec, or nothing if it doesn't exist.
+/// A file's text as it is in `rev`, exactly as stored (no filters), for copying.
+pub async fn file_text(repo: &str, rev: &str, path: &str) -> Result<String> {
+    const LIMIT: usize = 10 * 1024 * 1024;
+    let spec = format!("{}:{path}", check_ref(rev)?);
+    let result = git_unchecked(repo, &["cat-file", "blob", &spec]).await?;
+    if result.code != 0 {
+        return Err(Error::Invalid(format!("{path} is not in that commit")));
+    }
+    if result.stdout.len() > LIMIT {
+        return Err(Error::Invalid("The file is too large to copy".into()));
+    }
+    if result.stdout.contains(&0) {
+        return Err(Error::Invalid(
+            "Binary files can't be copied as text".into(),
+        ));
+    }
+    Ok(result.out().into_owned())
+}
+
 pub async fn raw_show(repo: &str, spec: &str) -> Result<Option<String>> {
     let result = git_unchecked(repo, &["show", spec]).await?;
     Ok((result.code == 0).then(|| result.out().into_owned()))

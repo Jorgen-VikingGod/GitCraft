@@ -2544,3 +2544,13 @@ async fn local_changes_are_saved_as_a_patch() {
         "{patch}"
     );
 }
+
+#[tokio::test]
+async fn a_commits_file_text_is_copied() {
+    use gitcraft_ui::app::Effect;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "first commit");
+    drive(&mut app, Message::CopyFileText(sha, "a.txt".into())).await;
+    assert!(app.effects.contains(&Effect::Copy("one\n".into())));
+}

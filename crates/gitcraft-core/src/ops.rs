@@ -213,6 +213,23 @@ pub async fn apply_selection(
     }
 }
 
+/// Puts the conflict markers back into files resolved during a merge, rebase or cherry-pick,
+/// so they can be resolved again (`git checkout -m`).
+pub async fn mark_conflicted(repo: &str, list: &[String]) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if queries::operation_state(repo).await?.is_none() {
+        return invalid(
+            "Files can only be marked as conflicted during a merge, rebase or cherry-pick",
+        );
+    }
+    for path in list {
+        safe_path(repo, path)?;
+    }
+    let result = git(repo, &with_paths(vec!["checkout", "-m", "--"], list)).await?;
+    Ok(ok(&result))
+}
+
 /// Commits the staged changes as `fixup! <subject of sha>`, to be folded into `sha` by an
 /// interactive rebase with autosquash. `sha` must be on the current branch.
 pub async fn commit_fixup(repo: &str, sha: &str) -> Result<OpResult> {

@@ -230,6 +230,10 @@ pub enum Command {
         amend: bool,
         options: CommitOptions,
     },
+    /// Puts the conflict markers back into resolved files.
+    MarkConflicted {
+        paths: Vec<String>,
+    },
     /// A `fixup!` commit of the staged changes for `sha`.
     FixupCommit {
         sha: String,
@@ -346,6 +350,7 @@ impl Command {
             Self::Commit { amend: true, .. } => "Amending commit".into(),
             Self::Commit { .. } => "Committing".into(),
             Self::FixupCommit { .. } => "Committing".into(),
+            Self::MarkConflicted { .. } => "Marking as conflicted".into(),
             Self::Undo { .. } => "Undoing".into(),
             Self::Redo { .. } => "Redoing".into(),
         };
@@ -491,6 +496,7 @@ impl Command {
                 | Self::Discard { .. }
                 | Self::RestoreDiscard { .. }
                 | Self::RevertSelection { .. }
+                | Self::MarkConflicted { .. }
                 | Self::DeleteDiscard { .. }
                 | Self::Selection { .. }
                 | Self::Resolve { .. }
@@ -748,6 +754,7 @@ impl Command {
                 options,
             } => ops::commit_with(repo, &message, amend, &options).await,
             Self::FixupCommit { sha } => ops::commit_fixup(repo, &sha).await,
+            Self::MarkConflicted { paths } => ops::mark_conflicted(repo, &paths).await,
             Self::Undo { .. } => ops::undo(repo).await.map(|_| done()),
             Self::Redo { .. } => ops::redo(repo).await.map(|_| done()),
         }

@@ -2262,3 +2262,35 @@ async fn patches_of_a_series_and_of_the_local_changes_apply_elsewhere() {
     assert_eq!(f.read("a.txt"), "staged and more\n");
     assert_eq!(f.read("new.txt"), "new\n");
 }
+
+#[tokio::test]
+async fn a_resolved_file_can_be_marked_conflicted_again_and_old_text_copied() {
+    let f = Fixture::with_history();
+    f.make_conflict();
+    let merged = ops::merge(&f.repo, "other", "default").await.unwrap();
+    assert!(merged.conflicts);
+    f.write("a.txt", "taken by hand\n");
+    f.git(&["add", "a.txt"]);
+    assert!(queries::status(&f.repo).await.unwrap().conflicts.is_empty());
+    ops::mark_conflicted(&f.repo, &["a.txt".into()])
+        .await
+        .unwrap();
+    assert_eq!(queries::status(&f.repo).await.unwrap().conflicts.len(), 1);
+    assert!(f.read("a.txt").contains("<<<<<<<"));
+    ops::abort_operation(&f.repo).await.unwrap();
+    assert!(matches!(
+        ops::mark_conflicted(&f.repo, &["a.txt".into()]).await,
+        Err(Error::Invalid(_))
+    ));
+
+    let first = f.git(&["rev-parse", "HEAD~2"]).trim().to_owned();
+    assert_eq!(
+        queries::file_text(&f.repo, &first, "a.txt").await.unwrap(),
+        "one\ntwo\nthree\n"
+    );
+    assert!(
+        queries::file_text(&f.repo, &first, "missing.txt")
+            .await
+            .is_err()
+    );
+}
