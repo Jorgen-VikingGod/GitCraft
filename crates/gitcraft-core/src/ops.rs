@@ -652,6 +652,32 @@ pub async fn checkout_stashing(
     })
 }
 
+/// After checking out the local branch of a remote one: when it tracks that remote branch and
+/// is only behind it, it fast-forwards, so the checkout shows what the remote has. Anything
+/// else (it has commits of its own, tracks another branch, local changes are in the way)
+/// leaves it where it is.
+async fn catch_up(repo: &str, local: &str, remote: &str) -> Result<()> {
+    let upstream = format!("{local}@{{upstream}}");
+    let tracked = git_unchecked(
+        repo,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            &upstream,
+        ],
+    )
+    .await?;
+    if tracked.code != 0 || tracked.out().trim() != remote {
+        return Ok(());
+    }
+    let behind = git_unchecked(repo, &["merge-base", "--is-ancestor", "HEAD", remote]).await?;
+    if behind.code == 0 {
+        let _ = git_unchecked(repo, &["merge", "--ff-only", "--no-edit", "-q", remote]).await?;
+    }
+    Ok(())
+}
+
 async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> {
     let result = match kind {
         "remote" => {
@@ -664,7 +690,9 @@ async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> 
                 .code
                 == 0
             {
-                git(repo, &["switch", local]).await?
+                let switched = git(repo, &["switch", local]).await?;
+                catch_up(repo, local, reference).await?;
+                switched
             } else {
                 git(repo, &["switch", "--track", "-c", local, reference]).await?
             }

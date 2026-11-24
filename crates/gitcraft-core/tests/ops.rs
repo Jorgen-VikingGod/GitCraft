@@ -2860,3 +2860,47 @@ async fn a_force_push_only_replaces_what_was_seen_on_the_remote() {
         None
     );
 }
+
+#[tokio::test]
+async fn checking_out_a_remote_branch_brings_its_local_branch_up_to_date() {
+    let f = Fixture::with_history();
+    let remote = f.root.join("remote.git");
+    raw_git(
+        &f.root,
+        &["clone", "-q", "--bare", &f.repo, remote.to_str().unwrap()],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    f.git(&["fetch", "-q", "origin"]);
+    f.git(&["switch", "-q", "-c", "topic", "--track", "origin/main"]);
+    f.git(&["switch", "-q", "main"]);
+    let other = f.root.join("other");
+    raw_git(
+        &f.root,
+        &[
+            "clone",
+            "-q",
+            remote.to_str().unwrap(),
+            other.to_str().unwrap(),
+        ],
+    );
+    f.identity(&other);
+    commit_at(&other, "n.txt", "n\n", "newer");
+    raw_git(&other, &["push", "-q", "origin", "main"]);
+    f.git(&["fetch", "-q", "origin"]);
+    ops::checkout(&f.repo, "origin/main", "remote")
+        .await
+        .unwrap();
+    // "origin/main" maps to the local "main", which doesn't track it: it stays.
+    assert_eq!(f.git(&["log", "-1", "--format=%s", "main"]), "second\n");
+    f.git(&["branch", "-q", "--set-upstream-to=origin/main", "main"]);
+    f.git(&["switch", "-q", "topic"]);
+    ops::checkout(&f.repo, "origin/main", "remote")
+        .await
+        .unwrap();
+    assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
+    assert_eq!(
+        f.git(&["log", "-1", "--format=%s"]),
+        "newer\n",
+        "fast-forwarded"
+    );
+}
