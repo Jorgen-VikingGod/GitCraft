@@ -2125,3 +2125,52 @@ async fn lines_of_an_old_commit_are_taken_back_out() {
         Err(Error::Invalid(_))
     ));
 }
+
+#[tokio::test]
+async fn stash_untracked_only_rename_take_one_file_and_find_by_sha() {
+    let f = Fixture::with_history();
+    f.write("a.txt", "tracked change\n");
+    f.write("new.txt", "untracked\n");
+    ops::stash_untracked(&f.repo, Some("just the new files"))
+        .await
+        .unwrap();
+    assert!(!f.exists("new.txt"));
+    assert_eq!(f.read("a.txt"), "tracked change\n", "tracked changes stay");
+    let untracked_sha = f.git(&["rev-parse", "stash@{0}"]).trim().to_owned();
+
+    ops::stash_push(&f.repo, Some("tracked"), false, false, false, None)
+        .await
+        .unwrap();
+    // The first stash is now stash@{1}; its sha still finds it.
+    ops::stash_rename(&f.repo, &untracked_sha, "renamed")
+        .await
+        .unwrap();
+    let list = f.git(&["stash", "list", "--format=%gs"]);
+    assert_eq!(list.lines().next(), Some("renamed"), "{list}");
+    assert_eq!(f.git(&["rev-parse", "stash@{0}"]).trim(), untracked_sha);
+
+    let tracked_sha = f.git(&["rev-parse", "stash@{1}"]).trim().to_owned();
+    ops::stash_restore_file(&f.repo, &tracked_sha, "a.txt")
+        .await
+        .unwrap();
+    assert_eq!(f.read("a.txt"), "tracked change\n");
+    assert!(
+        f.git(&["diff", "--cached"]).is_empty(),
+        "the index is left alone"
+    );
+    assert!(matches!(
+        ops::stash_restore_file(&f.repo, &tracked_sha, "a.txt").await,
+        Err(Error::Invalid(_))
+    ));
+    ops::stash_restore_file(&f.repo, &untracked_sha, "new.txt")
+        .await
+        .unwrap();
+    assert_eq!(f.read("new.txt"), "untracked\n");
+
+    ops::stash_drop(&f.repo, &untracked_sha).await.unwrap();
+    assert!(matches!(
+        ops::stash_drop(&f.repo, &untracked_sha).await,
+        Err(Error::Invalid(_))
+    ));
+    assert_eq!(f.git(&["stash", "list"]).lines().count(), 1);
+}

@@ -2453,3 +2453,51 @@ async fn a_hunk_of_a_commit_is_reverted_from_its_diff() {
     );
     assert_eq!(f.subjects(), ["two changes", "first"]);
 }
+
+#[tokio::test]
+async fn stashes_are_renamed_and_untracked_files_stashed_alone() {
+    let f = fixture();
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "new\n");
+    let mut app = opened(&f, false).await;
+
+    // The stash dialog's last option: only the untracked files.
+    drive(&mut app, Message::Action(Action::Stash)).await;
+    let last = app.form.as_ref().unwrap().fields.len() - 1;
+    drive(&mut app, Message::FormCheck(last, true)).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(!f.path.join("new.txt").exists());
+    assert_eq!(f.read("a.txt"), "changed\n");
+
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::Stash("stash@{0}".into())),
+    )
+    .await;
+    let menu = app.menu.as_ref().expect("the stash menu").items.clone();
+    let Some(Some(rename)) = find_entry(&menu, "Rename…") else {
+        panic!("Rename is offered")
+    };
+    drive(&mut app, rename).await;
+    drive(&mut app, Message::FormText(0, "new name".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(f.git(&["stash", "list", "--format=%gs"]), "new name\n");
+
+    // One file comes back from the stash view's file menu.
+    drive(&mut app, Message::OpenStash("stash@{0}".into())).await;
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::File {
+            area: None,
+            path: "new.txt".into(),
+            rev: Some("stash@{0}".into()),
+        }),
+    )
+    .await;
+    let items = app.menu.as_ref().expect("the file menu").items.clone();
+    let Some(Some(take)) = find_entry(&items, "Take this file from the stash") else {
+        panic!("offered for a stash's file")
+    };
+    drive(&mut app, take).await;
+    assert_eq!(f.read("new.txt"), "new\n");
+}

@@ -348,6 +348,7 @@ Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
 One per line	Einer pro Zeile	Un par ligne	Uno por línea
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
+Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non suivis	Solo archivos sin seguimiento
 Open	Öffnen	Ouvrir	Abrir
 Open a repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir un repositorio…
 Open file	Datei öffnen	Ouvrir le fichier	Abrir archivo
@@ -435,9 +436,11 @@ Removing remote	Remote wird entfernt	Retrait du dépôt distant	Quitando remoto
 Removing worktree	Worktree wird entfernt	Retrait de l’arbre de travail	Quitando árbol de trabajo
 Rename	Umbenennen	Renommer	Renombrar
 Rename branch	Branch umbenennen	Renommer la branche	Renombrar rama
+Rename stash	Stash umbenennen	Renommer la remise	Renombrar stash
 renamed from {orig}	umbenannt von {orig}	renommé depuis {orig}	renombrado desde {orig}
 Rename…	Umbenennen…	Renommer…	Renombrar…
 Renaming branch	Branch wird umbenannt	Renommage de la branche	Renombrando rama
+Renaming stash	Stash wird umbenannt	Renommage de la remise	Renombrando stash
 Replace edits?	Änderungen ersetzen?	Remplacer les modifications ?	¿Reemplazar las ediciones?
 Replace {path} in the working tree and index with its version from {commit}? Local changes to it are lost.	{path} im Arbeitsverzeichnis und Index durch die Version aus {commit} ersetzen? Lokale Änderungen daran gehen verloren.	Remplacer {path} dans l’arbre de travail et l’index par sa version de {commit} ? Ses modifications locales sont perdues.	¿Reemplazar {path} en el árbol de trabajo y el índice por su versión de {commit}? Se pierden sus cambios locales.
 Repository	Repository	Dépôt	Repositorio
@@ -535,6 +538,7 @@ Stash hunk	Hunk stashen	Remiser le bloc	Guardar bloque en stash
 Stash local changes automatically	Lokale Änderungen automatisch in den Stash legen	Remiser automatiquement les modifications locales	Guardar los cambios locales en el stash automáticamente
 Stash not found	Stash nicht gefunden	Remise introuvable	Stash no encontrado
 Stash popped	Stash angewendet und verworfen	Remise appliquée et supprimée	Stash aplicado y descartado
+Stash renamed	Stash umbenannt	Remise renommée	Stash renombrado
 Stash selected files	Ausgewählte Dateien in den Stash legen	Remiser les fichiers sélectionnés	Guardar los archivos seleccionados en el stash
 Stash staged changes only	Nur vorgemerkte Änderungen in den Stash legen	Remiser seulement les modifications indexées	Guardar solo los cambios preparados en el stash
 Stash {count} files…	{count} Dateien in den Stash legen…	Remiser {count} fichiers…	Guardar {count} archivos en el stash…
@@ -557,6 +561,8 @@ Tag name	Tag-Name	Nom du tag	Nombre de la etiqueta
 Tag {commit}	{commit} taggen	Taguer {commit}	Etiquetar {commit}
 Tag {name}	Tag {name}	Tag {name}	Etiqueta {name}
 Tags	Tags	Tags	Etiquetas
+Take this file from the stash	Diese Datei aus dem Stash holen	Récupérer ce fichier de la remise	Tomar este archivo del stash
+Taking the file from the stash	Datei wird aus dem Stash geholt	Récupération du fichier de la remise	Tomando el archivo del stash
 The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.	Der aktuelle Branch wird auf {source} zurückgesetzt. Lokale Commits und nicht committete Änderungen werden verworfen.	La branche actuelle sera réinitialisée à {source}. Les commits locaux et les modifications non validées sont supprimés.	La rama actual se restablecerá a {source}. Se descartan los commits locales y los cambios sin commit.
 The current state is kept as a backup branch first.	Der aktuelle Stand wird vorher als Backup-Branch behalten.	L’état actuel est d’abord conservé dans une branche de sauvegarde.	Antes se guarda el estado actual en una rama de respaldo.
 The file dialog couldn't be shown	Der Dateidialog konnte nicht angezeigt werden	Impossible d’afficher la boîte de dialogue des fichiers	No se pudo mostrar el diálogo de archivos
@@ -567,6 +573,7 @@ The last commit is already on {upstream}. Amending it rewrites history others ma
 The reflog is empty	Das Reflog ist leer	Le reflog est vide	El reflog está vacío
 The result still contains conflict markers. Save and mark the file as resolved anyway?	Das Ergebnis enthält noch Konfliktmarkierungen. Trotzdem speichern und die Datei als gelöst markieren?	Le résultat contient encore des marqueurs de conflit. Enregistrer et marquer le fichier comme résolu quand même ?	El resultado aún contiene marcadores de conflicto. ¿Guardar y marcar el archivo como resuelto de todos modos?
 the root commit	den Wurzel-Commit	le commit racine	el commit raíz
+The stash moves to the top of the list.	Der Stash rückt an den Anfang der Liste.	La remise passe en tête de liste.	El stash pasa al principio de la lista.
 The title bar changes when GitCraft starts again.	Die Titelleiste ändert sich beim nächsten Start von GitCraft.	La barre de titre change au prochain démarrage de GitCraft.	La barra de título cambia la próxima vez que se inicie GitCraft.
 Theirs	Ihre	Le leur	Lo suyo
 Theirs + ours	Ihre + unsere	Le leur + le nôtre	Lo suyo + lo nuestro
@@ -603,6 +610,7 @@ Unstaged ({count})	Nicht vorgemerkt ({count})	Non indexé ({count})	Sin preparar
 Unstaging	Vormerkung wird aufgehoben	Désindexation	Quitando de preparados
 Unstaging all	Alle Vormerkungen werden aufgehoben	Désindexation de tout	Quitando todo de preparados
 Untracked file: stage the whole file to include it.	Nicht verfolgte Datei: Merke die ganze Datei vor, um sie aufzunehmen.	Fichier non suivi : indexez le fichier entier pour l’inclure.	Archivo sin seguimiento: prepara el archivo completo para incluirlo.
+Untracked files stashed	Nicht verfolgte Dateien gestasht	Fichiers non suivis remisés	Archivos sin seguimiento guardados en stash
 Update submodules	Submodule aktualisieren	Mettre à jour les sous-modules	Actualizar submódulos
 Updating .gitignore	.gitignore wird aktualisiert	Mise à jour de .gitignore	Actualizando .gitignore
 Updating submodules	Submodule werden aktualisiert	Mise à jour des sous-modules	Actualizando submódulos
@@ -646,6 +654,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {path} and {more}	{path} und {more}	{path} et {more}	{path} y {more}
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
+{path} taken from the stash	{path} aus dem Stash geholt	{path} récupéré de la remise	{path} tomado del stash
 … and {count} more	… und {count} weitere	… et {count} de plus	… y {count} más
 Select all files	Alle Dateien auswählen	Sélectionner tous les fichiers	Seleccionar todos los archivos
 Tabs	Tabs	Onglets	Pestañas

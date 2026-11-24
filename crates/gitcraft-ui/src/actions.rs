@@ -21,6 +21,7 @@ pub enum Action {
     Stash,
     StashFiles(Vec<String>),
     DropStash(String),
+    RenameStash(String),
     /// Adds a working tree; `start` is the branch or commit it begins at.
     AddWorktree(Option<String>),
     RemoveWorktree(String),
@@ -296,6 +297,11 @@ impl App {
                     return Task::none();
                 }
                 let form = Form::new("Stash changes", "Stash", |values: &Values| {
+                    if values.check("untrackedOnly") {
+                        return run(Command::StashUntracked {
+                            message: values.opt("message"),
+                        });
+                    }
                     run(Command::StashPush {
                         message: values.opt("message"),
                         include_untracked: values.check("includeUntracked"),
@@ -307,7 +313,8 @@ impl App {
                 .field(Field::text("message", "Message", "").hint("Optional description"))
                 .field(Field::check("includeUntracked", "Include untracked files", true))
                 .field(Field::check("stagedOnly", "Stash staged changes only", false))
-                .field(Field::check("keepIndex", "Keep staged changes in the working tree", false));
+                .field(Field::check("keepIndex", "Keep staged changes in the working tree", false))
+                .field(Field::check("untrackedOnly", "Only untracked files", false));
                 self.ask(form)
             }
             Action::StashFiles(paths) => {
@@ -329,7 +336,10 @@ impl App {
                 self.ask(form)
             }
             Action::DropStash(name) => {
-                let message = tab.refs.stashes.iter().find(|stash| stash.name == name).map_or(name.clone(), |s| s.message.clone());
+                // By its commit, so the stash meant is dropped even if the list moved meanwhile.
+                let found = tab.refs.stashes.iter().find(|stash| stash.name == name || stash.sha == name);
+                let message = found.map_or(name.clone(), |stash| stash.message.clone());
+                let name = found.map_or(name, |stash| stash.sha.clone());
                 self.ask(Form::confirm(
                     "Drop stash",
                     &trf("Delete “{message}”? This cannot be undone.", &[("message", &message)]),
@@ -337,6 +347,22 @@ impl App {
                     true,
                     run(Command::StashDrop { name }),
                 ))
+            }
+            Action::RenameStash(name) => {
+                let Some(stash) = tab.refs.stashes.iter().find(|stash| stash.name == name || stash.sha == name) else {
+                    return Task::none();
+                };
+                let id = stash.sha.clone();
+                self.ask(
+                    Form::new("Rename stash", "Rename", move |values: &Values| {
+                        run(Command::StashRename {
+                            id: id.clone(),
+                            message: values.text("message"),
+                        })
+                    })
+                    .message("The stash moves to the top of the list.")
+                    .field(Field::text("message", "Message", &stash.message).required()),
+                )
             }
             Action::AddWorktree(start) => {
                 let parent = std::path::Path::new(&tab.path).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
@@ -902,22 +928,33 @@ impl App {
                 )
             }
             MenuRequest::Stash(name) => {
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                // Commands name the stash by its commit: see `ops::stash_apply`.
+                let sha = tab
+                    .refs
+                    .stashes
+                    .iter()
+                    .find(|stash| stash.name == *name)
+                    .map_or_else(|| name.clone(), |stash| stash.sha.clone());
                 let name = name.clone();
                 self.menu_at_cursor(vec![
                     MenuItem::entry(
                         "Apply",
                         run(Command::StashApply {
-                            name: name.clone(),
+                            name: sha.clone(),
                             pop: false,
                         }),
                     ),
                     MenuItem::entry(
                         "Pop (apply and drop)",
                         run(Command::StashApply {
-                            name: name.clone(),
+                            name: sha.clone(),
                             pop: true,
                         }),
                     ),
+                    MenuItem::entry("Rename…", act(Action::RenameStash(sha.clone()))),
                     MenuItem::entry(
                         "New branch from stash…",
                         act(Action::NewBranch {
@@ -925,7 +962,7 @@ impl App {
                             label: Some(name.clone()),
                         }),
                     ),
-                    MenuItem::danger("Drop…", act(Action::DropStash(name))),
+                    MenuItem::danger("Drop…", act(Action::DropStash(sha))),
                 ]);
                 Task::none()
             }
@@ -1882,6 +1919,25 @@ fn file_menu_items(
                 path: path.to_owned(),
             }),
         ));
+        let stash = tab
+            .stash
+            .as_ref()
+            .filter(|_| tab.view == View::Stash)
+            .and_then(|open| {
+                tab.refs
+                    .stashes
+                    .iter()
+                    .find(|stash| stash.name == open.name)
+            });
+        if let Some(stash) = stash {
+            items.push(MenuItem::entry(
+                "Take this file from the stash",
+                run(Command::StashFile {
+                    id: stash.sha.clone(),
+                    path: path.to_owned(),
+                }),
+            ));
+        }
     }
     items.extend([
         MenuItem::Separator,

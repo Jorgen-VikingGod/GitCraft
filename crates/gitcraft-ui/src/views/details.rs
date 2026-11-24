@@ -411,19 +411,19 @@ pub fn stash(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                     ui.horizontal(|ui| {
                         if accent(ui, look, "Apply", true) {
                             cx.send(Message::Run(Command::StashApply {
-                                name: stash.name.clone(),
+                                name: stash.sha.clone(),
                                 pop: false,
                             }));
                         }
                         if btn(ui, look, "Pop", true) {
                             cx.send(Message::Run(Command::StashApply {
-                                name: stash.name.clone(),
+                                name: stash.sha.clone(),
                                 pop: true,
                             }));
                         }
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if danger(ui, look, "Drop…", true) {
-                                cx.send(Message::Action(Action::DropStash(stash.name.clone())));
+                                cx.send(Message::Action(Action::DropStash(stash.sha.clone())));
                             }
                         });
                     });

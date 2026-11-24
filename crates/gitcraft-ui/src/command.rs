@@ -45,6 +45,18 @@ pub enum Command {
     StashDrop {
         name: String,
     },
+    StashUntracked {
+        message: Option<String>,
+    },
+    /// `id` is the stash's commit, or `stash@{n}`.
+    StashRename {
+        id: String,
+        message: String,
+    },
+    StashFile {
+        id: String,
+        path: String,
+    },
     WorktreeAdd {
         path: String,
         start: Option<String>,
@@ -267,6 +279,9 @@ impl Command {
             Self::StashApply { pop: true, .. } => "Popping stash".into(),
             Self::StashApply { .. } => "Applying stash".into(),
             Self::StashDrop { .. } => "Dropping stash".into(),
+            Self::StashUntracked { .. } => "Stashing".into(),
+            Self::StashRename { .. } => "Renaming stash".into(),
+            Self::StashFile { .. } => "Taking the file from the stash".into(),
             Self::WorktreeAdd { .. } => "Adding worktree".into(),
             Self::WorktreeRemove { .. } => "Removing worktree".into(),
             Self::WorktreePrune => "Pruning worktrees".into(),
@@ -346,6 +361,9 @@ impl Command {
             Self::WorktreePrune => "Stale worktrees pruned".into(),
             Self::StashApply { pop: true, .. } => "Stash popped".into(),
             Self::StashApply { .. } => "Stash applied".into(),
+            Self::StashUntracked { .. } => "Untracked files stashed".into(),
+            Self::StashRename { .. } => "Stash renamed".into(),
+            Self::StashFile { path, .. } => trf("{path} taken from the stash", &[("path", path)]),
             Self::CreateBranch { name, .. } => trf("Created {name}", &[("name", name)]),
             Self::Merge { reference, .. } => trf("Merged {reference}", &[("reference", reference)]),
             Self::Rebase { .. } => "Rebase complete".into(),
@@ -548,6 +566,11 @@ impl Command {
             }
             Self::StashApply { name, pop } => ops::stash_apply(repo, &name, pop).await,
             Self::StashDrop { name } => ops::stash_drop(repo, &name).await,
+            Self::StashUntracked { message } => {
+                ops::stash_untracked(repo, message.as_deref()).await
+            }
+            Self::StashRename { id, message } => ops::stash_rename(repo, &id, &message).await,
+            Self::StashFile { id, path } => ops::stash_restore_file(repo, &id, &path).await,
             Self::WorktreeAdd {
                 path,
                 start,

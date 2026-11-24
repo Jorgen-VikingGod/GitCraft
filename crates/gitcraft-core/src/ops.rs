@@ -1177,10 +1177,26 @@ pub async fn stash_push(
     Ok(ok(&git(repo, &args).await?))
 }
 
+/// The `stash@{n}` of a stash, given as its commit or as `stash@{n}`. A commit is looked up
+/// in the list as it is now, so a stash that moved down since the list was shown (another
+/// stash was made) is still the one meant, and one that is gone is refused.
+async fn stash_entry(repo: &str, id: &str) -> Result<String> {
+    let id = check_ref(id)?;
+    if id.starts_with("stash@{") {
+        return Ok(id.to_owned());
+    }
+    let list = git_unchecked(repo, &["stash", "list", "--format=%H"]).await?;
+    match list.out().lines().position(|sha| sha == id) {
+        Some(index) => Ok(format!("stash@{{{index}}}")),
+        None => invalid("This stash no longer exists; the list has been refreshed"),
+    }
+}
+
 pub async fn stash_apply(repo: &str, name: &str, pop: bool) -> Result<OpResult> {
-    let name = check_ref(name)?;
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    let name = stash_entry(repo, name).await?;
+    let name = name.as_str();
     let result = git_unchecked(
         repo,
         &["stash", if pop { "pop" } else { "apply" }, "--index", name],
@@ -1208,10 +1224,107 @@ pub async fn stash_apply(repo: &str, name: &str, pop: bool) -> Result<OpResult> 
 }
 
 pub async fn stash_drop(repo: &str, name: &str) -> Result<OpResult> {
-    let name = check_ref(name)?;
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
-    Ok(ok(&git(repo, &["stash", "drop", name]).await?))
+    let name = stash_entry(repo, name).await?;
+    Ok(ok(&git(repo, &["stash", "drop", &name]).await?))
+}
+
+/// Stashes the untracked files only; tracked changes and the index stay as they are.
+pub async fn stash_untracked(repo: &str, message: Option<&str>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let status = queries::status(repo).await?;
+    let untracked: Vec<&str> = status
+        .unstaged
+        .iter()
+        .filter(|entry| entry.status == "?")
+        .map(|entry| entry.path.as_str())
+        .collect();
+    if untracked.is_empty() {
+        return invalid("There are no untracked files to stash");
+    }
+    let mut input = Vec::new();
+    for path in &untracked {
+        input.extend_from_slice(path.as_bytes());
+        input.push(0);
+    }
+    let mut args = vec!["stash", "push", "--include-untracked"];
+    if let Some(message) = message.filter(|message| !message.trim().is_empty()) {
+        args.extend(["-m", message]);
+    }
+    args.extend(["--pathspec-from-file=-", "--pathspec-file-nul"]);
+    let result = run(
+        repo,
+        &args,
+        Options {
+            stdin: Some(&input),
+            env: vec![("GIT_LITERAL_PATHSPECS", "1".to_owned())],
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(ok(&result))
+}
+
+/// Gives a stash a new message. It becomes the newest stash (`stash@{0}`), since git keeps
+/// stashes in the order they were stored.
+pub async fn stash_rename(repo: &str, id: &str, message: &str) -> Result<OpResult> {
+    if message.trim().is_empty() {
+        return invalid("The message is empty");
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let name = stash_entry(repo, id).await?;
+    let sha = git(repo, &["rev-parse", "--verify", &name])
+        .await?
+        .out()
+        .trim()
+        .to_owned();
+    git(repo, &["stash", "drop", "-q", &name]).await?;
+    if let Err(error) = git(repo, &["stash", "store", "-m", message, &sha]).await {
+        // Put it back under its old message rather than lose it.
+        let _ = git(repo, &["stash", "store", &sha]).await;
+        return Err(error.into());
+    }
+    Ok(ok_empty())
+}
+
+/// Writes one file of a stash into the working tree, leaving the index and the stash alone.
+/// Refused when the file has local changes, so nothing is overwritten.
+pub async fn stash_restore_file(repo: &str, id: &str, path: &str) -> Result<OpResult> {
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let name = stash_entry(repo, id).await?;
+    let status = queries::status(repo).await?;
+    let touched = status
+        .staged
+        .iter()
+        .chain(&status.unstaged)
+        .any(|entry| entry.path == path)
+        || status.conflicts.iter().any(|entry| entry.path == path);
+    if touched {
+        return invalid(format!(
+            "{path} has local changes; commit, stash or discard them first"
+        ));
+    }
+    // Untracked files of a stash are in its third parent.
+    let mut source = name.clone();
+    let listed = git(repo, &["ls-tree", "-z", "--name-only", &name, "--", path]).await?;
+    if listed.out().is_empty() {
+        source = format!("{name}^3");
+    }
+    run(
+        repo,
+        &["restore", "--source", &source, "--worktree", "--", path],
+        Options {
+            env: vec![("GIT_LITERAL_PATHSPECS", "1".to_owned())],
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(ok_empty())
 }
 
 // ------------------------------------------------------------- worktrees
