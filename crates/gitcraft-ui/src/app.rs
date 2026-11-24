@@ -677,6 +677,16 @@ pub enum Overlay {
     },
     Conflict(Box<ConflictState>),
     Rebase(Box<RebaseState>),
+    /// Branches that look done with, to review and delete.
+    Cleanup {
+        candidates: Vec<CleanupCandidate>,
+        /// The ones ticked for deleting.
+        chosen: Vec<String>,
+        /// Also delete their branches on the remote.
+        remote_too: bool,
+        loading: bool,
+        error: Option<String>,
+    },
     /// `git range-diff old new`.
     RangeDiff {
         old: String,
@@ -965,6 +975,11 @@ pub enum Message {
     ReflogAll(bool),
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenDiscards,
+    OpenCleanup,
+    CleanupLoaded(Answer<Option<Vec<CleanupCandidate>>>),
+    CleanupToggle(String),
+    CleanupRemote(bool),
+    CleanupStart,
     /// Compares two ranges of commits: (old, new).
     RangeDiff(String, String),
     RangeDiffLoaded(Answer<String>),
@@ -2061,6 +2076,120 @@ impl App {
                 Task::none()
             }
             Message::OpenDiscards => self.open_discards(),
+            Message::OpenCleanup => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                self.overlay = Some(Overlay::Cleanup {
+                    candidates: Vec::new(),
+                    chosen: Vec::new(),
+                    remote_too: false,
+                    loading: true,
+                    error: None,
+                });
+                Task::perform(
+                    async move { answer(queries::branch_cleanup(&repo).await) },
+                    Message::CleanupLoaded,
+                )
+            }
+            Message::CleanupLoaded(result) => {
+                if let Some(Overlay::Cleanup {
+                    candidates,
+                    chosen,
+                    loading,
+                    error,
+                    ..
+                }) = &mut self.overlay
+                {
+                    *loading = false;
+                    match result {
+                        Ok(Some(found)) => {
+                            // Merged ones are ticked; squashed and gone ones are for a look first.
+                            *chosen = found
+                                .iter()
+                                .filter(|candidate| candidate.reason == "merged")
+                                .map(|candidate| candidate.name.clone())
+                                .collect();
+                            *candidates = found;
+                        }
+                        Ok(None) => {
+                            *error = Some(
+                                tr("There is no main or master branch to compare with.").to_owned(),
+                            );
+                        }
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
+            Message::CleanupToggle(name) => {
+                if let Some(Overlay::Cleanup { chosen, .. }) = &mut self.overlay {
+                    if let Some(at) = chosen.iter().position(|picked| *picked == name) {
+                        chosen.remove(at);
+                    } else {
+                        chosen.push(name);
+                    }
+                }
+                Task::none()
+            }
+            Message::CleanupRemote(on) => {
+                if let Some(Overlay::Cleanup { remote_too, .. }) = &mut self.overlay {
+                    *remote_too = on;
+                }
+                Task::none()
+            }
+            Message::CleanupStart => {
+                let Some(Overlay::Cleanup {
+                    candidates,
+                    chosen,
+                    remote_too,
+                    ..
+                }) = &self.overlay
+                else {
+                    return Task::none();
+                };
+                let names: Vec<String> = candidates
+                    .iter()
+                    .filter(|candidate| chosen.contains(&candidate.name))
+                    .map(|candidate| candidate.name.clone())
+                    .collect();
+                if names.is_empty() {
+                    return Task::none();
+                }
+                let remotes = if *remote_too {
+                    let remote_names: Vec<Remote> = self
+                        .current()
+                        .map(|tab| tab.refs.remotes.clone())
+                        .unwrap_or_default();
+                    candidates
+                        .iter()
+                        .filter(|candidate| chosen.contains(&candidate.name))
+                        .filter_map(|candidate| {
+                            match logic::split_upstream(
+                                candidate.upstream.as_deref(),
+                                &remote_names,
+                            ) {
+                                (Some(remote), Some(branch)) => Some((remote, branch)),
+                                _ => None,
+                            }
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+                let what = plural(names.len(), "branch");
+                self.form = Some(Form::confirm(
+                    "Clean up branches",
+                    &trf(
+                        "Delete {branches}? Undo brings local branches back.",
+                        &[("branches", &what)],
+                    ),
+                    "Delete",
+                    true,
+                    Message::Run(Command::DeleteBranches { names, remotes }),
+                ));
+                Task::none()
+            }
             Message::RangeDiff(old, new) => {
                 let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
                     return Task::none();
@@ -3680,6 +3809,11 @@ impl App {
             Command::Reset { undo: true, .. } if succeeded => {
                 if let Some(tab) = self.tab_mut(&repo) {
                     tab.view = View::Changes;
+                }
+            }
+            Command::DeleteBranches { .. } if succeeded => {
+                if matches!(self.overlay, Some(Overlay::Cleanup { .. })) {
+                    self.overlay = None;
                 }
             }
             Command::RestoreDiscard { .. } if succeeded => {

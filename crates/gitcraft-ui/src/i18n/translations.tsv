@@ -39,6 +39,7 @@ All ours	Alles von uns	Tout le nôtre	Todo lo nuestro
 All theirs	Alles von ihnen	Tout le leur	Todo lo suyo
 Also delete from all remotes	Auch auf allen Remotes löschen	Supprimer aussi de tous les dépôts distants	Eliminar también de todos los remotos
 Also delete ignored files (build output, dependencies…)	Auch ignorierte Dateien löschen (Build-Ausgaben, Abhängigkeiten…)	Supprimer aussi les fichiers ignorés (sorties de compilation, dépendances…)	Eliminar también los archivos ignorados (compilaciones, dependencias…)
+Also delete their branches on the remote	Auch ihre Branches auf dem Remote löschen	Supprimer aussi leurs branches sur le dépôt distant	Eliminar también sus ramas en el remoto
 Also delete {upstream} on the remote	Auch {upstream} auf dem Remote löschen	Supprimer aussi {upstream} sur le dépôt distant	Eliminar también {upstream} en el remoto
 Always create a merge commit (--no-ff)	Immer einen Merge-Commit erstellen (--no-ff)	Toujours créer un commit de fusion (--no-ff)	Crear siempre un commit de fusión (--no-ff)
 Amend	Amend	Modification du commit	Enmienda
@@ -113,6 +114,8 @@ Choose the upstream of {name}	Upstream von {name} wählen	Choisir la branche amo
 Choosing a side rebuilds the result and discards your manual edits.	Eine Seite zu wählen baut das Ergebnis neu auf und verwirft deine Handänderungen.	Choisir un côté reconstruit le résultat et supprime vos modifications manuelles.	Elegir un lado reconstruye el resultado y descarta tus ediciones manuales.
 Clean failed	Bereinigen fehlgeschlagen	Échec du nettoyage	Error al limpiar
 Clean untracked files…	Nicht verfolgte Dateien entfernen…	Supprimer les fichiers non suivis…	Limpiar archivos sin seguimiento…
+Clean up branches	Branches aufräumen	Nettoyer les branches	Limpiar ramas
+Clean up branches…	Branches aufräumen…	Nettoyer les branches…	Limpiar ramas…
 Clean working tree	Arbeitsverzeichnis bereinigen	Nettoyer l’arbre de travail	Limpiar el árbol de trabajo
 Cleaned	Bereinigt	Nettoyé	Limpiado
 Cleaning	Wird bereinigt	Nettoyage	Limpiando
@@ -213,13 +216,17 @@ Delete tag {name}?	Tag {name} löschen?	Supprimer le tag {name} ?	¿Eliminar la 
 Delete the working folder “{path}”? Uncommitted changes in it are lost.	Den Arbeitsordner „{path}“ löschen? Nicht committete Änderungen darin gehen verloren.	Supprimer le dossier de travail « {path} » ? Les modifications non validées qu’il contient sont perdues.	¿Eliminar la carpeta de trabajo «{path}»? Se pierden los cambios sin commit que contiene.
 Delete this backup of discarded changes? It can't be restored afterwards.	Diese Sicherung verworfener Änderungen löschen? Danach lässt sie sich nicht mehr wiederherstellen.	Supprimer cette sauvegarde de modifications supprimées ? Elle ne pourra plus être restaurée.	¿Eliminar esta copia de seguridad de cambios descartados? Después ya no se podrá restaurar.
 Delete untracked files from the working tree.	Nicht verfolgte Dateien aus dem Arbeitsverzeichnis löschen.	Supprimer les fichiers non suivis de l’arbre de travail.	Eliminar los archivos sin seguimiento del árbol de trabajo.
+Delete {branches}? Undo brings local branches back.	{branches} löschen? Rückgängig holt lokale Branches zurück.	Supprimer {branches} ? Annuler restaure les branches locales.	¿Eliminar {branches}? Deshacer recupera las ramas locales.
+Delete {branches}…	{branches} löschen…	Supprimer {branches}…	Eliminar {branches}…
 Delete {branch} from {remote}?	{branch} von {remote} löschen?	Supprimer {branch} de {remote} ?	¿Eliminar {branch} de {remote}?
 Delete {count} item(s)?	{count} Einträge löschen?	Supprimer {count} élément(s) ?	¿Eliminar {count} elemento(s)?
 Delete “{message}”? This cannot be undone.	„{message}“ löschen? Das kann nicht rückgängig gemacht werden.	Supprimer « {message} » ? Cette action est irréversible.	¿Eliminar «{message}»? No se puede deshacer.
+Deleted {branches}	{branches} gelöscht	{branches} supprimées	{branches} eliminadas
 Deleted {name} from {remote}	{name} von {remote} gelöscht	{name} supprimé de {remote}	{name} eliminada de {remote}
 Delete…	Löschen…	Supprimer…	Eliminar…
 Deleting backup	Sicherung wird gelöscht	Suppression de la sauvegarde	Eliminando copia de seguridad
 Deleting branch	Branch wird gelöscht	Suppression de la branche	Eliminando rama
+Deleting branches	Branches werden gelöscht	Suppression des branches	Eliminando ramas
 Deleting remote branch	Remote-Branch wird gelöscht	Suppression de la branche distante	Eliminando rama remota
 Deleting tag	Tag wird gelöscht	Suppression du tag	Eliminando etiqueta
 Deleting tag from remote	Tag wird vom Remote gelöscht	Suppression du tag du dépôt distant	Eliminando etiqueta del remoto
@@ -343,7 +350,9 @@ Interactive rebase	Interaktiver Rebase	Rebase interactif	Rebase interactivo
 Interactive rebase complete	Interaktiver Rebase abgeschlossen	Rebase interactif terminé	Rebase interactivo completado
 Interactive rebase from here…	Interaktiver Rebase ab hier…	Rebase interactif à partir d’ici…	Rebase interactivo desde aquí…
 Into folder	In den Ordner	Dans le dossier	En la carpeta
+Its changes are in already (squashed or rebased)	Die Änderungen sind schon drin (gesquasht oder rebased)	Ses modifications sont déjà intégrées (squash ou rebase)	Sus cambios ya están dentro (squash o rebase)
 its upstream	seinen Upstream	sa branche amont	su upstream
+Its upstream was deleted	Sein Upstream wurde gelöscht	Son amont a été supprimé	Su upstream se eliminó
 just now	gerade eben	à l’instant	ahora mismo
 Keep a commit-graph file for faster history	Commit-Graph-Datei für schnelleren Verlauf anlegen	Conserver un fichier commit-graph pour un historique plus rapide	Mantener un archivo commit-graph para un historial más rápido
 Keep staged changes in the working tree	Vorgemerkte Änderungen im Arbeitsverzeichnis behalten	Garder les modifications indexées dans l’arbre de travail	Mantener los cambios preparados en el árbol de trabajo
@@ -364,6 +373,7 @@ Loading commits…	Commits werden geladen…	Chargement des commits…	Cargando 
 Loading diff…	Diff wird geladen…	Chargement du diff…	Cargando diff…
 Loading history…	Verlauf wird geladen…	Chargement de l’historique…	Cargando historial…
 Loading…	Wird geladen…	Chargement…	Cargando…
+Local branches that look done with. Merged ones are ticked; look at the others first.	Lokale Branches, die erledigt aussehen. Gemergte sind angehakt; die anderen besser erst ansehen.	Branches locales qui semblent terminées. Les fusionnées sont cochées ; examinez d’abord les autres.	Ramas locales que parecen terminadas. Las fusionadas están marcadas; revisa primero las demás.
 Local changes	Lokale Änderungen	Modifications locales	Cambios locales
 Local Changes	Lokale Änderungen	Modifications locales	Cambios locales
 locked	gesperrt	verrouillé	bloqueado
@@ -385,6 +395,7 @@ Merge in progress	Merge läuft	Fusion en cours	Fusión en curso
 Merge into {current}…	In {current} mergen…	Fusionner dans {current}…	Fusionar en {current}…
 Merge {name} into {shown}…	{name} in {shown} mergen…	Fusionner {name} dans {shown}…	Fusionar {name} en {shown}…
 Merge {reference} into {head}	{reference} in {head} mergen	Fusionner {reference} dans {head}	Fusionar {reference} en {head}
+Merged	Gemergt	Fusionnée	Fusionada
 Merged {reference}	{reference} gemergt	{reference} fusionnée	{reference} fusionada
 Merging	Merge läuft	Fusion	Fusionando
 message	Nachricht	message	mensaje
@@ -417,6 +428,7 @@ New tag	Neues Tag	Nouveau tag	Etiqueta nueva
 New tag here…	Neues Tag hier…	Nouveau tag ici…	Etiqueta nueva aquí…
 New…	Neu…	Nouveau…	Nuevo…
 No branches	Keine Branches	Aucune branche	No hay ramas
+No branches to clean up	Keine Branches zum Aufräumen	Aucune branche à nettoyer	No hay ramas que limpiar
 No commits between the base and HEAD.	Keine Commits zwischen Basis und HEAD.	Aucun commit entre la base et HEAD.	No hay commits entre la base y HEAD.
 No commits yet	Noch keine Commits	Aucun commit pour l’instant	Aún no hay commits
 No conflict markers found (binary file, or the markers were already removed). Edit the result below if needed, then mark the file as resolved.	Keine Konfliktmarkierungen gefunden (Binärdatei, oder die Markierungen wurden schon entfernt). Bearbeite bei Bedarf das Ergebnis unten und markiere die Datei dann als gelöst.	Aucun marqueur de conflit trouvé (fichier binaire, ou marqueurs déjà retirés). Modifiez le résultat ci-dessous si besoin, puis marquez le fichier comme résolu.	No se encontraron marcadores de conflicto (archivo binario, o ya se quitaron). Edita el resultado de abajo si hace falta y marca el archivo como resuelto.
@@ -712,6 +724,7 @@ There are no commits to rebase.	Es gibt keine Commits für einen Rebase.	Il n’
 There are no local changes	Es gibt keine lokalen Änderungen	Il n’y a aucune modification locale	No hay cambios locales
 There are no local changes to stash	Es gibt keine lokalen Änderungen für den Stash	Il n’y a aucune modification locale à remiser	No hay cambios locales que guardar en el stash
 There is no backup: commits only on this branch are lost.	Es gibt kein Backup: Commits, die nur auf diesem Branch sind, gehen verloren.	Il n’y a pas de sauvegarde : les commits présents seulement sur cette branche sont perdus.	No hay respaldo: se pierden los commits que solo están en esta rama.
+There is no main or master branch to compare with.	Es gibt keinen main- oder master-Branch zum Vergleichen.	Il n’y a pas de branche main ou master avec laquelle comparer.	No hay una rama main o master con la que comparar.
 This commit has no file changes	Dieser Commit ändert keine Dateien	Ce commit ne modifie aucun fichier	Este commit no cambia ningún archivo
 this hunk	diesen Abschnitt	ce bloc	este bloque
 This repository has no remote to push to or fetch from yet.	Dieses Repository hat noch kein Remote zum Pushen oder Abrufen.	Ce dépôt n’a encore aucun dépôt distant vers lequel pousser ou depuis lequel récupérer.	Este repositorio aún no tiene un remoto al que enviar o del que obtener.

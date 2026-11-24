@@ -96,6 +96,11 @@ pub enum Command {
         remote: String,
         branch: String,
     },
+    /// Local branches reviewed as done with, and the (remote, branch) pairs to delete too.
+    DeleteBranches {
+        names: Vec<String>,
+        remotes: Vec<(String, String)>,
+    },
     SetUpstream {
         branch: String,
         upstream: Option<String>,
@@ -348,6 +353,7 @@ impl Command {
             Self::RenameBranch { .. } => "Renaming branch".into(),
             Self::DeleteBranch { .. } => "Deleting branch".into(),
             Self::DeleteRemoteBranch { .. } => "Deleting remote branch".into(),
+            Self::DeleteBranches { .. } => "Deleting branches".into(),
             Self::SetUpstream { .. } => "Setting upstream".into(),
             Self::Merge { .. } => "Merging".into(),
             Self::Rebase { .. } | Self::InteractiveRebase { .. } => "Rebasing".into(),
@@ -422,6 +428,10 @@ impl Command {
             Self::StashRename { .. } => "Stash renamed".into(),
             Self::StashFile { path, .. } => trf("{path} taken from the stash", &[("path", path)]),
             Self::CreateBranch { name, .. } => trf("Created {name}", &[("name", name)]),
+            Self::DeleteBranches { names, .. } => trf(
+                "Deleted {branches}",
+                &[("branches", &plural(names.len(), "branch"))],
+            ),
             Self::Merge { reference, .. } => trf("Merged {reference}", &[("reference", reference)]),
             Self::Rebase { .. } => "Rebase complete".into(),
             Self::InteractiveRebase { replay: true, .. } => "Commits cherry-picked".into(),
@@ -510,6 +520,9 @@ impl Command {
             Self::CreateBranch { .. } => ("New branch", Mode::Keep),
             Self::RenameBranch { .. } => ("Rename branch", Mode::Keep),
             Self::DeleteBranch { remote: None, .. } => ("Delete branch", Mode::Keep),
+            Self::DeleteBranches { remotes, .. } if remotes.is_empty() => {
+                ("Delete branch", Mode::Keep)
+            }
             Self::CreateTag { push_to, .. } if push_to.is_empty() => ("New tag", Mode::Keep),
             Self::DeleteTag { remotes, .. } if remotes.is_empty() => ("Delete tag", Mode::Keep),
             Self::Checkout { .. } | Self::CheckoutStashing { .. } => ("Checkout", Mode::Keep),
@@ -869,6 +882,13 @@ impl Command {
             Self::MarkConflicted { paths } => ops::mark_conflicted(repo, &paths).await,
             Self::BisectStart { bad, good } => ops::bisect_start(repo, &bad, &good).await,
             Self::FetchMore { how } => ops::fetch_more(repo, how, report).await,
+            Self::DeleteBranches { names, remotes } => {
+                let result = ops::delete_branches(repo, &names).await?;
+                for (remote, branch) in remotes {
+                    ops::delete_remote_branch(repo, &remote, &branch, report).await?;
+                }
+                Ok(result)
+            }
             Self::ForcePushOver {
                 remote,
                 branch,

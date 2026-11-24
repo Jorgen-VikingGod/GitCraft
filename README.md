@@ -36,6 +36,8 @@ installed `git`, so it behaves the same as git on the command line and uses your
 - **Several commits at once**: pick them with Ctrl/Cmd+click or Shift+click, then cherry-pick them,
   squash or drop them (the interactive rebase editor opens with the plan), or replay them onto HEAD
   in the editor (interactive cherry-pick).
+- **Clean up branches** (*Repository › Clean up branches…*): merged, squash- or rebase-merged, and
+  those whose upstream is gone, reviewed in a list; optionally their remote branches too; undoable.
 - **Compare** any two commits (Ctrl/Cmd+click), or a commit with the working directory, or two versions
   of a series of commits (*Repository › Compare commit ranges*, `git range-diff`), filter history to the current branch, **reflog** to
   recover lost commits, fast-forward branches without checking them out.

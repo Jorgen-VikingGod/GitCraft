@@ -358,6 +358,20 @@ pub struct CommitStats {
     pub removed: u32,
 }
 
+/// A local branch that looks done with, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CleanupCandidate {
+    pub name: String,
+    pub sha: String,
+    /// `merged` into the default branch, `squashed` (its changes are there as other
+    /// commits: squash- or rebase-merged), or `gone` (its upstream was deleted).
+    pub reason: String,
+    /// Its upstream, as `remote/branch`, when it still exists.
+    pub upstream: Option<String>,
+    /// Unix seconds of its last commit.
+    pub time: i64,
+}
+
 /// How the history is listed.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]

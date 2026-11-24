@@ -2904,3 +2904,40 @@ async fn checking_out_a_remote_branch_brings_its_local_branch_up_to_date() {
         "fast-forwarded"
     );
 }
+
+#[tokio::test]
+async fn done_branches_are_found_for_cleaning_up() {
+    let f = Fixture::with_history();
+    // Merged in.
+    f.git(&["branch", "merged"]);
+    // Squash-merged: its changes reached main as one other commit.
+    f.git(&["switch", "-q", "-c", "squashed"]);
+    f.commit("s1.txt", "1\n", "s1");
+    f.commit("s2.txt", "2\n", "s2");
+    f.git(&["switch", "-q", "main"]);
+    f.git(&["merge", "-q", "--squash", "squashed"]);
+    f.git(&["commit", "-q", "-m", "squashed in"]);
+    // Still has work of its own.
+    f.git(&["switch", "-q", "-c", "busy"]);
+    f.commit("b.txt", "b\n", "busy work");
+    f.git(&["switch", "-q", "main"]);
+    let found = queries::branch_cleanup(&f.repo).await.unwrap().unwrap();
+    let mut seen: Vec<(String, String)> = found
+        .iter()
+        .map(|candidate| (candidate.name.clone(), candidate.reason.clone()))
+        .collect();
+    seen.sort();
+    assert_eq!(
+        seen,
+        [
+            ("merged".to_owned(), "merged".to_owned()),
+            ("squashed".to_owned(), "squashed".to_owned())
+        ]
+    );
+    let names: Vec<String> = found.into_iter().map(|candidate| candidate.name).collect();
+    ops::delete_branches(&f.repo, &names).await.unwrap();
+    assert_eq!(
+        f.git(&["branch", "--format=%(refname:short)"]),
+        "busy\nmain\n"
+    );
+}

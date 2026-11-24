@@ -4,7 +4,9 @@ use egui::{
     Align, Align2, Color32, Context, Frame, Id, Layout, Margin, Pos2, Rect, Sense, Stroke,
     StrokeKind, Ui, vec2,
 };
-use gitcraft_core::model::{BlameLine, Commit, ConflictChunk, DiscardBackup, ReflogEntry};
+use gitcraft_core::model::{
+    BlameLine, CleanupCandidate, Commit, ConflictChunk, DiscardBackup, ReflogEntry,
+};
 
 use super::widgets::{
     Kind, accent, area_edit, bar, btn, button_tip, card, check, choice, fill, floating, line_edit,
@@ -138,6 +140,21 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
             error.as_deref(),
         ),
         Overlay::Conflict(state) => conflict(ctx, cx, state),
+        Overlay::Cleanup {
+            candidates,
+            chosen,
+            remote_too,
+            loading,
+            error,
+        } => cleanup(
+            ctx,
+            cx,
+            candidates,
+            chosen,
+            *remote_too,
+            *loading,
+            error.as_deref(),
+        ),
         Overlay::RangeDiff {
             old,
             new,
@@ -187,6 +204,103 @@ fn reflog(
             super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
         }
     });
+}
+
+#[allow(clippy::too_many_arguments)]
+fn cleanup(
+    ctx: &Context,
+    cx: &Cx,
+    candidates: &[CleanupCandidate],
+    chosen: &[String],
+    remote_too: bool,
+    loading: bool,
+    error: Option<&str>,
+) {
+    let look = cx.look();
+    let c = &look.c;
+    dialog(
+        ctx,
+        cx,
+        "Clean up branches",
+        tr("Local branches that look done with. Merged ones are ticked; look at the others first."),
+        None,
+        |ui, rect| {
+            if loading {
+                placeholder(ui, look, "Loading…");
+                return;
+            }
+            if let Some(error) = error {
+                placeholder(ui, look, error);
+                return;
+            }
+            if candidates.is_empty() {
+                placeholder(ui, look, "No branches to clean up");
+                return;
+            }
+            let (list, footer) = split_y(rect, (rect.height() - 52.0).max(40.0));
+            region(ui, list, |ui| {
+                let scrolled = scroll("cleanup").show(ui, |ui| {
+                    egui::Frame::new()
+                        .inner_margin(Margin::symmetric(14, 6))
+                        .show(ui, |ui| {
+                            for candidate in candidates {
+                                ui.horizontal(|ui| {
+                                    let on = chosen.contains(&candidate.name);
+                                    if check(ui, on, "", true).is_some() {
+                                        cx.send(Message::CleanupToggle(candidate.name.clone()));
+                                    }
+                                    super::widgets::mono(
+                                        ui,
+                                        &candidate.name,
+                                        look.text_size,
+                                        c.text,
+                                    );
+                                    let (reason, color) = match candidate.reason.as_str() {
+                                        "merged" => ("Merged", c.success),
+                                        "squashed" => (
+                                            "Its changes are in already (squashed or rebased)",
+                                            c.warning,
+                                        ),
+                                        _ => ("Its upstream was deleted", c.text_muted),
+                                    };
+                                    text(ui, tr(reason), 12.0, color);
+                                    muted(ui, look, short_date(candidate.time), 12.0);
+                                    if let Some(upstream) = &candidate.upstream {
+                                        muted(ui, look, format!("→ {upstream}"), 12.0);
+                                    }
+                                });
+                            }
+                        });
+                });
+                super::widgets::scroll_shadows(ui, look, &scrolled);
+            });
+            region(ui, footer, |ui| {
+                egui::Frame::new()
+                    .inner_margin(Margin::symmetric(14, 10))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            if let Some(on) = check(
+                                ui,
+                                remote_too,
+                                "Also delete their branches on the remote",
+                                true,
+                            ) {
+                                cx.send(Message::CleanupRemote(on));
+                            }
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                let label = trf(
+                                    "Delete {branches}…",
+                                    &[("branches", &plural(chosen.len(), "branch"))],
+                                );
+                                if accent(ui, look, &label, !chosen.is_empty()) {
+                                    cx.send(Message::CleanupStart);
+                                }
+                            });
+                        });
+                    });
+            });
+        },
+    );
 }
 
 fn range_diff(

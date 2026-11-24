@@ -730,6 +730,23 @@ pub async fn rename_branch(repo: &str, old: &str, new: &str) -> Result<OpResult>
     Ok(ok(&git(repo, &["branch", "-m", old, new]).await?))
 }
 
+/// Deletes several local branches at once (force: they were reviewed as done with).
+pub async fn delete_branches(repo: &str, names: &[String]) -> Result<OpResult> {
+    for name in names {
+        check_ref(name)?;
+    }
+    if names.is_empty() {
+        return Ok(ok_empty());
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(
+        repo,
+        &with_paths(vec!["branch", "-D", "--"], names),
+    )
+    .await?))
+}
+
 pub async fn delete_branch(repo: &str, name: &str, force: bool) -> Result<OpResult> {
     let name = check_ref(name)?;
     let lock = repo_lock(repo);

@@ -3114,3 +3114,40 @@ async fn a_tag_is_deleted_on_one_remote_only() {
     assert_eq!(git(&two, &["tag"]), "");
     assert_eq!(f.git(&["tag"]), "");
 }
+
+#[tokio::test]
+async fn merged_branches_are_cleaned_up_and_come_back_with_undo() {
+    let f = fixture();
+    f.git(&["branch", "done"]);
+    f.git(&["switch", "-q", "-c", "busy"]);
+    f.commit("b.txt", "busy\n", "busy work");
+    f.git(&["switch", "-q", "main"]);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenCleanup).await;
+    let Some(Overlay::Cleanup {
+        candidates, chosen, ..
+    }) = &app.overlay
+    else {
+        panic!("open")
+    };
+    let names: Vec<&str> = candidates.iter().map(|c| c.name.as_str()).collect();
+    assert!(
+        names.contains(&"done") && names.contains(&"side"),
+        "{names:?}"
+    );
+    assert!(!names.contains(&"busy") && !names.contains(&"main"));
+    assert_eq!(chosen.len(), names.len(), "merged ones are ticked");
+    drive(&mut app, Message::CleanupToggle("side".into())).await;
+    drive(&mut app, Message::CleanupStart).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(app.overlay.is_none());
+    assert_eq!(
+        f.git(&["branch", "--format=%(refname:short)"]),
+        "busy\nmain\nside\n"
+    );
+    drive(&mut app, Message::Undo).await;
+    assert_eq!(
+        f.git(&["branch", "--format=%(refname:short)"]),
+        "busy\ndone\nmain\nside\n"
+    );
+}

@@ -61,6 +61,162 @@ pub async fn commit_stats(repo: &str, shas: &[String]) -> Result<Vec<(String, Co
     Ok(parsers::parse_shortstats(&result.out()))
 }
 
+/// The branch others are merged into: `origin`'s HEAD, else `init.defaultBranch`,
+/// else `main` or `master`, whichever exists.
+pub async fn default_branch(repo: &str) -> Result<Option<String>> {
+    let head = git_unchecked(
+        repo,
+        &["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
+    )
+    .await?;
+    if head.code == 0 {
+        return Ok(Some(head.out().trim().to_owned()));
+    }
+    let configured = git_unchecked(repo, &["config", "--get", "init.defaultBranch"]).await?;
+    let mut names: Vec<String> = Vec::new();
+    if configured.code == 0 {
+        names.push(configured.out().trim().to_owned());
+    }
+    names.extend(["main".to_owned(), "master".to_owned()]);
+    for name in names {
+        let spec = format!("refs/heads/{name}");
+        if git_unchecked(repo, &["rev-parse", "--verify", "-q", &spec])
+            .await?
+            .code
+            == 0
+        {
+            return Ok(Some(name));
+        }
+    }
+    Ok(None)
+}
+
+/// Local branches that look done with: merged into the default branch, squash- or
+/// rebase-merged into it (all their changes are there already), or with a deleted upstream.
+/// The current branch, the default branch and branches checked out in a worktree are left
+/// out. `None` when there is no default branch to compare with.
+pub async fn branch_cleanup(repo: &str) -> Result<Option<Vec<CleanupCandidate>>> {
+    let Some(default) = default_branch(repo).await? else {
+        return Ok(None);
+    };
+    let format = "--format=%(refname:short)%00%(objectname)%00%(upstream:short)%00%(upstream:track)%00%(committerdate:unix)";
+    let all = git(repo, &["for-each-ref", format, "refs/heads/"]).await?;
+    let merged = git(
+        repo,
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "--merged",
+            &default,
+            "refs/heads/",
+        ],
+    )
+    .await?;
+    let merged: Vec<String> = merged.out().lines().map(str::to_owned).collect();
+    let current = git_unchecked(repo, &["symbolic-ref", "--short", "-q", "HEAD"]).await?;
+    let current = current.out().trim().to_owned();
+    let checked_out: Vec<String> = refs(repo)
+        .await?
+        .worktrees
+        .into_iter()
+        .filter_map(|tree| tree.branch)
+        .collect();
+    let default_local = default
+        .split_once('/')
+        .map_or(default.as_str(), |(_, name)| name)
+        .to_owned();
+    let mut found = Vec::new();
+    for line in all.out().lines() {
+        let fields: Vec<&str> = line.split('\0').collect();
+        let [name, sha, upstream, track, time, ..] = fields[..] else {
+            continue;
+        };
+        if name == current
+            || name == default
+            || name == default_local
+            || checked_out.iter().any(|b| b == name)
+        {
+            continue;
+        }
+        let gone = track.contains("gone");
+        let reason = if merged.iter().any(|m| m == name) {
+            "merged"
+        } else if squashed(repo, &default, name).await? {
+            "squashed"
+        } else if gone {
+            "gone"
+        } else {
+            continue;
+        };
+        found.push(CleanupCandidate {
+            name: name.to_owned(),
+            sha: sha.to_owned(),
+            reason: reason.to_owned(),
+            upstream: (!upstream.is_empty() && !gone).then(|| upstream.to_owned()),
+            time: time.parse().unwrap_or(0),
+        });
+    }
+    Ok(Some(found))
+}
+
+/// Whether all of `branch`'s changes are on `target` already as other commits: each of its
+/// commits rebased there (`git cherry`), or all of them squashed into one there (the same
+/// patch id as the branch's whole diff).
+async fn squashed(repo: &str, target: &str, branch: &str) -> Result<bool> {
+    let cherry = git_unchecked(repo, &["cherry", target, branch]).await?;
+    let lines: Vec<String> = cherry.out().lines().map(str::to_owned).collect();
+    if cherry.code == 0 && !lines.is_empty() && lines.iter().all(|line| line.starts_with('-')) {
+        return Ok(true);
+    }
+    let base = git_unchecked(repo, &["merge-base", target, branch]).await?;
+    if base.code != 0 {
+        return Ok(false);
+    }
+    let base = base.out().trim().to_owned();
+    let patch_id = |patch: Vec<u8>| async move {
+        let result = run(
+            repo,
+            &["patch-id", "--stable"],
+            Options {
+                stdin: Some(&patch),
+                ..Options::default()
+            },
+        )
+        .await?;
+        Ok::<Vec<String>, Error>(
+            result
+                .out()
+                .lines()
+                .filter_map(|line| line.split_whitespace().next().map(str::to_owned))
+                .collect(),
+        )
+    };
+    let whole = git(
+        repo,
+        &["diff", "--no-ext-diff", "--no-textconv", &base, branch],
+    )
+    .await?;
+    let Some(wanted) = patch_id(whole.stdout).await?.into_iter().next() else {
+        return Ok(false);
+    };
+    let range = format!("{base}..{target}");
+    let there = git(
+        repo,
+        &[
+            "log",
+            "-p",
+            "--no-merges",
+            "--max-count=500",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--format=commit %H",
+            &range,
+        ],
+    )
+    .await?;
+    Ok(patch_id(there.stdout).await?.contains(&wanted))
+}
+
 /// The bisect in progress, if any.
 pub async fn bisect_state(repo: &str) -> Result<Option<Bisect>> {
     let log = git_dir(repo).await?.join("BISECT_LOG");
