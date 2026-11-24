@@ -609,3 +609,15 @@ There are uncommitted changes. What should happen to them before {name} is check
 Stash and reapply puts them aside and brings them back on {name}. Where they clash with it, they stay in the stash and the clashes show in Local Changes.	Stashen und wieder anwenden legt sie beiseite und holt sie auf {name} zurück. Wo sie damit kollidieren, bleiben sie im Stash, und die Konflikte erscheinen unter Lokale Änderungen.	Remiser et réappliquer les met de côté et les rapporte sur {name}. Là où elles entrent en conflit avec lui, elles restent dans la remise et les conflits apparaissent dans Modifications locales.	Guardar en stash y reaplicar los aparta y los recupera en {name}. Donde choquen con él, se quedan en el stash y los conflictos aparecen en Cambios locales.
 Commit first takes you to the commit box and checks out {name} once you have committed.	Zuerst committen bringt dich zum Commit-Feld und checkt {name} aus, sobald du committet hast.	Valider d’abord vous mène à la zone de commit et extrait {name} une fois le commit fait.	Hacer commit primero te lleva al cuadro de commit y cambia a {name} en cuanto hayas hecho el commit.
 Discard changes clears them away into a stash, from where they can still be brought back.	Änderungen verwerfen räumt sie in einen Stash, aus dem sie sich noch zurückholen lassen.	Supprimer les modifications les range dans une remise, d’où elles peuvent encore être récupérées.	Descartar cambios los guarda en un stash, desde donde aún se pueden recuperar.
+External tools	Externe Programme	Outils externes	Herramientas externas
+Diff tool	Diff-Programm	Outil de diff	Herramienta de diff
+Merge tool	Merge-Programm	Outil de fusion	Herramienta de fusión
+{tool} (not found)	{tool} (nicht gefunden)	{tool} (introuvable)	{tool} (no encontrada)
+No diff or merge tools were found. Install one, such as KDiff3 or Meld, or set one up in git's config (difftool.<name>.cmd).	Es wurden keine Diff- oder Merge-Programme gefunden. Installiere eines, etwa KDiff3 oder Meld, oder richte eines in der Git-Konfiguration ein (difftool.<name>.cmd).	Aucun outil de diff ou de fusion n’a été trouvé. Installez-en un, comme KDiff3 ou Meld, ou configurez-en un dans la configuration de git (difftool.<name>.cmd).	No se encontró ninguna herramienta de diff o de fusión. Instala una, como KDiff3 o Meld, o configura una en la configuración de git (difftool.<name>.cmd).
+Files open in the chosen tools from their right-click menus.	Dateien öffnen sich über ihr Rechtsklick-Menü in den gewählten Programmen.	Les fichiers s’ouvrent dans les outils choisis depuis leur menu contextuel.	Los archivos se abren en las herramientas elegidas desde su menú contextual.
+Open in {tool}	In {tool} öffnen	Ouvrir dans {tool}	Abrir en {tool}
+Resolve in {tool}	In {tool} lösen	Résoudre dans {tool}	Resolver en {tool}
+Choose a diff tool…	Diff-Programm wählen…	Choisir un outil de diff…	Elegir una herramienta de diff…
+Opening {tool}…	{tool} wird geöffnet…	Ouverture de {tool}…	Abriendo {tool}…
+{tool} could not be opened	{tool} konnte nicht geöffnet werden	{tool} n’a pas pu être ouvert	No se pudo abrir {tool}
+None	Keines	Aucun	Ninguna

@@ -142,6 +142,10 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 
 ## Gotchas
 
+- External diff and merge tools go through `git difftool` / `git mergetool --tool=<name>` (`ops::open_diff_tool`,
+  `open_merge_tool`), so git supplies each tool's arguments. `queries::external_tools` lists what git can start; terminal
+  tools are left out. They run as a plain `Task`, not a `Command`, so the window isn't busy while a tool is open. Tests
+  set up a tool of their own with `difftool.fake.cmd` instead of needing one installed.
 - `gitcraft_core::editor::run_if_requested()` must stay the first call in `main`. Keep it working when
   touching `runner::editor_command()` or `editor.rs`. The core's tests use `gitcraft-editor-stub` in its place.
 - Set `GITCRAFT_SHOT=<file.png>` to have the app save a picture of its window once the first repository has

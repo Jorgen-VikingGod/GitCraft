@@ -646,6 +646,97 @@ async fn checkout_that_fails_puts_the_changes_back() {
     assert!(queries::refs(&f.repo).await.unwrap().stashes.is_empty());
 }
 
+/// A "diff tool" that copies the two versions it is given beside the repository.
+fn fake_diff_tool(f: &Fixture) {
+    let root = f.root.to_str().unwrap().replace('\\', "/");
+    let cmd = format!("cp \"$LOCAL\" \"{root}/left\" && cp \"$REMOTE\" \"{root}/right\"");
+    f.git(&["config", "difftool.fake.cmd", &cmd]);
+}
+
+fn sides(f: &Fixture) -> (String, String) {
+    let read = |name: &str| std::fs::read_to_string(f.root.join(name)).unwrap_or_default();
+    (read("left"), read("right"))
+}
+
+#[tokio::test]
+async fn external_diff_tools_are_listed_and_shown_each_version() {
+    let f = Fixture::with_history();
+    fake_diff_tool(&f);
+    let tools = queries::external_tools(&f.repo, false).await.unwrap();
+    assert!(tools.iter().any(|tool| tool.name == "fake"), "{tools:?}");
+
+    f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\n");
+    f.git(&["add", "a.txt"]);
+    f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\nworking\n");
+    let open = |target: ToolTarget| {
+        let repo = f.repo.clone();
+        async move {
+            ops::open_diff_tool(&repo, "fake", "a.txt", None, &target)
+                .await
+                .unwrap()
+        }
+    };
+    open(ToolTarget::Working { staged: false }).await;
+    assert_eq!(
+        sides(&f),
+        (
+            "one\ntwo\nthree\nfour\nstaged\n".into(),
+            "one\ntwo\nthree\nfour\nstaged\nworking\n".into()
+        ),
+        "the index against the working tree"
+    );
+    open(ToolTarget::Working { staged: true }).await;
+    assert_eq!(
+        sides(&f),
+        (
+            "one\ntwo\nthree\nfour\n".into(),
+            "one\ntwo\nthree\nfour\nstaged\n".into()
+        ),
+        "HEAD against the index"
+    );
+    let second = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+    open(ToolTarget::Commit { sha: second }).await;
+    assert_eq!(
+        sides(&f),
+        ("one\ntwo\nthree\n".into(), "one\ntwo\nthree\nfour\n".into()),
+        "a commit against its parent"
+    );
+    let first = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    open(ToolTarget::Commit { sha: first }).await;
+    assert_eq!(sides(&f).1, "one\ntwo\nthree\n", "a first commit too");
+    assert!(matches!(
+        ops::open_diff_tool(
+            &f.repo,
+            "--extcmd=sh",
+            "a.txt",
+            None,
+            &ToolTarget::Working { staged: false }
+        )
+        .await,
+        Err(Error::Invalid(_))
+    ));
+}
+
+#[tokio::test]
+async fn an_external_merge_tool_resolves_the_conflict() {
+    let f = Fixture::with_history();
+    f.git(&["config", "mergetool.fake.cmd", "cp \"$REMOTE\" \"$MERGED\""]);
+    f.git(&["config", "mergetool.fake.trustExitCode", "true"]);
+    let tools = queries::external_tools(&f.repo, true).await.unwrap();
+    assert!(tools.iter().any(|tool| tool.name == "fake"), "{tools:?}");
+    f.make_conflict();
+    ops::merge(&f.repo, "other", "default").await.unwrap();
+    ops::open_merge_tool(&f.repo, "fake", "a.txt")
+        .await
+        .unwrap();
+    assert!(f.read("a.txt").ends_with("THEIRS\n"));
+    assert!(
+        queries::status(&f.repo).await.unwrap().conflicts.is_empty(),
+        "and marked as resolved"
+    );
+    assert!(!f.exists("a.txt.orig"), "without a backup copy left behind");
+}
+
 #[tokio::test]
 async fn cherry_pick_revert_reset() {
     let f = Fixture::with_history();

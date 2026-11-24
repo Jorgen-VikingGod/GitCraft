@@ -16,6 +16,7 @@ pub struct Settings {
     pub general: General,
     pub appearance: Appearance,
     pub diff: Diff,
+    pub tools: Tools,
     pub history: History,
     pub pull: Pull,
     pub rebase: Rebase,
@@ -146,6 +147,15 @@ impl Default for Layout {
     }
 }
 
+/// The external programs chosen for diffs and conflicts, by the name git knows them by
+/// (`kdiff3`, `bc`, or a name set up as `difftool.<name>.cmd`). Empty: none chosen.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Tools {
+    pub diff: String,
+    pub merge: String,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Session {
@@ -252,6 +262,7 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
             tabs: old.tabs,
             active_tab: old.active_tab,
         },
+        tools: Tools::default(),
     })
 }
 

@@ -1089,6 +1089,97 @@ pub async fn resolve_conflict(
     Ok(ok(&git(repo, &["add", "--", path]).await?))
 }
 
+// --------------------------------------------------------- external tools
+
+/// A tool name as git uses it: no spaces, nothing git would read as an option.
+fn tool_name(tool: &str) -> Result<&str> {
+    let fits = !tool.is_empty()
+        && !tool.starts_with('-')
+        && tool
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
+    if fits {
+        Ok(tool)
+    } else {
+        invalid(format!("Not a tool name: {tool}"))
+    }
+}
+
+/// Shows a file's change in an external diff tool, and returns once the tool is closed.
+/// Nothing in the repository changes, so this doesn't hold its lock.
+pub async fn open_diff_tool(
+    repo: &str,
+    tool: &str,
+    path: &str,
+    orig: Option<&str>,
+    target: &ToolTarget,
+) -> Result<OpResult> {
+    let tool = format!("--tool={}", tool_name(tool)?);
+    safe_path(repo, path)?;
+    let mut revisions = Vec::new();
+    match target {
+        ToolTarget::Working { staged } => {
+            if *staged {
+                revisions.push("--cached".to_owned());
+            }
+        }
+        ToolTarget::Commit { sha } => {
+            let sha = check_ref(sha)?;
+            let parent = format!("{sha}^1");
+            let has_parent = git_unchecked(repo, &["rev-parse", "-q", "--verify", &parent])
+                .await?
+                .code
+                == 0;
+            // A first commit is compared with the empty tree.
+            let base = if has_parent {
+                parent
+            } else {
+                empty_tree(repo).await?
+            };
+            revisions.extend([base, sha.to_owned()]);
+        }
+        ToolTarget::Compare { base, target } => {
+            revisions.extend([check_ref(base)?.to_owned(), check_ref(target)?.to_owned()]);
+        }
+    }
+    let mut args = vec!["difftool", "--no-prompt", &tool];
+    args.extend(revisions.iter().map(String::as_str));
+    args.push("--");
+    args.extend(orig.filter(|orig| *orig != path));
+    args.push(path);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// The id of the empty tree in this repository's hash.
+async fn empty_tree(repo: &str) -> Result<String> {
+    let options = Options {
+        stdin: Some(b""),
+        ..Options::default()
+    };
+    let result = run(repo, &["hash-object", "-t", "tree", "--stdin"], options).await?;
+    Ok(result.out().trim().to_owned())
+}
+
+/// Resolves a conflicted file in an external merge tool, and returns once the tool is closed.
+/// Git marks the file as resolved when the tool reports success; without the `.orig` copy
+/// git would otherwise leave beside it.
+pub async fn open_merge_tool(repo: &str, tool: &str, path: &str) -> Result<OpResult> {
+    let tool = format!("--tool={}", tool_name(tool)?);
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let args = [
+        "-c",
+        "mergetool.keepBackup=false",
+        "mergetool",
+        "--no-prompt",
+        &tool,
+        "--",
+        path,
+    ];
+    Ok(ok(&git(repo, &args).await?))
+}
+
 // ----------------------------------------------------------- misc tools
 
 /// Restores one file (index and working tree) to its state in `sha`.

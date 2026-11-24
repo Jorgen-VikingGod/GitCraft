@@ -586,6 +586,23 @@ pub enum WindowAction {
     Resize(egui::ResizeDirection),
 }
 
+/// External tools git can start: for diffs, and for conflicts.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FoundTools {
+    pub diff: Vec<ExternalTool>,
+    pub merge: Vec<ExternalTool>,
+}
+
+impl FoundTools {
+    /// How to call a tool in the interface: its own name if git knows it, else as written.
+    pub fn label(&self, merge: bool, name: &str) -> String {
+        let list = if merge { &self.merge } else { &self.diff };
+        list.iter()
+            .find(|tool| tool.name == name)
+            .map_or_else(|| name.to_owned(), |tool| tool.label.clone())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Splitter {
     Sidebar,
@@ -627,6 +644,9 @@ pub struct App {
     restore_waiting: Option<bool>,
     /// The front tab once it has opened, as git names its folder.
     restore_front: Option<String>,
+    /// The diff and the merge tools git can start, as found when GitCraft started or the
+    /// settings were opened.
+    pub found_tools: FoundTools,
     /// Things only the shell can do, such as the clipboard; it drains them after each update.
     pub effects: Vec<Effect>,
     next_id: u64,
@@ -756,6 +776,22 @@ pub enum Message {
     RebaseReset,
     RebaseStart,
     OpenSettings,
+    /// The external tools git can start: diff tools, then merge tools.
+    ToolsFound(FoundTools),
+    /// The external diff tool to use, by git's name for it; empty for none.
+    SetDiffTool(String),
+    SetMergeTool(String),
+    /// Show a file's change in the chosen diff tool.
+    OpenDiffTool {
+        path: String,
+        orig: Option<String>,
+        target: ToolTarget,
+    },
+    /// Resolve a conflicted file in the chosen merge tool.
+    OpenMergeTool(String),
+    /// An external tool was closed: the repository, whether it was the merge tool, and how
+    /// it went.
+    ToolClosed(String, bool, Answer<OpResult>),
     SetTheme(String),
     /// A language code, or `auto` for the system's.
     SetLanguage(String),
@@ -814,6 +850,7 @@ impl App {
         let session = &app.settings.session;
         // A repository named on the command line opens last and stays in front.
         let front = repo.is_none().then_some(session.active_tab);
+        let tools = find_tools(app.config_dir.to_string_lossy().into_owned());
         app.restoring = session
             .tabs
             .iter()
@@ -822,7 +859,7 @@ impl App {
             .chain(repo.map(|path| (path, false)))
             .collect();
         let task = app.restore_next();
-        (app, task)
+        (app, Task::batch([task, tools]))
     }
 
     /// Start-up is still opening the saved tabs: the saved session is left as it is until then.
@@ -886,6 +923,7 @@ impl App {
             restoring: VecDeque::new(),
             restore_waiting: None,
             restore_front: None,
+            found_tools: FoundTools::default(),
             effects: Vec::new(),
             next_id: 1,
             config_dir: store.dir(),
@@ -1704,7 +1742,96 @@ impl App {
             Message::RebaseStart => self.rebase_start(),
             Message::OpenSettings => {
                 self.overlay = Some(Overlay::Settings);
+                // Looked for again: a tool may have been installed since, and the repository
+                // may set up tools of its own.
+                let cwd = self.current().map_or_else(
+                    || self.config_dir.to_string_lossy().into_owned(),
+                    |tab| tab.path.clone(),
+                );
+                find_tools(cwd)
+            }
+            Message::ToolsFound(found) => {
+                self.found_tools = found;
                 Task::none()
+            }
+            Message::SetDiffTool(name) => {
+                self.settings.tools.diff = name;
+                self.save_settings();
+                Task::none()
+            }
+            Message::SetMergeTool(name) => {
+                self.settings.tools.merge = name;
+                self.save_settings();
+                Task::none()
+            }
+            Message::OpenDiffTool { path, orig, target } => {
+                let tool = self.settings.tools.diff.clone();
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                if tool.is_empty() {
+                    return Task::none();
+                }
+                let label = self.found_tools.label(false, &tool);
+                self.toast(
+                    ToastKind::Info,
+                    trf("Opening {tool}…", &[("tool", &label)]),
+                    None,
+                );
+                // In the background and without the busy state: the tool stays open as long
+                // as the user likes, and GitCraft goes on working meanwhile.
+                Task::perform(
+                    async move {
+                        let result =
+                            ops::open_diff_tool(&repo, &tool, &path, orig.as_deref(), &target)
+                                .await;
+                        (repo, answer(result))
+                    },
+                    |(repo, result)| Message::ToolClosed(repo, false, result),
+                )
+            }
+            Message::OpenMergeTool(path) => {
+                let tool = self.settings.tools.merge.clone();
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                if tool.is_empty() {
+                    return Task::none();
+                }
+                let label = self.found_tools.label(true, &tool);
+                self.toast(
+                    ToastKind::Info,
+                    trf("Opening {tool}…", &[("tool", &label)]),
+                    None,
+                );
+                Task::perform(
+                    async move {
+                        let result = ops::open_merge_tool(&repo, &tool, &path).await;
+                        (repo, answer(result))
+                    },
+                    |(repo, result)| Message::ToolClosed(repo, true, result),
+                )
+            }
+            Message::ToolClosed(repo, merge, result) => {
+                if let Err(error) = result {
+                    let tool = if merge {
+                        &self.settings.tools.merge
+                    } else {
+                        &self.settings.tools.diff
+                    };
+                    let label = self.found_tools.label(merge, tool);
+                    self.toast(
+                        ToastKind::Error,
+                        trf("{tool} could not be opened", &[("tool", &label)]),
+                        Some(error),
+                    );
+                }
+                // A merge tool may have resolved the file.
+                if merge && self.tabs.iter().any(|tab| tab.path == repo) {
+                    load_status(repo)
+                } else {
+                    Task::none()
+                }
             }
             Message::SetLanguage(code) => {
                 crate::i18n::set_language(&code);
@@ -3220,6 +3347,23 @@ fn ensure_focus(tab: &mut RepoTab) {
         None => (Area::Unstaged, Vec::new()),
     };
     tab.focus = next;
+}
+
+/// Asks git which diff and merge tools it can start from `cwd`.
+fn find_tools(cwd: String) -> Task<Message> {
+    Task::perform(
+        async move {
+            let (diff, merge) = tokio::join!(
+                queries::external_tools(&cwd, false),
+                queries::external_tools(&cwd, true),
+            );
+            FoundTools {
+                diff: diff.unwrap_or_default(),
+                merge: merge.unwrap_or_default(),
+            }
+        },
+        Message::ToolsFound,
+    )
 }
 
 /// What to do with uncommitted changes before checking out `reference`.

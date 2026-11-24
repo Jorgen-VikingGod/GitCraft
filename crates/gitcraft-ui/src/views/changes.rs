@@ -314,6 +314,13 @@ fn detail(ui: &mut Ui, cx: &Cx, tab: &RepoTab, width: f32) {
                     if accent(ui, look, "Open merge tool", true) {
                         cx.send(Message::OpenConflict(path.clone()));
                     }
+                    let tool = &cx.app.settings.tools.merge;
+                    if !tool.is_empty() {
+                        let label = cx.app.found_tools.label(true, tool);
+                        if btn(ui, look, &trf("Open in {tool}", &[("tool", &label)]), true) {
+                            cx.send(Message::OpenMergeTool(path.clone()));
+                        }
+                    }
                     if btn(ui, look, "Use ours", true) {
                         cx.send(resolve(Some("ours")));
                     }

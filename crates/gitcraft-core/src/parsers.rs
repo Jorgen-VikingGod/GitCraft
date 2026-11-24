@@ -877,8 +877,86 @@ pub fn parse_conflict_markers(text: &str) -> Vec<ConflictChunk> {
     chunks
 }
 
+/// The tools `git difftool --tool-help` (or `mergetool`) lists as usable: the installed ones
+/// that open a window, and any set up with `difftool.<name>.cmd`. Tools that run in a terminal
+/// (vimdiff, emerge) are left out, as there is no terminal to run them in.
+pub fn parse_tool_help(out: &str) -> Vec<ExternalTool> {
+    let mut tools = Vec::new();
+    let mut usable = false;
+    let mut own = false;
+    for line in out.lines() {
+        let trimmed = line.trim();
+        if line.contains("may be set to one of the following") {
+            (usable, own) = (true, false);
+            continue;
+        }
+        if trimmed == "user-defined:" {
+            (usable, own) = (true, true);
+            continue;
+        }
+        if line.contains("not currently available") {
+            usable = false;
+            continue;
+        }
+        // Tools are the indented lines of a usable section; the rest is prose.
+        if !usable || trimmed.is_empty() || !line.starts_with('\t') {
+            continue;
+        }
+        let (word, rest) = trimmed
+            .split_once(char::is_whitespace)
+            .unwrap_or((trimmed, ""));
+        if own {
+            // "mytool.cmd echo $LOCAL"
+            let name = word.strip_suffix(".cmd").unwrap_or(word);
+            tools.push(ExternalTool {
+                name: name.to_owned(),
+                label: name.to_owned(),
+            });
+        } else if rest.contains("graphical session") {
+            let label = rest.trim().trim_start_matches("Use ");
+            let label = label.split(" (requires").next().unwrap_or(label).trim();
+            tools.push(ExternalTool {
+                name: word.to_owned(),
+                label: label.to_owned(),
+            });
+        }
+    }
+    tools.dedup_by(|a, b| a.name == b.name);
+    tools
+}
+
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn tool_help_gives_the_installed_window_tools() {
+        let out = "'git difftool --tool=<tool>' may be set to one of the following:\n\
+\t\tkdiff3           Use KDiff3 (requires a graphical session)\n\
+\t\tvimdiff          Use Vim\n\
+\t\tbc               Use Beyond Compare (requires a graphical session)\n\
+\n\
+\tuser-defined:\n\
+\t\tmytool.cmd echo $LOCAL\n\
+\n\
+The following tools are valid, but not currently available:\n\
+\t\tmeld             Use Meld (requires a graphical session)\n\
+\n\
+Some of the tools listed above only work in a windowed\n\
+environment. If run in a terminal-only session, they will fail.\n";
+        let tools = parse_tool_help(out);
+        let found: Vec<(&str, &str)> = tools
+            .iter()
+            .map(|tool| (tool.name.as_str(), tool.label.as_str()))
+            .collect();
+        assert_eq!(
+            found,
+            [
+                ("kdiff3", "KDiff3"),
+                ("bc", "Beyond Compare"),
+                ("mytool", "mytool")
+            ]
+        );
+    }
     use super::*;
 
     const DIFF: &str = "diff --git a/f.txt b/f.txt\nindex 1111111..2222222 100644\n--- a/f.txt\n+++ b/f.txt\n@@ -1,3 +1,3 @@ ctx\n one\n-two\n+TWO\n three\n";

@@ -7,6 +7,7 @@ use std::process::Command as Process;
 
 use egui::{Event, Modifiers, PointerButton, Pos2, Rect, Vec2, vec2};
 use futures::StreamExt;
+use gitcraft_core::model::ToolTarget;
 use gitcraft_core::runner::set_editor_exe;
 use gitcraft_core::store::RepoStore;
 use gitcraft_ui::App;
@@ -1484,6 +1485,101 @@ async fn a_checkout_with_only_new_files_doesnt_ask() {
     drive(&mut app, checkout_side()).await;
     assert!(app.form.is_none());
     assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+}
+
+/// A "diff tool" and a "merge tool" set up in the repository's git config: the diff tool
+/// copies the two versions it is shown beside the repository, the merge tool takes theirs.
+fn fake_tools(f: &Fixture) {
+    let root = f.root.to_str().unwrap().replace('\\', "/");
+    let diff = format!("cp \"$LOCAL\" \"{root}/left\" && cp \"$REMOTE\" \"{root}/right\"");
+    f.git(&["config", "difftool.fake.cmd", &diff]);
+    f.git(&["config", "mergetool.fake.cmd", "cp \"$REMOTE\" \"$MERGED\""]);
+    f.git(&["config", "mergetool.fake.trustExitCode", "true"]);
+}
+
+#[tokio::test]
+async fn an_external_diff_tool_is_found_chosen_and_opened() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.write("a.txt", "changed\n");
+    fake_tools(&f);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    let menu = |app: &mut App| {
+        app.update(Message::OpenMenu(MenuRequest::File {
+            area: Some(Area::Unstaged),
+            path: "a.txt".into(),
+            rev: None,
+        }));
+        labels(&app.menu.take().unwrap().items)
+    };
+    assert!(
+        menu(&mut app).contains(&"Choose a diff tool…".to_owned()),
+        "none chosen yet"
+    );
+
+    drive(&mut app, Message::OpenSettings).await;
+    assert!(app.found_tools.diff.iter().any(|tool| tool.name == "fake"));
+    drive(&mut app, Message::SetDiffTool("fake".into())).await;
+    let saved = std::fs::read_to_string(f.root.join("config/config.toml")).unwrap_or_default();
+    assert!(
+        saved.contains("[tools]") && saved.contains("diff = \"fake\""),
+        "{saved}"
+    );
+
+    assert!(menu(&mut app).contains(&"Open in fake".to_owned()));
+    let seen = drive(
+        &mut app,
+        Message::OpenDiffTool {
+            path: "a.txt".into(),
+            orig: None,
+            target: ToolTarget::Working { staged: false },
+        },
+    )
+    .await;
+    assert!(
+        seen.iter()
+            .any(|message| matches!(message, Message::ToolClosed(_, false, Ok(_))))
+    );
+    let read = |name: &str| std::fs::read_to_string(f.root.join(name)).unwrap_or_default();
+    assert_eq!(
+        (read("left"), read("right")),
+        ("one\n".into(), "changed\n".into())
+    );
+}
+
+#[tokio::test]
+async fn a_conflict_is_resolved_in_the_chosen_merge_tool() {
+    let f = empty_fixture();
+    f.commit("a.txt", "base\n", "base");
+    f.git(&["switch", "-q", "-c", "other"]);
+    f.commit("a.txt", "theirs\n", "theirs");
+    f.git(&["switch", "-q", "main"]);
+    f.commit("a.txt", "ours\n", "ours");
+    let _ = Process::new("git")
+        .args(["merge", "other"])
+        .current_dir(&f.path)
+        .output();
+    fake_tools(&f);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetMergeTool("fake".into())).await;
+    app.update(Message::OpenMenu(MenuRequest::File {
+        area: Some(Area::Conflicts),
+        path: "a.txt".into(),
+        rev: None,
+    }));
+    let items = app.menu.take().unwrap().items;
+    assert!(matches!(
+        find_entry(&items, "Resolve in fake"),
+        Some(Some(Message::OpenMergeTool(_)))
+    ));
+    drive(&mut app, Message::OpenMergeTool("a.txt".into())).await;
+    assert_eq!(f.read("a.txt"), "theirs\n");
+    let status = app.current().unwrap().status.as_ref().unwrap();
+    assert!(
+        status.conflicts.is_empty(),
+        "resolved, and the status shows it"
+    );
 }
 
 #[tokio::test]

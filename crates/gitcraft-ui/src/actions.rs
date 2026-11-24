@@ -1,7 +1,7 @@
 //! User-facing commands with their dialogs, and all context menus.
 
 use egui::Pos2;
-use gitcraft_core::model::{Commit, CommitDetail, LocalBranch, Remote};
+use gitcraft_core::model::{Commit, CommitDetail, LocalBranch, Remote, ToolTarget};
 use gitcraft_core::{ops, queries};
 
 use crate::task::Task;
@@ -969,7 +969,8 @@ impl App {
                 let Some(tab) = self.current() else {
                     return Task::none();
                 };
-                let items = file_menu_items(tab, *area, path, rev.as_deref());
+                let tools = self.tool_labels();
+                let items = file_menu_items(tab, *area, path, rev.as_deref(), &tools);
                 self.menu_at_cursor(items);
                 Task::none()
             }
@@ -990,6 +991,18 @@ impl App {
                 ]);
                 Task::none()
             }
+        }
+    }
+
+    /// The chosen diff and merge tools, as the menus name them; `None` when none is chosen.
+    fn tool_labels(&self) -> ToolLabels {
+        let chosen = &self.settings.tools;
+        let label = |merge: bool, name: &str| {
+            (!name.is_empty()).then(|| self.found_tools.label(merge, name))
+        };
+        ToolLabels {
+            diff: label(false, &chosen.diff),
+            merge: label(true, &chosen.merge),
         }
     }
 
@@ -1568,13 +1581,46 @@ fn targets(tab: &RepoTab, area: Area, path: &str) -> Vec<String> {
     }
 }
 
+/// The chosen external tools, by the names the menus show.
+struct ToolLabels {
+    diff: Option<String>,
+    merge: Option<String>,
+}
+
+/// "Open in KDiff3" for a file's change, or a way to choose a tool when there is none yet.
+fn diff_tool_item(
+    tools: &ToolLabels,
+    path: &str,
+    orig: Option<String>,
+    target: ToolTarget,
+) -> MenuItem {
+    match &tools.diff {
+        Some(tool) => MenuItem::entry(
+            trf("Open in {tool}", &[("tool", tool)]),
+            Message::OpenDiffTool {
+                path: path.to_owned(),
+                orig,
+                target,
+            },
+        ),
+        None => MenuItem::entry("Choose a diff tool…", Message::OpenSettings),
+    }
+}
+
 fn file_menu_items(
     tab: &RepoTab,
     area: Option<Area>,
     path: &str,
     rev: Option<&str>,
+    tools: &ToolLabels,
 ) -> Vec<MenuItem> {
     let mut items = Vec::new();
+    // The file as listed, for a rename's old name and whether it is new.
+    let file_in = |area: Area| {
+        tab.files_in(area)
+            .into_iter()
+            .find(|file| file.path == path)
+    };
     if let Some(area) = area {
         let paths = targets(tab, area, path);
         // "Stage" for one file, "Stage 3 files" for several.
@@ -1611,6 +1657,17 @@ fn file_menu_items(
                         act(Action::StashFiles(paths.clone())),
                     ),
                 ]);
+                // A new file has nothing to compare with yet.
+                if paths.len() == 1
+                    && let Some(file) = file_in(area).filter(|file| file.status != "?")
+                {
+                    items.push(diff_tool_item(
+                        tools,
+                        path,
+                        file.orig_path,
+                        ToolTarget::Working { staged: false },
+                    ));
+                }
                 if paths.len() == 1 {
                     let choices = logic::ignore_patterns(path)
                         .into_iter()
@@ -1632,18 +1689,30 @@ fn file_menu_items(
                     ));
                 }
             }
-            Area::Staged => items.extend([
-                MenuItem::entry(
-                    label("Unstage", "Unstage {count} files"),
-                    run(Command::Unstage {
-                        paths: paths.clone(),
-                    }),
-                ),
-                MenuItem::entry(
-                    label("Stash…", "Stash {count} files…"),
-                    act(Action::StashFiles(paths)),
-                ),
-            ]),
+            Area::Staged => {
+                let one = paths.len() == 1;
+                items.extend([
+                    MenuItem::entry(
+                        label("Unstage", "Unstage {count} files"),
+                        run(Command::Unstage {
+                            paths: paths.clone(),
+                        }),
+                    ),
+                    MenuItem::entry(
+                        label("Stash…", "Stash {count} files…"),
+                        act(Action::StashFiles(paths)),
+                    ),
+                ]);
+                if one {
+                    let orig = file_in(area).and_then(|file| file.orig_path);
+                    items.push(diff_tool_item(
+                        tools,
+                        path,
+                        orig,
+                        ToolTarget::Working { staged: true },
+                    ));
+                }
+            }
             Area::Conflicts => {
                 let resolve = |side: Option<&str>| {
                     act(Action::ConflictResolve {
@@ -1651,6 +1720,12 @@ fn file_menu_items(
                         side: side.map(str::to_owned),
                     })
                 };
+                if let Some(tool) = &tools.merge {
+                    items.push(MenuItem::entry(
+                        trf("Resolve in {tool}", &[("tool", tool)]),
+                        Message::OpenMergeTool(path.to_owned()),
+                    ));
+                }
                 items.extend([
                     MenuItem::entry(
                         "Resolve in merge tool…",
@@ -1672,7 +1747,33 @@ fn file_menu_items(
             Message::OpenBlame(path.to_owned(), rev.map(str::to_owned)),
         ),
     ]);
+    // A file of a commit, or of two commits compared.
     if let Some(rev) = rev {
+        let comparing = tab.compare.as_ref().filter(|compare| compare.target == rev);
+        let (target, orig) = match comparing {
+            Some(compare) => (
+                ToolTarget::Compare {
+                    base: compare.base.clone(),
+                    target: compare.target.clone(),
+                },
+                None,
+            ),
+            None => {
+                let orig = tab
+                    .detail
+                    .as_ref()
+                    .filter(|detail| detail.sha == rev)
+                    .and_then(|detail| detail.files.iter().find(|file| file.path == path))
+                    .and_then(|file| file.orig_path.clone());
+                (
+                    ToolTarget::Commit {
+                        sha: rev.to_owned(),
+                    },
+                    orig,
+                )
+            }
+        };
+        items.push(diff_tool_item(tools, path, orig, target));
         items.push(MenuItem::entry(
             "Checkout this version of the file…",
             act(Action::CheckoutFile {

@@ -28,6 +28,10 @@ installed `git`, so it behaves the same as git on the command line and uses your
   files, clean untracked files, checkout a file at a revision, prune remotes, update submodules.
 - **Interactive rebase** editor: drag to reorder, pick/reword/edit/squash/fixup/drop, keyboard shortcuts.
 - **Conflict resolver**: per-conflict ours/theirs/both choices, editable result, take whole file.
+- **External diff and merge tools**: GitCraft finds the ones git can start (KDiff3, Beyond Compare,
+  Meld, P4Merge, WinMerge, VS Code… and any set up as `difftool.<name>.cmd`). Choose them in Settings,
+  then open a file's change or a conflict in them from its right-click menu.
+- **Checkout with local changes** asks first: stash and reapply, commit first, or put them aside in a stash.
 - **Stashes**: create (incl. untracked / staged only), browse, apply, pop, drop.
 - **Worktrees**: listed in the sidebar with their branch; add, open in a new tab, remove, prune. Tabs and the window title show when a repository is a linked worktree.
 - **File history**, **blame**, **commit search** (message, author, SHA, content `-S`).

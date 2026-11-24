@@ -1239,6 +1239,54 @@ fn settings(ctx: &Context, cx: &Cx) {
                         cx.send(Message::SetSyntax(on));
                     }
                 });
+                group(ui, cx, "External tools", |ui| {
+                    let found = &cx.app.found_tools;
+                    // "None", what git found, and a saved choice git no longer finds.
+                    let options = |list: &[gitcraft_core::model::ExternalTool], chosen: &str| {
+                        let mut options = vec![(String::new(), tr("None").to_owned())];
+                        options.extend(
+                            list.iter()
+                                .map(|tool| (tool.name.clone(), tool.label.clone())),
+                        );
+                        if !chosen.is_empty() && !list.iter().any(|tool| tool.name == chosen) {
+                            options.push((
+                                chosen.to_owned(),
+                                trf("{tool} (not found)", &[("tool", chosen)]),
+                            ));
+                        }
+                        options
+                    };
+                    Grid::new("tools")
+                        .num_columns(2)
+                        .spacing([24.0, 8.0])
+                        .show(ui, |ui| {
+                            ui.label(tr("Diff tool"));
+                            let diff = options(&found.diff, &values.tools.diff);
+                            if let Some(chosen) =
+                                choice(ui, "diff_tool", &diff, &values.tools.diff, 170.0)
+                            {
+                                cx.send(Message::SetDiffTool(chosen));
+                            }
+                            ui.end_row();
+                            ui.label(tr("Merge tool"));
+                            let merge = options(&found.merge, &values.tools.merge);
+                            if let Some(chosen) =
+                                choice(ui, "merge_tool", &merge, &values.tools.merge, 170.0)
+                            {
+                                cx.send(Message::SetMergeTool(chosen));
+                            }
+                            ui.end_row();
+                        });
+                    let hint = if found.diff.is_empty() && found.merge.is_empty() {
+                        "No diff or merge tools were found. Install one, such as KDiff3 or Meld, or set one up in git's config (difftool.<name>.cmd)."
+                    } else {
+                        "Files open in the chosen tools from their right-click menus."
+                    };
+                    ui.add(
+                        egui::Label::new(RichText::new(tr(hint)).size(12.0).color(c.text_muted))
+                            .wrap(),
+                    );
+                });
                 group(ui, cx, "Repository", |ui| {
                     Grid::new("repository")
                         .num_columns(2)
