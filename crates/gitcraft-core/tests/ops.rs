@@ -3070,3 +3070,54 @@ async fn sparse_checkout_is_turned_on_changed_and_off() {
     assert_eq!(queries::sparse_patterns(&f.repo).await.unwrap(), None);
     assert!(f.exists("src/main.rs") && f.exists("docs/guide.md") && f.exists("a.txt"));
 }
+
+#[tokio::test]
+async fn a_submodule_is_added_updated_and_removed() {
+    let f = Fixture::with_history();
+    let library = f.root.join("library");
+    std::fs::create_dir(&library).unwrap();
+    raw_git(&library, &["init", "-q", "-b", "main"]);
+    f.identity(&library);
+    commit_at(&library, "lib.txt", "lib\n", "library");
+    // Local file:// submodules need allowing since git 2.38.1.
+    // The repository's own config doesn't reach the clone `submodule add` runs; git's
+    // environment does. Allowing file:// is harmless for the other tests.
+    gitcraft_core::runner::set_child_env(gitcraft_core::runner::ChildEnv {
+        set: vec![
+            ("GIT_CONFIG_COUNT".into(), "1".into()),
+            ("GIT_CONFIG_KEY_0".into(), "protocol.file.allow".into()),
+            ("GIT_CONFIG_VALUE_0".into(), "always".into()),
+        ],
+        remove: Vec::new(),
+    });
+    let result =
+        ops::submodule_add(&f.repo, library.to_str().unwrap(), "vendor/library", None).await;
+    if let Err(error) = &result {
+        // Some git setups refuse file:// submodules whatever the repository says.
+        if error.to_string().contains("transport 'file' not allowed") {
+            eprintln!("file:// submodules are refused here; skipping");
+            return;
+        }
+    }
+    result.unwrap();
+    assert!(f.exists("vendor/library/lib.txt"));
+    let refs = queries::refs(&f.repo).await.unwrap();
+    assert_eq!(refs.submodules.len(), 1);
+    ops::submodule_update(&f.repo, "vendor/library", None)
+        .await
+        .unwrap();
+    f.write("vendor/library/scratch.txt", "mine\n");
+    assert!(
+        matches!(
+            ops::submodule_remove(&f.repo, "vendor/library").await,
+            Err(Error::Invalid(_))
+        ),
+        "local work stops it"
+    );
+    std::fs::remove_file(f.path.join("vendor/library/scratch.txt")).unwrap();
+    ops::submodule_remove(&f.repo, "vendor/library")
+        .await
+        .unwrap();
+    assert!(!f.exists("vendor/library/lib.txt"));
+    assert!(queries::refs(&f.repo).await.unwrap().submodules.is_empty());
+}

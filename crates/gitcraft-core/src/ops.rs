@@ -2239,6 +2239,76 @@ pub async fn ensure_commit_graph(repo: &str) -> Result<bool> {
     Ok(true)
 }
 
+/// Adds the repository at `url` as a submodule in `path` (cloning it there).
+pub async fn submodule_add(
+    repo: &str,
+    url: &str,
+    path: &str,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    let url = check_ref(url.trim())?;
+    let path = path.trim().trim_end_matches('/');
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["submodule", "add", "--progress", "--", url];
+    if !path.is_empty() {
+        args.push(check_ref(path)?);
+    }
+    Ok(ok(&run(repo, &args, with_progress(progress)).await?))
+}
+
+/// Checks out the commit the repository records for one submodule (cloning it first if
+/// needed), and its own submodules.
+pub async fn submodule_update(
+    repo: &str,
+    path: &str,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let args = [
+        "submodule",
+        "update",
+        "--init",
+        "--recursive",
+        "--progress",
+        "--",
+        path,
+    ];
+    Ok(ok(&run(repo, &args, with_progress(progress)).await?))
+}
+
+/// Removes a submodule: its files and its entry in `.gitmodules`, staged for the next commit.
+/// Refused while it has changes of its own, untracked and ignored files included, which would
+/// be lost.
+pub async fn submodule_remove(repo: &str, path: &str) -> Result<OpResult> {
+    let inside = safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if inside.join(".git").exists() {
+        let sub = inside.to_string_lossy().into_owned();
+        let changes = git(
+            &sub,
+            &[
+                "status",
+                "--porcelain",
+                "--untracked-files=all",
+                "--ignored",
+            ],
+        )
+        .await?;
+        if !changes.out().trim().is_empty() {
+            return invalid(format!(
+                "{path} has changes of its own (or files git ignores there); commit, push or move them first"
+            ));
+        }
+    }
+    git(repo, &["submodule", "deinit", "-f", "--", path]).await?;
+    Ok(ok(&git(repo, &["rm", "-q", "-f", "--", path]).await?))
+}
+
 pub async fn update_submodules(repo: &str, progress: Option<&Progress>) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;

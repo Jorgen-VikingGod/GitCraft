@@ -22,15 +22,20 @@ Abort {kind}	{kind} abbrechen	Annuler : {kind}	Abortar {kind}
 Aborting	Wird abgebrochen	Annulation	Abortando
 About {app}	Über {app}	À propos de {app}	Acerca de {app}
 Actual size	Originalgröße	Taille réelle	Tamaño real
+Add	Hinzufügen	Ajouter	Añadir
 Add a README	Ein README anlegen	Ajouter un README	Añadir un README
 Add remote	Remote hinzufügen	Ajouter un dépôt distant	Añadir remoto
 Add remote…	Remote hinzufügen…	Ajouter un dépôt distant…	Añadir remoto…
+Add submodule	Submodul hinzufügen	Ajouter un sous-module	Añadir submódulo
+Add submodule…	Submodul hinzufügen…	Ajouter un sous-module…	Añadir submódulo…
 Add worktree	Worktree hinzufügen	Ajouter un arbre de travail	Añadir árbol de trabajo
 Add worktree…	Worktree hinzufügen…	Ajouter un arbre de travail…	Añadir árbol de trabajo…
+Added submodule {path}; commit to keep it	Submodul {path} hinzugefügt; committe, um es zu behalten	Sous-module {path} ajouté ; validez pour le garder	Submódulo {path} añadido; haz commit para conservarlo
 Added worktree {path}	Worktree {path} hinzugefügt	Arbre de travail {path} ajouté	Árbol de trabajo {path} añadido
 Added {patterns} to .gitignore	{patterns} zu .gitignore hinzugefügt	{patterns} ajoutés à .gitignore	{patterns} añadidos a .gitignore
 Added “{pattern}” to .gitignore	„{pattern}“ zu .gitignore hinzugefügt	« {pattern} » ajouté à .gitignore	«{pattern}» añadido a .gitignore
 Adding remote	Remote wird hinzugefügt	Ajout du dépôt distant	Añadiendo remoto
+Adding submodule	Submodul wird hinzugefügt	Ajout du sous-module	Añadiendo submódulo
 Adding worktree	Worktree wird hinzugefügt	Ajout de l’arbre de travail	Añadiendo árbol de trabajo
 All branches	Alle Branches	Toutes les branches	Todas las ramas
 All commits	Alle Commits	Tous les commits	Todos los commits
@@ -136,6 +141,7 @@ Clone failed	Klonen fehlgeschlagen	Échec du clonage	Error al clonar
 Clone repository	Repository klonen	Cloner un dépôt	Clonar repositorio
 Clone repository…	Repository klonen…	Cloner un dépôt…	Clonar repositorio…
 Clone submodules too	Submodule mitklonen	Cloner aussi les sous-modules	Clonar también los submódulos
+Clones another repository into a folder of this one, pinned to one commit of it.	Klont ein anderes Repository in einen Ordner dieses Repositorys, festgelegt auf einen seiner Commits.	Clone un autre dépôt dans un dossier de celui-ci, fixé sur l’un de ses commits.	Clona otro repositorio en una carpeta de este, fijado a uno de sus commits.
 Clone…	Klonen…	Cloner…	Clonar…
 Close	Schließen	Fermer	Cerrar
 Close tab	Tab schließen	Fermer l’onglet	Cerrar pestaña
@@ -480,6 +486,7 @@ Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non sui
 Only {names}	Nur {names}	Seulement {names}	Solo {names}
 Open	Öffnen	Ouvrir	Abrir
 Open a repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir un repositorio…
+Open as a repository	Als Repository öffnen	Ouvrir comme dépôt	Abrir como repositorio
 Open file	Datei öffnen	Ouvrir le fichier	Abrir archivo
 Open in new tab	In neuem Tab öffnen	Ouvrir dans un nouvel onglet	Abrir en una pestaña nueva
 Open merge tool	Merge-Tool öffnen	Ouvrir l’outil de fusion	Abrir la herramienta de fusión
@@ -560,12 +567,16 @@ Remotes	Remotes	Dépôts distants	Remotos
 Remove	Entfernen	Retirer	Quitar
 Remove remote	Remote entfernen	Retirer le dépôt distant	Quitar remoto
 Remove remote {name} and its remote-tracking branches?	Remote {name} und seine Remote-Tracking-Branches entfernen?	Retirer le dépôt distant {name} et ses branches de suivi ?	¿Quitar el remoto {name} y sus ramas de seguimiento?
+Remove submodule	Submodul entfernen	Supprimer le sous-module	Quitar submódulo
 Remove the commit	Den Commit entfernen	Retirer le commit	Quitar el commit
 Remove the last commit from the branch and keep its changes staged?	Den letzten Commit aus dem Branch entfernen und seine Änderungen vorgemerkt lassen?	Retirer le dernier commit de la branche et garder ses modifications indexées ?	¿Quitar el último commit de la rama y dejar sus cambios preparados?
+Remove the submodule {path}: its files and its entry in .gitmodules? The change is staged for you to commit.	Das Submodul {path} entfernen, also seine Dateien und seinen Eintrag in .gitmodules? Die Änderung wird zum Committen vorgemerkt.	Supprimer le sous-module {path}, ses fichiers et son entrée dans .gitmodules ? La modification est indexée pour que vous la validiez.	¿Quitar el submódulo {path}, sus archivos y su entrada en .gitmodules? El cambio queda preparado para que hagas commit.
 Remove worktree	Worktree entfernen	Retirer l’arbre de travail	Quitar árbol de trabajo
 Remove “{subject}” from the branch history?	„{subject}“ aus dem Verlauf des Branches entfernen?	Retirer « {subject} » de l’historique de la branche ?	¿Quitar «{subject}» del historial de la rama?
+Removed submodule {path}; commit to keep it that way	Submodul {path} entfernt; committe, damit es so bleibt	Sous-module {path} supprimé ; validez pour que cela reste ainsi	Submódulo {path} quitado; haz commit para que siga así
 Remove…	Entfernen…	Retirer…	Quitar…
 Removing remote	Remote wird entfernt	Retrait du dépôt distant	Quitando remoto
+Removing submodule	Submodul wird entfernt	Suppression du sous-module	Quitando submódulo
 Removing worktree	Worktree wird entfernt	Retrait de l’arbre de travail	Quitando árbol de trabajo
 Rename	Umbenennen	Renommer	Renombrar
 Rename branch	Branch umbenennen	Renommer la branche	Renombrar rama
@@ -784,9 +795,11 @@ Unstaging	Vormerkung wird aufgehoben	Désindexation	Quitando de preparados
 Unstaging all	Alle Vormerkungen werden aufgehoben	Désindexation de tout	Quitando todo de preparados
 Untracked file: stage the whole file to include it.	Nicht verfolgte Datei: Merke die ganze Datei vor, um sie aufzunehmen.	Fichier non suivi : indexez le fichier entier pour l’inclure.	Archivo sin seguimiento: prepara el archivo completo para incluirlo.
 Untracked files stashed	Nicht verfolgte Dateien gestasht	Fichiers non suivis remisés	Archivos sin seguimiento guardados en stash
+Update (check out its recorded commit)	Aktualisieren (seinen festgehaltenen Commit auschecken)	Mettre à jour (extraire son commit enregistré)	Actualizar (extraer su commit registrado)
 Update submodules	Submodule aktualisieren	Mettre à jour les sous-modules	Actualizar submódulos
 Updating .gitignore	.gitignore wird aktualisiert	Mise à jour de .gitignore	Actualizando .gitignore
 Updating submodules	Submodule werden aktualisiert	Mise à jour des sous-modules	Actualizando submódulos
+Updating {path}	{path} wird aktualisiert	Mise à jour de {path}	Actualizando {path}
 Upstream	Upstream	Branche amont	Upstream
 Use our file	Unsere Datei verwenden	Utiliser notre fichier	Usar nuestro archivo
 Use ours	Unsere verwenden	Utiliser le nôtre	Usar lo nuestro
@@ -832,6 +845,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
 {path} taken from the stash	{path} aus dem Stash geholt	{path} récupéré de la remise	{path} tomado del stash
+{path} updated	{path} aktualisiert	{path} mis à jour	{path} actualizado
 {path} · the working folder, uncommitted lines included	{path} · das Arbeitsverzeichnis, mit nicht committeten Zeilen	{path} · le répertoire de travail, lignes non validées comprises	{path} · el directorio de trabajo, con las líneas sin commit
 {remote} has commits that {branch} doesn't have. Pull them in first, or replace them with your branch (force push with lease)?	{remote} hat Commits, die {branch} nicht hat. Zuerst holen oder sie durch deinen Branch ersetzen (Force-Push mit Lease)?	{remote} contient des commits que {branch} n’a pas. Les récupérer d’abord, ou les remplacer par votre branche (push forcé avec bail) ?	{remote} tiene commits que {branch} no tiene. ¿Traerlos primero o reemplazarlos con tu rama (push forzado con lease)?
 “{subject}” is broken. Name an older commit that still worked: GitCraft then checks out commits in between for you to test, until the first broken one is found.	„{subject}“ ist fehlerhaft. Nenne einen älteren Commit, der noch funktioniert hat: GitCraft checkt dann Commits dazwischen zum Testen aus, bis der erste fehlerhafte gefunden ist.	« {subject} » est cassé. Indiquez un commit plus ancien qui fonctionnait encore : GitCraft extrait alors des commits intermédiaires à tester, jusqu’à trouver le premier cassé.	«{subject}» está roto. Indica un commit anterior que aún funcionaba: GitCraft extrae commits intermedios para que los pruebes, hasta encontrar el primero roto.

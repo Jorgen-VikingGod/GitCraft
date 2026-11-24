@@ -45,7 +45,7 @@ installed `git`, so it behaves the same as git on the command line and uses your
   recover lost commits, fast-forward branches without checking them out.
 - **Patches** (save a commit, the commits from one up to HEAD, or the local changes as a patch;
   apply / `git am`), **.gitignore** from the changes list, stash selected
-  files, clean untracked files, checkout a file at a revision, prune remotes, update submodules.
+  files, clean untracked files, checkout a file at a revision, prune remotes; add, update or remove submodules.
 - **Interactive rebase** editor: drag to reorder, pick/reword/edit/squash/fixup/drop, keyboard shortcuts,
   **Autosquash** for `fixup!`/`squash!` commits, and a command to run after any commit (`exec`, e.g. the
   tests). A plan is refused once the branch has moved since it was made. Commits can also be moved up

@@ -209,6 +209,16 @@ pub enum Command {
         name: String,
     },
     UpdateSubmodules,
+    SubmoduleAdd {
+        url: String,
+        path: String,
+    },
+    SubmoduleUpdate {
+        path: String,
+    },
+    SubmoduleRemove {
+        path: String,
+    },
     Stage {
         paths: Vec<String>,
     },
@@ -386,6 +396,9 @@ impl Command {
             Self::CheckoutFile { .. } => "Checking out file".into(),
             Self::PruneRemote { name } => trf("Pruning {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Updating submodules".into(),
+            Self::SubmoduleAdd { .. } => "Adding submodule".into(),
+            Self::SubmoduleUpdate { path } => trf("Updating {path}", &[("path", path)]),
+            Self::SubmoduleRemove { .. } => "Removing submodule".into(),
             Self::Stage { .. } => "Staging".into(),
             Self::StageAll => "Staging all".into(),
             Self::Unstage { .. } => "Unstaging".into(),
@@ -479,6 +492,15 @@ impl Command {
             ),
             Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
+            Self::SubmoduleAdd { path, .. } => trf(
+                "Added submodule {path}; commit to keep it",
+                &[("path", path)],
+            ),
+            Self::SubmoduleUpdate { path } => trf("{path} updated", &[("path", path)]),
+            Self::SubmoduleRemove { path } => trf(
+                "Removed submodule {path}; commit to keep it that way",
+                &[("path", path)],
+            ),
             Self::FetchMore { .. } => "More history fetched".into(),
             Self::SparseSet { .. } => "Sparse checkout updated".into(),
             Self::SparseOff => "Every file is checked out again".into(),
@@ -565,6 +587,8 @@ impl Command {
                 | Self::DeleteRemoteTag { .. }
                 | Self::PruneRemote { .. }
                 | Self::UpdateSubmodules
+                | Self::SubmoduleAdd { .. }
+                | Self::SubmoduleUpdate { .. }
                 | Self::FetchMore { .. }
                 | Self::ForcePushOver { .. }
         )
@@ -845,6 +869,9 @@ impl Command {
             Self::CheckoutFile { sha, path } => ops::checkout_file(repo, &sha, &path).await,
             Self::PruneRemote { name } => ops::prune_remote(repo, &name, report).await,
             Self::UpdateSubmodules => ops::update_submodules(repo, report).await,
+            Self::SubmoduleAdd { url, path } => ops::submodule_add(repo, &url, &path, report).await,
+            Self::SubmoduleUpdate { path } => ops::submodule_update(repo, &path, report).await,
+            Self::SubmoduleRemove { path } => ops::submodule_remove(repo, &path).await,
             Self::Stage { paths } => ops::stage_files(repo, &paths).await.map(|()| done()),
             Self::StageAll => ops::stage_all(repo).await.map(|()| done()),
             Self::Unstage { paths } => ops::unstage_files(repo, &paths).await.map(|()| done()),

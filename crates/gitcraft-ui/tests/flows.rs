@@ -3247,3 +3247,57 @@ async fn sparse_checkout_is_set_and_turned_off_from_its_dialog() {
     drive(&mut app, Message::FormChoice(0)).await;
     assert!(f.path.join("a.txt").exists());
 }
+
+#[tokio::test]
+async fn a_submodule_is_added_and_removed_from_its_menu() {
+    // file:// submodules need allowing since git 2.38.1; only git's environment reaches the
+    // clone that `submodule add` runs.
+    gitcraft_core::runner::set_child_env(gitcraft_core::runner::ChildEnv {
+        set: vec![
+            ("GIT_CONFIG_COUNT".into(), "1".into()),
+            ("GIT_CONFIG_KEY_0".into(), "protocol.file.allow".into()),
+            ("GIT_CONFIG_VALUE_0".into(), "always".into()),
+        ],
+        remove: Vec::new(),
+    });
+    let f = fixture();
+    let library = f.root.join("library");
+    std::fs::create_dir(&library).unwrap();
+    git(&library, &["init", "-q", "-b", "main"]);
+    git(
+        &library,
+        &[
+            "-c",
+            "user.name=L",
+            "-c",
+            "user.email=l@e",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "lib",
+        ],
+    );
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::AddSubmodule)).await;
+    drive(
+        &mut app,
+        Message::FormText(0, library.to_string_lossy().into_owned()),
+    )
+    .await;
+    drive(&mut app, Message::FormText(1, "vendor/lib".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(app.current().unwrap().refs.submodules.len(), 1);
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::Submodule("vendor/lib".into())),
+    )
+    .await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(remove)) = find_entry(&items, "Remove…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, remove).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(app.current().unwrap().refs.submodules.is_empty());
+}

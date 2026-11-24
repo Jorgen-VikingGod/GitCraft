@@ -695,7 +695,7 @@ fn tags_and_more(
             "s:submodules",
             "Submodules",
             Some(tab.refs.submodules.len()),
-            None,
+            Some(Message::Action(crate::actions::Action::AddSubmodule)),
         );
         if collapsed("s:submodules") {
             return;
@@ -714,11 +714,9 @@ fn tags_and_more(
                     &module.path,
                 )));
             } else if response.secondary_clicked() {
-                cx.send(Message::OpenMenu(MenuRequest::File {
-                    area: None,
-                    path: module.path.clone(),
-                    rev: None,
-                }));
+                cx.send(Message::OpenMenu(MenuRequest::Submodule(
+                    module.path.clone(),
+                )));
             }
         }
     });

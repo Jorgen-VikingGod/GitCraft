@@ -49,6 +49,8 @@ pub enum Action {
     },
     /// Asks what to narrow the history to.
     FilterHistory,
+    AddSubmodule,
+    RemoveSubmodule(String),
     /// Asks for two ranges of commits to compare.
     RangeDiff,
     /// Asks for a commit that still worked, then bisects up to this broken one.
@@ -131,6 +133,7 @@ pub enum MenuRequest {
         sha: String,
         focus: Option<RefTarget>,
     },
+    Submodule(String),
     /// Several commits picked in the history, newest first.
     Commits(Vec<String>),
     Stash(String),
@@ -573,6 +576,24 @@ impl App {
                     .field(Field::check("regex", "Changed text is a regular expression", current.regex)),
                 )
             }
+            Action::AddSubmodule => self.ask(
+                Form::new("Add submodule", "Add", |values: &Values| {
+                    run(Command::SubmoduleAdd { url: values.text("url"), path: values.text("path") })
+                })
+                .message("Clones another repository into a folder of this one, pinned to one commit of it.")
+                .field(Field::text("url", "URL", "").required().hint("https://… or git@…"))
+                .field(Field::text("path", "Folder", "").hint("Derived from the URL")),
+            ),
+            Action::RemoveSubmodule(path) => self.ask(Form::confirm(
+                "Remove submodule",
+                &trf(
+                    "Remove the submodule {path}: its files and its entry in .gitmodules? The change is staged for you to commit.",
+                    &[("path", &path)],
+                ),
+                "Remove",
+                true,
+                run(Command::SubmoduleRemove { path }),
+            )),
             Action::RangeDiff => {
                 let upstream = tab.status.as_ref().and_then(|status| status.branch.upstream.clone());
                 let new = match &upstream {
@@ -1195,6 +1216,26 @@ impl App {
                     },
                     move |result| Message::MenuResolved(request.clone(), at, result),
                 )
+            }
+            MenuRequest::Submodule(path) => {
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let full = join_path(&tab.path, path);
+                let path = path.clone();
+                self.menu_at_cursor(vec![
+                    MenuItem::entry("Open as a repository", Message::OpenPath(full.clone())),
+                    MenuItem::entry(
+                        "Update (check out its recorded commit)",
+                        run(Command::SubmoduleUpdate { path: path.clone() }),
+                    ),
+                    MenuItem::Separator,
+                    MenuItem::entry("Copy path", Message::Copy(path.clone())),
+                    MenuItem::entry(reveal_label(), Message::Reveal(full)),
+                    MenuItem::Separator,
+                    MenuItem::danger("Remove…", act(Action::RemoveSubmodule(path))),
+                ]);
+                Task::none()
             }
             MenuRequest::Commits(shas) => {
                 let Some(tab) = self.current() else {
@@ -2172,6 +2213,7 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
         "Add worktree…",
         act(Action::AddWorktree(None)),
     )]);
+    items.push(MenuItem::entry("Add submodule…", act(Action::AddSubmodule)));
     if !tab.refs.submodules.is_empty() {
         items.push(MenuItem::entry(
             "Update submodules",
