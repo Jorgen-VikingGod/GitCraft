@@ -2137,6 +2137,7 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
         MenuItem::entry("Recover discarded changes…", Message::OpenDiscards),
         MenuItem::entry("Compare commit ranges…", act(Action::RangeDiff)),
         MenuItem::entry("Clean up branches…", Message::OpenCleanup),
+        MenuItem::entry("Sparse checkout…", Message::OpenSparse),
         MenuItem::Separator,
         MenuItem::entry_if(
             "Fetch all remotes (incl. tags)",

@@ -3045,3 +3045,28 @@ async fn a_new_repository_starts_with_a_branch_ignore_file_readme_and_commit() {
         b"trunk\n"
     );
 }
+
+#[tokio::test]
+async fn sparse_checkout_is_turned_on_changed_and_off() {
+    let f = Fixture::with_history();
+    f.commit("docs/guide.md", "guide\n", "docs");
+    f.commit("src/main.rs", "fn main() {}\n", "code");
+    assert_eq!(queries::sparse_patterns(&f.repo).await.unwrap(), None);
+    ops::sparse_set(&f.repo, &["/src/".into(), "".into()])
+        .await
+        .unwrap();
+    assert_eq!(
+        queries::sparse_patterns(&f.repo).await.unwrap(),
+        Some(vec!["/src/".to_owned()])
+    );
+    assert!(f.exists("src/main.rs") && !f.exists("docs/guide.md"));
+    ops::sparse_set(&f.repo, &["/docs/".into()]).await.unwrap();
+    assert!(f.exists("docs/guide.md") && !f.exists("src/main.rs"));
+    assert!(matches!(
+        ops::sparse_set(&f.repo, &[]).await,
+        Err(Error::Invalid(_))
+    ));
+    ops::sparse_disable(&f.repo).await.unwrap();
+    assert_eq!(queries::sparse_patterns(&f.repo).await.unwrap(), None);
+    assert!(f.exists("src/main.rs") && f.exists("docs/guide.md") && f.exists("a.txt"));
+}

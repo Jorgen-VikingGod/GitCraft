@@ -978,6 +978,8 @@ pub enum Message {
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenDiscards,
     OpenCleanup,
+    OpenSparse,
+    SparseLoaded(Answer<Option<Vec<String>>>),
     CleanupLoaded(Answer<Option<Vec<CleanupCandidate>>>),
     CleanupToggle(String),
     CleanupRemote(bool),
@@ -2087,6 +2089,50 @@ impl App {
                 Task::none()
             }
             Message::OpenDiscards => self.open_discards(),
+            Message::OpenSparse => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                Task::perform(
+                    async move { answer(queries::sparse_patterns(&repo).await) },
+                    Message::SparseLoaded,
+                )
+            }
+            Message::SparseLoaded(result) => {
+                let patterns = match result {
+                    Ok(patterns) => patterns,
+                    Err(error) => {
+                        self.toast(ToastKind::Error, error, None);
+                        return Task::none();
+                    }
+                };
+                let on = patterns.is_some();
+                let text = patterns.unwrap_or_default().join("\n");
+                let mut form = Form::new("Sparse checkout", "Apply", |values| {
+                    Message::Run(Command::SparseSet {
+                        patterns: values.text("patterns").lines().map(str::to_owned).collect(),
+                    })
+                })
+                .message(if on {
+                    "Only the files these patterns match are checked out. Change them, or check out every file again."
+                } else {
+                    "Check out only part of the repository, such as the folders you work in. Everything else stays in the history, just not in the working tree."
+                })
+                .field(
+                    crate::form::Field::area("patterns", "Folders or patterns, one per line", &text)
+                        .required()
+                        .hint("/src/"),
+                );
+                if on {
+                    form = form.choice(
+                        "Check out everything",
+                        false,
+                        Message::Run(Command::SparseOff),
+                    );
+                }
+                self.form = Some(form);
+                Task::none()
+            }
             Message::OpenCleanup => {
                 let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
                     return Task::none();

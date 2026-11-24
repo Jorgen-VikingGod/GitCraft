@@ -265,6 +265,11 @@ pub enum Command {
     FetchMore {
         how: &'static str,
     },
+    /// Checks out only what the patterns match.
+    SparseSet {
+        patterns: Vec<String>,
+    },
+    SparseOff,
     BisectStart {
         bad: String,
         good: String,
@@ -402,6 +407,7 @@ impl Command {
             Self::MarkConflicted { .. } => "Marking as conflicted".into(),
             Self::BisectStart { .. } | Self::BisectMark { .. } => "Bisecting".into(),
             Self::FetchMore { .. } => "Fetching more history".into(),
+            Self::SparseSet { .. } | Self::SparseOff => "Changing the sparse checkout".into(),
             Self::ForcePushOver { .. } => "Force pushing".into(),
             Self::BisectReset => "Ending bisect".into(),
             Self::Undo { .. } => "Undoing".into(),
@@ -474,6 +480,8 @@ impl Command {
             Self::PruneRemote { name } => trf("Pruned stale branches of {name}", &[("name", name)]),
             Self::UpdateSubmodules => "Submodules updated".into(),
             Self::FetchMore { .. } => "More history fetched".into(),
+            Self::SparseSet { .. } => "Sparse checkout updated".into(),
+            Self::SparseOff => "Every file is checked out again".into(),
             Self::ForcePushOver { .. } => "Push complete".into(),
             Self::FixupCommit { sha } => trf(
                 "Fixup commit for {commit} created; an interactive rebase with autosquash folds it in",
@@ -882,6 +890,8 @@ impl Command {
             Self::MarkConflicted { paths } => ops::mark_conflicted(repo, &paths).await,
             Self::BisectStart { bad, good } => ops::bisect_start(repo, &bad, &good).await,
             Self::FetchMore { how } => ops::fetch_more(repo, how, report).await,
+            Self::SparseSet { patterns } => ops::sparse_set(repo, &patterns).await,
+            Self::SparseOff => ops::sparse_disable(repo).await,
             Self::DeleteBranches { names, remotes } => {
                 let result = ops::delete_branches(repo, &names).await?;
                 for (remote, branch) in remotes {

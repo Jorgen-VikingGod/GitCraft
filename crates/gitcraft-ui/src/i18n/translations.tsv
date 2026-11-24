@@ -2,6 +2,7 @@
 (empty)	(leer)	(vide)	(vacío)
 (none)	(keiner)	(aucune)	(ninguno)
 (root commit)	(Wurzel-Commit)	(commit racine)	(commit raíz)
+/src/	/src/	/src/	/src/
 1 branch	1 Branch	1 branche	1 rama
 1 commit	1 Commit	1 commit	1 commit
 1 conflict	1 Konflikt	1 conflit	1 conflicto
@@ -89,9 +90,12 @@ Changed text	Geänderter Text	Texte modifié	Texto cambiado
 Changed text is a regular expression	Geänderter Text ist ein regulärer Ausdruck	Le texte modifié est une expression régulière	El texto cambiado es una expresión regular
 Changes	Änderungen	Modifications	Cambios
 Changes stashed	Änderungen im Stash abgelegt	Modifications remisées	Cambios guardados en el stash
+Changing the sparse checkout	Sparse-Checkout wird geändert	Modification de l’extraction partielle	Cambiando el checkout parcial
 changing “{text}”	ändert „{text}“	modifiant « {text} »	que cambia «{text}»
 Check out a branch before pushing	Vor dem Pushen einen Branch auschecken	Extrayez une branche avant de pousser	Cambia a una rama antes de enviar
 Check out after creating	Nach dem Erstellen auschecken	Extraire après la création	Cambiar a ella después de crearla
+Check out everything	Alles auschecken	Tout extraire	Extraer todo
+Check out only part of the repository, such as the folders you work in. Everything else stays in the history, just not in the working tree.	Nur einen Teil des Repositorys auschecken, etwa die Ordner, in denen du arbeitest. Alles andere bleibt im Verlauf, nur nicht im Arbeitsverzeichnis.	N’extraire qu’une partie du dépôt, par exemple les dossiers sur lesquels vous travaillez. Le reste demeure dans l’historique, simplement pas dans le répertoire de travail.	Extraer solo una parte del repositorio, como las carpetas en las que trabajas. Lo demás sigue en el historial, solo que no en el directorio de trabajo.
 Check out {commit}? You will be in a “detached HEAD” state; create a branch to keep new commits.	{commit} auschecken? Du bist dann im Zustand „detached HEAD“; erstelle einen Branch, um neue Commits zu behalten.	Extraire {commit} ? Vous serez dans l’état « HEAD détachée » ; créez une branche pour conserver les nouveaux commits.	¿Cambiar a {commit}? Quedarás en estado «HEAD separado»; crea una rama para conservar los commits nuevos.
 Checking out file	Datei wird ausgecheckt	Extraction du fichier	Extrayendo archivo
 Checking out {name}	{name} wird ausgecheckt	Extraction de {name}	Cambiando a {name}
@@ -275,6 +279,7 @@ Edit…	Bearbeiten…	Modifier…	Editar…
 Empty: push to the URL above	Leer: an die URL oben pushen	Vide : pousser vers l’URL ci-dessus	Vacío: enviar a la URL de arriba
 End bisect	Bisect beenden	Terminer la bisection	Terminar bisección
 Ending bisect	Bisect wird beendet	Fin de la bisection	Terminando bisección
+Every file is checked out again	Alle Dateien sind wieder ausgecheckt	Tous les fichiers sont de nouveau extraits	Todos los archivos vuelven a estar extraídos
 Every position HEAD and each branch have been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD und die einzelnen Branches waren. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Chaque position où HEAD et chaque branche se sont trouvés. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que han estado HEAD y cada rama. Haz clic derecho en una entrada para todas las acciones de commit.
 Every position HEAD has been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD war. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Toutes les positions occupées par HEAD. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que ha estado HEAD. Haz clic derecho en una entrada para ver todas las acciones de commit.
 Exit	Beenden	Quitter	Salir
@@ -313,12 +318,14 @@ Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen
 Fold “{subject}” into its parent commit.	„{subject}“ in den Eltern-Commit einfalten.	Fusionner « {subject} » dans son commit parent.	Integrar «{subject}» en su commit padre.
 Folder	Ordner	Dossier	Carpeta
 Folder name	Ordnername	Nom du dossier	Nombre de la carpeta
+Folders or patterns, one per line	Ordner oder Muster, eines pro Zeile	Dossiers ou motifs, un par ligne	Carpetas o patrones, uno por línea
 Follow system	Wie das System	Comme le système	Como el sistema
 Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer la suppression, même si elle n’est pas fusionnée	Forzar la eliminación aunque no esté fusionada
 Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
 Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
 Git's default, such as main	Standard von git, etwa main	Celle par défaut de git, par exemple main	La predeterminada de git, como main
+Give at least one folder or pattern, or turn sparse checkout off	Gib mindestens einen Ordner oder ein Muster an oder schalte Sparse-Checkout aus	Indiquez au moins un dossier ou un motif, ou désactivez l’extraction partielle	Indica al menos una carpeta o un patrón, o desactiva el checkout parcial
 Give both ranges, such as main..topic	Gib beide Bereiche an, etwa main..topic	Indiquez les deux plages, par exemple main..topic	Indica ambos rangos, por ejemplo main..topic
 Good	Gut	Bon	Bueno
 Good commit	Guter Commit	Commit fonctionnel	Commit bueno
@@ -466,6 +473,7 @@ Only commits of the current branch can be squashed or dropped together; merge co
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
 Only commits since	Nur Commits seit	Seulement les commits depuis	Solo los commits desde
 Only in this repository	Nur in diesem Repository	Uniquement dans ce dépôt	Solo en este repositorio
+Only the files these patterns match are checked out. Change them, or check out every file again.	Nur die Dateien, auf die diese Muster passen, sind ausgecheckt. Ändere sie oder checke wieder alle Dateien aus.	Seuls les fichiers correspondant à ces motifs sont extraits. Modifiez-les, ou extrayez de nouveau tous les fichiers.	Solo se extraen los archivos que coinciden con estos patrones. Cámbialos o vuelve a extraer todos los archivos.
 Only the newest commits	Nur die neuesten Commits	Seulement les commits les plus récents	Solo los commits más recientes
 Only these folders (sparse checkout)	Nur diese Ordner (Sparse-Checkout)	Seulement ces dossiers (extraction partielle)	Solo estas carpetas (checkout parcial)
 Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non suivis	Solo archivos sin seguimiento
@@ -657,6 +665,9 @@ Skip commits in .git-blame-ignore-revs	Commits aus .git-blame-ignore-revs übers
 Skipping	Wird übersprungen	Saut	Omitiendo
 Soft: keep all changes staged	Weich: alle Änderungen vorgemerkt behalten	Doux : garder toutes les modifications indexées	Suave: mantener todos los cambios preparados
 Solo in graph	Allein im Graphen zeigen	Afficher seule dans le graphe	Mostrar sola en el gráfico
+Sparse checkout	Sparse-Checkout	Extraction partielle	Checkout parcial
+Sparse checkout updated	Sparse-Checkout aktualisiert	Extraction partielle mise à jour	Checkout parcial actualizado
+Sparse checkout…	Sparse-Checkout…	Extraction partielle…	Checkout parcial…
 Split	Geteilt	Séparé	Dividido
 Squash	Squash	Fusionner (squash)	Squash
 Squash (stage changes, do not commit)	Squash (Änderungen vormerken, nicht committen)	Squash (indexer les modifications, sans valider)	Squash (preparar los cambios, sin commit)

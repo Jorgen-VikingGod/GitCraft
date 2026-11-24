@@ -217,6 +217,24 @@ async fn squashed(repo: &str, target: &str, branch: &str) -> Result<bool> {
     Ok(patch_id(there.stdout).await?.contains(&wanted))
 }
 
+/// The sparse checkout's patterns; `None` when every file is checked out.
+pub async fn sparse_patterns(repo: &str) -> Result<Option<Vec<String>>> {
+    let on = git_unchecked(repo, &["config", "--bool", "--get", "core.sparseCheckout"]).await?;
+    if on.out().trim() != "true" {
+        return Ok(None);
+    }
+    let listed = git_unchecked(repo, &["sparse-checkout", "list"]).await?;
+    Ok(Some(
+        listed
+            .out()
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_owned)
+            .collect(),
+    ))
+}
+
 /// The bisect in progress, if any.
 pub async fn bisect_state(repo: &str) -> Result<Option<Bisect>> {
     let log = git_dir(repo).await?.join("BISECT_LOG");

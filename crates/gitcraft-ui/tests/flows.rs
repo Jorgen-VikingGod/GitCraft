@@ -3230,3 +3230,20 @@ async fn a_new_repository_is_made_with_a_first_commit_and_opened() {
         ".gitignore\nREADME.md\n"
     );
 }
+
+#[tokio::test]
+async fn sparse_checkout_is_set_and_turned_off_from_its_dialog() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSparse).await;
+    assert!(
+        app.form.as_ref().unwrap().choices.is_empty(),
+        "nothing to turn off yet"
+    );
+    drive(&mut app, Message::FormArea(0, "/b.txt\n".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(f.path.join("b.txt").exists() && !f.path.join("a.txt").exists());
+    drive(&mut app, Message::OpenSparse).await;
+    drive(&mut app, Message::FormChoice(0)).await;
+    assert!(f.path.join("a.txt").exists());
+}

@@ -264,6 +264,34 @@ pub async fn bisect_reset(repo: &str) -> Result<OpResult> {
     Ok(ok(&git(repo, &["bisect", "reset"]).await?))
 }
 
+/// Checks out only what `patterns` match (gitignore-style, such as `/src/`), turning sparse
+/// checkout on if it was off. Refused while files have changes git would have to remove.
+pub async fn sparse_set(repo: &str, patterns: &[String]) -> Result<OpResult> {
+    let patterns: Vec<&str> = patterns
+        .iter()
+        .map(|pattern| pattern.trim())
+        .filter(|pattern| !pattern.is_empty())
+        .collect();
+    if patterns.is_empty() {
+        return invalid("Give at least one folder or pattern, or turn sparse checkout off");
+    }
+    for pattern in &patterns {
+        check_ref(pattern)?;
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["sparse-checkout", "set", "--no-cone", "--"];
+    args.extend(&patterns);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Checks out every file again.
+pub async fn sparse_disable(repo: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["sparse-checkout", "disable"]).await?))
+}
+
 /// Puts the conflict markers back into files resolved during a merge, rebase or cherry-pick,
 /// so they can be resolved again (`git checkout -m`).
 pub async fn mark_conflicted(repo: &str, list: &[String]) -> Result<OpResult> {
