@@ -1528,13 +1528,22 @@ pub async fn reset(repo: &str, target: &str, mode: &str) -> Result<OpResult> {
     ))
 }
 
-pub async fn continue_operation(repo: &str) -> Result<OpResult> {
+/// Goes on with the operation in progress. A merge is committed with `message`, or with
+/// the message git prepared when there is none.
+pub async fn continue_operation(repo: &str, message: Option<&str>) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
     let Some(state) = queries::operation_state(repo).await? else {
         return invalid("No operation in progress");
     };
     if matches!(state, Operation::Merge { .. }) {
+        if let Some(message) = message.map(str::trim).filter(|message| !message.is_empty()) {
+            let options = Options {
+                stdin: Some(message.as_bytes()),
+                ..Options::default()
+            };
+            return may_conflict(repo, &["commit", "--cleanup=strip", "-F", "-"], options).await;
+        }
         return may_conflict(repo, &["commit", "--no-edit"], Options::default()).await;
     }
     may_conflict(repo, &[state.command(), "--continue"], Options::default()).await
@@ -1971,10 +1980,6 @@ pub async fn conflict_versions(repo: &str, path: &str) -> Result<ConflictVersion
         queries::raw_show(repo, &ours_spec),
         queries::raw_show(repo, &theirs_spec),
     );
-    let rebasing = matches!(
-        queries::operation_state(repo).await?,
-        Some(Operation::Rebase { .. })
-    );
     Ok(ConflictVersions {
         path: path.to_owned(),
         base: base?,
@@ -1985,18 +1990,6 @@ pub async fn conflict_versions(repo: &str, path: &str) -> Result<ConflictVersion
             .map(parsers::parse_conflict_markers)
             .unwrap_or_default(),
         working,
-        ours_label: if rebasing {
-            "Upstream (being rebased onto)"
-        } else {
-            "Ours (HEAD)"
-        }
-        .to_owned(),
-        theirs_label: if rebasing {
-            "Your commit (being replayed)"
-        } else {
-            "Theirs (incoming)"
-        }
-        .to_owned(),
     })
 }
 

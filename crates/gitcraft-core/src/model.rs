@@ -123,6 +123,9 @@ pub enum Operation {
         step: Option<i64>,
         total: Option<i64>,
         stopped_sha: Option<String>,
+        /// Stopped at an `edit` step, for the commit to be amended (not at a conflict).
+        #[serde(default)]
+        editing: bool,
     },
     #[serde(rename = "merge")]
     Merge { head: String },
@@ -152,6 +155,21 @@ pub struct Status {
     pub unstaged: Vec<FileChange>,
     pub conflicts: Vec<ConflictFile>,
     pub operation: Option<Operation>,
+    /// Who the two sides of the operation in progress are.
+    #[serde(default)]
+    pub sides: Option<OperationSides>,
+}
+
+/// The two sides of a merge, rebase, cherry-pick or revert, by name: a branch (or tag) that
+/// points there, else the short sha; a commit being replayed, picked or reverted also with
+/// its subject.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationSides {
+    /// The current branch; for a rebase, what it is rebased onto.
+    pub ours: String,
+    /// The branch being merged, or the commit being replayed, picked or reverted. Empty while
+    /// patches are applied.
+    pub theirs: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -529,8 +547,6 @@ pub struct ConflictVersions {
     pub theirs: Option<String>,
     pub working: Option<String>,
     pub chunks: Vec<ConflictChunk>,
-    pub ours_label: String,
-    pub theirs_label: String,
 }
 
 /// What a mutating operation reports back.

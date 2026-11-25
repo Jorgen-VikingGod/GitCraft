@@ -490,6 +490,12 @@ async fn merge_conflict_resolve_and_continue() {
     let result = ops::merge(&f.repo, "other", "default").await.unwrap();
     assert!(!result.ok && result.conflicts);
     assert!(matches!(result.operation, Some(Operation::Merge { .. })));
+    // The sides by name: the current branch, and the one being merged.
+    let sides = queries::status(&f.repo).await.unwrap().sides.unwrap();
+    assert_eq!(
+        (sides.ours.as_str(), sides.theirs.as_str()),
+        ("main", "other")
+    );
     let versions = ops::conflict_versions(&f.repo, "a.txt").await.unwrap();
     assert!(versions.ours.unwrap().ends_with("OURS\n"));
     assert!(versions.theirs.unwrap().ends_with("THEIRS\n"));
@@ -508,10 +514,22 @@ async fn merge_conflict_resolve_and_continue() {
     .await
     .unwrap();
     assert!(queries::status(&f.repo).await.unwrap().conflicts.is_empty());
-    assert!(ops::continue_operation(&f.repo).await.unwrap().ok);
+    // git's prepared message, without the comment lines listing the conflicts.
+    assert_eq!(
+        queries::merge_message(&f.repo).await.unwrap().as_deref(),
+        Some("Merge branch 'other'")
+    );
+    let message = "Merge other, keeping both lines\n\nOurs first, then theirs.";
+    assert!(
+        ops::continue_operation(&f.repo, Some(message))
+            .await
+            .unwrap()
+            .ok
+    );
     assert!(queries::operation_state(&f.repo).await.unwrap().is_none());
     let log = queries::log(&f.repo, 10, true, None).await.unwrap();
     assert_eq!(log.commits[0].parents.len(), 2);
+    assert_eq!(f.git(&["log", "-1", "--format=%B"]).trim(), message);
 }
 
 #[tokio::test]
@@ -602,6 +620,13 @@ async fn rebase_with_conflict_then_continue() {
     let result = ops::rebase(&f.repo, "main", false).await.unwrap();
     assert!(result.conflicts);
     assert!(matches!(result.operation, Some(Operation::Rebase { .. })));
+    // Rebasing, ours is what the branch goes onto and theirs the commit being replayed.
+    let sides = queries::status(&f.repo).await.unwrap().sides.unwrap();
+    let theirs = f.git(&["log", "-1", "--format=%h theirs", "other"]);
+    assert_eq!(
+        (sides.ours.as_str(), sides.theirs.as_str()),
+        ("main", theirs.trim())
+    );
     ops::resolve_conflict(
         &f.repo,
         "a.txt",
@@ -610,7 +635,7 @@ async fn rebase_with_conflict_then_continue() {
     )
     .await
     .unwrap();
-    assert!(ops::continue_operation(&f.repo).await.unwrap().ok);
+    assert!(ops::continue_operation(&f.repo, None).await.unwrap().ok);
     let log = queries::log(&f.repo, 3, false, None).await.unwrap();
     assert_eq!(subjects(&log.commits), ["theirs", "ours", "second"]);
 }
@@ -1344,7 +1369,7 @@ async fn multi_commit_pick_is_seen_between_steps() {
         matches!(state, Some(Operation::CherryPick { .. })),
         "{state:?}"
     );
-    assert!(ops::continue_operation(&f.repo).await.unwrap().ok);
+    assert!(ops::continue_operation(&f.repo, None).await.unwrap().ok);
     assert!(queries::operation_state(&f.repo).await.unwrap().is_none());
     assert!(f.exists("b.txt"));
 }
@@ -1542,7 +1567,7 @@ async fn conflict_markers_are_found_in_crlf_files() {
         .await
         .unwrap();
     assert_eq!(f.git(&["show", ":a.txt"]), "one\ntwo\nthree\nmerged\n");
-    assert!(ops::continue_operation(&f.repo).await.unwrap().ok);
+    assert!(ops::continue_operation(&f.repo, None).await.unwrap().ok);
 }
 
 // --------------------------------------------------------------------- watcher
@@ -3399,4 +3424,36 @@ async fn lfs_is_set_up_tracks_and_untracks_patterns() {
             ("*.wav", "assets/.gitattributes")
         ]
     );
+}
+
+#[tokio::test]
+async fn a_rebase_says_whether_it_stopped_to_edit_or_at_a_conflict() {
+    let f = Fixture::with_history();
+    let second = f.git(&["rev-parse", "HEAD"]).trim().to_owned();
+    let steps = [RebaseStep {
+        sha: second.clone(),
+        action: "edit".into(),
+        message: None,
+        exec: None,
+    }];
+    let result = ops::interactive_rebase(&f.repo, Some("HEAD~1"), &steps, false)
+        .await
+        .unwrap();
+    assert!(!result.conflicts, "{}", result.message);
+    let status = queries::status(&f.repo).await.unwrap();
+    assert!(matches!(
+        status.operation,
+        Some(Operation::Rebase { editing: true, .. })
+    ));
+    let theirs = f.git(&["log", "-1", "--format=%h second", &second]);
+    assert_eq!(status.sides.unwrap().theirs, theirs.trim());
+    ops::abort_operation(&f.repo).await.unwrap();
+
+    f.make_conflict();
+    f.git(&["switch", "-q", "other"]);
+    assert!(ops::rebase(&f.repo, "main", false).await.unwrap().conflicts);
+    assert!(matches!(
+        queries::operation_state(&f.repo).await.unwrap(),
+        Some(Operation::Rebase { editing: false, .. })
+    ));
 }

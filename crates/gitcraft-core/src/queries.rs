@@ -355,6 +355,7 @@ pub async fn operation_state(repo: &str) -> Result<Option<Operation>> {
             step: number(first_of("msgnum", "next")),
             total: number(first_of("end", "last")),
             stopped_sha: some(read("stopped-sha")),
+            editing: state.join("amend").exists(),
         }));
     }
     let first_line = |path: PathBuf| {
@@ -744,7 +745,117 @@ pub async fn status(repo: &str) -> Result<Status> {
     .await?;
     let mut data = parsers::parse_status(&result.out());
     data.operation = operation_state(repo).await?;
+    if let Some(operation) = &data.operation {
+        data.sides = Some(operation_sides(repo, operation).await?);
+    }
     Ok(data)
+}
+
+/// The message git prepared for the merge in progress, without its `#` comment lines (the
+/// list of conflicts git adds); `None` when there is none.
+pub async fn merge_message(repo: &str) -> Result<Option<String>> {
+    let path = git_dir(repo).await?.join("MERGE_MSG");
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Ok(None);
+    };
+    let message = text
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let message = message.trim();
+    Ok((!message.is_empty()).then(|| message.to_owned()))
+}
+
+/// Who the two sides of `operation` are (see [`OperationSides`]).
+pub async fn operation_sides(repo: &str, operation: &Operation) -> Result<OperationSides> {
+    // A branch, remote branch or tag at `sha` (in that order), else its short sha.
+    let name_of = async |sha: &str| -> Result<String> {
+        let sha = check_ref(sha)?;
+        let named = git_unchecked(
+            repo,
+            &[
+                "for-each-ref",
+                "--format=%(refname)%00%(refname:short)",
+                &format!("--points-at={sha}"),
+                "refs/heads/",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+        .await?;
+        let out = named.out();
+        // A remote's HEAD (shortened to just "origin") only stands for its default branch.
+        let found = out.lines().find_map(|line| {
+            let (full, short) = line.split_once('\0')?;
+            (!full.ends_with("/HEAD")).then_some(short)
+        });
+        Ok(match found {
+            Some(name) => name.to_owned(),
+            None => sha.chars().take(7).collect(),
+        })
+    };
+    let commit = async |sha: &str| -> Result<String> {
+        let shown = git_unchecked(
+            repo,
+            &["log", "-1", "--format=%h %s", check_ref(sha)?, "--"],
+        )
+        .await?;
+        Ok(if shown.code == 0 {
+            shown.out().trim().to_owned()
+        } else {
+            sha.chars().take(7).collect()
+        })
+    };
+    let current = async || -> Result<String> {
+        let branch = git_unchecked(repo, &["symbolic-ref", "--short", "-q", "HEAD"]).await?;
+        if branch.code == 0 {
+            return Ok(branch.out().trim().to_owned());
+        }
+        let head = git_unchecked(repo, &["rev-parse", "--short", "HEAD"]).await?;
+        Ok(head.out().trim().to_owned())
+    };
+    Ok(match operation {
+        Operation::Merge { head } => OperationSides {
+            ours: current().await?,
+            theirs: name_of(head).await?,
+        },
+        Operation::Rebase {
+            onto, stopped_sha, ..
+        } => {
+            // The commit being replayed: where it stopped, or REBASE_HEAD on a conflict.
+            let replayed = match stopped_sha {
+                Some(sha) => Some(sha.clone()),
+                None => {
+                    let head = git_unchecked(repo, &["rev-parse", "-q", "--verify", "REBASE_HEAD"])
+                        .await?;
+                    (head.code == 0).then(|| head.out().trim().to_owned())
+                }
+            };
+            OperationSides {
+                ours: match onto {
+                    Some(onto) => name_of(onto).await?,
+                    None => current().await?,
+                },
+                theirs: match replayed {
+                    Some(sha) => commit(&sha).await?,
+                    None => String::new(),
+                },
+            }
+        }
+        Operation::CherryPick { head } | Operation::Revert { head } => OperationSides {
+            ours: current().await?,
+            theirs: if head.is_empty() {
+                String::new()
+            } else {
+                commit(head).await?
+            },
+        },
+        Operation::Am => OperationSides {
+            ours: current().await?,
+            theirs: String::new(),
+        },
+    })
 }
 
 pub async fn working_diff(
