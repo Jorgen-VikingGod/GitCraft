@@ -1582,7 +1582,7 @@ dependencies = [
 
 [[package]]
 name = "gitcraft-core"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "craft-atomic",
  "dirs 6.0.0",
@@ -1597,7 +1597,7 @@ dependencies = [
 
 [[package]]
 name = "gitcraft-ui"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "chrono",
  "craft-atomic",
