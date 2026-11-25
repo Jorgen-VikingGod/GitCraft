@@ -25,6 +25,10 @@ pub struct Commit {
     pub graph: Option<GraphRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<FileChange>,
+    /// For a stash shown in the history: its `stash@{n}`. Its parents are then only the
+    /// commit it was made on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stash: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +53,18 @@ pub struct CommitDetail {
     pub message: String,
     pub subject: String,
     pub files: Vec<FileChange>,
+    /// `None` for a commit without a signature.
+    pub signature: Option<Signature>,
+}
+
+/// A commit's signature as git checked it (`%G?`): `G` good, `U` good but of unknown trust,
+/// `X` good but expired, `Y` made by an expired key, `R` by a revoked key, `B` bad, `E` can't
+/// be checked (no key, or no gpg).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Signature {
+    pub status: char,
+    pub signer: String,
+    pub key: String,
 }
 
 /// A diff or merge tool git can start (`git difftool` / `git mergetool`).
@@ -107,6 +123,9 @@ pub enum Operation {
         step: Option<i64>,
         total: Option<i64>,
         stopped_sha: Option<String>,
+        /// Stopped at an `edit` step, for the commit to be amended (not at a conflict).
+        #[serde(default)]
+        editing: bool,
     },
     #[serde(rename = "merge")]
     Merge { head: String },
@@ -136,6 +155,21 @@ pub struct Status {
     pub unstaged: Vec<FileChange>,
     pub conflicts: Vec<ConflictFile>,
     pub operation: Option<Operation>,
+    /// Who the two sides of the operation in progress are.
+    #[serde(default)]
+    pub sides: Option<OperationSides>,
+}
+
+/// The two sides of a merge, rebase, cherry-pick or revert, by name: a branch (or tag) that
+/// points there, else the short sha; a commit being replayed, picked or reverted also with
+/// its subject.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationSides {
+    /// The current branch; for a rebase, what it is rebased onto.
+    pub ours: String,
+    /// The branch being merged, or the commit being replayed, picked or reverted. Empty while
+    /// patches are applied.
+    pub theirs: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -217,6 +251,45 @@ pub struct Refs {
     pub worktrees: Vec<Worktree>,
     pub submodules: Vec<Submodule>,
     pub head: Option<String>,
+    /// A shallow clone: older history wasn't downloaded.
+    #[serde(default)]
+    pub shallow: bool,
+    /// A partial clone: some files' contents are downloaded only when needed.
+    #[serde(default)]
+    pub partial: bool,
+    /// Git LFS as this repository sees it; `None` when git-lfs isn't installed.
+    #[serde(default)]
+    pub lfs: Option<Lfs>,
+}
+
+/// Git LFS in one repository.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Lfs {
+    /// Its filters are set up and its hooks are in this repository, so files are stored in LFS
+    /// and pushed with it.
+    pub installed: bool,
+    /// The patterns `.gitattributes` hands to LFS.
+    pub patterns: Vec<LfsPattern>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LfsPattern {
+    pub pattern: String,
+    /// The attributes file that says so, such as `.gitattributes` or `docs/.gitattributes`.
+    pub source: String,
+    /// Matching files are checked out read-only until someone locks them.
+    pub lockable: bool,
+}
+
+/// A file locked on the LFS server.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LfsLock {
+    pub id: String,
+    pub path: String,
+    pub owner: String,
+    pub locked_at: String,
+    /// Locked by you; `false` also when the server couldn't say.
+    pub ours: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -273,6 +346,167 @@ pub struct BlameLine {
     pub summary: String,
 }
 
+/// What a new repository starts with.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InitOptions {
+    /// The first branch's name; git's default (`init.defaultBranch`) when `None`.
+    pub branch: Option<String>,
+    /// A `.gitignore` for this language (see `gitignore::LANGUAGES`).
+    pub gitignore: Option<String>,
+    /// Also ignore editor settings and operating-system clutter.
+    pub ignore_editors: bool,
+    /// A README.md with the folder's name as its title.
+    pub readme: bool,
+    /// Commit what was created (or an empty commit) as "Initial commit".
+    pub commit: bool,
+}
+
+/// How much of a repository a clone downloads, and which branch it checks out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CloneOptions {
+    /// The branch to check out instead of the remote's default.
+    pub branch: Option<String>,
+    /// Only the newest commits (a shallow clone)…
+    pub depth: Option<u32>,
+    /// …or only those since a date, such as `2024-01-01`.
+    pub since: Option<String>,
+    pub submodules: bool,
+    /// Files' contents are downloaded only when needed (`--filter=blob:none`).
+    pub blobless: bool,
+    /// Only these folders or patterns are checked out (sparse checkout); empty for all.
+    pub sparse: Vec<String>,
+}
+
+impl Default for CloneOptions {
+    fn default() -> Self {
+        Self {
+            branch: None,
+            depth: None,
+            since: None,
+            submodules: true,
+            blobless: false,
+            sparse: Vec::new(),
+        }
+    }
+}
+
+/// How a commit is made, besides its message and whether it amends.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitOptions {
+    /// Adds a `Signed-off-by` line for the committer.
+    pub sign_off: bool,
+    /// Skips the pre-commit and commit-msg hooks.
+    pub no_verify: bool,
+    /// Stages every change first, including new and deleted files.
+    pub stage_all: bool,
+    /// Trailers such as `Co-authored-by: Name <mail>`.
+    pub trailers: Vec<String>,
+}
+
+/// What the history shows only: commits by an author, touching a path, or adding or removing
+/// some text. Empty parts don't filter.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LogFilter {
+    /// Part of the author's name or address, any case.
+    pub author: String,
+    /// A file or folder, relative to the repository.
+    pub path: String,
+    /// Text a commit adds or removes (`-S`), or a regular expression its changed lines match
+    /// (`-G`) when `regex` is set.
+    pub text: String,
+    pub regex: bool,
+}
+
+impl LogFilter {
+    pub fn is_empty(&self) -> bool {
+        self.author.trim().is_empty() && self.path.trim().is_empty() && self.text.is_empty()
+    }
+
+    /// With only a path, git connects the commits it keeps (history simplification), so the
+    /// graph still makes sense; other filters leave gaps.
+    pub fn keeps_graph(&self) -> bool {
+        self.author.trim().is_empty() && self.text.is_empty()
+    }
+}
+
+/// Which branches the graph of all branches leaves out (`hidden`), or the only ones it shows
+/// (`solo`, which wins). Full ref names such as `refs/heads/topic`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RefView {
+    pub hidden: Vec<String>,
+    pub solo: Vec<String>,
+}
+
+impl RefView {
+    pub fn is_empty(&self) -> bool {
+        self.hidden.is_empty() && self.solo.is_empty()
+    }
+}
+
+/// How much a commit changed: files, and lines added and removed (`--shortstat`; a merge
+/// against its first parent).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitStats {
+    pub files: u32,
+    pub added: u32,
+    pub removed: u32,
+}
+
+/// A local branch that looks done with, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CleanupCandidate {
+    pub name: String,
+    pub sha: String,
+    /// `merged` into the default branch, `squashed` (its changes are there as other
+    /// commits: squash- or rebase-merged), or `gone` (its upstream was deleted).
+    pub reason: String,
+    /// Its upstream, as `remote/branch`, when it still exists.
+    pub upstream: Option<String>,
+    /// Unix seconds of its last commit.
+    pub time: i64,
+}
+
+/// How the history is listed.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LogOptions {
+    pub view: RefView,
+    /// Newest first by commit date, rather than keeping each branch's commits together.
+    pub date_order: bool,
+    /// Stashes as rows right above the commit each was made on.
+    pub stashes: bool,
+}
+
+/// A bisect in progress, read from `BISECT_LOG`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Bisect {
+    /// The newest commit marked bad.
+    pub bad: Option<String>,
+    /// Commits marked good and skipped so far.
+    pub good: usize,
+    pub skipped: usize,
+    /// Set once git has found it.
+    pub first_bad: Option<String>,
+}
+
+/// What undo and redo would do, as English labels such as "Commit".
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UndoLabels {
+    pub undo: Option<String>,
+    pub redo: Option<String>,
+}
+
+/// Discarded changes kept so they can be put back (`refs/gitcraft/discards/…`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiscardBackup {
+    pub name: String,
+    pub sha: String,
+    /// Unix seconds of the discard.
+    pub time: i64,
+    pub paths: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReflogEntry {
     pub sha: String,
@@ -313,8 +547,6 @@ pub struct ConflictVersions {
     pub theirs: Option<String>,
     pub working: Option<String>,
     pub chunks: Vec<ConflictChunk>,
-    pub ours_label: String,
-    pub theirs_label: String,
 }
 
 /// What a mutating operation reports back.
@@ -335,6 +567,10 @@ pub struct RebaseStep {
     pub action: String,
     #[serde(default)]
     pub message: Option<String>,
+    /// A shell command run right after this step (an `exec` line); the rebase stops when it
+    /// fails.
+    #[serde(default)]
+    pub exec: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -12,7 +12,7 @@ use gitcraft_core::runner::set_editor_exe;
 use gitcraft_core::store::RepoStore;
 use gitcraft_ui::App;
 use gitcraft_ui::actions::{Action, MenuRequest, RefTarget, commit_menu_items};
-use gitcraft_ui::app::{Area, Message, Overlay, ToastKind, View};
+use gitcraft_ui::app::{Area, CommitOption, Message, Overlay, ToastKind, View};
 use gitcraft_ui::command::Command;
 use gitcraft_ui::logic::Choice;
 use gitcraft_ui::menu::MenuItem;
@@ -412,6 +412,62 @@ async fn discarding_a_hunk_asks_first() {
 }
 
 #[tokio::test]
+async fn discarded_changes_can_be_recovered() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "brand new\n");
+    let mut app = opened(&f, false).await;
+    let paths = vec!["a.txt".to_owned(), "new.txt".to_owned()];
+    drive(&mut app, Message::Action(Action::Discard(paths))).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(f.read("a.txt"), "one\n");
+    assert!(!f.path.join("new.txt").exists());
+    assert_eq!(
+        f.subjects(),
+        ["first"],
+        "the backup is not a commit of the branch"
+    );
+
+    drive(&mut app, Message::OpenDiscards).await;
+    let Some(Overlay::Discards { entries, .. }) = &app.overlay else {
+        panic!("open")
+    };
+    assert_eq!(entries.len(), 1);
+    let clicked = Screen::new().click(&app, "Restore", PointerButton::Primary);
+    assert!(!clicked.is_empty(), "the list shows a Restore button");
+    for message in clicked {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(f.read("a.txt"), "changed\n");
+    assert_eq!(f.read("new.txt"), "brand new\n");
+    assert!(app.overlay.is_none(), "the list closes once restored");
+    assert_eq!(app.current().unwrap().view, View::Changes);
+
+    // Deleting asks first, then the list shows what is left.
+    drive(
+        &mut app,
+        Message::Action(Action::Discard(vec!["a.txt".into()])),
+    )
+    .await;
+    drive(&mut app, Message::FormSubmit).await;
+    drive(&mut app, Message::OpenDiscards).await;
+    for message in Screen::new().click(&app, "Delete…", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert!(app.form.is_some());
+    drive(&mut app, Message::FormSubmit).await;
+    let Some(Overlay::Discards {
+        entries, loading, ..
+    }) = &app.overlay
+    else {
+        panic!("still open")
+    };
+    assert!(!loading && entries.is_empty());
+    assert_eq!(f.read("a.txt"), "one\n");
+}
+
+#[tokio::test]
 async fn pushing_to_a_bare_remote_reports_progress() {
     let f = fixture();
     let remote = f.root.join("remote.git");
@@ -513,9 +569,19 @@ async fn resolving_a_merge_conflict_in_the_ui() {
     assert_eq!(toast_kinds(&app), [ToastKind::Warning]);
     {
         let screen = Screen::new().show(&app);
-        assert!(screen.has("Merge in progress"), "the banner shows");
-        assert!(screen.has("Open merge tool"));
+        assert!(
+            screen.has("Merging other into main"),
+            "the banner names both sides"
+        );
+        assert!(screen.has("Resolve in GitCraft"));
+        assert!(screen.has("main · this branch") && screen.has("Changed"));
+        assert!(screen.has("Conflict 1"), "the conflicting part is shown");
     }
+    assert_eq!(
+        app.current().unwrap().summary,
+        "Merge branch 'other'",
+        "git's prepared message is in the commit box"
+    );
 
     drive(&mut app, Message::OpenConflict("c.txt".into())).await;
     let Some(Overlay::Conflict(state)) = &app.overlay else {
@@ -523,6 +589,10 @@ async fn resolving_a_merge_conflict_in_the_ui() {
     };
     assert_eq!(state.conflict_count(), 1);
     assert!(state.result.contains("<<<<<<<"));
+    {
+        let screen = Screen::new().show(&app);
+        assert!(screen.has("main · this branch") && screen.has("other · being merged"));
+    }
 
     // Saving with markers left asks first.
     drive(&mut app, Message::ConflictSave).await;
@@ -540,7 +610,27 @@ async fn resolving_a_merge_conflict_in_the_ui() {
 
     let tab = app.current().unwrap();
     assert!(tab.status.as_ref().unwrap().conflicts.is_empty());
-    drive(&mut app, Message::Run(Command::Continue)).await;
+    // The merge is committed with what the commit box says, as the banner's Continue does.
+    drive(
+        &mut app,
+        Message::SummaryInput("Merge other: both lines".into()),
+    )
+    .await;
+    let tab = app.current().unwrap();
+    let message = gitcraft_ui::logic::continue_message(
+        tab.status.as_ref().unwrap().operation.as_ref().unwrap(),
+        &tab.summary,
+        &tab.body,
+    );
+    drive(&mut app, Message::Run(Command::Continue { message })).await;
+    assert_eq!(
+        f.git(&["log", "-1", "--format=%s"]).trim(),
+        "Merge other: both lines"
+    );
+    assert!(
+        app.current().unwrap().summary.is_empty(),
+        "the box is emptied"
+    );
     assert_eq!(
         f.git(&["log", "-1", "--format=%P"])
             .split_whitespace()
@@ -741,7 +831,8 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
     let names = labels(&plain);
     for expected in [
         "Commit",
-        "New branch here…",
+        "Create here",
+        "Branch…",
         "Interactive rebase from here…",
         "Reset main to here",
         "Hard: discard all changes",
@@ -766,11 +857,20 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
         "the clicked ref comes first"
     );
     assert!(
-        find_entry(&focused, "Checkout main")
-            .expect("listed")
-            .is_none(),
-        "the current branch can't be checked out"
+        find_entry(&focused, "Checkout main").is_none(),
+        "the current branch can't be checked out, so it isn't offered"
     );
+    let focused_names = labels(&focused);
+    assert!(
+        matches!(find_entry(&focused, "Branch name"), Some(Some(Message::Copy(name))) if name == "main"),
+        "the branch's name is copied from the Copy submenu: {focused_names:?}"
+    );
+    for repeated in ["Checkout commit…", "Worktree…", "Copy branch name"] {
+        assert!(
+            !focused_names.iter().any(|name| name == repeated),
+            "the branch above already offers {repeated}: {focused_names:?}"
+        );
+    }
 
     // The menu itself draws, and a chosen entry does its work.
     drive(
@@ -781,11 +881,11 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
         }),
     )
     .await;
-    let entry = find_entry(&app.menu.as_ref().unwrap().items, "New tag here…")
+    let entry = find_entry(&app.menu.as_ref().unwrap().items, "Tag…")
         .unwrap()
         .unwrap();
     {
-        assert!(Screen::new().show(&app).has("New tag here…"));
+        assert!(Screen::new().show(&app).has("Create here"));
     }
     drive(&mut app, Message::FromMenu(Box::new(entry))).await;
     assert!(app.menu.is_none(), "choosing closes the menu");
@@ -793,6 +893,29 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
     drive(&mut app, Message::FormText(0, "v2.0".into())).await;
     drive(&mut app, Message::FormSubmit).await;
     assert_eq!(f.git(&["rev-parse", "v2.0"]).trim(), head);
+}
+
+#[tokio::test]
+async fn a_tag_on_an_older_commit_still_offers_the_commits_rebase() {
+    let f = fixture();
+    f.git(&["tag", "older", "HEAD~1"]);
+    let app = opened(&f, false).await;
+    let tab = app.current().unwrap();
+    let sha = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    let commit = tab.commits.iter().find(|commit| commit.sha == sha).unwrap();
+    let names = labels(&commit_menu_items(
+        tab,
+        commit,
+        Some(&RefTarget::Tag("older".into())),
+    ));
+    assert!(
+        names.iter().any(|name| name == "Rebase main onto here…"),
+        "a tag has no rebase of its own: {names:?}"
+    );
+    assert!(
+        !names.iter().any(|name| name == "Merge into main…"),
+        "the tag's own merge is enough: {names:?}"
+    );
 }
 
 #[tokio::test]
@@ -951,6 +1074,17 @@ async fn stash_view_reflog_blame_and_file_history() {
         panic!("open")
     };
     assert!(!entries.is_empty());
+    drive(&mut app, Message::ReflogAll(true)).await;
+    let Some(Overlay::Reflog { all, entries, .. }) = &app.overlay else {
+        panic!("still open")
+    };
+    assert!(*all);
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry.selector.starts_with("side@")),
+        "branches have their own reflogs"
+    );
     drive(&mut app, Message::OverlayClose).await;
 
     drive(&mut app, Message::OpenBlame("b.txt".into(), None)).await;
@@ -1377,7 +1511,10 @@ async fn checking_out_with_changes_asks_and_can_bring_them_along() {
         .collect();
     assert_eq!(
         (form.ok.as_str(), answers),
-        ("Stash and reapply", vec!["Commit first", "Discard changes"])
+        (
+            "Stash and reapply",
+            vec!["Bring them along", "Commit first", "Discard changes"]
+        )
     );
     assert_eq!(
         f.git(&["branch", "--show-current"]).trim(),
@@ -1395,7 +1532,7 @@ async fn checking_out_with_changes_asks_and_can_bring_them_along() {
 async fn discarding_before_a_checkout_keeps_the_changes_in_a_stash() {
     let (f, mut app) = changed_with_a_branch().await;
     drive(&mut app, checkout_side()).await;
-    drive(&mut app, Message::FormChoice(1)).await;
+    drive(&mut app, Message::FormChoice(2)).await;
     assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
     assert_eq!(f.read("a.txt"), "one\n");
     assert!(
@@ -1408,7 +1545,7 @@ async fn discarding_before_a_checkout_keeps_the_changes_in_a_stash() {
 async fn commit_first_checks_out_once_the_commit_is_made() {
     let (f, mut app) = changed_with_a_branch().await;
     drive(&mut app, checkout_side()).await;
-    drive(&mut app, Message::FormChoice(0)).await;
+    drive(&mut app, Message::FormChoice(1)).await;
     assert!(app.form.is_none());
     assert_eq!(
         app.current().unwrap().view,
@@ -1446,7 +1583,7 @@ async fn the_checkout_question_answers_for_its_own_repository() {
     )
     .await;
     assert_eq!(app.current().unwrap().name, "other");
-    drive(&mut app, Message::FormChoice(1)).await;
+    drive(&mut app, Message::FormChoice(2)).await;
     assert_eq!(
         f.git(&["branch", "--show-current"]).trim(),
         "side",
@@ -1468,7 +1605,7 @@ async fn commit_first_clears_amend_and_shows_the_asking_repository() {
         Message::OpenPath(other.to_str().unwrap().to_owned()),
     )
     .await;
-    drive(&mut app, Message::FormChoice(0)).await;
+    drive(&mut app, Message::FormChoice(1)).await;
     let tab = app.current().unwrap();
     assert_ne!(tab.name, "other", "back on the repository that asked");
     assert!(!tab.amend, "a new commit, as the question said");
@@ -1635,7 +1772,7 @@ async fn menus_open_submenus_under_the_pointer_and_run_entries() {
     .await;
     let screen = Screen::new();
     let shown = screen.show(&app);
-    assert!(shown.has("New branch here…"), "the menu is drawn");
+    assert!(shown.has("Create here"), "the menu is drawn");
     assert!(
         !shown.has("Hard: discard all changes"),
         "submenus start closed"
@@ -1969,30 +2106,52 @@ async fn a_dialog_is_as_tall_as_its_content_and_scrolls_only_past_80_percent() {
 }
 
 #[tokio::test]
-async fn settings_fit_a_tall_window_and_scroll_in_a_short_one() {
+async fn settings_show_one_page_at_a_time_and_scroll_in_a_short_window() {
+    use gitcraft_ui::app::SettingsPage;
     let f = fixture();
     let mut app = opened(&f, false).await;
     drive(&mut app, Message::OpenSettings).await;
-    let last = "Move through commits or files";
-
-    drive(&mut app, Message::WindowResized(vec2(1280.0, 1600.0))).await;
-    let tall = Screen::sized(vec2(1280.0, 1600.0));
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 900.0))).await;
+    let screen = Screen::sized(vec2(1280.0, 900.0));
     for _ in 0..4 {
-        tall.frame(&app, Vec::new());
+        screen.frame(&app, Vec::new());
     }
+    let shown = screen.frame(&app, Vec::new());
+    assert!(shown.has("Theme"), "the first page is shown");
+    assert!(shown.has("Keyboard shortcuts"), "every page is listed");
+    assert!(!shown.has("Save git settings"), "other pages aren't");
+
+    // Clicking a page in the list picks it.
+    let at = shown.find("Keyboard shortcuts").unwrap().center();
+    let press = |pressed| Event::PointerButton {
+        pos: at,
+        button: PointerButton::Primary,
+        pressed,
+        modifiers: Modifiers::NONE,
+    };
+    screen.frame(&app, vec![Event::PointerMoved(at)]);
+    screen.frame(&app, vec![press(true)]);
+    let messages = screen.frame(&app, vec![press(false)]).messages;
     assert!(
-        tall.frame(&app, Vec::new()).has(last),
-        "everything is there when it fits"
+        messages
+            .iter()
+            .any(|message| matches!(message, Message::SettingsPage(SettingsPage::Shortcuts))),
+        "{messages:?}"
     );
 
-    drive(&mut app, Message::WindowResized(vec2(1280.0, 600.0))).await;
-    let short = Screen::sized(vec2(1280.0, 600.0));
+    // A long page in a short window scrolls: its title is there, its end is not.
+    drive(&mut app, Message::SettingsPage(SettingsPage::Git)).await;
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 320.0))).await;
+    let short = Screen::sized(vec2(1280.0, 320.0));
     for _ in 0..4 {
         short.frame(&app, Vec::new());
     }
     let shown = short.frame(&app, Vec::new());
-    assert!(shown.has("Settings"), "the start is shown");
-    assert!(!shown.has(last), "and the rest is reached by scrolling");
+    assert!(shown.has("Everywhere"), "the start of the page is shown");
+    assert!(
+        !shown.has("Save git settings"),
+        "and the rest is reached by scrolling"
+    );
 }
 
 #[tokio::test]
@@ -2082,8 +2241,8 @@ async fn the_menu_bar_offers_the_app_and_its_choices_persist() {
     let mut app = opened(&f, true).await;
     let menus = app.bar_menus();
     let titles: Vec<_> = menus.iter().map(|(title, _)| *title).collect();
-    assert_eq!(titles, ["File", "Repository", "View", "Help"]);
-    let view = &menus[2].1;
+    assert_eq!(titles, ["File", "Edit", "Repository", "View", "Help"]);
+    let view = &menus[3].1;
     let Some(MenuItem::Sub {
         children: themes, ..
     }) = view.iter().find(|item| item.label() == Some("Theme"))
@@ -2102,7 +2261,7 @@ async fn the_menu_bar_offers_the_app_and_its_choices_persist() {
         })
         .collect();
     assert_eq!(chosen, ["Follow system"]);
-    let repository = labels(&menus[1].1);
+    let repository = labels(&menus[2].1);
     assert!(repository.contains(&"Fetch".to_owned()), "{repository:?}");
 
     // English, so that the other tests running beside this one keep their English text.
@@ -2225,4 +2384,1687 @@ async fn dragging_a_tab_past_its_neighbour_moves_it() {
         .expect("the drag moves the first tab right");
     drive(&mut app, moved).await;
     assert_eq!(names(&app), ["second", "demo-repo"]);
+}
+
+#[tokio::test]
+async fn edit_undo_and_redo_take_back_a_commit() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    f.write("a.txt", "two\n");
+    let mut app = opened(&f, false).await;
+    let edit = |app: &App| {
+        let menus = app.bar_menus();
+        let (_, items) = menus.iter().find(|(name, _)| *name == "Edit").unwrap();
+        labels(items)
+    };
+    assert_eq!(edit(&app), ["Undo", "Redo"], "nothing to undo yet");
+
+    drive(&mut app, Message::Run(Command::StageAll)).await;
+    drive(
+        &mut app,
+        Message::Run(Command::Commit {
+            message: "second".into(),
+            amend: false,
+            options: Default::default(),
+        }),
+    )
+    .await;
+    assert_eq!(f.subjects(), ["second", "first"]);
+    assert_eq!(edit(&app), ["Undo: Commit", "Redo"]);
+
+    drive(&mut app, Message::Undo).await;
+    assert_eq!(f.subjects(), ["first"]);
+    assert_eq!(
+        f.git(&["diff", "--cached", "--name-only"]),
+        "a.txt\n",
+        "still staged"
+    );
+    assert_eq!(edit(&app), ["Undo", "Redo: Commit"]);
+
+    drive(&mut app, Message::Redo).await;
+    assert_eq!(f.subjects(), ["second", "first"]);
+    drive(&mut app, Message::Key(egui::Key::Z, Modifiers::COMMAND)).await;
+    assert_eq!(f.subjects(), ["first"], "Ctrl+Z undoes too");
+}
+
+#[tokio::test]
+async fn commit_options_sign_off_co_authors_and_push_after() {
+    let f = empty_fixture();
+    f.commit("a.txt", "one\n", "first");
+    let remote = f.root.join("remote.git");
+    git(&f.root, &["init", "-q", "--bare", remote.to_str().unwrap()]);
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    f.git(&["push", "-q", "-u", "origin", "main"]);
+    f.write("a.txt", "two\n");
+    f.write("new.txt", "new\n");
+    let mut app = opened(&f, false).await;
+
+    drive(&mut app, Message::CommitOption(CommitOption::SignOff, true)).await;
+    drive(
+        &mut app,
+        Message::CommitOption(CommitOption::PushAfter, true),
+    )
+    .await;
+    drive(&mut app, Message::Action(Action::CoAuthors)).await;
+    assert!(app.form.is_some());
+    // What the form sends on Save.
+    drive(&mut app, Message::FormCancel).await;
+    drive(
+        &mut app,
+        Message::CoAuthors("Ada Lovelace <ada@example.com>\nnot an address\n".into()),
+    )
+    .await;
+    drive(&mut app, Message::SummaryInput("second".into())).await;
+    // Ctrl+Shift+Enter stages everything, the new file too.
+    drive(
+        &mut app,
+        Message::Key(egui::Key::Enter, Modifiers::COMMAND | Modifiers::SHIFT),
+    )
+    .await;
+
+    let message = f.git(&["log", "-1", "--format=%B"]);
+    assert!(message.starts_with("second\n"), "{message}");
+    assert!(message.contains("Co-authored-by: Ada Lovelace <ada@example.com>"));
+    assert!(!message.contains("not an address"));
+    assert!(message.contains("Signed-off-by: Test User <t@example.com>"));
+    assert_eq!(
+        f.git(&["show", "--name-only", "--format=", "HEAD"]),
+        "a.txt\nnew.txt\n"
+    );
+    assert_eq!(
+        git(&remote, &["rev-parse", "main"]),
+        f.git(&["rev-parse", "HEAD"]),
+        "pushed after committing"
+    );
+
+    // Amending what is already pushed asks first.
+    drive(&mut app, Message::AmendToggled(true)).await;
+    drive(&mut app, Message::SummaryInput("second, amended".into())).await;
+    drive(&mut app, Message::CommitNow).await;
+    assert!(app.form.is_some(), "a warning comes first");
+    drive(&mut app, Message::FormCancel).await;
+    assert_eq!(f.subjects(), ["second", "first"]);
+}
+
+#[tokio::test]
+async fn a_hunk_goes_into_a_stash_of_its_own() {
+    let f = empty_fixture();
+    let lines: String = (1..=20).map(|n| format!("line {n}\n")).collect();
+    f.commit("a.txt", &lines, "first");
+    let changed = lines
+        .replace("line 2\n", "line 2 changed\n")
+        .replace("line 18\n", "line 18 changed\n");
+    f.write("a.txt", &changed);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::SetView(View::Changes)).await;
+    drive(
+        &mut app,
+        Message::FilePicked(Area::Unstaged, "a.txt".into()),
+    )
+    .await;
+    let clicked = Screen::new().click(&app, "Stash hunk", PointerButton::Primary);
+    assert!(!clicked.is_empty());
+    for message in clicked {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(f.git(&["stash", "list"]).lines().count(), 1);
+    assert!(
+        f.git(&["stash", "list"])
+            .contains("Selected changes in a.txt")
+    );
+    assert_eq!(
+        app.current().unwrap().refs.stashes.len(),
+        1,
+        "the sidebar shows it"
+    );
+    assert_ne!(f.read("a.txt"), changed, "one of the changes left the file");
+}
+
+#[tokio::test]
+async fn a_hunk_of_a_commit_is_reverted_from_its_diff() {
+    let f = empty_fixture();
+    let lines: String = (1..=20).map(|n| format!("line {n}\n")).collect();
+    f.commit("a.txt", &lines, "first");
+    let changed = lines
+        .replace("line 2\n", "line 2 changed\n")
+        .replace("line 18\n", "line 18 changed\n");
+    f.commit("a.txt", &changed, "two changes");
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "two changes");
+    drive(&mut app, Message::Select(sha)).await;
+    drive(&mut app, Message::PickFile("a.txt".into())).await;
+    assert!(app.current().unwrap().commit_pane.diff.is_some());
+    let clicked = Screen::new().click(&app, "Revert hunk", PointerButton::Primary);
+    assert!(!clicked.is_empty());
+    for message in clicked {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(
+        f.read("a.txt"),
+        changed.replace("line 2 changed\n", "line 2\n")
+    );
+    assert_eq!(f.subjects(), ["two changes", "first"]);
+}
+
+#[tokio::test]
+async fn stashes_are_renamed_and_untracked_files_stashed_alone() {
+    let f = fixture();
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "new\n");
+    let mut app = opened(&f, false).await;
+
+    // The stash dialog's last option: only the untracked files.
+    drive(&mut app, Message::Action(Action::Stash)).await;
+    let last = app.form.as_ref().unwrap().fields.len() - 1;
+    drive(&mut app, Message::FormCheck(last, true)).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(!f.path.join("new.txt").exists());
+    assert_eq!(f.read("a.txt"), "changed\n");
+
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::Stash("stash@{0}".into())),
+    )
+    .await;
+    let menu = app.menu.as_ref().expect("the stash menu").items.clone();
+    let Some(Some(rename)) = find_entry(&menu, "Rename…") else {
+        panic!("Rename is offered")
+    };
+    drive(&mut app, rename).await;
+    drive(&mut app, Message::FormText(0, "new name".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(f.git(&["stash", "list", "--format=%gs"]), "new name\n");
+
+    // One file comes back from the stash view's file menu.
+    drive(&mut app, Message::OpenStash("stash@{0}".into())).await;
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::File {
+            area: None,
+            path: "new.txt".into(),
+            rev: Some("stash@{0}".into()),
+        }),
+    )
+    .await;
+    let items = app.menu.as_ref().expect("the file menu").items.clone();
+    let Some(Some(take)) = find_entry(&items, "Take this file from the stash") else {
+        panic!("offered for a stash's file")
+    };
+    drive(&mut app, take).await;
+    assert_eq!(f.read("new.txt"), "new\n");
+}
+
+#[tokio::test]
+async fn the_commit_menu_makes_a_fixup_commit() {
+    let f = fixture();
+    f.write("a.txt", "fixed\n");
+    f.git(&["add", "a.txt"]);
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "first commit");
+    let commit = app
+        .current()
+        .unwrap()
+        .commits
+        .iter()
+        .find(|c| c.sha == sha)
+        .unwrap()
+        .clone();
+    let items = commit_menu_items(app.current().unwrap(), &commit, None);
+    let Some(Some(fixup)) = find_entry(&items, "Fixup commit of the staged changes") else {
+        panic!("offered with staged changes")
+    };
+    drive(&mut app, fixup).await;
+    assert_eq!(f.subjects()[0], "fixup! first commit");
+}
+
+#[tokio::test]
+async fn local_changes_are_saved_as_a_patch() {
+    use gitcraft_ui::app::Effect;
+    let f = fixture();
+    f.write("a.txt", "changed\n");
+    f.write("new.txt", "new\n");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::SaveChangesPatch)).await;
+    let Some(Effect::Ask(pick)) = app.effects.pop() else {
+        panic!("saving a patch asks where");
+    };
+    let target = f.root.join("changes.patch");
+    drive(&mut app, Message::Picked(pick, target.clone())).await;
+    let patch = std::fs::read_to_string(&target).unwrap();
+    assert!(
+        patch.contains("+changed") && patch.contains("+new"),
+        "{patch}"
+    );
+}
+
+#[tokio::test]
+async fn a_commits_file_text_is_copied() {
+    use gitcraft_ui::app::Effect;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let sha = sha_of(&app, "first commit");
+    drive(&mut app, Message::CopyFileText(sha, "a.txt".into())).await;
+    assert!(app.effects.contains(&Effect::Copy("one\n".into())));
+}
+
+#[tokio::test]
+async fn several_commits_are_picked_then_cherry_picked_squashed_or_replayed() {
+    let f = fixture();
+    f.git(&["switch", "-q", "-c", "topic", "main"]);
+    for n in 1..=3 {
+        f.commit(&format!("t{n}.txt"), "t\n", &format!("topic {n}"));
+    }
+    f.git(&["switch", "-q", "main"]);
+    let mut app = opened(&f, false).await;
+    let (one, three) = (sha_of(&app, "topic 1"), sha_of(&app, "topic 3"));
+    drive(&mut app, Message::Select(three.clone())).await;
+    app.modifiers = Modifiers::SHIFT;
+    drive(&mut app, Message::Select(one.clone())).await;
+    app.modifiers = Modifiers::NONE;
+    let picked = app.current().unwrap().picked_commits.clone();
+    assert_eq!(picked.len(), 3);
+    assert!(app.current().unwrap().compare.is_none());
+
+    // Squashing opens the rebase editor with the plan made: here on topic, from main.
+    f.git(&["switch", "-q", "topic"]);
+    drive(&mut app, Message::Refresh).await;
+    drive(
+        &mut app,
+        Message::PlanCommits(gitcraft_ui::app::Preset::Squash(picked.clone())),
+    )
+    .await;
+    let Some(Overlay::Rebase(state)) = &app.overlay else {
+        panic!("the editor opens")
+    };
+    let plan: Vec<&str> = state.steps.iter().map(|step| step.action).collect();
+    assert_eq!(plan, ["pick", "squash", "squash"], "{:?}", state.error);
+    drive(&mut app, Message::OverlayClose).await;
+    f.git(&["switch", "-q", "main"]);
+    drive(&mut app, Message::Refresh).await;
+
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::Commits(picked.clone())),
+    )
+    .await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(pick)) = find_entry(&items, "Cherry-pick 3 commits into current") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, pick).await;
+    assert_eq!(&f.subjects()[..3], ["topic 3", "topic 2", "topic 1"]);
+
+    f.git(&["reset", "-q", "--hard", "HEAD~3"]);
+    drive(&mut app, Message::Refresh).await;
+    drive(&mut app, Message::OpenReplay(picked)).await;
+    let Some(Overlay::Rebase(state)) = &app.overlay else {
+        panic!("the editor opens for a cherry-pick")
+    };
+    assert!(state.replay);
+    assert_eq!(state.steps[0].commit.subject, "topic 1", "oldest first");
+    drive(&mut app, Message::RebaseSetAction(2, "drop")).await;
+    drive(&mut app, Message::RebaseStart).await;
+    assert_eq!(&f.subjects()[..2], ["topic 2", "topic 1"]);
+}
+
+#[tokio::test]
+async fn cherry_picking_a_merge_asks_for_the_mainline() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let merge = sha_of(&app, "merge side");
+    drive(&mut app, Message::Action(Action::CherryPick(merge))).await;
+    let form = app.form.as_ref().expect("asks which parent");
+    assert_eq!(form.fields.len(), 1);
+    drive(&mut app, Message::FormCancel).await;
+}
+
+#[tokio::test]
+async fn the_rebase_editor_autosquashes_moves_and_refuses_a_stale_plan() {
+    let f = empty_fixture();
+    f.commit("a.txt", "a\n", "add a");
+    f.commit("b.txt", "b\n", "add b");
+    f.commit("a.txt", "a fixed\n", "fixup! add a");
+    let mut app = opened(&f, false).await;
+    let first = sha_of(&app, "add a");
+    drive(&mut app, Message::OpenRebase(Some(first.clone()))).await;
+    drive(&mut app, Message::OverlayClose).await;
+    // From the root: every commit is in the plan.
+    drive(&mut app, Message::OpenRebase(None)).await;
+    drive(&mut app, Message::RebaseAutosquash).await;
+    let Some(Overlay::Rebase(state)) = &app.overlay else {
+        panic!("open")
+    };
+    let plan: Vec<(String, &str)> = state
+        .steps
+        .iter()
+        .map(|step| (step.commit.subject.clone(), step.action))
+        .collect();
+    assert_eq!(
+        plan,
+        [
+            ("add a".to_owned(), "pick"),
+            ("fixup! add a".to_owned(), "fixup"),
+            ("add b".to_owned(), "pick")
+        ]
+    );
+    // Someone commits meanwhile: the plan no longer fits.
+    f.commit("c.txt", "c\n", "meanwhile");
+    drive(&mut app, Message::RebaseStart).await;
+    assert_eq!(
+        f.subjects(),
+        ["meanwhile", "fixup! add a", "add b", "add a"]
+    );
+    assert!(toast_kinds(&app).contains(&ToastKind::Error));
+    drive(&mut app, Message::OverlayClose).await;
+    drive(&mut app, Message::Refresh).await;
+
+    let b = sha_of(&app, "add b");
+    drive(&mut app, Message::Action(Action::MoveCommit(b, false))).await;
+    assert_eq!(
+        f.subjects(),
+        ["meanwhile", "fixup! add a", "add a", "add b"]
+    );
+}
+
+#[tokio::test]
+async fn bisecting_from_the_commit_menu_and_the_bisect_bar() {
+    let f = empty_fixture();
+    for n in 1..=8 {
+        let state = if n >= 6 { "broken" } else { "fine" };
+        f.commit(
+            "state.txt",
+            &format!("{state}\n{n}\n"),
+            &format!("commit {n}"),
+        );
+    }
+    let mut app = opened(&f, false).await;
+    let (bad, good) = (sha_of(&app, "commit 8"), sha_of(&app, "commit 1"));
+    drive(&mut app, Message::Action(Action::BisectStart(bad))).await;
+    drive(&mut app, Message::FormText(0, good)).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(app.current().unwrap().bisect.is_some());
+    for _ in 0..6 {
+        if app
+            .current()
+            .unwrap()
+            .bisect
+            .as_ref()
+            .unwrap()
+            .first_bad
+            .is_some()
+        {
+            break;
+        }
+        let button = if f.read("state.txt").starts_with("broken") {
+            "Bad"
+        } else {
+            "Good"
+        };
+        for message in Screen::new().click(&app, button, PointerButton::Primary) {
+            drive(&mut app, message).await;
+        }
+    }
+    let first = app
+        .current()
+        .unwrap()
+        .bisect
+        .as_ref()
+        .unwrap()
+        .first_bad
+        .clone();
+    assert_eq!(first, Some(sha_of(&app, "commit 6")));
+    assert!(Screen::new().show(&app).has("First bad commit"));
+    for message in Screen::new().click(&app, "End bisect", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert!(app.current().unwrap().bisect.is_none());
+    assert_eq!(f.git(&["branch", "--show-current"]), "main\n");
+}
+
+#[tokio::test]
+async fn a_commit_is_compared_with_the_working_directory() {
+    let f = fixture();
+    f.write("a.txt", "edited\n");
+    let mut app = opened(&f, false).await;
+    let first = sha_of(&app, "first commit");
+    drive(
+        &mut app,
+        Message::CompareStart(first, gitcraft_core::queries::WORKTREE.to_owned()),
+    )
+    .await;
+    let compare = app.current().unwrap().compare.as_ref().unwrap();
+    let files: Vec<&str> = compare
+        .result
+        .as_ref()
+        .unwrap()
+        .files
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect();
+    assert!(
+        files.contains(&"a.txt") && files.contains(&"b.txt"),
+        "{files:?}"
+    );
+    assert!(Screen::new().show(&app).has("Working directory"));
+    drive(&mut app, Message::CompareSwap).await;
+    assert!(
+        app.current()
+            .unwrap()
+            .compare
+            .as_ref()
+            .unwrap()
+            .error
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn commit_ranges_are_compared_in_their_own_view() {
+    let f = fixture();
+    f.git(&["switch", "-q", "-c", "topic"]);
+    f.commit("t.txt", "t\n", "topic work");
+    f.git(&["branch", "topic-old"]);
+    f.git(&["commit", "-q", "--amend", "-m", "topic work, reworded"]);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::RangeDiff)).await;
+    drive(&mut app, Message::FormText(0, "main..topic-old".into())).await;
+    drive(&mut app, Message::FormText(1, "main..topic".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let Some(Overlay::RangeDiff { text, error, .. }) = &app.overlay else {
+        panic!("open")
+    };
+    assert!(error.is_none(), "{error:?}");
+    assert!(text.contains("topic work, reworded"));
+    assert!(Screen::new().show(&app).has("topic work, reworded"));
+}
+
+#[tokio::test]
+async fn the_merge_dialog_says_which_files_would_conflict() {
+    let f = fixture();
+    f.git(&["switch", "-q", "-c", "other"]);
+    f.commit("a.txt", "theirs\n", "theirs");
+    f.git(&["switch", "-q", "main"]);
+    f.commit("a.txt", "ours\n", "ours");
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::Merge("other".into()))).await;
+    let message = app
+        .form
+        .as_ref()
+        .unwrap()
+        .message
+        .clone()
+        .unwrap_or_default();
+    assert!(message.contains("Expect a conflict in a.txt"), "{message}");
+}
+
+#[tokio::test]
+async fn the_history_is_filtered_and_the_filter_cleared() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let all = app.current().unwrap().commits.len();
+    drive(&mut app, Message::Action(Action::FilterHistory)).await;
+    drive(&mut app, Message::FormText(1, "b.txt".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let tab = app.current().unwrap();
+    let subjects: Vec<&str> = tab
+        .commits
+        .iter()
+        .map(|commit| commit.subject.as_str())
+        .collect();
+    assert_eq!(subjects, ["second commit"]);
+    assert!(Screen::new().show(&app).has("Filtered history"));
+    for message in Screen::new().click(&app, "Clear filter", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert!(app.current().unwrap().history_filter.is_none());
+    assert_eq!(app.current().unwrap().commits.len(), all);
+}
+
+#[tokio::test]
+async fn a_branch_is_hidden_from_the_graph_and_remembered() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let root = f.git(&["rev-list", "--max-parents=0", "HEAD"]);
+    f.git(&["switch", "-q", "-c", "topic", root.trim()]);
+    f.commit("t.txt", "t\n", "topic work");
+    f.git(&["switch", "-q", "main"]);
+    let mut app = opened(&f, false).await;
+    assert!(
+        app.current()
+            .unwrap()
+            .commits
+            .iter()
+            .any(|c| c.subject == "topic work")
+    );
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/topic".into())),
+    )
+    .await;
+    assert!(
+        !app.current()
+            .unwrap()
+            .commits
+            .iter()
+            .any(|c| c.subject == "topic work")
+    );
+    assert!(Screen::new().show(&app).has("hidden: topic"));
+    let path = app.current().unwrap().path.clone();
+    assert!(
+        app.settings.graph.views.contains_key(&path),
+        "remembered for the repository"
+    );
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Solo("refs/heads/topic".into())),
+    )
+    .await;
+    let subjects: Vec<&str> = app
+        .current()
+        .unwrap()
+        .commits
+        .iter()
+        .map(|c| c.subject.as_str())
+        .collect();
+    assert_eq!(subjects, ["topic work", "first commit"]);
+    drive(&mut app, Message::RefVisibility(RefVisibility::ShowAll)).await;
+    assert!(!app.settings.graph.views.contains_key(&path));
+}
+
+#[tokio::test]
+async fn a_stash_shows_in_the_history_and_opens_from_there() {
+    let f = fixture();
+    f.write("a.txt", "stashed\n");
+    f.git(&["stash", "push", "-q", "-m", "work aside"]);
+    let mut app = opened(&f, false).await;
+    let tab = app.current().unwrap();
+    let row = tab
+        .commits
+        .iter()
+        .find(|commit| commit.stash.is_some())
+        .expect("a stash row");
+    assert!(row.subject.contains("work aside"));
+    for message in Screen::new().click(&app, "stash@{0}", PointerButton::Primary) {
+        drive(&mut app, message).await;
+    }
+    assert_eq!(app.current().unwrap().view, View::Stash);
+}
+
+#[tokio::test]
+async fn history_columns_are_chosen_and_resized() {
+    use gitcraft_ui::app::Column;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    assert!(Screen::new().show(&app).has("AUTHOR"));
+    drive(&mut app, Message::ToggleColumn(Column::Author)).await;
+    assert!(!Screen::new().show(&app).has("AUTHOR"));
+    drive(&mut app, Message::ToggleColumn(Column::Changes)).await;
+    let tab = app.current().unwrap();
+    let second = tab
+        .commits
+        .iter()
+        .find(|c| c.subject == "second commit")
+        .unwrap();
+    assert_eq!(tab.stats.get(&second.sha).map(|stats| stats.added), Some(1));
+    assert!(Screen::new().show(&app).has("CHANGES"));
+    drive(&mut app, Message::ColumnWidth(Column::Date, 200.0, true)).await;
+    assert_eq!(app.settings.columns.date_width, 200.0);
+    drive(&mut app, Message::OpenMenu(MenuRequest::Columns)).await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(reset)) = find_entry(&items, "Reset columns") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, reset).await;
+    assert_eq!(
+        app.settings.columns,
+        gitcraft_ui::settings::Columns::default()
+    );
+}
+
+#[tokio::test]
+async fn blame_skips_listed_commits_and_can_be_told_not_to() {
+    let f = empty_fixture();
+    f.commit("code.txt", "a = 1\n", "write it");
+    f.commit("code.txt", "a  =  1\n", "reformat");
+    let reformat = f.git(&["rev-parse", "HEAD"]);
+    f.write(".git-blame-ignore-revs", &reformat);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenBlame("code.txt".into(), None)).await;
+    let Some(Overlay::Blame { lines, ignored, .. }) = &app.overlay else {
+        panic!("open")
+    };
+    assert_eq!(*ignored, Some(true));
+    assert_eq!(lines[0].summary, "write it");
+    assert!(
+        Screen::new()
+            .show(&app)
+            .has("Skip commits in .git-blame-ignore-revs")
+    );
+    drive(&mut app, Message::BlameIgnoreRevs(false)).await;
+    let Some(Overlay::Blame { lines, .. }) = &app.overlay else {
+        panic!("still open")
+    };
+    assert_eq!(lines[0].summary, "reformat");
+}
+
+#[tokio::test]
+async fn repositories_are_fetched_in_the_background_when_due() {
+    let f = fixture();
+    let remote = f.root.join("remote.git");
+    git(
+        &f.root,
+        &["clone", "-q", "--bare", &f.repo, remote.to_str().unwrap()],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::AutoFetchTick).await;
+    assert!(f.git(&["branch", "-r"]).is_empty(), "off by default");
+
+    drive(&mut app, Message::SetAutoFetch(5)).await;
+    drive(&mut app, Message::AutoFetchTick).await;
+    assert!(
+        f.git(&["branch", "-r"]).is_empty(),
+        "not due yet: the tab only just opened"
+    );
+
+    app.tabs[app.active].last_fetch = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(600))
+        .unwrap();
+    drive(&mut app, Message::AutoFetchTick).await;
+    assert!(f.git(&["branch", "-r"]).contains("origin/main"));
+    let tab = app.current().unwrap();
+    assert!(!tab.fetching);
+    assert!(
+        tab.refs
+            .remote
+            .iter()
+            .any(|branch| branch.name == "origin/main"),
+        "the sidebar shows what came in"
+    );
+}
+
+#[tokio::test]
+async fn a_shallow_clone_offers_to_fetch_more_history() {
+    let f = fixture();
+    let url = format!("file://{}", f.repo.replace('\\', "/"));
+    let clone = f.root.join("shallow");
+    git(
+        &f.root,
+        &["clone", "-q", "--depth", "1", &url, clone.to_str().unwrap()],
+    );
+    let store = RepoStore::at(f.root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(false), store);
+    drive(
+        &mut app,
+        Message::OpenPath(clone.to_string_lossy().into_owned()),
+    )
+    .await;
+    assert!(app.current().unwrap().refs.shallow);
+    drive(&mut app, Message::OpenMenu(MenuRequest::Repository)).await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(whole)) = find_entry(&items, "Fetch the whole history") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, whole).await;
+    assert!(!app.current().unwrap().refs.shallow);
+}
+
+#[tokio::test]
+async fn a_rejected_push_offers_to_pull_or_force_push() {
+    let f = fixture();
+    let remote = f.root.join("remote.git");
+    git(
+        &f.root,
+        &["clone", "-q", "--bare", &f.repo, remote.to_str().unwrap()],
+    );
+    f.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    f.git(&["fetch", "-q", "origin"]);
+    let other = f.root.join("other");
+    git(
+        &f.root,
+        &[
+            "clone",
+            "-q",
+            remote.to_str().unwrap(),
+            other.to_str().unwrap(),
+        ],
+    );
+    git(
+        &other,
+        &[
+            "-c",
+            "user.name=O",
+            "-c",
+            "user.email=o@e",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "theirs",
+        ],
+    );
+    git(&other, &["push", "-q", "origin", "main"]);
+    f.commit("mine.txt", "mine\n", "mine");
+    let mut app = opened(&f, false).await;
+    let push = Command::Push {
+        remote: "origin".into(),
+        branch: "main".into(),
+        set_upstream: false,
+        force: false,
+        tags: false,
+    };
+    drive(&mut app, Message::Run(push)).await;
+    let form = app.form.as_ref().expect("asks what to do");
+    assert_eq!(form.choices.len(), 1, "force push is offered");
+    drive(&mut app, Message::FormChoice(0)).await;
+    assert_eq!(
+        git(&remote, &["log", "-1", "--format=%s", "main"]),
+        "mine\n",
+        "the branch replaced theirs"
+    );
+}
+
+#[tokio::test]
+async fn changes_are_brought_along_as_they_are_when_they_fit() {
+    let (f, mut app) = changed_with_a_branch().await;
+    drive(&mut app, checkout_side()).await;
+    drive(&mut app, Message::FormChoice(0)).await;
+    assert_eq!(f.git(&["branch", "--show-current"]).trim(), "side");
+    assert_eq!(f.read("a.txt"), "mine\n");
+    assert_eq!(f.git(&["stash", "list"]), "", "no stash involved");
+}
+
+#[tokio::test]
+async fn a_tag_is_deleted_on_one_remote_only() {
+    let f = fixture();
+    let (one, two) = (f.root.join("one.git"), f.root.join("two.git"));
+    for (name, path) in [("one", &one), ("two", &two)] {
+        git(&f.root, &["init", "-q", "--bare", path.to_str().unwrap()]);
+        f.git(&["remote", "add", name, path.to_str().unwrap()]);
+        f.git(&["push", "-q", name, "refs/tags/v1.0"]);
+    }
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Action(Action::DeleteRemoteTag {
+            remote: "one".into(),
+            name: "v1.0".into(),
+        }),
+    )
+    .await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(git(&one, &["tag"]), "");
+    assert_eq!(git(&two, &["tag"]), "v1.0\n");
+    assert_eq!(f.git(&["tag"]), "v1.0\n", "kept here");
+
+    drive(&mut app, Message::Action(Action::DeleteTag("v1.0".into()))).await;
+    drive(&mut app, Message::FormSelect(0, "two".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(git(&two, &["tag"]), "");
+    assert_eq!(f.git(&["tag"]), "");
+}
+
+#[tokio::test]
+async fn merged_branches_are_cleaned_up_and_come_back_with_undo() {
+    let f = fixture();
+    f.git(&["branch", "done"]);
+    f.git(&["switch", "-q", "-c", "busy"]);
+    f.commit("b.txt", "busy\n", "busy work");
+    f.git(&["switch", "-q", "main"]);
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenCleanup).await;
+    let Some(Overlay::Cleanup {
+        candidates, chosen, ..
+    }) = &app.overlay
+    else {
+        panic!("open")
+    };
+    let names: Vec<&str> = candidates.iter().map(|c| c.name.as_str()).collect();
+    assert!(
+        names.contains(&"done") && names.contains(&"side"),
+        "{names:?}"
+    );
+    assert!(!names.contains(&"busy") && !names.contains(&"main"));
+    assert_eq!(chosen.len(), names.len(), "merged ones are ticked");
+    drive(&mut app, Message::CleanupToggle("side".into())).await;
+    drive(&mut app, Message::CleanupStart).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(app.overlay.is_none());
+    assert_eq!(
+        f.git(&["branch", "--format=%(refname:short)"]),
+        "busy\nmain\nside\n"
+    );
+    drive(&mut app, Message::Undo).await;
+    assert_eq!(
+        f.git(&["branch", "--format=%(refname:short)"]),
+        "busy\ndone\nmain\nside\n"
+    );
+}
+
+#[tokio::test]
+async fn the_clone_dialog_makes_a_shallow_clone_of_one_branch() {
+    let f = fixture();
+    let url = format!("file://{}", f.repo.replace('\\', "/"));
+    let store = RepoStore::at(f.root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(false), store);
+    drive(&mut app, Message::Action(Action::Clone)).await;
+    let fields: Vec<&str> = app
+        .form
+        .as_ref()
+        .unwrap()
+        .fields
+        .iter()
+        .map(|field| field.key)
+        .collect();
+    let at = |key: &str| fields.iter().position(|field| *field == key).unwrap();
+    let (url_at, parent_at, branch_at, depth_at) =
+        (at("url"), at("parent"), at("branch"), at("depth"));
+    drive(&mut app, Message::FormText(url_at, url)).await;
+    drive(
+        &mut app,
+        Message::FormText(
+            parent_at,
+            f.root.join("clones").to_string_lossy().into_owned(),
+        ),
+    )
+    .await;
+    drive(&mut app, Message::FormText(branch_at, "side".into())).await;
+    drive(&mut app, Message::FormText(depth_at, "1".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let tab = app.current().expect("the clone opens");
+    assert_eq!(tab.current_branch(), Some("side"));
+    assert!(tab.refs.shallow);
+}
+
+#[tokio::test]
+async fn a_new_repository_is_made_with_a_first_commit_and_opened() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let path = root.join("brand-new");
+    std::fs::create_dir(&path).unwrap();
+    git(&path, &["init", "-q"]);
+    for (key, value) in [
+        ("user.name", "Test User"),
+        ("user.email", "t@example.com"),
+        ("commit.gpgsign", "false"),
+    ] {
+        git(&path, &["config", key, value]);
+    }
+    let store = RepoStore::at(root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(false), store);
+    drive(&mut app, Message::Action(Action::Init)).await;
+    let fields: Vec<&str> = app
+        .form
+        .as_ref()
+        .unwrap()
+        .fields
+        .iter()
+        .map(|field| field.key)
+        .collect();
+    let at = |key: &str| fields.iter().position(|field| *field == key).unwrap();
+    let (path_at, branch_at, ignore_at) = (at("path"), at("branch"), at("gitignore"));
+    drive(
+        &mut app,
+        Message::FormText(path_at, path.to_string_lossy().into_owned()),
+    )
+    .await;
+    drive(&mut app, Message::FormText(branch_at, "trunk".into())).await;
+    drive(&mut app, Message::FormSelect(ignore_at, "rust".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let tab = app.current().expect("the new repository opens");
+    assert_eq!(tab.current_branch(), Some("trunk"));
+    assert_eq!(git(&path, &["log", "--format=%s"]), "Initial commit\n");
+    assert_eq!(
+        git(&path, &["show", "--name-only", "--format="]),
+        ".gitignore\nREADME.md\n"
+    );
+}
+
+#[tokio::test]
+async fn sparse_checkout_is_set_and_turned_off_from_its_dialog() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSparse).await;
+    assert!(
+        app.form.as_ref().unwrap().choices.is_empty(),
+        "nothing to turn off yet"
+    );
+    drive(&mut app, Message::FormArea(0, "/b.txt\n".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(f.path.join("b.txt").exists() && !f.path.join("a.txt").exists());
+    drive(&mut app, Message::OpenSparse).await;
+    drive(&mut app, Message::FormChoice(0)).await;
+    assert!(f.path.join("a.txt").exists());
+}
+
+#[tokio::test]
+async fn a_submodule_is_added_and_removed_from_its_menu() {
+    // file:// submodules need allowing since git 2.38.1; only git's environment reaches the
+    // clone that `submodule add` runs.
+    gitcraft_core::runner::set_child_env(gitcraft_core::runner::ChildEnv {
+        set: vec![
+            ("GIT_CONFIG_COUNT".into(), "1".into()),
+            ("GIT_CONFIG_KEY_0".into(), "protocol.file.allow".into()),
+            ("GIT_CONFIG_VALUE_0".into(), "always".into()),
+        ],
+        remove: Vec::new(),
+    });
+    let f = fixture();
+    let library = f.root.join("library");
+    std::fs::create_dir(&library).unwrap();
+    git(&library, &["init", "-q", "-b", "main"]);
+    git(
+        &library,
+        &[
+            "-c",
+            "user.name=L",
+            "-c",
+            "user.email=l@e",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "lib",
+        ],
+    );
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::AddSubmodule)).await;
+    drive(
+        &mut app,
+        Message::FormText(0, library.to_string_lossy().into_owned()),
+    )
+    .await;
+    drive(&mut app, Message::FormText(1, "vendor/lib".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert_eq!(app.current().unwrap().refs.submodules.len(), 1);
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::Submodule("vendor/lib".into())),
+    )
+    .await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    let Some(Some(remove)) = find_entry(&items, "Remove…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, remove).await;
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(app.current().unwrap().refs.submodules.is_empty());
+}
+
+#[tokio::test]
+async fn a_worktree_is_locked_from_its_menu_and_cant_be_removed_then() {
+    let f = fixture();
+    let place = f.root.join("tree-two");
+    git(
+        &f.path,
+        &["worktree", "add", "-q", place.to_str().unwrap(), "side"],
+    );
+    let mut app = opened(&f, false).await;
+    let path = app
+        .current()
+        .unwrap()
+        .refs
+        .worktrees
+        .iter()
+        .find(|tree| tree.path.ends_with("tree-two"))
+        .unwrap()
+        .path
+        .clone();
+    drive(
+        &mut app,
+        Message::Action(Action::LockWorktree(path.clone())),
+    )
+    .await;
+    drive(&mut app, Message::FormText(0, "travelling".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    drive(&mut app, Message::OpenMenu(MenuRequest::Worktree(path))).await;
+    let items = app.menu.as_ref().unwrap().items.clone();
+    assert!(matches!(find_entry(&items, "Unlock"), Some(Some(_))));
+    assert!(
+        matches!(find_entry(&items, "Remove…"), Some(None)),
+        "disabled while locked"
+    );
+
+    let sha = sha_of(&app, "first commit");
+    let commit = app
+        .current()
+        .unwrap()
+        .commits
+        .iter()
+        .find(|c| c.sha == sha)
+        .unwrap()
+        .clone();
+    let items = commit_menu_items(app.current().unwrap(), &commit, None);
+    assert!(matches!(find_entry(&items, "Worktree…"), Some(Some(_))));
+}
+
+#[tokio::test]
+async fn the_maintenance_dialog_tidies_up() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::Action(Action::Maintenance)).await;
+    assert_eq!(
+        app.form.as_ref().unwrap().fields.len(),
+        2,
+        "no remotes, no prune"
+    );
+    drive(&mut app, Message::FormSubmit).await;
+    assert!(toast_kinds(&app).contains(&ToastKind::Success));
+    assert!(f.git(&["count-objects", "-v"]).contains("in-pack: "));
+}
+
+#[tokio::test]
+async fn a_clone_link_opens_the_clone_dialog_with_its_url() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Instance(
+            "gitcraft://clone?url=https%3A%2F%2Fexample.com%2Fteam%2Fproject.git".into(),
+        ),
+    )
+    .await;
+    let form = app.form.as_ref().expect("the clone dialog asks first");
+    assert_eq!(
+        form.values().text("url"),
+        "https://example.com/team/project.git"
+    );
+    drive(&mut app, Message::FormCancel).await;
+    drive(
+        &mut app,
+        Message::Instance("gitcraft://clone?url=file%3A%2F%2F%2Ftmp".into()),
+    )
+    .await;
+    assert!(app.form.is_none());
+    assert!(toast_kinds(&app).contains(&ToastKind::Error));
+}
+
+#[tokio::test]
+async fn git_settings_are_changed_for_this_repository_in_settings() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSettings).await;
+    // Only ever this repository's settings here, never the user's own.
+    drive(&mut app, Message::GitConfigScope(true)).await;
+    assert!(app.git_config.here);
+    assert_eq!(app.git_config.shown("user.name"), "Test User");
+    drive(
+        &mut app,
+        Message::SettingsPage(gitcraft_ui::app::SettingsPage::Git),
+    )
+    .await;
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 2600.0))).await;
+    let tall = Screen::sized(vec2(1280.0, 2600.0));
+    for _ in 0..4 {
+        tall.frame(&app, Vec::new());
+    }
+    let shown = tall.frame(&app, Vec::new());
+    assert!(shown.has("Save git settings"));
+    drive(
+        &mut app,
+        Message::GitConfigEdit("user.name".into(), "Someone Else".into()),
+    )
+    .await;
+    drive(
+        &mut app,
+        Message::GitConfigEdit("rerere.enabled".into(), "true".into()),
+    )
+    .await;
+    drive(&mut app, Message::GitConfigSave).await;
+    assert_eq!(f.git(&["config", "--local", "user.name"]), "Someone Else\n");
+    assert_eq!(f.git(&["config", "--local", "rerere.enabled"]), "true\n");
+    drive(
+        &mut app,
+        Message::GitConfigEdit("rerere.enabled".into(), String::new()),
+    )
+    .await;
+    drive(&mut app, Message::GitConfigSave).await;
+    assert!(
+        f.git(&["config", "--local", "--list"])
+            .lines()
+            .all(|line| !line.starts_with("rerere."))
+    );
+}
+
+#[tokio::test]
+async fn a_git_program_that_cant_run_is_refused() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSettings).await;
+    drive(
+        &mut app,
+        Message::SetGitProgram("/nowhere/at/all/git".into()),
+    )
+    .await;
+    assert_eq!(app.settings.general.git_program, "", "kept as it was");
+    assert!(toast_kinds(&app).contains(&ToastKind::Error));
+}
+
+#[tokio::test]
+async fn lfs_patterns_are_tracked_and_untracked_from_the_menus() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    if app.current().unwrap().refs.lfs.is_none() {
+        eprintln!("git-lfs isn't installed; skipping");
+        return;
+    }
+    // Repository › Git LFS › Store files in LFS…
+    drive(&mut app, Message::OpenMenu(MenuRequest::Repository)).await;
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(track)) = find_entry(&items, "Store files in LFS…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, track).await;
+    drive(&mut app, Message::FormText(0, "*.psd".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let attributes = std::fs::read_to_string(f.path.join(".gitattributes")).unwrap();
+    assert!(attributes.contains("*.psd filter=lfs"), "{attributes}");
+
+    // A file's menu offers its extension, here as a lockable pattern.
+    f.write("cover.bin", "data\n");
+    drive(&mut app, Message::Refresh).await;
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::File {
+            area: Some(Area::Unstaged),
+            path: "cover.bin".into(),
+            rev: None,
+        }),
+    )
+    .await;
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(track)) = find_entry(&items, "Store “*.bin” files in LFS…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, track).await;
+    drive(&mut app, Message::FormCheck(1, true)).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let lfs = app.current().unwrap().refs.lfs.clone().unwrap();
+    let listed: Vec<(&str, bool)> = lfs
+        .patterns
+        .iter()
+        .map(|pattern| (pattern.pattern.as_str(), pattern.lockable))
+        .collect();
+    assert_eq!(listed, [("*.psd", false), ("*.bin", true)]);
+
+    // The sidebar's menu for a pattern stops tracking it.
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::LfsPattern("*.psd".into())),
+    )
+    .await;
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(untrack)) = find_entry(&items, "Stop storing in LFS…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, untrack).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let attributes = std::fs::read_to_string(f.path.join(".gitattributes")).unwrap();
+    assert!(!attributes.contains("*.psd"), "{attributes}");
+    assert_eq!(
+        app.current()
+            .unwrap()
+            .refs
+            .lfs
+            .as_ref()
+            .unwrap()
+            .patterns
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn a_branch_row_hides_or_solos_its_branch_from_its_toggles() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let screen = Screen::new();
+    // The sidebar's row for the branch "side" (the history draws the name too, further right).
+    let label = screen
+        .show(&app)
+        .texts
+        .into_iter()
+        .filter(|(text, rect)| text == "side" && rect.left() < 400.0)
+        .map(|(_, rect)| rect)
+        .next()
+        .expect("side is in the sidebar");
+    let y = label.center().y;
+    // Click along the row, right of the name, until a toggle answers.
+    let click = |x: f32| {
+        let at = Pos2::new(x, y);
+        let press = |pressed| Event::PointerButton {
+            pos: at,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![press(true)]);
+        screen.frame(&app, vec![press(false)]).messages
+    };
+    let mut found = Vec::new();
+    let mut x = label.right() + 8.0;
+    while x < 400.0 {
+        let messages = click(x);
+        for message in &messages {
+            if let Message::RefVisibility(change) = message {
+                assert!(
+                    !messages
+                        .iter()
+                        .any(|message| matches!(message, Message::ShowRef(..))),
+                    "a toggle doesn't also pick the row: {messages:?}"
+                );
+                let kind = match change {
+                    RefVisibility::Solo(name) | RefVisibility::Hide(name) => {
+                        assert_eq!(name, "refs/heads/side");
+                        format!("{change:?}")
+                    }
+                    other => panic!("{other:?}"),
+                };
+                if !found.contains(&kind) {
+                    found.push(kind);
+                }
+            }
+        }
+        x += 4.0;
+    }
+    assert!(
+        found.iter().any(|kind| kind.starts_with("Solo"))
+            && found.iter().any(|kind| kind.starts_with("Hide")),
+        "both toggles are on the row: {found:?}"
+    );
+
+    // What the toggles send hides the branch from the graph.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/side".into())),
+    )
+    .await;
+    assert_eq!(app.current().unwrap().ref_view.hidden, ["refs/heads/side"]);
+}
+
+#[tokio::test]
+async fn the_rebase_editor_shows_the_highlighted_commit_and_picks_actions_from_a_list() {
+    let f = empty_fixture();
+    f.commit("base.txt", "base\n", "base");
+    for name in ["one", "two", "three"] {
+        f.commit(&format!("{name}.txt"), "x\n", name);
+    }
+    let mut app = opened(&f, false).await;
+    let base = sha_of(&app, "base");
+    drive(&mut app, Message::OpenRebase(Some(base))).await;
+    let shown_detail = |app: &App| {
+        let Some(Overlay::Rebase(state)) = &app.overlay else {
+            panic!("the editor is open")
+        };
+        match &state.detail {
+            Some((_, Some(Ok(detail)))) => (
+                detail.subject.clone(),
+                detail
+                    .files
+                    .iter()
+                    .map(|file| file.path.clone())
+                    .collect::<Vec<_>>(),
+            ),
+            other => panic!("details are loaded: {other:?}"),
+        }
+    };
+    // The first commit is highlighted, and its details are below the list.
+    assert_eq!(shown_detail(&app), ("one".into(), vec!["one.txt".into()]));
+    drive(&mut app, Message::RebaseFocus(2)).await;
+    assert_eq!(
+        shown_detail(&app),
+        ("three".into(), vec!["three.txt".into()])
+    );
+    let screen = Screen::new();
+    let shown = screen.show(&app);
+    assert!(
+        shown.has("three.txt") && shown.has("Author"),
+        "the pane is drawn"
+    );
+
+    // A row's action is chosen from its dropdown.
+    let messages = screen.click(&app, "Pick", PointerButton::Primary);
+    for message in messages {
+        drive(&mut app, message).await;
+    }
+    assert!(
+        screen.show(&app).has("Remove the commit"),
+        "the list is open"
+    );
+    let messages = screen.click(&app, "Drop", PointerButton::Primary);
+    assert!(
+        messages
+            .iter()
+            .any(|message| matches!(message, Message::RebaseSetAction(0, "drop"))),
+        "{messages:?}"
+    );
+}
+
+#[tokio::test]
+async fn help_opens_the_about_window_with_the_version_and_git_in_use() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let menus = app.bar_menus();
+    let (_, help) = menus.iter().find(|(title, _)| *title == "Help").unwrap();
+    let Some(Some(about)) = find_entry(help, "About GitCraft") else {
+        panic!("{:?}", labels(help))
+    };
+    drive(&mut app, about).await;
+    let Some(Overlay::About { git: Some(Ok(git)) }) = &app.overlay else {
+        panic!("the About window is open and knows git's version")
+    };
+    assert!(git.starts_with("git version"), "{git}");
+    let shown = Screen::new().show(&app);
+    assert!(shown.has(&format!("GitCraft {}", env!("CARGO_PKG_VERSION"))));
+    assert!(shown.has("Jürgen Könnemann"));
+    assert!(shown.has("git version"));
+}
+
+#[tokio::test]
+async fn an_old_answer_about_lfs_locks_is_let_go() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenLfsLocks).await;
+    let Some(Overlay::LfsLocks { repo, request, .. }) = &app.overlay else {
+        panic!("the locks are open")
+    };
+    let (repo, request) = (repo.clone(), *request);
+    let lock = gitcraft_core::model::LfsLock {
+        id: "1".into(),
+        path: "art.psd".into(),
+        owner: "Someone".into(),
+        locked_at: String::new(),
+        ours: false,
+    };
+    for (from, answered) in [
+        ("/elsewhere".to_owned(), request),
+        (repo.clone(), request - 1),
+    ] {
+        drive(
+            &mut app,
+            Message::LfsLocksLoaded(from, answered, Ok(vec![lock.clone()])),
+        )
+        .await;
+        let Some(Overlay::LfsLocks { locks, .. }) = &app.overlay else {
+            panic!("still open")
+        };
+        assert!(
+            locks.is_empty(),
+            "a reply to another request changes nothing"
+        );
+    }
+    drive(
+        &mut app,
+        Message::LfsLocksLoaded(repo, request, Ok(vec![lock])),
+    )
+    .await;
+    let Some(Overlay::LfsLocks { locks, loading, .. }) = &app.overlay else {
+        panic!("still open")
+    };
+    assert_eq!((locks.len(), *loading), (1, false));
+}
+
+#[tokio::test]
+async fn typing_while_git_settings_save_is_kept() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSettings).await;
+    // Only ever this repository's settings here, never the user's own.
+    drive(&mut app, Message::GitConfigScope(true)).await;
+    drive(
+        &mut app,
+        Message::GitConfigEdit("user.name".into(), "Saved Name".into()),
+    )
+    .await;
+    // The save starts; before it is done, another setting is typed.
+    let saving = app.update(Message::GitConfigSave);
+    app.update(Message::GitConfigEdit(
+        "user.email".into(),
+        "typed@example.com".into(),
+    ));
+    if let Some(mut stream) = saving.into_stream() {
+        while let Some(message) = stream.next().await {
+            drive(&mut app, message).await;
+        }
+    }
+    assert_eq!(
+        f.git(&["config", "--local", "user.name"]).trim(),
+        "Saved Name"
+    );
+    assert_eq!(app.git_config.shown("user.name"), "Saved Name");
+    assert_eq!(
+        app.git_config.shown("user.email"),
+        "typed@example.com",
+        "typed during the save, so not lost"
+    );
+    assert_eq!(
+        app.git_config.changed(),
+        [("user.email".to_owned(), "typed@example.com".to_owned())]
+    );
+}
+
+#[tokio::test]
+async fn a_rebase_conflict_says_what_continuing_commits_instead_of_the_commit_box() {
+    let f = empty_fixture();
+    conflicting(&f);
+    f.git(&["switch", "-q", "other"]);
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Run(Command::Rebase {
+            onto: "main".into(),
+            autostash: false,
+        }),
+    )
+    .await;
+    let tab = app.current().unwrap();
+    assert_eq!(tab.view, View::Changes);
+    let replayed = f.git(&["log", "-1", "--format=%h their change", "other"]);
+    let shown = Screen::new().show(&app);
+    assert!(
+        shown.has("Rebasing other onto main"),
+        "the banner names both sides"
+    );
+    assert!(
+        shown.has(&format!("When you continue, {}", replayed.trim())),
+        "the note says what is committed"
+    );
+    assert!(!shown.has("Commit summary"), "no commit box to fill in");
+}
+
+#[tokio::test]
+async fn hidden_and_soloed_branches_are_kept_for_the_next_start() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let view = |app: &App| app.current().unwrap().ref_view.clone();
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/side".into())),
+    )
+    .await;
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Solo("refs/heads/main".into())),
+    )
+    .await;
+    drop(app);
+    let mut app = opened(&f, false).await;
+    assert_eq!(
+        view(&app).hidden,
+        ["refs/heads/side"],
+        "restored after a restart"
+    );
+    assert_eq!(view(&app).solo, ["refs/heads/main"]);
+    // Showing it again is kept too: it doesn't come back hidden.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Show("refs/heads/side".into())),
+    )
+    .await;
+    drop(app);
+    let mut app = opened(&f, false).await;
+    assert!(view(&app).hidden.is_empty(), "{:?}", view(&app));
+    assert_eq!(view(&app).solo, ["refs/heads/main"]);
+    // The repository's last flag taken away: nothing may come back from the file.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Unsolo("refs/heads/main".into())),
+    )
+    .await;
+    drop(app);
+    let app = opened(&f, false).await;
+    assert_eq!(view(&app), Default::default(), "nothing hidden or soloed");
+}
+
+#[tokio::test]
+async fn a_hidden_branch_is_shown_again_from_its_row() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/side".into())),
+    )
+    .await;
+    let screen = Screen::new();
+    let label = screen
+        .show(&app)
+        .texts
+        .into_iter()
+        .filter(|(text, rect)| text == "side" && rect.left() < 400.0)
+        .map(|(_, rect)| rect)
+        .next()
+        .expect("side is in the sidebar");
+    let mut sent = Vec::new();
+    let mut x = label.right() + 8.0;
+    while x < 400.0 && sent.is_empty() {
+        let at = Pos2::new(x, label.center().y);
+        let press = |pressed| Event::PointerButton {
+            pos: at,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![press(true)]);
+        sent = screen
+            .frame(&app, vec![press(false)])
+            .messages
+            .into_iter()
+            .filter(|message| matches!(message, Message::RefVisibility(_)))
+            .collect();
+        x += 4.0;
+    }
+    let [Message::RefVisibility(RefVisibility::Show(name))] = &sent[..] else {
+        panic!("the crossed-out eye shows it again: {sent:?}")
+    };
+    assert_eq!(name, "refs/heads/side");
+    drive(&mut app, sent[0].clone()).await;
+    assert!(app.current().unwrap().ref_view.hidden.is_empty());
+}
+
+#[tokio::test]
+async fn the_checked_out_branch_is_never_hidden_not_even_by_an_old_setting() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    // As an older GitCraft could save it: the branch checked out, hidden.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/main".into())),
+    )
+    .await;
+    drop(app);
+    let app = opened(&f, false).await;
+    assert!(
+        app.current().unwrap().ref_view.hidden.is_empty(),
+        "dropped when the repository opens"
+    );
+    drop(app);
+    let app = opened(&f, false).await;
+    assert!(
+        app.current().unwrap().ref_view.hidden.is_empty(),
+        "and that was saved"
+    );
+    // Its menu offers no hiding, another branch's does.
+    let tab = app.current().unwrap();
+    let menu = |name: &str| {
+        let commit = tab
+            .commits
+            .iter()
+            .find(|commit| commit.refs.iter().flatten().any(|label| label.name == name))
+            .unwrap();
+        labels(&commit_menu_items(
+            tab,
+            commit,
+            Some(&RefTarget::Local(name.into())),
+        ))
+    };
+    assert!(!menu("main").iter().any(|label| label == "Hide in graph"));
+    assert!(menu("side").iter().any(|label| label == "Hide in graph"));
+}
+
+#[tokio::test]
+async fn shortcuts_are_recorded_reset_cleared_and_kept_for_the_next_start() {
+    let f = fixture();
+    let chord = |text: &str| craft_keymap::Chord::parse(text).unwrap();
+    let mut app = opened(&f, false).await;
+    // Settings gets Ctrl+K in place of Ctrl+, : click its key, press the new one.
+    drive(&mut app, Message::OpenSettings).await;
+    drive(
+        &mut app,
+        Message::ShortcutRecord("settings".into(), Some(0)),
+    )
+    .await;
+    drive(&mut app, Message::Key(egui::Key::K, Modifiers::COMMAND)).await;
+    assert!(app.recording.is_none(), "one key is taken");
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+K")));
+    // The menu shows it, and the key does it.
+    let menus = app.bar_menus();
+    let (_, file) = menus.iter().find(|(title, _)| *title == "File").unwrap();
+    assert!(file.iter().any(|item| matches!(
+        item,
+        MenuItem::Entry { label, shortcut: Some(key), .. } if label == "Settings…" && *key == chord("Cmd+K")
+    )));
+    drive(&mut app, Message::OverlayClose).await;
+    drive(&mut app, Message::Key(egui::Key::Comma, Modifiers::COMMAND)).await;
+    assert!(app.overlay.is_none(), "the old key does nothing now");
+    drive(&mut app, Message::Key(egui::Key::K, Modifiers::COMMAND)).await;
+    assert!(matches!(app.overlay, Some(Overlay::Settings)));
+
+    // Escape while waiting for a key changes nothing and keeps the dialog open.
+    drive(&mut app, Message::ShortcutRecord("search".into(), None)).await;
+    drive(&mut app, Message::Key(egui::Key::Escape, Modifiers::NONE)).await;
+    assert!(app.recording.is_none());
+    assert!(matches!(app.overlay, Some(Overlay::Settings)));
+    assert_eq!(app.shortcut("search"), Some(chord("Cmd+F")));
+
+    // Cleared keys and changed keys come back after a restart.
+    drive(&mut app, Message::ShortcutClear("commit".into())).await;
+    drop(app);
+    let mut app = opened(&f, false).await;
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+K")));
+    assert_eq!(app.shortcut("commit"), None);
+    drive(&mut app, Message::ShortcutReset("settings".into())).await;
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+Comma")));
+    // A reset key stays reset after a restart too.
+    drop(app);
+    let app = opened(&f, false).await;
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+Comma")));
+    let shown = Screen::new().show(&{
+        let mut app = app;
+        drive(&mut app, Message::OpenSettings).await;
+        drive(
+            &mut app,
+            Message::SettingsPage(gitcraft_ui::app::SettingsPage::Shortcuts),
+        )
+        .await;
+        app
+    });
+    assert!(shown.has("Not assigned"), "Commit has no key now");
 }

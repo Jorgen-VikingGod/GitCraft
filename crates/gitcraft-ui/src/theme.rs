@@ -221,6 +221,8 @@ pub struct Look {
 }
 
 pub const CODE_SIZE: f32 = 12.5;
+/// The gap between the entries of a dropdown list or a context menu.
+pub const DROPDOWN_GAP: f32 = 2.0;
 
 impl Look {
     fn build(dark: bool) -> Self {

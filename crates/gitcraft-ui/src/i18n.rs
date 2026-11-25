@@ -261,6 +261,14 @@ mod tests {
     }
 
     #[test]
+    fn every_undo_label_is_in_the_table() {
+        let table = table();
+        for label in crate::command::UNDO_LABELS {
+            assert!(table.contains_key(label), "no translation for {label}");
+        }
+    }
+
+    #[test]
     fn the_scan_finds_calls_split_over_lines() {
         let src =
             "trf(\n    \"Copied {what}\",\n    &[]);\nx.push_str(\"no\"); tr(\"say \\\"hi\\\"\")";

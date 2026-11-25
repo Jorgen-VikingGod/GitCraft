@@ -31,6 +31,8 @@ pub struct Shell {
     shown: Shown,
     /// `GITCRAFT_SHOT=file.png` saves a picture of the window and quits, for documentation.
     shot: Option<Shot>,
+    /// When to see next whether a repository is due for its background fetch.
+    next_fetch_check: std::time::Instant,
 }
 
 struct Shot {
@@ -84,6 +86,7 @@ impl Shell {
                 system_dark: Some(system_dark),
                 ..Shown::default()
             },
+            next_fetch_check: std::time::Instant::now(),
             shot: std::env::var_os("GITCRAFT_SHOT").map(|file| Shot {
                 file: file.into(),
                 frames: 0,
@@ -225,8 +228,10 @@ impl Shell {
             else {
                 continue;
             };
-            // Ctrl+A in a field selects its text rather than the files.
-            let global = (modifiers.command && !(typing && key == egui::Key::A))
+            // Ctrl+A in a field selects its text rather than the files, and Ctrl+Z / Ctrl+Y
+            // undo typing there rather than the last git operation.
+            let field_key = matches!(key, egui::Key::A | egui::Key::Z | egui::Key::Y);
+            let global = (modifiers.command && !(typing && field_key))
                 || matches!(key, egui::Key::Escape | egui::Key::F5 | egui::Key::F11);
             if global || !typing {
                 self.handle(Message::Key(key, modifiers));
@@ -238,7 +243,7 @@ impl Shell {
     fn take_shot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
-        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split|settings|rebase|delete|checkout also opens that, to see how it looks.
+        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split|settings|rebase|delete|checkout|discards|clone|lfs|about|branch-menu|settings:<page> also opens that, to see how it looks.
         if shot.frames == 20
             && let Some(what) = std::env::var_os("GITCRAFT_SHOT_OPEN")
         {
@@ -247,10 +252,38 @@ impl Shell {
                     self.app.cursor = egui::Pos2::new(420.0, 110.0);
                     Message::OpenMenu(crate::actions::MenuRequest::Repository)
                 }
+                // The menu of the current branch on its commit, as from a right-click on its label.
+                Some("branch-menu") => {
+                    let Some(tab) = self.app.current() else {
+                        return;
+                    };
+                    let (Some(sha), Some(branch)) = (tab.refs.head.clone(), tab.current_branch())
+                    else {
+                        return;
+                    };
+                    let focus = Some(crate::actions::RefTarget::Local(branch.to_owned()));
+                    self.app.cursor = egui::Pos2::new(420.0, 110.0);
+                    Message::OpenMenu(crate::actions::MenuRequest::Commit { sha, focus })
+                }
                 Some("pull") => Message::Action(crate::actions::Action::Pull),
                 Some("changes") => Message::SetView(crate::app::View::Changes),
                 Some("split") => Message::SetSplit(true),
                 Some("settings") => Message::OpenSettings,
+                // settings:git and so on open that page.
+                Some(page) if page.starts_with("settings:") => {
+                    let wanted = &page["settings:".len()..];
+                    if let Some(found) = crate::app::SettingsPage::ALL
+                        .into_iter()
+                        .find(|each| format!("{each:?}").eq_ignore_ascii_case(wanted))
+                    {
+                        self.handle(Message::SettingsPage(found));
+                    }
+                    Message::OpenSettings
+                }
+                Some("discards") => Message::OpenDiscards,
+                Some("lfs") => Message::OpenLfsLocks,
+                Some("about") => Message::OpenAbout,
+                Some("clone") => Message::Action(crate::actions::Action::Clone),
                 Some("rebase") => Message::OpenRebase(None),
                 Some("delete") => Message::Action(crate::actions::Action::DeleteBranch(
                     "rust-migration".to_owned(),
@@ -324,6 +357,22 @@ impl eframe::App for Shell {
         window::save();
     }
 
+    /// While taking a picture (`GITCRAFT_SHOT`), the mouse is left out: wherever it happens to
+    /// rest, it would otherwise light up a row or open a submenu in the picture.
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        if self.shot.is_some() {
+            raw_input.events.retain(|event| {
+                !matches!(
+                    event,
+                    egui::Event::PointerMoved(_)
+                        | egui::Event::PointerButton { .. }
+                        | egui::Event::MouseWheel { .. }
+                )
+            });
+            raw_input.events.push(egui::Event::PointerGone);
+        }
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         while let Ok(message) = self.inbox.try_recv() {
@@ -343,6 +392,15 @@ impl eframe::App for Shell {
         if !self.app.toasts.is_empty() {
             self.handle(Message::Tick);
             ctx.request_repaint_after(Duration::from_millis(500));
+        }
+        // Background fetches: the app decides which repositories are due; this only wakes it.
+        if self.app.settings.history.auto_fetch_minutes > 0 {
+            let now = std::time::Instant::now();
+            if now >= self.next_fetch_check {
+                self.handle(Message::AutoFetchTick);
+                self.next_fetch_check = now + Duration::from_secs(30);
+            }
+            ctx.request_repaint_after(self.next_fetch_check.saturating_duration_since(now));
         }
         if busy {
             ctx.request_repaint();

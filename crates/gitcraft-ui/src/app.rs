@@ -12,7 +12,7 @@ use gitcraft_core::parsers::Selection;
 use gitcraft_core::runner::Progress;
 use gitcraft_core::store::RepoStore;
 use gitcraft_core::watcher::{self, WatchEvent};
-use gitcraft_core::{Error, ops, queries, repos};
+use gitcraft_core::{Error, ops, queries, repos, undo};
 
 use crate::actions::{Action, MenuRequest};
 use crate::command::Command;
@@ -39,7 +39,7 @@ pub type Answer<T> = Result<T, String>;
 /// A list of file paths, the one that is current, and how to pick another.
 type FileList = (Vec<String>, Option<String>, Box<dyn Fn(String) -> Message>);
 
-fn answer<T>(result: Result<T, Error>) -> Answer<T> {
+pub(crate) fn answer<T>(result: Result<T, Error>) -> Answer<T> {
     result.map_err(|error| error.to_string())
 }
 
@@ -281,6 +281,33 @@ pub struct RepoTab {
     /// "Commit first" in the checkout dialog: the checkout to run once the commit succeeds.
     pub after_commit: Option<Command>,
     pub filter: String,
+    /// Commits picked with Ctrl/Shift+click, newest first as listed; empty when only
+    /// `selected` is.
+    pub picked_commits: Vec<String>,
+    /// The conflicted file picked in Local Changes and its versions, for the page about it
+    /// (`None` while loading).
+    pub conflict_preview: Option<(String, Option<Answer<ConflictVersions>>)>,
+    /// The merge (its MERGE_HEAD) whose prepared message was put in the commit box, so it is
+    /// put there once.
+    pub merge_filled: Option<String>,
+    /// Co-authors for the next commits, one `Name <mail>` per line.
+    pub co_authors: String,
+    /// What Edit › Undo and Redo would do.
+    pub undo: UndoLabels,
+    /// The bisect in progress.
+    pub bisect: Option<Bisect>,
+    /// What the history is narrowed to; `None` shows everything.
+    pub history_filter: Option<LogFilter>,
+    /// Branches hidden from the graph, or the only ones shown.
+    pub ref_view: RefView,
+    /// When the remotes were last fetched in the background (or the tab opened).
+    pub last_fetch: Instant,
+    pub fetching: bool,
+    /// How much each loaded commit changed, for the Changes column.
+    pub stats: std::collections::HashMap<String, CommitStats>,
+    /// Copies of the history settings, so the list can be reloaded from the tab alone.
+    pub date_order: bool,
+    pub show_stashes: bool,
 }
 
 impl RepoTab {
@@ -325,6 +352,19 @@ impl RepoTab {
             committing: false,
             after_commit: None,
             filter: String::new(),
+            undo: UndoLabels::default(),
+            bisect: None,
+            history_filter: None,
+            ref_view: RefView::default(),
+            date_order: false,
+            show_stashes: true,
+            stats: std::collections::HashMap::new(),
+            last_fetch: Instant::now(),
+            fetching: false,
+            merge_filled: None,
+            conflict_preview: None,
+            co_authors: String::new(),
+            picked_commits: Vec::new(),
         }
     }
 
@@ -361,6 +401,20 @@ impl RepoTab {
         }
     }
 
+    /// What the history list loads.
+    pub fn log_query(&self) -> LogQuery {
+        LogQuery {
+            limit: self.log_limit,
+            all: self.all_branches,
+            filter: self.history_filter.clone().unwrap_or_default(),
+            options: LogOptions {
+                view: self.ref_view.clone(),
+                date_order: self.date_order,
+                stashes: self.show_stashes,
+            },
+        }
+    }
+
     pub fn visible(&self) -> &[Commit] {
         self.search
             .as_ref()
@@ -384,6 +438,18 @@ impl RepoTab {
                 })
                 .collect(),
         }
+    }
+
+    /// Ctrl+Shift+Enter stages everything first, so any change will do.
+    pub fn can_commit_all(&self) -> bool {
+        let Some(status) = &self.status else {
+            return false;
+        };
+        let changes = !status.staged.is_empty() || !status.unstaged.is_empty();
+        !self.summary.trim().is_empty()
+            && status.conflicts.is_empty()
+            && !self.committing
+            && (changes || self.amend)
     }
 
     pub fn can_commit(&self) -> bool {
@@ -428,15 +494,33 @@ impl ConflictState {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RebaseStepState {
     pub commit: Commit,
     pub action: &'static str,
+    /// A shell command to run after this step.
+    pub exec: Option<String>,
     pub message: String,
     /// The message body, loaded when the commit is reworded.
     pub body: Option<String>,
 }
 
+/// A plan the rebase editor starts from instead of picking everything.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Preset {
+    /// These commits are dropped.
+    Drop(Vec<String>),
+    /// These commits are squashed into the oldest of them.
+    Squash(Vec<String>),
+}
+
 pub struct RebaseState {
+    /// HEAD when the plan was made: the rebase refuses to start once it has moved.
+    pub head: Option<String>,
+    /// Replays `original` on top of HEAD (an interactive cherry-pick) instead of rewriting
+    /// the branch since `base`.
+    pub replay: bool,
+    pub preset: Option<Preset>,
     pub base: Option<String>,
     pub base_label: String,
     pub steps: Vec<RebaseStepState>,
@@ -445,6 +529,9 @@ pub struct RebaseState {
     pub error: Option<String>,
     pub autostash: bool,
     pub focused: usize,
+    /// The highlighted commit's details, for the pane under the list: its sha and what was
+    /// loaded (`None` while loading).
+    pub detail: Option<(String, Option<Result<CommitDetail, String>>)>,
 }
 
 impl RebaseState {
@@ -464,12 +551,85 @@ impl RebaseState {
     }
     pub fn unchanged(&self) -> bool {
         self.steps.len() == self.original.len()
-            && self
-                .steps
-                .iter()
-                .zip(&self.original)
-                .all(|(step, commit)| step.action == "pick" && step.commit.sha == commit.sha)
+            && self.steps.iter().zip(&self.original).all(|(step, commit)| {
+                step.action == "pick" && step.commit.sha == commit.sha && step.exec.is_none()
+            })
     }
+
+    /// Moves `fixup!`, `squash!` and `amend!` commits right after the commit they name and
+    /// gives them that action, as `git rebase --autosquash` would.
+    pub fn autosquash(&mut self) {
+        let subjects: Vec<(String, String)> = self
+            .steps
+            .iter()
+            .map(|step| (step.commit.subject.clone(), step.commit.sha.clone()))
+            .collect();
+        let plan = crate::logic::autosquash(&subjects);
+        let old = std::mem::take(&mut self.steps);
+        self.steps = plan
+            .into_iter()
+            .map(|(index, action)| {
+                let mut step = old[index].clone();
+                if let Some(action) = action {
+                    step.action = action;
+                }
+                step
+            })
+            .collect();
+    }
+    /// Applies the preset after the commits are loaded. False when a commit of the preset is
+    /// not among them (it isn't on the branch since the base).
+    pub fn apply_preset(&mut self) -> bool {
+        let Some(preset) = &self.preset else {
+            return true;
+        };
+        let (Preset::Drop(shas) | Preset::Squash(shas)) = preset;
+        let found = |sha: &String| self.steps.iter().any(|step| step.commit.sha == *sha);
+        if !shas.iter().all(found) {
+            return false;
+        }
+        match preset {
+            Preset::Drop(shas) => {
+                for step in self
+                    .steps
+                    .iter_mut()
+                    .filter(|step| shas.contains(&step.commit.sha))
+                {
+                    step.action = "drop";
+                }
+            }
+            Preset::Squash(shas) => {
+                // The oldest stays a pick; the others move right after it as squashes.
+                let Some(anchor) = self
+                    .steps
+                    .iter()
+                    .position(|step| shas.contains(&step.commit.sha))
+                else {
+                    return true;
+                };
+                let anchor_sha = self.steps[anchor].commit.sha.clone();
+                let mut moved = Vec::new();
+                self.steps.retain(|step| {
+                    let take = step.commit.sha != anchor_sha && shas.contains(&step.commit.sha);
+                    if take {
+                        moved.push(step.clone());
+                    }
+                    !take
+                });
+                let at = self
+                    .steps
+                    .iter()
+                    .position(|step| step.commit.sha == anchor_sha)
+                    .map_or(0, |index| index + 1);
+                for (offset, mut step) in moved.into_iter().enumerate() {
+                    step.action = "squash";
+                    self.steps.insert(at + offset, step);
+                }
+            }
+        }
+        true
+    }
+
     fn reset(&mut self) {
         self.steps = self
             .original
@@ -477,6 +637,7 @@ impl RebaseState {
             .map(|commit| RebaseStepState {
                 commit: commit.clone(),
                 action: "pick",
+                exec: None,
                 message: commit.subject.clone(),
                 body: None,
             })
@@ -491,12 +652,68 @@ impl RebaseState {
     }
 }
 
+/// The pages of the settings window.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum SettingsPage {
+    #[default]
+    Appearance,
+    Diffs,
+    Tools,
+    Repository,
+    Git,
+    Shortcuts,
+}
+
+impl SettingsPage {
+    pub const ALL: [Self; 6] = [
+        Self::Appearance,
+        Self::Diffs,
+        Self::Tools,
+        Self::Repository,
+        Self::Git,
+        Self::Shortcuts,
+    ];
+
+    /// The page's title, in English.
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::Diffs => "Diffs",
+            Self::Tools => "External tools",
+            Self::Repository => "Repository",
+            Self::Git => "Git",
+            Self::Shortcuts => "Keyboard shortcuts",
+        }
+    }
+}
+
 pub enum Overlay {
     Settings,
+    /// The program's name, version and author; `git` is what `git --version` said, once known.
+    About {
+        git: Option<Result<String, String>>,
+    },
     Reflog {
+        /// Every branch's reflog rather than only HEAD's.
+        all: bool,
         entries: Vec<ReflogEntry>,
         loading: bool,
         error: Option<String>,
+    },
+    Discards {
+        entries: Vec<DiscardBackup>,
+        loading: bool,
+        error: Option<String>,
+    },
+    /// The files locked on the LFS server.
+    LfsLocks {
+        locks: Vec<LfsLock>,
+        loading: bool,
+        error: Option<String>,
+        /// The repository asked, and which request the list waits for: a reply to an older
+        /// one, or about another repository, is let go.
+        repo: String,
+        request: u64,
     },
     Blame {
         path: String,
@@ -505,6 +722,10 @@ pub enum Overlay {
         loading: bool,
         error: Option<String>,
         hovered: Option<String>,
+        /// Skip the commits listed in `.git-blame-ignore-revs`.
+        ignore_revs: bool,
+        /// Whether they were skipped; `None` when the repository has no such list.
+        ignored: Option<bool>,
     },
     FileHistory {
         path: String,
@@ -516,6 +737,24 @@ pub enum Overlay {
     },
     Conflict(Box<ConflictState>),
     Rebase(Box<RebaseState>),
+    /// Branches that look done with, to review and delete.
+    Cleanup {
+        candidates: Vec<CleanupCandidate>,
+        /// The ones ticked for deleting.
+        chosen: Vec<String>,
+        /// Also delete their branches on the remote.
+        remote_too: bool,
+        loading: bool,
+        error: Option<String>,
+    },
+    /// `git range-diff old new`.
+    RangeDiff {
+        old: String,
+        new: String,
+        text: String,
+        loading: bool,
+        error: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -551,10 +790,20 @@ pub enum Pick {
     OpenRepository,
     SavePatch {
         repo: String,
-        sha: String,
+        of: PatchOf,
         name: String,
     },
     ApplyPatch,
+}
+
+/// What a saved patch holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PatchOf {
+    Commit(String),
+    /// Every commit from this one up to HEAD.
+    Series(String),
+    /// The uncommitted changes.
+    Changes,
 }
 
 impl Pick {
@@ -649,6 +898,15 @@ pub struct App {
     pub found_tools: FoundTools,
     /// Things only the shell can do, such as the clipboard; it drains them after each update.
     pub effects: Vec<Effect>,
+    /// The merge or rebase target whose dialog waits for a conflict check.
+    pub conflict_preview: Option<String>,
+    /// Settings › Git, as loaded and as being edited.
+    pub git_config: GitConfigState,
+    /// The page the settings window shows.
+    pub settings_page: SettingsPage,
+    /// The command whose key is being recorded in Settings › Keyboard shortcuts, and which of
+    /// its keys it replaces (`None`: a key is added).
+    pub recording: Option<(String, Option<usize>)>,
     next_id: u64,
     pub(crate) config_dir: PathBuf,
     pub(crate) store: RepoStore,
@@ -662,6 +920,8 @@ pub enum Message {
     /// No file dialog could be shown; the text says why.
     DialogFailed(String),
     OpenPath(String),
+    /// A new repository: where it is (when it was made) and what went wrong (when something did).
+    Created(Option<String>, Option<String>),
     Located(Answer<String>),
     /// A saved tab located at start-up (see `App::boot`).
     Restored(Answer<String>),
@@ -672,7 +932,15 @@ pub enum Message {
     Refresh,
     SetView(View),
     StatusLoaded(String, Answer<Status>),
+    /// The versions of a conflicted file: (repository, path, them).
+    ConflictPreviewLoaded(String, String, Answer<ConflictVersions>),
+    /// git's prepared message for the merge in progress in (repository).
+    MergeMessageLoaded(String, Option<String>),
     RefsLoaded(String, Answer<Refs>),
+    UndoLoaded(String, Answer<UndoLabels>),
+    BisectLoaded(String, Answer<Option<Bisect>>),
+    Undo,
+    Redo,
     LogLoaded(String, Answer<(Vec<Commit>, bool)>),
     LoadMore,
     SetBranchFilter(bool),
@@ -690,6 +958,8 @@ pub enum Message {
     DiffScrolled(PaneKey, f32, Vec2),
     DiffLineClicked(PaneKey, usize, usize),
     HunkAction(usize, &'static str),
+    /// Reverts a hunk (or its selected lines) of the commit shown in the details.
+    HunkRevert(usize),
     ToggleSplit,
     SearchInput(String),
     SearchModeChanged(SearchMode),
@@ -698,6 +968,20 @@ pub enum Message {
     SearchFocus,
     SearchDone(String, String, Answer<Vec<Commit>>),
     CompareStart(String, String),
+    /// Hides a branch from the graph, solos it, or shows everything again.
+    RefVisibility(RefVisibility),
+    /// A push was rejected; the remote branch is at `expected` now (when it could be asked).
+    OfferForcePush {
+        remote: String,
+        branch: String,
+        expected: Option<String>,
+    },
+    /// Narrows the history; `None` or an empty filter shows it all again.
+    SetHistoryFilter(Option<LogFilter>),
+    /// Opens the rebase editor with these commits dropped or squashed.
+    PlanCommits(Preset),
+    /// Opens the rebase editor to replay these commits on top of HEAD.
+    OpenReplay(Vec<String>),
     CompareDone(String, Answer<Comparison>),
     CompareSwap,
     CompareClose,
@@ -713,6 +997,14 @@ pub enum Message {
     HeadMessageLoaded(String, Answer<String>),
     TemplateLoaded(String, Answer<String>),
     CommitNow,
+    /// Ctrl+Shift+Enter: stages everything, then commits.
+    CommitAll,
+    /// After the warning about amending a commit that is already pushed.
+    CommitConfirmed {
+        stage_all: bool,
+    },
+    CommitOption(CommitOption, bool),
+    CoAuthors(String),
     FilterInput(String),
     ToggleCollapsed(String),
     Run(Command),
@@ -752,9 +1044,38 @@ pub enum Message {
     CommitFirstCancel,
     OverlayClose,
     OpenReflog,
+    /// Shows the reflogs of every branch (true) or only HEAD's.
+    ReflogAll(bool),
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
+    OpenDiscards,
+    OpenLfsLocks,
+    OpenAbout,
+    AboutGit(Answer<String>),
+    /// Shows this page of the settings.
+    SettingsPage(SettingsPage),
+    /// Waits for the next key press for (command, key to replace or `None` to add one).
+    ShortcutRecord(String, Option<usize>),
+    /// Gives a command its default keys again.
+    ShortcutReset(String),
+    /// Takes all keys from a command.
+    ShortcutClear(String),
+    /// The locks of (repository, request).
+    LfsLocksLoaded(String, u64, Answer<Vec<LfsLock>>),
+    OpenCleanup,
+    OpenSparse,
+    SparseLoaded(Answer<Option<Vec<String>>>),
+    CleanupLoaded(Answer<Option<Vec<CleanupCandidate>>>),
+    CleanupToggle(String),
+    CleanupRemote(bool),
+    CleanupStart,
+    /// Compares two ranges of commits: (old, new).
+    RangeDiff(String, String),
+    RangeDiffLoaded(Answer<String>),
+    DiscardsLoaded(Answer<Vec<DiscardBackup>>),
     OpenBlame(String, Option<String>),
-    BlameLoaded(Answer<Vec<BlameLine>>),
+    BlameLoaded(Answer<(Vec<BlameLine>, Option<bool>)>),
+    /// Turns skipping the commits in `.git-blame-ignore-revs` on or off.
+    BlameIgnoreRevs(bool),
     BlameHover(String),
     OpenFileHistory(String),
     FileHistoryLoaded(Answer<Vec<Commit>>),
@@ -772,8 +1093,13 @@ pub enum Message {
     RebaseBodyLoaded(String, Answer<String>),
     RebaseMove(usize, isize),
     RebaseFocus(usize),
+    /// The details of a commit in the rebase editor: (sha, them).
+    RebaseDetailLoaded(String, Answer<CommitDetail>),
     RebaseAutostash(bool),
     RebaseReset,
+    RebaseAutosquash,
+    /// A command to run after step `index`; empty removes it.
+    RebaseExec(usize, String),
     RebaseStart,
     OpenSettings,
     /// The external tools git can start: diff tools, then merge tools.
@@ -803,11 +1129,41 @@ pub enum Message {
     SetSyntax(bool),
     SetLogLimit(String),
     SetFetchOnOpen(bool),
+    SetConflictCheck(bool),
+    /// A git program to use instead of the one on PATH (empty goes back to that).
+    SetGitProgram(String),
+    GitProgramInput(String),
+    GitProgramChecked(String, Result<(u32, u32), String>),
+    /// Settings › Git: everywhere (false) or for this repository (true).
+    GitConfigScope(bool),
+    GitConfigLoaded(bool, Answer<std::collections::BTreeMap<String, String>>),
+    GitConfigEdit(String, String),
+    GitConfigSave,
+    /// The git settings that were saved (key, value), and how it went.
+    GitConfigSaved(Vec<(String, String)>, Answer<()>),
+    SetDateOrder(bool),
+    SetAutoFetch(u32),
+    /// Sent now and then by the window: fetches the repositories that are due.
+    AutoFetchTick,
+    /// A background fetch ended; `true` when something new came in.
+    AutoFetched(String, Answer<bool>),
+    /// Shows or hides a column of the history list.
+    ToggleColumn(Column),
+    /// A new width for a resizable column; `done` once the drag ends, to save it.
+    ColumnWidth(Column, f32, bool),
+    ColumnsReset,
+    StatsLoaded(String, Answer<Vec<(String, CommitStats)>>),
+    SetShowStashes(bool),
+    /// The files a merge with this target would conflict in (see `queries::conflict_check`).
+    ConflictPreview(String, Answer<Option<Vec<String>>>),
     SetCommitGraph(bool),
     Zoom(f32),
     /// The desktop switched between light and dark.
     SystemTheme(bool),
     Copy(String),
+    /// Copies a file's text as it is in a commit: (rev, path).
+    CopyFileText(String, String),
+    FileTextLoaded(Answer<String>),
     Reveal(String),
     OpenFile(String),
     Instance(String),
@@ -847,6 +1203,11 @@ impl App {
         if let Err(problem) = gitcraft_core::runner::check_git() {
             app.toast(ToastKind::Error, problem, None);
         }
+        // A `gitcraft://clone` link on the command line opens the clone dialog, not a path.
+        let (repo, link) = match repo {
+            Some(link) if link.starts_with("gitcraft://") => (None, Some(link)),
+            other => (other, None),
+        };
         let session = &app.settings.session;
         // A repository named on the command line opens last and stays in front.
         let front = repo.is_none().then_some(session.active_tab);
@@ -859,7 +1220,8 @@ impl App {
             .chain(repo.map(|path| (path, false)))
             .collect();
         let task = app.restore_next();
-        (app, Task::batch([task, tools]))
+        let link = link.map_or_else(Task::none, |link| Task::done(Message::Instance(link)));
+        (app, Task::batch([task, tools, link]))
     }
 
     /// Start-up is still opening the saved tabs: the saved session is left as it is until then.
@@ -925,6 +1287,10 @@ impl App {
             restore_front: None,
             found_tools: FoundTools::default(),
             effects: Vec::new(),
+            conflict_preview: None,
+            git_config: GitConfigState::default(),
+            settings_page: SettingsPage::default(),
+            recording: None,
             next_id: 1,
             config_dir: store.dir(),
             store,
@@ -1030,11 +1396,30 @@ impl App {
                 );
                 Task::none()
             }
+            // A `gitcraft://clone` link, handed over from a second launch: ask, with its URL.
+            Message::Instance(link) if link.starts_with("gitcraft://") => {
+                match logic::clone_link(&link) {
+                    Some(url) => Task::done(Message::Action(crate::actions::Action::CloneUrl(url))),
+                    None => {
+                        self.toast(ToastKind::Error, "This link can't be opened", Some(link));
+                        Task::none()
+                    }
+                }
+            }
             Message::OpenPath(path) | Message::Instance(path) => Task::perform(
                 async move { answer(repos::locate(&path).await) },
                 Message::Located,
             ),
             Message::Located(Ok(path)) => self.opened(path),
+            Message::Created(path, error) => {
+                if let Some(error) = error {
+                    self.toast(ToastKind::Error, error, None);
+                }
+                match path {
+                    Some(path) => Task::done(Message::OpenPath(path)),
+                    None => Task::none(),
+                }
+            }
             Message::Located(Err(error)) => {
                 self.toast(ToastKind::Error, error, None);
                 Task::none()
@@ -1097,7 +1482,7 @@ impl App {
                 Task::none()
             }
             Message::Refresh => match self.current() {
-                Some(tab) => load_all(tab.path.clone(), tab.log_limit, tab.all_branches),
+                Some(tab) => load_all(tab.path.clone(), tab.log_query()),
                 None => Task::none(),
             },
             Message::SetView(view) => {
@@ -1112,6 +1497,50 @@ impl App {
                 }
             }
             Message::StatusLoaded(path, result) => self.status_loaded(&path, result),
+            Message::ConflictPreviewLoaded(repo, path, versions) => {
+                if let Some(tab) = self.tab_mut(&repo)
+                    && let Some((shown, data)) = &mut tab.conflict_preview
+                    && *shown == path
+                {
+                    *data = Some(versions);
+                }
+                Task::none()
+            }
+            Message::MergeMessageLoaded(path, message) => {
+                if let (Some(tab), Some(message)) = (self.tab_mut(&path), message)
+                    && tab.summary.trim().is_empty()
+                    && tab.body.trim().is_empty()
+                {
+                    let (summary, body) = logic::split_message(&message);
+                    tab.summary = summary;
+                    tab.body = body;
+                }
+                Task::none()
+            }
+            Message::BisectLoaded(path, result) => {
+                if let (Some(tab), Ok(bisect)) = (self.tab_mut(&path), result) {
+                    tab.bisect = bisect;
+                }
+                Task::none()
+            }
+            Message::UndoLoaded(path, result) => {
+                if let (Some(tab), Ok(labels)) = (self.tab_mut(&path), result) {
+                    tab.undo = labels;
+                }
+                Task::none()
+            }
+            Message::Undo | Message::Redo => {
+                let back = matches!(message, Message::Undo);
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let label = if back { &tab.undo.undo } else { &tab.undo.redo };
+                match (label.clone(), self.busy.is_none()) {
+                    (Some(label), true) if back => self.run_command(Command::Undo { label }),
+                    (Some(label), true) => self.run_command(Command::Redo { label }),
+                    _ => Task::none(),
+                }
+            }
             Message::RefsLoaded(path, result) => {
                 match result {
                     Ok(refs) => {
@@ -1140,7 +1569,7 @@ impl App {
                 };
                 tab.log_limit += step;
                 tab.loading = true;
-                load_log(tab.path.clone(), tab.log_limit, tab.all_branches)
+                load_log(tab.path.clone(), tab.log_query())
             }
             Message::SetBranchFilter(all) => {
                 let Some(tab) = self.current_mut() else {
@@ -1149,21 +1578,119 @@ impl App {
                 tab.all_branches = all;
                 tab.loading = true;
                 scroll_to(tab, 0.0);
-                load_log(tab.path.clone(), tab.log_limit, all)
+                load_log(tab.path.clone(), tab.log_query())
             }
             Message::Select(sha) => {
-                // Ctrl/Cmd+click compares the selected commit with the clicked one.
-                if self.modifiers.command {
-                    let selected = self.current().and_then(|tab| tab.selected.clone());
-                    if let Some(selected) = selected.filter(|selected| *selected != sha) {
-                        return Task::done(Message::CompareStart(selected, sha));
+                let (command, shift) = (self.modifiers.command, self.modifiers.shift);
+                let Some(tab) = self.current_mut() else {
+                    return Task::none();
+                };
+                if command || shift {
+                    // Stashes in the history aren't commits to pick.
+                    let listed: Vec<String> = tab
+                        .visible()
+                        .iter()
+                        .filter(|commit| commit.stash.is_none())
+                        .map(|commit| commit.sha.clone())
+                        .collect();
+                    tab.picked_commits = logic::pick_commits(
+                        &listed,
+                        &tab.picked_commits,
+                        tab.selected.as_deref(),
+                        &sha,
+                        shift,
+                    );
+                    // Two commits picked with Ctrl/Cmd+click are compared, as before.
+                    if command
+                        && let [first, second] = &tab.picked_commits[..]
+                        && let Some(selected) = tab.selected.clone()
+                    {
+                        let other = if *first == selected { second } else { first };
+                        return Task::done(Message::CompareStart(selected, other.clone()));
                     }
-                }
-                if let Some(tab) = self.current_mut() {
                     tab.compare = None;
+                    return Task::none();
                 }
+                tab.picked_commits.clear();
+                tab.compare = None;
                 self.select(sha)
             }
+            Message::PlanCommits(preset) => self.plan_commits(preset),
+            Message::RefVisibility(change) => {
+                let Some(tab) = self.current_mut() else {
+                    return Task::none();
+                };
+                let view = &mut tab.ref_view;
+                match change {
+                    RefVisibility::Hide(name) => {
+                        view.solo.retain(|other| *other != name);
+                        if !view.hidden.contains(&name) {
+                            view.hidden.push(name);
+                        }
+                    }
+                    RefVisibility::Show(name) => view.hidden.retain(|other| *other != name),
+                    RefVisibility::Solo(name) => {
+                        view.hidden.retain(|other| *other != name);
+                        if !view.solo.contains(&name) {
+                            view.solo.push(name);
+                        }
+                    }
+                    RefVisibility::Unsolo(name) => view.solo.retain(|other| *other != name),
+                    RefVisibility::ShowAll => *view = RefView::default(),
+                }
+                let (path, view) = (tab.path.clone(), tab.ref_view.clone());
+                tab.loading = true;
+                let reload = load_log(path.clone(), tab.log_query());
+                if view.is_empty() {
+                    self.settings.graph.views.remove(&path);
+                } else {
+                    self.settings.graph.views.insert(path, view);
+                }
+                self.save_settings();
+                reload
+            }
+            Message::OfferForcePush {
+                remote,
+                branch,
+                expected,
+            } => {
+                let mut form = Form::confirm(
+                    "Push rejected",
+                    &trf(
+                        "{remote} has commits that {branch} doesn't have. Pull them in first, or replace them with your branch (force push with lease)?",
+                        &[("remote", &remote), ("branch", &branch)],
+                    ),
+                    "Pull…",
+                    false,
+                    Message::Action(crate::actions::Action::Pull),
+                );
+                // Only what was there just now is replaced; anything pushed since is kept.
+                if let Some(expected) = expected {
+                    form = form.choice(
+                        "Force push",
+                        true,
+                        Message::Run(Command::ForcePushOver {
+                            remote,
+                            branch,
+                            expected,
+                        }),
+                    );
+                }
+                self.form = Some(form);
+                Task::none()
+            }
+            Message::SetHistoryFilter(filter) => {
+                let Some(tab) = self.current_mut() else {
+                    return Task::none();
+                };
+                tab.history_filter = filter.filter(|filter| !filter.is_empty());
+                tab.view = View::History;
+                tab.search = None;
+                tab.loading = true;
+                scroll_to(tab, 0.0);
+                load_log(tab.path.clone(), tab.log_query())
+            }
+            Message::OpenReplay(shas) => self.open_replay(shas),
             Message::ShowCommit(sha) => {
                 self.overlay = None;
                 let Some(tab) = self.current_mut() else {
@@ -1255,6 +1782,23 @@ impl App {
                 Task::none()
             }
             Message::HunkAction(hunk, mode) => self.hunk_action(hunk, mode),
+            Message::HunkRevert(hunk) => {
+                let context = self.settings.diff.context;
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let (Some(detail), Some(path)) = (&tab.detail, &tab.selected_file) else {
+                    return Task::none();
+                };
+                let lines = tab.commit_pane.selected_in(hunk);
+                let chosen = (!lines.is_empty()).then(|| lines.into_iter().collect());
+                Task::done(Message::Run(Command::RevertSelection {
+                    sha: detail.sha.clone(),
+                    path: path.clone(),
+                    selection: BTreeMap::from([(hunk, chosen)]),
+                    context,
+                }))
+            }
             Message::ToggleSplit => {
                 let split = !self.settings.diff.split;
                 self.set_split(split);
@@ -1375,17 +1919,79 @@ impl App {
                 }
                 Task::none()
             }
-            Message::CommitNow => {
+            Message::CommitNow | Message::CommitAll => {
+                let stage_all = matches!(message, Message::CommitAll);
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let ready = if stage_all {
+                    tab.can_commit_all()
+                } else {
+                    tab.can_commit()
+                };
+                if !ready {
+                    return Task::none();
+                }
+                if tab.amend
+                    && tab
+                        .status
+                        .as_ref()
+                        .is_some_and(logic::amend_rewrites_pushed)
+                {
+                    let upstream = tab
+                        .status
+                        .as_ref()
+                        .and_then(|status| status.branch.upstream.clone())
+                        .unwrap_or_default();
+                    self.form = Some(Form::confirm(
+                        "Amend a pushed commit",
+                        &trf(
+                            "The last commit is already on {upstream}. Amending it rewrites history others may have, and the branch then needs a force push.",
+                            &[("upstream", &upstream)],
+                        ),
+                        "Amend",
+                        true,
+                        Message::CommitConfirmed { stage_all },
+                    ));
+                    return Task::none();
+                }
+                Task::done(Message::CommitConfirmed { stage_all })
+            }
+            Message::CommitConfirmed { stage_all } => {
+                let prefs = self.settings.commit.clone();
                 let Some(tab) = self.current_mut() else {
                     return Task::none();
                 };
-                if !tab.can_commit() {
-                    return Task::none();
-                }
                 tab.committing = true;
                 let message = logic::commit_message(&tab.summary, &tab.body);
+                let options = CommitOptions {
+                    sign_off: prefs.sign_off,
+                    no_verify: prefs.skip_hooks,
+                    stage_all,
+                    trailers: logic::co_author_trailers(&tab.co_authors),
+                };
                 let amend = tab.amend;
-                Task::done(Message::Run(Command::Commit { message, amend }))
+                Task::done(Message::Run(Command::Commit {
+                    message,
+                    amend,
+                    options,
+                }))
+            }
+            Message::CommitOption(option, on) => {
+                let prefs = &mut self.settings.commit;
+                match option {
+                    CommitOption::SignOff => prefs.sign_off = on,
+                    CommitOption::SkipHooks => prefs.skip_hooks = on,
+                    CommitOption::PushAfter => prefs.push_after = on,
+                }
+                self.save_settings();
+                Task::none()
+            }
+            Message::CoAuthors(text) => {
+                if let Some(tab) = self.current_mut() {
+                    tab.co_authors = text;
+                }
+                Task::none()
             }
             Message::FilterInput(text) => {
                 if let Some(tab) = self.current_mut() {
@@ -1600,9 +2206,247 @@ impl App {
                 self.overlay = None;
                 Task::none()
             }
-            Message::OpenReflog => self.open_reflog(),
+            Message::OpenReflog => self.open_reflog(false),
+            Message::ReflogAll(all) => self.open_reflog(all),
             Message::ReflogLoaded(result) => {
                 if let Some(Overlay::Reflog {
+                    entries,
+                    loading,
+                    error,
+                    ..
+                }) = &mut self.overlay
+                {
+                    *loading = false;
+                    match result {
+                        Ok(list) => *entries = list,
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
+            Message::OpenDiscards => self.open_discards(),
+            Message::OpenLfsLocks => self.open_lfs_locks(),
+            Message::OpenAbout => {
+                self.overlay = Some(Overlay::About { git: None });
+                Task::perform(gitcraft_core::runner::git_version_text(), Message::AboutGit)
+            }
+            Message::AboutGit(result) => {
+                if let Some(Overlay::About { git }) = &mut self.overlay {
+                    *git = Some(result);
+                }
+                Task::none()
+            }
+            Message::LfsLocksLoaded(from, answered, result) => {
+                if let Some(Overlay::LfsLocks {
+                    locks,
+                    loading,
+                    error,
+                    repo,
+                    request,
+                }) = &mut self.overlay
+                    && *repo == from
+                    && *request == answered
+                {
+                    *loading = false;
+                    match result {
+                        Ok(list) => *locks = list,
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
+            Message::OpenSparse => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                Task::perform(
+                    async move { answer(queries::sparse_patterns(&repo).await) },
+                    Message::SparseLoaded,
+                )
+            }
+            Message::SparseLoaded(result) => {
+                let patterns = match result {
+                    Ok(patterns) => patterns,
+                    Err(error) => {
+                        self.toast(ToastKind::Error, error, None);
+                        return Task::none();
+                    }
+                };
+                let on = patterns.is_some();
+                let text = patterns.unwrap_or_default().join("\n");
+                let mut form = Form::new("Sparse checkout", "Apply", |values| {
+                    Message::Run(Command::SparseSet {
+                        patterns: values.text("patterns").lines().map(str::to_owned).collect(),
+                    })
+                })
+                .message(if on {
+                    "Only the files these patterns match are checked out. Change them, or check out every file again."
+                } else {
+                    "Check out only part of the repository, such as the folders you work in. Everything else stays in the history, just not in the working tree."
+                })
+                .field(
+                    crate::form::Field::area("patterns", "Folders or patterns, one per line", &text)
+                        .required()
+                        .hint("/src/"),
+                );
+                if on {
+                    form = form.choice(
+                        "Check out everything",
+                        false,
+                        Message::Run(Command::SparseOff),
+                    );
+                }
+                self.form = Some(form);
+                Task::none()
+            }
+            Message::OpenCleanup => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                self.overlay = Some(Overlay::Cleanup {
+                    candidates: Vec::new(),
+                    chosen: Vec::new(),
+                    remote_too: false,
+                    loading: true,
+                    error: None,
+                });
+                Task::perform(
+                    async move { answer(queries::branch_cleanup(&repo).await) },
+                    Message::CleanupLoaded,
+                )
+            }
+            Message::CleanupLoaded(result) => {
+                if let Some(Overlay::Cleanup {
+                    candidates,
+                    chosen,
+                    loading,
+                    error,
+                    ..
+                }) = &mut self.overlay
+                {
+                    *loading = false;
+                    match result {
+                        Ok(Some(found)) => {
+                            // Merged ones are ticked; squashed and gone ones are for a look first.
+                            *chosen = found
+                                .iter()
+                                .filter(|candidate| candidate.reason == "merged")
+                                .map(|candidate| candidate.name.clone())
+                                .collect();
+                            *candidates = found;
+                        }
+                        Ok(None) => {
+                            *error = Some(
+                                tr("There is no main or master branch to compare with.").to_owned(),
+                            );
+                        }
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
+            Message::CleanupToggle(name) => {
+                if let Some(Overlay::Cleanup { chosen, .. }) = &mut self.overlay {
+                    if let Some(at) = chosen.iter().position(|picked| *picked == name) {
+                        chosen.remove(at);
+                    } else {
+                        chosen.push(name);
+                    }
+                }
+                Task::none()
+            }
+            Message::CleanupRemote(on) => {
+                if let Some(Overlay::Cleanup { remote_too, .. }) = &mut self.overlay {
+                    *remote_too = on;
+                }
+                Task::none()
+            }
+            Message::CleanupStart => {
+                let Some(Overlay::Cleanup {
+                    candidates,
+                    chosen,
+                    remote_too,
+                    ..
+                }) = &self.overlay
+                else {
+                    return Task::none();
+                };
+                let names: Vec<String> = candidates
+                    .iter()
+                    .filter(|candidate| chosen.contains(&candidate.name))
+                    .map(|candidate| candidate.name.clone())
+                    .collect();
+                if names.is_empty() {
+                    return Task::none();
+                }
+                let remotes = if *remote_too {
+                    let remote_names: Vec<Remote> = self
+                        .current()
+                        .map(|tab| tab.refs.remotes.clone())
+                        .unwrap_or_default();
+                    candidates
+                        .iter()
+                        .filter(|candidate| chosen.contains(&candidate.name))
+                        .filter_map(|candidate| {
+                            match logic::split_upstream(
+                                candidate.upstream.as_deref(),
+                                &remote_names,
+                            ) {
+                                (Some(remote), Some(branch)) => Some((remote, branch)),
+                                _ => None,
+                            }
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+                let what = plural(names.len(), "branch");
+                self.form = Some(Form::confirm(
+                    "Clean up branches",
+                    &trf(
+                        "Delete {branches}? Undo brings local branches back.",
+                        &[("branches", &what)],
+                    ),
+                    "Delete",
+                    true,
+                    Message::Run(Command::DeleteBranches { names, remotes }),
+                ));
+                Task::none()
+            }
+            Message::RangeDiff(old, new) => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                self.overlay = Some(Overlay::RangeDiff {
+                    old: old.clone(),
+                    new: new.clone(),
+                    text: String::new(),
+                    loading: true,
+                    error: None,
+                });
+                Task::perform(
+                    async move { answer(queries::range_diff_ranges(&repo, &old, &new).await) },
+                    Message::RangeDiffLoaded,
+                )
+            }
+            Message::RangeDiffLoaded(result) => {
+                if let Some(Overlay::RangeDiff {
+                    text,
+                    loading,
+                    error,
+                    ..
+                }) = &mut self.overlay
+                {
+                    *loading = false;
+                    match result {
+                        Ok(found) => *text = found,
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
+            Message::DiscardsLoaded(result) => {
+                if let Some(Overlay::Discards {
                     entries,
                     loading,
                     error,
@@ -1622,16 +2466,30 @@ impl App {
                     lines,
                     loading,
                     error,
+                    ignored,
                     ..
                 }) = &mut self.overlay
                 {
                     *loading = false;
                     match result {
-                        Ok(list) => *lines = list,
+                        Ok((list, skipped)) => {
+                            *lines = list;
+                            *ignored = skipped;
+                        }
                         Err(message) => *error = Some(message),
                     }
                 }
                 Task::none()
+            }
+            Message::BlameIgnoreRevs(on) => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                let Some(Overlay::Blame { path, rev, .. }) = &self.overlay else {
+                    return Task::none();
+                };
+                let (path, rev) = (path.clone(), rev.clone());
+                self.open_blame_with(repo, path, rev, on)
             }
             Message::BlameHover(sha) => {
                 if let Some(Overlay::Blame { hovered, .. }) = &mut self.overlay {
@@ -1681,11 +2539,17 @@ impl App {
                         Ok(commits) => {
                             state.original = commits;
                             state.reset();
+                            if !state.apply_preset() {
+                                state.error = Some(
+                                    tr("Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.")
+                                        .to_owned(),
+                                );
+                            }
                         }
                         Err(message) => state.error = Some(message),
                     }
                 }
-                Task::none()
+                self.rebase_detail()
             }
             Message::RebaseSetAction(index, action) => self.rebase_set_action(index, action),
             Message::RebaseMessage(index, text) => {
@@ -1719,11 +2583,20 @@ impl App {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.move_step(index, index.saturating_add_signed(delta));
                 }
-                Task::none()
+                self.rebase_detail()
             }
             Message::RebaseFocus(index) => {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.focused = index;
+                }
+                self.rebase_detail()
+            }
+            Message::RebaseDetailLoaded(sha, result) => {
+                if let Some(Overlay::Rebase(state)) = &mut self.overlay
+                    && let Some((shown, detail)) = &mut state.detail
+                    && *shown == sha
+                {
+                    *detail = Some(result);
                 }
                 Task::none()
             }
@@ -1737,18 +2610,125 @@ impl App {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.reset();
                 }
+                self.rebase_detail()
+            }
+            Message::RebaseAutosquash => {
+                if let Some(Overlay::Rebase(state)) = &mut self.overlay {
+                    state.autosquash();
+                }
+                self.rebase_detail()
+            }
+            Message::RebaseExec(index, command) => {
+                if let Some(Overlay::Rebase(state)) = &mut self.overlay
+                    && let Some(step) = state.steps.get_mut(index)
+                {
+                    let command = command.trim().to_owned();
+                    step.exec = (!command.is_empty()).then_some(command);
+                    state.focused = index;
+                }
                 Task::none()
             }
             Message::RebaseStart => self.rebase_start(),
             Message::OpenSettings => {
                 self.overlay = Some(Overlay::Settings);
+                let here = self.git_config.here && self.current().is_some();
+                let config = self.load_git_config(here);
                 // Looked for again: a tool may have been installed since, and the repository
                 // may set up tools of its own.
                 let cwd = self.current().map_or_else(
                     || self.config_dir.to_string_lossy().into_owned(),
                     |tab| tab.path.clone(),
                 );
-                find_tools(cwd)
+                Task::batch([find_tools(cwd), config])
+            }
+            Message::ShortcutRecord(id, slot) => {
+                self.recording = Some((id, slot));
+                Task::none()
+            }
+            Message::ShortcutReset(id) => {
+                self.recording = None;
+                self.settings.shortcuts.keys.remove(&id);
+                self.save_settings();
+                Task::none()
+            }
+            Message::ShortcutClear(id) => {
+                self.recording = None;
+                self.settings.shortcuts.keys.insert(id, Vec::new());
+                self.save_settings();
+                Task::none()
+            }
+            Message::SettingsPage(page) => {
+                self.settings_page = page;
+                Task::none()
+            }
+            Message::GitConfigScope(here) => self.load_git_config(here),
+            Message::GitConfigLoaded(here, result) => {
+                if self.git_config.here == here {
+                    self.git_config.loading = false;
+                    match result {
+                        Ok(values) => self.git_config.values = values,
+                        Err(error) => self.toast(
+                            ToastKind::Error,
+                            "Could not read git's settings",
+                            Some(error),
+                        ),
+                    }
+                }
+                Task::none()
+            }
+            Message::GitConfigEdit(key, value) => {
+                self.git_config.edits.insert(key, value);
+                Task::none()
+            }
+            Message::GitConfigSave => {
+                let changed = self.git_config.changed();
+                if changed.is_empty() {
+                    return Task::none();
+                }
+                let repo = self
+                    .current()
+                    .map(|tab| tab.path.clone())
+                    .filter(|_| self.git_config.here);
+                let submitted = changed.clone();
+                Task::perform(
+                    async move {
+                        for (key, value) in changed {
+                            ops::set_git_config(repo.as_deref(), &key, Some(&value)).await?;
+                        }
+                        Ok(())
+                    },
+                    move |result: Result<(), Error>| {
+                        Message::GitConfigSaved(submitted.clone(), answer(result))
+                    },
+                )
+            }
+            Message::GitConfigSaved(submitted, result) => {
+                let saved = result.is_ok();
+                match result {
+                    Ok(()) => self.toast(ToastKind::Success, "Git settings saved", None),
+                    Err(error) => self.toast(
+                        ToastKind::Error,
+                        "Could not save git's settings",
+                        Some(error),
+                    ),
+                }
+                // What was typed while saving stays: only the saved values are taken from
+                // git again. After a failed save, everything typed stays to try again.
+                let kept: std::collections::BTreeMap<String, String> = self
+                    .git_config
+                    .edits
+                    .iter()
+                    .filter(|(key, value)| {
+                        !saved || !submitted.iter().any(|(k, v)| k == *key && v == *value)
+                    })
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect();
+                let program = self.git_config.program.clone();
+                let here = self.git_config.here;
+                let reload = self.load_git_config(here);
+                self.git_config.edits = kept;
+                self.git_config.program = program;
+                reload
             }
             Message::ToolsFound(found) => {
                 self.found_tools = found;
@@ -1894,6 +2874,192 @@ impl App {
                 self.save_settings();
                 Task::none()
             }
+            Message::SetAutoFetch(minutes) => {
+                self.settings.history.auto_fetch_minutes = minutes.min(24 * 60);
+                self.save_settings();
+                Task::none()
+            }
+            Message::AutoFetchTick => {
+                let minutes = self.settings.history.auto_fetch_minutes;
+                // Never while a command runs, or while the user is in the middle of an
+                // operation: the fetch would only get in the way.
+                if minutes == 0 || self.busy.is_some() {
+                    return Task::none();
+                }
+                let every = Duration::from_secs(u64::from(minutes) * 60);
+                let mut tasks = Vec::new();
+                for tab in &mut self.tabs {
+                    let operating = tab
+                        .status
+                        .as_ref()
+                        .is_some_and(|status| status.operation.is_some());
+                    if tab.fetching
+                        || operating
+                        || tab.refs.remotes.is_empty()
+                        || tab.last_fetch.elapsed() < every
+                    {
+                        continue;
+                    }
+                    tab.fetching = true;
+                    let path = tab.path.clone();
+                    tasks.push(Task::perform(
+                        async move {
+                            let result = answer(ops::fetch_background(&path, true).await);
+                            (path, result)
+                        },
+                        |(path, result)| Message::AutoFetched(path, result),
+                    ));
+                }
+                Task::batch(tasks)
+            }
+            Message::AutoFetched(path, result) => {
+                let Some(tab) = self.tab_mut(&path) else {
+                    return Task::none();
+                };
+                tab.fetching = false;
+                tab.last_fetch = Instant::now();
+                // A failed background fetch (offline, say) waits for the next round quietly.
+                if result == Ok(true) {
+                    let query = tab.log_query();
+                    return Task::batch([load_refs(path.clone()), load_log(path, query)]);
+                }
+                Task::none()
+            }
+            Message::ToggleColumn(column) => {
+                let columns = &mut self.settings.columns;
+                let flag = match column {
+                    Column::Author => &mut columns.author,
+                    Column::Date => &mut columns.date,
+                    Column::Sha => &mut columns.sha,
+                    Column::Changes => &mut columns.changes,
+                };
+                *flag = !*flag;
+                let changes = columns.changes;
+                self.save_settings();
+                if changes && column == Column::Changes {
+                    return self.load_stats();
+                }
+                Task::none()
+            }
+            Message::ColumnWidth(column, width, done) => {
+                let width = width.clamp(60.0, 480.0);
+                match column {
+                    Column::Author => self.settings.columns.author_width = width,
+                    Column::Date => self.settings.columns.date_width = width,
+                    Column::Sha | Column::Changes => {}
+                }
+                if done {
+                    self.save_settings();
+                }
+                Task::none()
+            }
+            Message::ColumnsReset => {
+                self.settings.columns = crate::settings::Columns::default();
+                self.save_settings();
+                Task::none()
+            }
+            Message::StatsLoaded(path, result) => {
+                match result {
+                    Ok(found) => {
+                        if let Some(tab) = self.tab_mut(&path) {
+                            tab.stats.extend(found);
+                        }
+                    }
+                    Err(error) => {
+                        self.toast(ToastKind::Error, "Could not count the changes", Some(error))
+                    }
+                }
+                Task::none()
+            }
+            Message::SetDateOrder(value) | Message::SetShowStashes(value) => {
+                if matches!(message, Message::SetDateOrder(_)) {
+                    self.settings.history.date_order = value;
+                } else {
+                    self.settings.history.show_stashes = value;
+                }
+                self.save_settings();
+                let (date_order, stashes) = (
+                    self.settings.history.date_order,
+                    self.settings.history.show_stashes,
+                );
+                let mut reloads = Vec::new();
+                for tab in &mut self.tabs {
+                    tab.date_order = date_order;
+                    tab.show_stashes = stashes;
+                    reloads.push(load_log(tab.path.clone(), tab.log_query()));
+                }
+                Task::batch(reloads)
+            }
+            Message::SetGitProgram(path) => {
+                let path = path.trim().to_owned();
+                Task::perform(
+                    async move {
+                        let program = if path.is_empty() {
+                            "git".to_owned()
+                        } else {
+                            path.clone()
+                        };
+                        let checked = tokio::task::spawn_blocking(move || {
+                            gitcraft_core::runner::check_git_at(std::path::Path::new(&program))
+                        })
+                        .await
+                        .unwrap_or_else(|error| Err(error.to_string()));
+                        (path, checked)
+                    },
+                    |(path, checked)| Message::GitProgramChecked(path, checked),
+                )
+            }
+            Message::GitProgramInput(text) => {
+                self.git_config.program = text;
+                Task::none()
+            }
+            Message::GitProgramChecked(path, checked) => match checked {
+                // Only a git that works (and is new enough) is taken.
+                Ok((major, minor)) => {
+                    gitcraft_core::runner::set_git_program(Some(std::path::PathBuf::from(&path)));
+                    self.settings.general.git_program = path;
+                    self.save_settings();
+                    let version = format!("{major}.{minor}");
+                    self.toast(
+                        ToastKind::Success,
+                        trf("Using git {version}", &[("version", &version)]),
+                        None,
+                    );
+                    Task::done(Message::Refresh)
+                }
+                Err(problem) => {
+                    self.toast(ToastKind::Error, "That git can't be used", Some(problem));
+                    self.git_config.program = self.settings.general.git_program.clone();
+                    Task::none()
+                }
+            },
+            Message::SetConflictCheck(value) => {
+                self.settings.history.conflict_check = value;
+                self.save_settings();
+                Task::none()
+            }
+            Message::ConflictPreview(target, result) => {
+                // Only into the dialog it was asked for.
+                if self.conflict_preview.as_deref() == Some(target.as_str())
+                    && let Some(form) = &mut self.form
+                    && let Ok(Some(files)) = result
+                {
+                    let note = match &files[..] {
+                        [] => tr("No conflicts expected.").to_owned(),
+                        [one] => trf("Expect a conflict in {path}.", &[("path", one)]),
+                        many => trf(
+                            "Expect conflicts in {files}: {names}",
+                            &[
+                                ("files", &plural(many.len(), "file")),
+                                ("names", &crate::logic::list_short(many, 5)),
+                            ],
+                        ),
+                    };
+                    let message = form.message.take().unwrap_or_default();
+                    form.message = Some(format!("{message}\n{note}").trim().to_owned());
+                }
+                Task::none()
+            }
             Message::SetFetchOnOpen(value) => {
                 self.settings.history.fetch_on_open = value;
                 self.save_settings();
@@ -1913,6 +3079,22 @@ impl App {
                 self.effects.push(Effect::Copy(text));
                 Task::none()
             }
+            Message::CopyFileText(rev, path) => {
+                let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+                    return Task::none();
+                };
+                Task::perform(
+                    async move { answer(queries::file_text(&repo, &rev, &path).await) },
+                    Message::FileTextLoaded,
+                )
+            }
+            Message::FileTextLoaded(result) => match result {
+                Ok(text) => Task::done(Message::Copy(text)),
+                Err(error) => {
+                    self.toast(ToastKind::Error, "Could not copy the file", Some(error));
+                    Task::none()
+                }
+            },
             Message::Reveal(path) => {
                 if let Err(error) = opener::reveal(&path) {
                     self.toast(
@@ -1938,12 +3120,12 @@ impl App {
                     .tabs
                     .iter()
                     .find(|tab| tab.path == path)
-                    .map(|tab| (tab.log_limit, tab.all_branches));
-                let Some((limit, all)) = found else {
+                    .map(RepoTab::log_query);
+                let Some(query) = found else {
                     return Task::none();
                 };
                 if git {
-                    load_all(path, limit, all)
+                    load_all(path, query)
                 } else {
                     load_status(path)
                 }
@@ -2022,6 +3204,15 @@ impl App {
         let limit = self.settings.history.log_limit;
         let mut tab = RepoTab::new(path.clone(), limit);
         tab.viewport = self.history_list_height();
+        tab.ref_view = self
+            .settings
+            .graph
+            .views
+            .get(&path)
+            .cloned()
+            .unwrap_or_default();
+        tab.date_order = self.settings.history.date_order;
+        tab.show_stashes = self.settings.history.show_stashes;
         self.tabs.push(tab);
         self.active = self.tabs.len() - 1;
         self.save_settings();
@@ -2035,7 +3226,23 @@ impl App {
                 |(repo, result)| Message::TemplateLoaded(repo, result),
             )
         };
-        let mut tasks = vec![load_all(path, limit, true), template];
+        let query = LogQuery {
+            limit,
+            all: true,
+            filter: LogFilter::default(),
+            options: LogOptions {
+                view: self
+                    .settings
+                    .graph
+                    .views
+                    .get(&path)
+                    .cloned()
+                    .unwrap_or_default(),
+                date_order: self.settings.history.date_order,
+                stashes: self.settings.history.show_stashes,
+            },
+        };
+        let mut tasks = vec![load_all(path, query), template];
         if self.settings.history.fetch_on_open {
             tasks.push(Task::done(Message::Run(Command::Fetch {
                 remote: None,
@@ -2112,11 +3319,62 @@ impl App {
                 let Some(tab) = self.tab_mut(path) else {
                     return Task::none();
                 };
+                // A merge's prepared message goes into the commit box, once, unless something
+                // has been typed there already.
+                let fill = match &status.operation {
+                    Some(Operation::Merge { head }) if tab.merge_filled.as_ref() != Some(head) => {
+                        tab.merge_filled = Some(head.clone());
+                        tab.summary.trim().is_empty() && tab.body.trim().is_empty()
+                    }
+                    _ => false,
+                };
+                // The branch checked out can't stay hidden (a flag saved before, or a branch
+                // hidden and then checked out): its commits show anyway, only its label went.
+                let unhide = status
+                    .branch
+                    .head
+                    .as_deref()
+                    .filter(|_| !status.branch.detached)
+                    .map(|head| format!("refs/heads/{head}"))
+                    .filter(|full| tab.ref_view.hidden.contains(full));
                 tab.status = Some(status);
                 ensure_focus(tab);
+                // This tab's, which needn't be the one in front.
+                let unhide = match unhide {
+                    Some(full) => {
+                        tab.ref_view.hidden.retain(|name| *name != full);
+                        let view = tab.ref_view.clone();
+                        tab.loading = true;
+                        let reload = load_log(path.to_owned(), tab.log_query());
+                        if view.is_empty() {
+                            self.settings.graph.views.remove(path);
+                        } else {
+                            self.settings.graph.views.insert(path.to_owned(), view);
+                        }
+                        self.save_settings();
+                        reload
+                    }
+                    None => Task::none(),
+                };
+                let Some(tab) = self.tab_mut(path) else {
+                    return unhide;
+                };
+                let fill = if fill {
+                    let repo = path.to_owned();
+                    Task::perform(
+                        async move {
+                            let message = queries::merge_message(&repo).await.ok().flatten();
+                            (repo, message)
+                        },
+                        |(repo, message)| Message::MergeMessageLoaded(repo, message),
+                    )
+                } else {
+                    Task::none()
+                };
                 if tab.view == View::Changes && self.current().is_some_and(|tab| tab.path == path) {
-                    return self.reload_changes();
+                    return Task::batch([fill, unhide, self.reload_changes()]);
                 }
+                return Task::batch([fill, unhide]);
             }
             Err(error) => self.toast(ToastKind::Error, error, None),
         }
@@ -2146,6 +3404,14 @@ impl App {
         tab.commits = commits;
         tab.has_more = has_more;
         tab.loading = false;
+        let stats = if self.settings.columns.changes {
+            self.load_stats_for(path)
+        } else {
+            Task::none()
+        };
+        let Some(tab) = self.tab_mut(path) else {
+            return stats;
+        };
         let still_there = tab
             .selected
             .as_ref()
@@ -2161,10 +3427,121 @@ impl App {
             tab.selected = None;
             tab.detail = None;
             if let Some(first) = first.filter(|_| is_current) {
-                return self.select(first);
+                return Task::batch([stats, self.select(first)]);
             }
         }
-        Task::none()
+        stats
+    }
+
+    /// After a push or pull failed in a way with an obvious way out, offers it: a dialog right
+    /// away, or for a rejected push first a look at what the remote has now, so a force push
+    /// replaces exactly that.
+    fn next_step(&mut self, repo: &str, command: &Command, error: &str) -> Task<Message> {
+        use crate::actions::Action;
+        if !matches!(
+            command,
+            Command::Push { .. } | Command::Pull { .. } | Command::Fetch { .. }
+        ) {
+            return Task::none();
+        }
+        let branch = self
+            .tabs
+            .iter()
+            .find(|tab| tab.path == repo)
+            .and_then(|tab| tab.current_branch().map(str::to_owned));
+        match logic::next_step(error) {
+            Some(logic::NextStep::PullOrForce) => {
+                let Command::Push { remote, branch, .. } = command else {
+                    return Task::none();
+                };
+                let (repo, remote, branch) = (repo.to_owned(), remote.clone(), branch.clone());
+                Task::perform(
+                    async move {
+                        let found =
+                            answer(queries::remote_branch_sha(&repo, &remote, &branch).await);
+                        Message::OfferForcePush {
+                            remote,
+                            branch,
+                            expected: found.ok().flatten(),
+                        }
+                    },
+                    |message| message,
+                )
+            }
+            Some(logic::NextStep::SetUpstream) => {
+                if let Some(branch) = branch {
+                    self.form = Some(Form::confirm(
+                        "No upstream",
+                        &trf(
+                            "{branch} doesn't track a remote branch yet. Choose the one it should pull from and push to.",
+                            &[("branch", &branch)],
+                        ),
+                        "Set upstream…",
+                        false,
+                        Message::Action(Action::SetUpstream(branch.clone())),
+                    ));
+                }
+                Task::none()
+            }
+            Some(logic::NextStep::AddRemote) => {
+                self.form = Some(Form::confirm(
+                    "No remote",
+                    "This repository has no remote to push to or fetch from yet.",
+                    "Add remote…",
+                    false,
+                    Message::Action(Action::AddRemote),
+                ));
+                Task::none()
+            }
+            None => Task::none(),
+        }
+    }
+
+    /// Reads the git settings for Settings › Git, dropping what was typed but not saved.
+    fn load_git_config(&mut self, here: bool) -> Task<Message> {
+        let repo = self.current().map(|tab| tab.path.clone()).filter(|_| here);
+        self.git_config = GitConfigState {
+            here: repo.is_some(),
+            loading: true,
+            program: self.settings.general.git_program.clone(),
+            ..GitConfigState::default()
+        };
+        let here = repo.is_some();
+        Task::perform(
+            async move { answer(queries::git_config(repo.as_deref()).await) },
+            move |result| Message::GitConfigLoaded(here, result),
+        )
+    }
+
+    /// Counts the changes of the current tab's commits that have no count yet.
+    fn load_stats(&mut self) -> Task<Message> {
+        match self.current().map(|tab| tab.path.clone()) {
+            Some(path) => self.load_stats_for(&path),
+            None => Task::none(),
+        }
+    }
+
+    fn load_stats_for(&mut self, path: &str) -> Task<Message> {
+        let Some(tab) = self.tabs.iter().find(|tab| tab.path == path) else {
+            return Task::none();
+        };
+        let missing: Vec<String> = tab
+            .commits
+            .iter()
+            .filter(|commit| commit.stash.is_none() && !tab.stats.contains_key(&commit.sha))
+            .map(|commit| commit.sha.clone())
+            .collect();
+        if missing.is_empty() {
+            return Task::none();
+        }
+        let path = path.to_owned();
+        Task::perform(
+            async move {
+                let result = answer(queries::commit_stats(&path, &missing).await);
+                (path, result)
+            },
+            |(path, result)| Message::StatsLoaded(path, result),
+        )
     }
 
     fn select(&mut self, sha: String) -> Task<Message> {
@@ -2281,6 +3658,23 @@ impl App {
         let Some(tab) = self.current() else {
             return Task::none();
         };
+        if let Some((Area::Conflicts, path)) = &tab.focus {
+            let (repo, path) = (tab.path.clone(), path.clone());
+            if let Some(tab) = self.current_mut() {
+                // A refresh of the same file keeps showing it until the new versions are in.
+                if tab.conflict_preview.as_ref().map(|(shown, _)| shown) != Some(&path) {
+                    tab.conflict_preview = Some((path.clone(), None));
+                }
+                tab.changes_pane.clear();
+            }
+            return Task::perform(
+                async move {
+                    let versions = answer(ops::conflict_versions(&repo, &path).await);
+                    (repo, path, versions)
+                },
+                |(repo, path, versions)| Message::ConflictPreviewLoaded(repo, path, versions),
+            );
+        }
         let request = match &tab.focus {
             Some((Area::Conflicts, _)) | None => None,
             Some((area, path)) => {
@@ -2476,6 +3870,13 @@ impl App {
         let count = lines.len();
         let chosen = (!lines.is_empty()).then(|| lines.into_iter().collect());
         let selection: Selection = BTreeMap::from([(hunk, chosen)]);
+        if mode == "stash" {
+            return Task::done(Message::Run(Command::StashSelection {
+                path: path.clone(),
+                selection,
+                context,
+            }));
+        }
         let command = Command::Selection {
             path: path.clone(),
             mode,
@@ -2490,7 +3891,10 @@ impl App {
             };
             self.form = Some(Form::confirm(
                 "Discard changes",
-                &trf("Discard {what}? This cannot be undone.", &[("what", &what)]),
+                &trf(
+                    "Discard {what}? A backup is kept: Repository › Recover discarded changes.",
+                    &[("what", &what)],
+                ),
                 "Discard",
                 true,
                 Message::Run(command),
@@ -2663,11 +4067,16 @@ impl App {
             Pick::OpenRepository => {
                 Task::done(Message::OpenPath(path.to_string_lossy().into_owned()))
             }
-            Pick::SavePatch { repo, sha, .. } => Task::perform(
+            Pick::SavePatch { repo, of, .. } => Task::perform(
                 async move {
-                    let patch = gitcraft_core::ops::format_patch(&repo, &sha)
-                        .await
-                        .map_err(|error| error.to_string())?;
+                    let patch = match of {
+                        PatchOf::Commit(sha) => gitcraft_core::ops::format_patch(&repo, &sha).await,
+                        PatchOf::Series(sha) => {
+                            gitcraft_core::ops::format_patch_series(&repo, &sha).await
+                        }
+                        PatchOf::Changes => gitcraft_core::ops::working_patch(&repo).await,
+                    }
+                    .map_err(|error| error.to_string())?;
                     craft_atomic::atomic_write(&path, patch.as_bytes())
                         .map_err(|error| error.to_string())?;
                     Ok(Some(path.to_string_lossy().into_owned()))
@@ -2726,12 +4135,24 @@ impl App {
         self.busy = Some((id, command.label()));
         self.progress_line.clear();
         let cancellable = command.cancellable();
+        let undoable = command.undo_kind();
         let (sender, lines) = tokio::sync::mpsc::unbounded_channel();
         let progress: Progress = Arc::new(move |line| {
             let _ = sender.send(line);
         });
         let work = Box::pin(async move {
+            // What the command changes is kept so Edit › Undo can take it back. Undo is a
+            // convenience: when keeping it fails, the command itself still counts.
+            let before = match undoable {
+                Some(_) => undo::capture(&repo).await.ok(),
+                None => None,
+            };
             let result = command.clone().run(&repo, Some(progress)).await;
+            if let (Some((label, mode)), Some(before), Ok(done)) = (undoable, before, &result)
+                && done.ok
+            {
+                let _ = undo::record(&repo, label, mode, before).await;
+            }
             (repo, command, result)
         });
         type Work = std::pin::Pin<
@@ -2773,6 +4194,7 @@ impl App {
         }
         let label = command.label();
         let mut succeeded = false;
+        let mut next = Task::none();
         match result {
             Ok(result) if !result.ok => {
                 let message = if result.conflicts {
@@ -2791,15 +4213,22 @@ impl App {
                     self.toast(ToastKind::Success, message, None);
                 }
             }
-            Err(error) => self.toast(
-                ToastKind::Error,
-                trf("{label} failed", &[("label", &label)]),
-                Some(error),
-            ),
+            Err(error) => {
+                next = self.next_step(&repo, &command, &error);
+                self.toast(
+                    ToastKind::Error,
+                    trf("{label} failed", &[("label", &label)]),
+                    Some(error),
+                );
+            }
         }
         let mut then = None;
+        let mut push: Option<Task<Message>> = None;
+        let mut refresh_list = false;
+        let mut refresh_locks = false;
         match &command {
             Command::Commit { .. } => {
+                let push_after = self.settings.commit.push_after;
                 if let Some(tab) = self.tab_mut(&repo) {
                     tab.committing = false;
                     if succeeded {
@@ -2807,7 +4236,18 @@ impl App {
                         tab.body.clear();
                         tab.amend = false;
                         then = tab.after_commit.take();
+                        // A checkout waiting for this commit goes first; the push can wait.
+                        if then.is_none() && push_after {
+                            push = Some(push_after_commit(tab));
+                        }
                     }
+                }
+            }
+            // A merge committed with the commit box's message empties it, as a commit does.
+            Command::Continue { message: Some(_) } if succeeded => {
+                if let Some(tab) = self.tab_mut(&repo) {
+                    tab.summary.clear();
+                    tab.body.clear();
                 }
             }
             Command::Resolve { .. } | Command::InteractiveRebase { .. } => {
@@ -2829,14 +4269,37 @@ impl App {
                     tab.view = View::Changes;
                 }
             }
+            Command::DeleteBranches { .. } if succeeded => {
+                if matches!(self.overlay, Some(Overlay::Cleanup { .. })) {
+                    self.overlay = None;
+                }
+            }
+            Command::RestoreDiscard { .. } if succeeded => {
+                if matches!(self.overlay, Some(Overlay::Discards { .. })) {
+                    self.overlay = None;
+                }
+                if let Some(tab) = self.tab_mut(&repo) {
+                    tab.view = View::Changes;
+                }
+            }
+            Command::DeleteDiscard { .. }
+                if succeeded && matches!(self.overlay, Some(Overlay::Discards { .. })) =>
+            {
+                refresh_list = true;
+            }
+            Command::LfsLock { .. } | Command::LfsUnlock { .. }
+                if matches!(self.overlay, Some(Overlay::LfsLocks { .. })) =>
+            {
+                refresh_locks = true;
+            }
             _ => {}
         }
         let found = self
             .tabs
             .iter()
             .find(|tab| tab.path == repo)
-            .map(|tab| (tab.log_limit, tab.all_branches));
-        let Some((limit, all)) = found else {
+            .map(RepoTab::log_query);
+        let Some(query) = found else {
             return Task::none();
         };
         // The checkout waiting for this commit goes straight to git: what is left uncommitted
@@ -2845,25 +4308,117 @@ impl App {
         let reload = if command.status_only() {
             load_status(repo)
         } else {
-            load_all(repo, limit, all)
+            load_all(repo, query)
         };
-        Task::batch([reload, then])
+        let list = if refresh_list {
+            self.open_discards()
+        } else if refresh_locks {
+            self.open_lfs_locks()
+        } else {
+            Task::none()
+        };
+        Task::batch([reload, then, list, push.unwrap_or_else(Task::none), next])
     }
 
     // ----------------------------------------------------------- overlays
 
-    fn open_reflog(&mut self) -> Task<Message> {
+    fn open_reflog(&mut self, all: bool) -> Task<Message> {
         let Some(path) = self.current().map(|tab| tab.path.clone()) else {
             return Task::none();
         };
         self.overlay = Some(Overlay::Reflog {
+            all,
             entries: Vec::new(),
             loading: true,
             error: None,
         });
         Task::perform(
-            async move { answer(queries::reflog(&path, "HEAD", REFLOG_LIMIT).await) },
+            async move {
+                let entries = if all {
+                    queries::reflog_all(&path, REFLOG_LIMIT).await
+                } else {
+                    queries::reflog(&path, "HEAD", REFLOG_LIMIT).await
+                };
+                answer(entries)
+            },
             Message::ReflogLoaded,
+        )
+    }
+
+    fn open_discards(&mut self) -> Task<Message> {
+        let Some(path) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        self.overlay = Some(Overlay::Discards {
+            entries: Vec::new(),
+            loading: true,
+            error: None,
+        });
+        Task::perform(
+            async move { answer(queries::discard_backups(&path).await) },
+            Message::DiscardsLoaded,
+        )
+    }
+
+    /// Loads the details of the commit highlighted in the rebase editor, unless they are
+    /// what the pane shows already.
+    fn rebase_detail(&mut self) -> Task<Message> {
+        let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        let Some(Overlay::Rebase(state)) = &mut self.overlay else {
+            return Task::none();
+        };
+        let Some(sha) = state
+            .steps
+            .get(state.focused)
+            .map(|step| step.commit.sha.clone())
+        else {
+            state.detail = None;
+            return Task::none();
+        };
+        if state
+            .detail
+            .as_ref()
+            .is_some_and(|(shown, _)| *shown == sha)
+        {
+            return Task::none();
+        }
+        state.detail = Some((sha.clone(), None));
+        Task::perform(
+            async move {
+                let result = answer(queries::commit_detail(&repo, &sha).await);
+                (sha, result)
+            },
+            |(sha, result)| Message::RebaseDetailLoaded(sha, result),
+        )
+    }
+
+    fn open_lfs_locks(&mut self) -> Task<Message> {
+        let Some(path) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        let request = self.next_id;
+        self.next_id += 1;
+        // A reload of the same repository keeps showing the list it has until the new one
+        // arrives.
+        let kept = match self.overlay.take() {
+            Some(Overlay::LfsLocks { locks, repo, .. }) if repo == path => locks,
+            _ => Vec::new(),
+        };
+        self.overlay = Some(Overlay::LfsLocks {
+            locks: kept,
+            loading: true,
+            error: None,
+            repo: path.clone(),
+            request,
+        });
+        Task::perform(
+            async move {
+                let result = answer(queries::lfs_locks(&path).await);
+                (path, result)
+            },
+            move |(path, result)| Message::LfsLocksLoaded(path, request, result),
         )
     }
 
@@ -2871,6 +4426,25 @@ impl App {
         let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
             return Task::none();
         };
+        // Skipping the listed commits is the default where a repository has the list.
+        let ignore_revs = match &self.overlay {
+            Some(Overlay::Blame {
+                path: open,
+                ignore_revs,
+                ..
+            }) if *open == path => *ignore_revs,
+            _ => true,
+        };
+        self.open_blame_with(repo, path, rev, ignore_revs)
+    }
+
+    fn open_blame_with(
+        &mut self,
+        repo: String,
+        path: String,
+        rev: Option<String>,
+        ignore_revs: bool,
+    ) -> Task<Message> {
         self.overlay = Some(Overlay::Blame {
             path: path.clone(),
             rev: rev.clone(),
@@ -2878,9 +4452,15 @@ impl App {
             loading: true,
             error: None,
             hovered: None,
+            ignore_revs,
+            ignored: None,
         });
         Task::perform(
-            async move { answer(queries::blame(&repo, &path, rev.as_deref()).await) },
+            async move {
+                let found = queries::blame_with(&repo, &path, rev.as_deref(), ignore_revs).await;
+                let can = queries::has_blame_ignore_file(&repo).await.unwrap_or(false);
+                answer(found.map(|(lines, ignored)| (lines, can.then_some(ignored))))
+            },
             Message::BlameLoaded,
         )
     }
@@ -3041,6 +4621,10 @@ impl App {
             return Task::none();
         };
         let repo = tab.path.clone();
+        let head = tab
+            .status
+            .as_ref()
+            .and_then(|status| status.branch.oid.clone());
         let base_label = match &base {
             None => tr("the root commit").to_owned(),
             Some(base) => match tab.commits.iter().find(|commit| commit.sha == *base) {
@@ -3049,6 +4633,9 @@ impl App {
             },
         };
         self.overlay = Some(Overlay::Rebase(Box::new(RebaseState {
+            head,
+            replay: false,
+            preset: None,
             base: base.clone(),
             base_label,
             steps: Vec::new(),
@@ -3057,11 +4644,73 @@ impl App {
             error: None,
             autostash: true,
             focused: 0,
+            detail: None,
         })));
         Task::perform(
             async move { answer(queries::rebase_candidates(&repo, base.as_deref()).await) },
             Message::RebaseLoaded,
         )
+    }
+
+    /// The rebase editor with several picked commits squashed or dropped, from the parent
+    /// of the oldest of them.
+    fn plan_commits(&mut self, preset: Preset) -> Task<Message> {
+        let Some(tab) = self.current() else {
+            return Task::none();
+        };
+        let (Preset::Drop(shas) | Preset::Squash(shas)) = &preset;
+        // Newest first as listed, so the oldest is the last one found.
+        let oldest = tab
+            .commits
+            .iter()
+            .rev()
+            .find(|commit| shas.contains(&commit.sha));
+        let Some(oldest) = oldest else {
+            return Task::none();
+        };
+        let base = oldest.parents.first().cloned();
+        let task = self.open_rebase(base);
+        if let Some(Overlay::Rebase(state)) = &mut self.overlay {
+            state.preset = Some(preset);
+        }
+        task
+    }
+
+    /// The rebase editor in cherry-pick mode: the commits, oldest first, onto HEAD.
+    fn open_replay(&mut self, shas: Vec<String>) -> Task<Message> {
+        let Some(tab) = self.current() else {
+            return Task::none();
+        };
+        let original: Vec<Commit> = tab
+            .commits
+            .iter()
+            .rev()
+            .filter(|commit| shas.contains(&commit.sha))
+            .cloned()
+            .collect();
+        if original.is_empty() {
+            return Task::none();
+        }
+        let mut state = RebaseState {
+            head: tab
+                .status
+                .as_ref()
+                .and_then(|status| status.branch.oid.clone()),
+            replay: true,
+            preset: None,
+            base: None,
+            base_label: "HEAD".to_owned(),
+            steps: Vec::new(),
+            original,
+            loading: false,
+            error: None,
+            autostash: true,
+            focused: 0,
+            detail: None,
+        };
+        state.reset();
+        self.overlay = Some(Overlay::Rebase(Box::new(state)));
+        Task::none()
     }
 
     fn rebase_set_action(&mut self, index: usize, action: &'static str) -> Task<Message> {
@@ -3114,12 +4763,15 @@ impl App {
                             None => step.message.trim().to_owned(),
                         },
                     ),
+                exec: step.exec.clone(),
             })
             .collect();
         let command = Command::InteractiveRebase {
+            expected_head: state.head.clone(),
             base: state.base.clone(),
             steps,
             autostash: state.autostash,
+            replay: state.replay,
         };
         Task::done(Message::Run(command))
     }
@@ -3142,7 +4794,78 @@ impl App {
         scroll_to(tab, target);
     }
 
+    /// The first key of a command, for the menus.
+    pub fn shortcut(&self, id: &str) -> Option<craft_keymap::Chord> {
+        logic::shortcut_keys(&self.settings.shortcuts.keys, id)
+            .into_iter()
+            .next()
+    }
+
+    /// What a command of [`logic::SHORTCUTS`] does.
+    fn shortcut_message(&self, id: &str) -> Option<Message> {
+        Some(match id {
+            "view.history" => Message::SetView(View::History),
+            "view.changes" => Message::SetView(View::Changes),
+            "edit.undo" => Message::Undo,
+            "edit.redo" => Message::Redo,
+            "search" => Message::SearchFocus,
+            "files.select_all" => Message::SelectAllFiles,
+            "repo.open" => Message::OpenDialog,
+            "tab.close" => Message::Close(self.active),
+            "commit" => Message::CommitNow,
+            "commit.all" => Message::CommitAll,
+            "repo.refresh" => Message::Refresh,
+            "settings" => Message::OpenSettings,
+            "zoom.in" => Message::Zoom(1.1),
+            "zoom.out" => Message::Zoom(1.0 / 1.1),
+            "zoom.reset" => Message::Zoom(0.0),
+            "window.fullscreen" => Message::Window(WindowAction::ToggleFullscreen),
+            _ => return None,
+        })
+    }
+
+    /// The key pressed while a command waits for its new key: Escape stops waiting, any other
+    /// key becomes the command's (taken from a command that had it, which a toast tells).
+    fn record_key(&mut self, key: Key, modifiers: Modifiers) -> Task<Message> {
+        let Some((id, slot)) = self.recording.take() else {
+            return Task::none();
+        };
+        if key == Key::Escape {
+            return Task::none();
+        }
+        let Some(pressed) = craft_keymap::Key::from_egui(key) else {
+            // Not a key a shortcut can use: keep waiting.
+            self.recording = Some((id, slot));
+            return Task::none();
+        };
+        let platform = craft_keymap::Platform::current();
+        let chord = craft_keymap::Chord {
+            mods: craft_keymap::Mods::from_egui(&modifiers, platform),
+            key: pressed,
+        };
+        let taken = logic::assign_shortcut(&mut self.settings.shortcuts.keys, &id, slot, &chord);
+        self.save_settings();
+        for other in taken {
+            let label = logic::SHORTCUTS
+                .iter()
+                .find(|(each, _, _)| *each == other)
+                .map_or(other, |(_, label, _)| label);
+            self.toast(
+                ToastKind::Info,
+                trf(
+                    "{key} was taken from “{command}”",
+                    &[("key", &chord.display(platform)), ("command", tr(label))],
+                ),
+                None,
+            );
+        }
+        Task::none()
+    }
+
     fn key(&mut self, key: Key, modifiers: Modifiers) -> Task<Message> {
+        if self.recording.is_some() {
+            return self.record_key(key, modifiers);
+        }
         if key == Key::Escape {
             if self.menu.take().is_some() {
                 return Task::none();
@@ -3186,23 +4909,15 @@ impl App {
                 _ => Task::none(),
             };
         }
-        let command = modifiers.command;
-        match key {
-            Key::F5 => return Task::done(Message::Refresh),
-            Key::F11 => return Task::done(Message::Window(WindowAction::ToggleFullscreen)),
-            Key::R if command => return Task::done(Message::Refresh),
-            Key::O | Key::T if command => return Task::done(Message::OpenDialog),
-            Key::W if command => return Task::done(Message::Close(self.active)),
-            Key::Comma if command => return Task::done(Message::OpenSettings),
-            Key::F if command => return Task::done(Message::SearchFocus),
-            Key::Num1 if command => return Task::done(Message::SetView(View::History)),
-            Key::Num2 if command => return Task::done(Message::SetView(View::Changes)),
-            Key::Equals | Key::Plus if command => return Task::done(Message::Zoom(1.1)),
-            Key::Minus if command => return Task::done(Message::Zoom(1.0 / 1.1)),
-            Key::Num0 if command => return Task::done(Message::Zoom(0.0)),
-            Key::Enter if command => return Task::done(Message::CommitNow),
-            Key::A if command => return Task::done(Message::SelectAllFiles),
-            _ => {}
+        // The commands' keys, as the user set them (Settings › Keyboard shortcuts).
+        let platform = craft_keymap::Platform::current();
+        let hit = logic::SHORTCUTS.iter().find(|(id, _, _)| {
+            logic::shortcut_keys(&self.settings.shortcuts.keys, id)
+                .iter()
+                .any(|chord| craft_keymap::egui::matches(chord, key, &modifiers, platform))
+        });
+        if let Some(message) = hit.and_then(|(id, _, _)| self.shortcut_message(id)) {
+            return Task::done(message);
         }
         if self.overlay.is_some() {
             return Task::none();
@@ -3397,6 +5112,12 @@ fn checkout_with_changes(repo: &str, reference: &str, kind: &'static str) -> cra
         stashing(true),
     )
     .choice(
+        "Bring them along",
+        false,
+        // Straight to git, which carries the changes over unless they clash with the target.
+        Message::RunIn(repo.to_owned(), checkout.clone()),
+    )
+    .choice(
         "Commit first",
         false,
         Message::CommitFirst(repo.to_owned(), checkout),
@@ -3406,6 +5127,7 @@ fn checkout_with_changes(repo: &str, reference: &str, kind: &'static str) -> cra
     let paragraphs = [
         trf("There are uncommitted changes. What should happen to them before {name} is checked out?", &name),
         trf("Stash and reapply puts them aside and brings them back on {name}. Where they clash with it, they stay in the stash and the clashes show in Local Changes.", &name),
+        trf("Bring them along checks out {name} with the changes as they are; git refuses if a changed file differs there.", &name),
         trf("Commit first takes you to the commit box and checks out {name} once you have committed.", &name),
         tr("Discard changes clears them away into a stash, from where they can still be brought back.").to_owned(),
     ];
@@ -3515,14 +5237,113 @@ fn scroll_to(tab: &mut RepoTab, offset: f32) {
     tab.scroll_to.set(Some(offset));
 }
 
-fn load_status(path: String) -> Task<Message> {
+/// The git settings shown in Settings: everywhere (`here` false) or for the current
+/// repository, as git has them, and what the user typed since.
+#[derive(Debug, Clone, Default)]
+pub struct GitConfigState {
+    pub here: bool,
+    pub values: std::collections::BTreeMap<String, String>,
+    pub edits: std::collections::BTreeMap<String, String>,
+    pub loading: bool,
+    /// The git program's path as being typed.
+    pub program: String,
+}
+
+impl GitConfigState {
+    /// What a setting shows: as typed, else as set.
+    pub fn shown(&self, key: &str) -> &str {
+        self.edits
+            .get(key)
+            .or_else(|| self.values.get(key))
+            .map_or("", String::as_str)
+    }
+
+    /// The settings typed differently from what git has.
+    pub fn changed(&self) -> Vec<(String, String)> {
+        self.edits
+            .iter()
+            .filter(|(key, value)| self.values.get(*key).map_or("", String::as_str) != value.trim())
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect()
+    }
+}
+
+/// A column of the history list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Column {
+    Author,
+    Date,
+    Sha,
+    Changes,
+}
+
+/// A change to which branches the graph shows (full ref names).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RefVisibility {
+    Hide(String),
+    Show(String),
+    Solo(String),
+    Unsolo(String),
+    ShowAll,
+}
+
+/// The commit box's options menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommitOption {
+    SignOff,
+    SkipHooks,
+    PushAfter,
+}
+
+/// "Push after committing": straight to the upstream when it has the branch's name,
+/// otherwise the push dialog asks where.
+fn push_after_commit(tab: &RepoTab) -> Task<Message> {
+    let target = tab
+        .status
+        .as_ref()
+        .and_then(|status| logic::push_target(status, &tab.refs.remotes));
+    match target {
+        Some((remote, branch)) => Task::done(Message::Run(Command::Push {
+            remote,
+            branch,
+            set_upstream: false,
+            force: false,
+            tags: false,
+        })),
+        None => Task::done(Message::Action(crate::actions::Action::Push(None))),
+    }
+}
+
+fn load_undo(path: String) -> Task<Message> {
     Task::perform(
+        async move {
+            let result = answer(undo::labels(&path).await);
+            (path, result)
+        },
+        |(path, result)| Message::UndoLoaded(path, result),
+    )
+}
+
+fn load_status(path: String) -> Task<Message> {
+    let undo = load_undo(path.clone());
+    let bisect = {
+        let path = path.clone();
+        Task::perform(
+            async move {
+                let result = answer(queries::bisect_state(&path).await);
+                (path, result)
+            },
+            |(path, result)| Message::BisectLoaded(path, result),
+        )
+    };
+    let status = Task::perform(
         async move {
             let result = answer(queries::status(&path).await);
             (path, result)
         },
         |(path, result)| Message::StatusLoaded(path, result),
-    )
+    );
+    Task::batch([status, undo, bisect])
 }
 
 fn load_refs(path: String) -> Task<Message> {
@@ -3535,22 +5356,38 @@ fn load_refs(path: String) -> Task<Message> {
     )
 }
 
-fn load_log(path: String, limit: usize, all: bool) -> Task<Message> {
+/// How much of the history to load, from which branches, narrowed how.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogQuery {
+    pub limit: usize,
+    pub all: bool,
+    pub filter: LogFilter,
+    pub options: LogOptions,
+}
+
+fn load_log(path: String, query: LogQuery) -> Task<Message> {
     Task::perform(
         async move {
-            let result = answer(queries::log(&path, limit, all, None).await)
-                .map(|page| (page.commits, page.has_more));
+            let LogQuery {
+                limit,
+                all,
+                filter,
+                options,
+            } = query;
+            let result =
+                answer(queries::log_filtered(&path, limit, all, None, &filter, &options).await)
+                    .map(|page| (page.commits, page.has_more));
             (path, result)
         },
         |(path, result)| Message::LogLoaded(path, result),
     )
 }
 
-fn load_all(path: String, limit: usize, all: bool) -> Task<Message> {
+fn load_all(path: String, query: LogQuery) -> Task<Message> {
     Task::batch([
         load_status(path.clone()),
         load_refs(path.clone()),
-        load_log(path, limit, all),
+        load_log(path, query),
     ])
 }
 
@@ -3668,8 +5505,12 @@ mod tests {
             subject: sha.into(),
             graph: None,
             file: None,
+            stash: None,
         };
         let mut state = RebaseState {
+            head: None,
+            replay: false,
+            preset: None,
             base: None,
             base_label: String::new(),
             steps: Vec::new(),
@@ -3678,6 +5519,7 @@ mod tests {
             error: None,
             autostash: true,
             focused: 0,
+            detail: None,
         };
         state.reset();
         assert!(state.unchanged());
@@ -3689,5 +5531,54 @@ mod tests {
         assert_eq!(state.steps[0].commit.sha, "b");
         state.reset();
         assert!(state.unchanged());
+    }
+
+    #[test]
+    fn presets_drop_or_squash_the_picked_commits() {
+        let commit = |sha: &str| Commit {
+            sha: sha.into(),
+            parents: Vec::new(),
+            author: String::new(),
+            email: String::new(),
+            time: 0,
+            refs: None,
+            subject: sha.into(),
+            graph: None,
+            file: None,
+            stash: None,
+        };
+        let state = |preset| {
+            let mut state = RebaseState {
+                head: None,
+                replay: false,
+                preset: Some(preset),
+                base: None,
+                base_label: String::new(),
+                steps: Vec::new(),
+                original: ["a", "b", "c", "d"].map(commit).to_vec(),
+                loading: false,
+                error: None,
+                autostash: true,
+                focused: 0,
+                detail: None,
+            };
+            state.reset();
+            let found = state.apply_preset();
+            (found, state)
+        };
+        let plan = |state: &RebaseState| -> Vec<String> {
+            state
+                .steps
+                .iter()
+                .map(|step| format!("{} {}", step.action, step.commit.sha))
+                .collect()
+        };
+        let (found, dropped) = state(Preset::Drop(vec!["b".into(), "d".into()]));
+        assert!(found);
+        assert_eq!(plan(&dropped), ["pick a", "drop b", "pick c", "drop d"]);
+        let (_, squashed) = state(Preset::Squash(vec!["d".into(), "b".into()]));
+        assert_eq!(plan(&squashed), ["pick a", "pick b", "squash d", "pick c"]);
+        let (found, _) = state(Preset::Squash(vec!["x".into()]));
+        assert!(!found, "a commit that isn't on the branch");
     }
 }

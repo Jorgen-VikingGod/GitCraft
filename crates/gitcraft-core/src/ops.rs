@@ -8,7 +8,7 @@ use crate::parsers::{self, Selection};
 use crate::runner::{
     GitResult, Options, Progress, editor_command, git, git_unchecked, repo_lock, run, run_unchecked,
 };
-use crate::{Error, GitError, Result, check_ref, editor, paths, queries};
+use crate::{Error, GitError, Result, backups, check_ref, editor, paths, queries};
 
 fn ok(result: &GitResult) -> OpResult {
     OpResult {
@@ -118,9 +118,17 @@ pub async fn unstage_all(repo: &str) -> Result<()> {
     Ok(())
 }
 
+/// Throws away the changes to `list`, after keeping a backup that
+/// [`restore_discard`] can put back.
 pub async fn discard_files(repo: &str, list: &[String]) -> Result<()> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    let backup = backups::before(repo, list).await?;
+    discard_unlocked(repo, list).await?;
+    backups::keep(repo, backup).await
+}
+
+async fn discard_unlocked(repo: &str, list: &[String]) -> Result<()> {
     let status = queries::status(repo).await?;
     let untracked: HashSet<&str> = status
         .unstaged
@@ -185,6 +193,11 @@ pub async fn apply_selection(
         args.push("-R");
     }
     args.push("-");
+    let backup = if mode == "discard" {
+        Some(backups::before(repo, &[path.to_owned()]).await?)
+    } else {
+        None
+    };
     run(
         repo,
         &args,
@@ -194,21 +207,467 @@ pub async fn apply_selection(
         },
     )
     .await?;
+    match backup {
+        Some(backup) => backups::keep(repo, backup).await,
+        None => Ok(()),
+    }
+}
+
+/// Starts looking for the commit that broke something between `good` (known to work) and
+/// `bad` (known to be broken): git checks out a commit halfway between to test.
+pub async fn bisect_start(repo: &str, bad: &str, good: &str) -> Result<OpResult> {
+    let (bad, good) = (check_ref(bad)?, check_ref(good)?);
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if queries::operation_state(repo).await?.is_some() {
+        return invalid("Finish or abort the operation in progress first");
+    }
+    if queries::bisect_state(repo).await?.is_some() {
+        return invalid("A bisect is already running");
+    }
+    let status = queries::status(repo).await?;
+    if !status.staged.is_empty() || status.unstaged.iter().any(|entry| entry.status != "?") {
+        return invalid("Commit or stash your changes first: bisecting checks out other commits");
+    }
+    let ancestor = git_unchecked(repo, &["merge-base", "--is-ancestor", good, bad]).await?;
+    if ancestor.code != 0 {
+        return invalid("The good commit must be older than the bad one, on its history");
+    }
+    Ok(ok(&git(repo, &["bisect", "start", bad, good, "--"]).await?))
+}
+
+/// Marks a commit (HEAD when `None`) as good, bad or skipped; git then checks out the next one
+/// to test, or names the first bad commit.
+pub async fn bisect_mark(repo: &str, verdict: &str, sha: Option<&str>) -> Result<OpResult> {
+    if !matches!(verdict, "good" | "bad" | "skip") {
+        return invalid(format!("Unknown bisect verdict {verdict}"));
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let Some(state) = queries::bisect_state(repo).await? else {
+        return invalid("No bisect is running");
+    };
+    if state.first_bad.is_some() {
+        return invalid("The first bad commit has been found; end the bisect");
+    }
+    let mut args = vec!["bisect", verdict];
+    if let Some(sha) = sha {
+        args.push(check_ref(sha)?);
+    }
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Ends the bisect and goes back to where it started.
+pub async fn bisect_reset(repo: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["bisect", "reset"]).await?))
+}
+
+/// Checks out only what `patterns` match (gitignore-style, such as `/src/`), turning sparse
+/// checkout on if it was off. Refused while files have changes git would have to remove.
+pub async fn sparse_set(repo: &str, patterns: &[String]) -> Result<OpResult> {
+    let patterns: Vec<&str> = patterns
+        .iter()
+        .map(|pattern| pattern.trim())
+        .filter(|pattern| !pattern.is_empty())
+        .collect();
+    if patterns.is_empty() {
+        return invalid("Give at least one folder or pattern, or turn sparse checkout off");
+    }
+    for pattern in &patterns {
+        check_ref(pattern)?;
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["sparse-checkout", "set", "--no-cone", "--"];
+    args.extend(&patterns);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Checks out every file again.
+pub async fn sparse_disable(repo: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["sparse-checkout", "disable"]).await?))
+}
+
+/// Sets one of [`queries::CONFIG_KEYS`] everywhere (`repo` `None`) or for one repository;
+/// `None` or an empty value removes it, so the wider setting (or git's default) applies.
+pub async fn set_git_config(repo: Option<&str>, key: &str, value: Option<&str>) -> Result<()> {
+    let key = key.to_lowercase();
+    if !queries::CONFIG_KEYS.contains(&key.as_str()) {
+        return invalid(format!("GitCraft doesn't change {key}"));
+    }
+    let value = value.map(str::trim).filter(|value| !value.is_empty());
+    if value.is_some_and(|value| value.contains(['\n', '\r'])) {
+        return invalid("A setting must be one line");
+    }
+    let home = crate::store::home_dir().to_string_lossy().into_owned();
+    let (cwd, scope) = match repo {
+        Some(repo) => (repo.to_owned(), "--local"),
+        None => (home, "--global"),
+    };
+    let _guard = match repo {
+        Some(repo) => Some(repo_lock(repo).lock_owned().await),
+        None => None,
+    };
+    match value {
+        Some(value) => {
+            git(&cwd, &["config", scope, "--", &key, value]).await?;
+        }
+        None => {
+            // Exit code 5: it wasn't set, which is what was wanted.
+            let result = git_unchecked(&cwd, &["config", scope, "--unset-all", &key]).await?;
+            if !matches!(result.code, 0 | 5) {
+                return Err(GitError::new(
+                    &["config", "--unset-all", &key],
+                    result.code,
+                    &result.err,
+                    &result.out(),
+                )
+                .into());
+            }
+        }
+    }
     Ok(())
+}
+
+/// Asks git's credential helpers to forget what they keep for the http(s) hosts of this
+/// repository's remotes, so the next fetch or push asks again. Returns the hosts.
+pub async fn forget_credentials(repo: &str) -> Result<Vec<String>> {
+    // The real URLs, not the masked ones shown elsewhere: the host is all that's used.
+    let urls = git_unchecked(
+        repo,
+        &["config", "--get-regexp", r"^remote\..*\.(push)?url$"],
+    )
+    .await?;
+    let mut hosts: Vec<(String, String)> = Vec::new();
+    for line in urls.out().lines() {
+        let Some((_, url)) = line.split_once(' ') else {
+            continue;
+        };
+        if let Some(host) = parsers::credential_host(url.trim())
+            && !hosts.contains(&host)
+        {
+            hosts.push(host);
+        }
+    }
+    for (protocol, host) in &hosts {
+        let request = format!("protocol={protocol}\nhost={host}\n\n");
+        run(
+            repo,
+            &["credential", "reject"],
+            Options {
+                stdin: Some(request.as_bytes()),
+                ..Options::default()
+            },
+        )
+        .await?;
+    }
+    Ok(hosts.into_iter().map(|(_, host)| host).collect())
+}
+
+/// Puts the conflict markers back into files resolved during a merge, rebase or cherry-pick,
+/// so they can be resolved again (`git checkout -m`).
+pub async fn mark_conflicted(repo: &str, list: &[String]) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if queries::operation_state(repo).await?.is_none() {
+        return invalid(
+            "Files can only be marked as conflicted during a merge, rebase or cherry-pick",
+        );
+    }
+    for path in list {
+        safe_path(repo, path)?;
+    }
+    let result = git(repo, &with_paths(vec!["checkout", "-m", "--"], list)).await?;
+    Ok(ok(&result))
+}
+
+/// Commits the staged changes as `fixup! <subject of sha>`, to be folded into `sha` by an
+/// interactive rebase with autosquash. `sha` must be on the current branch.
+pub async fn commit_fixup(repo: &str, sha: &str) -> Result<OpResult> {
+    let sha = check_ref(sha)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if queries::operation_state(repo).await?.is_some() {
+        return invalid("Finish or abort the operation in progress first");
+    }
+    if queries::status(repo).await?.staged.is_empty() {
+        return invalid("Stage the changes that belong to that commit first");
+    }
+    let ancestor = git_unchecked(repo, &["merge-base", "--is-ancestor", sha, "HEAD"]).await?;
+    if ancestor.code != 0 {
+        return invalid("That commit is not on the current branch");
+    }
+    let fixup = format!("--fixup={sha}");
+    Ok(ok(&git(repo, &["commit", "-q", &fixup]).await?))
+}
+
+/// Stashes only the selected hunks/lines of one file, and takes them out of the working tree.
+/// The file must have no staged changes, so the stash holds exactly the selection on top of
+/// HEAD and applies (with or without `--index`) like any other stash.
+pub async fn stash_selection(
+    repo: &str,
+    path: &str,
+    selection: &Selection,
+    context: i64,
+    message: &str,
+) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let status = queries::status(repo).await?;
+    if status.branch.oid.is_none() {
+        return invalid("Stashing needs a first commit");
+    }
+    if status.staged.iter().any(|entry| entry.path == path) {
+        return invalid("This file has staged changes: unstage it, or stash the whole file");
+    }
+    let Some(file_diff) = queries::working_diff(repo, path, false, context, false, None).await?
+    else {
+        return invalid("No changes to stash in this file");
+    };
+    if file_diff.status == "?" {
+        return invalid("Untracked files can only be stashed as a whole");
+    }
+    if file_diff.hunks.is_empty() || selection.keys().any(|hunk| *hunk >= file_diff.hunks.len()) {
+        return invalid("The diff changed, please refresh");
+    }
+    let forward = parsers::build_partial_patch(&file_diff, selection, false);
+    let reverse = parsers::build_partial_patch(&file_diff, selection, true);
+    let mut apply = vec!["apply", "--recount", "--whitespace=nowarn"];
+    if context <= 0 {
+        apply.push("--unidiff-zero");
+    }
+    // Checked before anything is written, so a stale diff changes nothing.
+    let mut check = apply.clone();
+    check.extend(["--check", "-R", "-"]);
+    run(
+        repo,
+        &check,
+        Options {
+            stdin: Some(&reverse),
+            ..Options::default()
+        },
+    )
+    .await?;
+
+    let head = git(repo, &["rev-parse", "HEAD"])
+        .await?
+        .out()
+        .trim()
+        .to_owned();
+    let head_tree = format!("{head}^{{tree}}");
+    let index_file = queries::git_dir(repo)
+        .await?
+        .join(format!("gitcraft-stash-{}.index", std::process::id()));
+    let env = || vec![("GIT_INDEX_FILE", index_file.to_string_lossy().into_owned())];
+    let tree = async {
+        run(
+            repo,
+            &["read-tree", "HEAD"],
+            Options {
+                env: env(),
+                ..Options::default()
+            },
+        )
+        .await?;
+        let mut cached = apply.clone();
+        cached.extend(["--cached", "-"]);
+        run(
+            repo,
+            &cached,
+            Options {
+                stdin: Some(&forward),
+                env: env(),
+                ..Options::default()
+            },
+        )
+        .await?;
+        let tree = run(
+            repo,
+            &["write-tree"],
+            Options {
+                env: env(),
+                ..Options::default()
+            },
+        )
+        .await?;
+        Ok::<String, Error>(tree.out().trim().to_owned())
+    }
+    .await;
+    let _ = std::fs::remove_file(&index_file);
+    let tree = tree?;
+
+    let branch = status
+        .branch
+        .head
+        .clone()
+        .unwrap_or_else(|| "(no branch)".to_owned());
+    let short: String = head.chars().take(7).collect();
+    let commit = |tree: String, parents: Vec<String>, text: String| async move {
+        let mut args = vec!["commit-tree".to_owned(), "--no-gpg-sign".to_owned(), tree];
+        for parent in parents {
+            args.extend(["-p".to_owned(), parent]);
+        }
+        args.extend(["-m".to_owned(), text]);
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        Ok::<String, Error>(git(repo, &args).await?.out().trim().to_owned())
+    };
+    // The index part holds nothing beyond HEAD.
+    let index = commit(
+        head_tree.clone(),
+        vec![head.clone()],
+        format!("index on {branch}: {short}"),
+    )
+    .await?;
+    let stash = commit(
+        tree,
+        vec![head.clone(), index],
+        format!("On {branch}: {message}"),
+    )
+    .await?;
+    let store_message = format!("On {branch}: {message}");
+    git(repo, &["stash", "store", "-m", &store_message, &stash]).await?;
+    let mut remove = apply;
+    remove.extend(["-R", "-"]);
+    run(
+        repo,
+        &remove,
+        Options {
+            stdin: Some(&reverse),
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(ok_empty())
+}
+
+/// Takes the selected hunks/lines of one file of a past commit back out of the working tree,
+/// as an uncommitted change. Only for a file the commit modified; when the lines changed
+/// since, git refuses and nothing is written.
+pub async fn revert_selection(
+    repo: &str,
+    sha: &str,
+    path: &str,
+    selection: &Selection,
+    context: i64,
+) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let Some(file_diff) = queries::commit_diff(repo, sha, path, None, context, false).await? else {
+        return invalid("This commit doesn't change that file");
+    };
+    if file_diff.binary {
+        return invalid("Binary files can't be reverted line by line");
+    }
+    if file_diff.status != "M" {
+        return invalid(
+            "Only changed lines of a modified file can be reverted; revert the whole commit for added, deleted or renamed files",
+        );
+    }
+    if selection.keys().any(|hunk| *hunk >= file_diff.hunks.len()) {
+        return invalid("The diff changed, please refresh");
+    }
+    let patch = parsers::build_partial_patch(&file_diff, selection, true);
+    let mut args = vec!["apply", "--recount", "--whitespace=nowarn"];
+    if context <= 0 {
+        args.push("--unidiff-zero");
+    }
+    args.extend(["-R", "-"]);
+    let result = run_unchecked(
+        repo,
+        &args,
+        Options {
+            stdin: Some(&patch),
+            ..Options::default()
+        },
+    )
+    .await?;
+    if result.code != 0 {
+        return invalid(format!(
+            "These lines have changed since that commit, so they can't be taken out automatically.\n{}",
+            result.err.trim()
+        ));
+    }
+    Ok(ok_empty())
+}
+
+/// Puts discarded changes back from their backup (see [`queries::discard_backups`]).
+/// Refuses, changing nothing, when any of the files changed since the discard.
+pub async fn restore_discard(repo: &str, name: &str) -> Result<()> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    backups::restore(repo, name).await
+}
+
+/// Undoes the last undoable operation (see [`crate::undo`]). Returns its English label.
+pub async fn undo(repo: &str) -> Result<String> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    crate::undo::undo(repo).await
+}
+
+/// Does the last undone operation again. Returns its English label.
+pub async fn redo(repo: &str) -> Result<String> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    crate::undo::redo(repo).await
+}
+
+/// Deletes the backup of a discard for good.
+pub async fn delete_discard(repo: &str, name: &str) -> Result<()> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    backups::delete(repo, name).await
 }
 
 // ------------------------------------------------------------------- commit
 
 pub async fn commit(repo: &str, message: &str, amend: bool, sign_off: bool) -> Result<OpResult> {
+    let options = CommitOptions {
+        sign_off,
+        ..CommitOptions::default()
+    };
+    commit_with(repo, message, amend, &options).await
+}
+
+pub async fn commit_with(
+    repo: &str,
+    message: &str,
+    amend: bool,
+    options: &CommitOptions,
+) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    if options.stage_all {
+        git(repo, &["add", "-A"]).await?;
+    }
+    let trailers: Vec<String> = options
+        .trailers
+        .iter()
+        .map(|trailer| trailer.trim())
+        .filter(|trailer| !trailer.is_empty())
+        .map(|trailer| {
+            if trailer.contains(['\n', '\r']) {
+                invalid("A trailer must be one line")
+            } else {
+                Ok(format!("--trailer={trailer}"))
+            }
+        })
+        .collect::<Result<_>>()?;
     let mut args = vec!["commit", "-F", "-", "--cleanup=strip"];
     if amend {
         args.push("--amend");
     }
-    if sign_off {
+    if options.sign_off {
         args.push("--signoff");
     }
+    if options.no_verify {
+        args.push("--no-verify");
+    }
+    args.extend(trailers.iter().map(String::as_str));
     let result = run(
         repo,
         &args,
@@ -297,6 +756,32 @@ pub async fn checkout_stashing(
     })
 }
 
+/// After checking out the local branch of a remote one: when it tracks that remote branch and
+/// is only behind it, it fast-forwards, so the checkout shows what the remote has. Anything
+/// else (it has commits of its own, tracks another branch, local changes are in the way)
+/// leaves it where it is.
+async fn catch_up(repo: &str, local: &str, remote: &str) -> Result<()> {
+    let upstream = format!("{local}@{{upstream}}");
+    let tracked = git_unchecked(
+        repo,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            &upstream,
+        ],
+    )
+    .await?;
+    if tracked.code != 0 || tracked.out().trim() != remote {
+        return Ok(());
+    }
+    let behind = git_unchecked(repo, &["merge-base", "--is-ancestor", "HEAD", remote]).await?;
+    if behind.code == 0 {
+        let _ = git_unchecked(repo, &["merge", "--ff-only", "--no-edit", "-q", remote]).await?;
+    }
+    Ok(())
+}
+
 async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> {
     let result = match kind {
         "remote" => {
@@ -309,13 +794,25 @@ async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> 
                 .code
                 == 0
             {
-                git(repo, &["switch", local]).await?
+                // The local branch is checked out, and may then be fast-forwarded to the
+                // remote one: both must be fine without LFS.
+                check_lfs_for(repo, &[local, reference]).await?;
+                let switched = git(repo, &["switch", local]).await?;
+                catch_up(repo, local, reference).await?;
+                switched
             } else {
+                check_lfs_for(repo, &[reference]).await?;
                 git(repo, &["switch", "--track", "-c", local, reference]).await?
             }
         }
-        "commit" => git(repo, &["switch", "--detach", reference]).await?,
-        _ => git(repo, &["switch", reference]).await?,
+        _ => {
+            check_lfs_for(repo, &[reference]).await?;
+            if kind == "commit" {
+                git(repo, &["switch", "--detach", reference]).await?
+            } else {
+                git(repo, &["switch", reference]).await?
+            }
+        }
     };
     Ok(ok(&result))
 }
@@ -345,6 +842,23 @@ pub async fn rename_branch(repo: &str, old: &str, new: &str) -> Result<OpResult>
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
     Ok(ok(&git(repo, &["branch", "-m", old, new]).await?))
+}
+
+/// Deletes several local branches at once (force: they were reviewed as done with).
+pub async fn delete_branches(repo: &str, names: &[String]) -> Result<OpResult> {
+    for name in names {
+        check_ref(name)?;
+    }
+    if names.is_empty() {
+        return Ok(ok_empty());
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(
+        repo,
+        &with_paths(vec!["branch", "-D", "--"], names),
+    )
+    .await?))
 }
 
 pub async fn delete_branch(repo: &str, name: &str, force: bool) -> Result<OpResult> {
@@ -456,16 +970,20 @@ pub async fn remove_remote(repo: &str, name: &str) -> Result<OpResult> {
     Ok(ok(&git(repo, &["remote", "remove", name]).await?))
 }
 
+/// Renames a remote and changes its URL. `push_url` sets where it pushes, if that differs:
+/// `Some("")` removes a separate push URL (pushes go to `url` again), `None` leaves it.
 pub async fn edit_remote(
     repo: &str,
     name: &str,
     new_name: Option<&str>,
     url: Option<&str>,
+    push_url: Option<&str>,
 ) -> Result<OpResult> {
     let name = check_ref(name)?;
     let url = url.filter(|url| !url.is_empty());
     // Remote URLs are shown with their password masked; saving that back would destroy the real one.
-    if url.is_some_and(|url| url.contains(":***@") || url.contains("://***@")) {
+    let masked = |url: &str| url.contains(":***@") || url.contains("://***@");
+    if url.is_some_and(masked) || push_url.is_some_and(masked) {
         return invalid(
             "The URL still contains the hidden password. Type the full URL, including the password.",
         );
@@ -474,6 +992,21 @@ pub async fn edit_remote(
     let _guard = lock.lock().await;
     if let Some(url) = url {
         git(repo, &["remote", "set-url", name, check_ref(url)?]).await?;
+    }
+    match push_url.map(str::trim) {
+        Some("") => {
+            let key = format!("remote.{name}.pushurl");
+            // Nothing to remove is fine (exit code 5).
+            git_unchecked(repo, &["config", "--local", "--unset-all", &key]).await?;
+        }
+        Some(push) => {
+            git(
+                repo,
+                &["remote", "set-url", "--push", name, check_ref(push)?],
+            )
+            .await?;
+        }
+        None => {}
     }
     if let Some(new_name) = new_name.filter(|new_name| !new_name.is_empty() && *new_name != name) {
         git(repo, &["remote", "rename", name, check_ref(new_name)?]).await?;
@@ -504,6 +1037,93 @@ pub async fn fetch(
         None => args.push("--all"),
     }
     Ok(ok(&run(repo, &args, with_progress(progress)).await?))
+}
+
+/// A fetch of every remote in the background: quiet, never asking for anything, given up
+/// after a minute, and leaving FETCH_HEAD alone. Returns whether a remote branch or a tag
+/// changed, so the caller knows whether to reload.
+pub async fn fetch_background(repo: &str, prune: bool) -> Result<bool> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let refs = || {
+        git(
+            repo,
+            &[
+                "for-each-ref",
+                "--format=%(refname) %(objectname)",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+    };
+    let before = refs().await?.out().into_owned();
+    let mut args = vec![
+        "fetch",
+        "--all",
+        "--quiet",
+        "--no-write-fetch-head",
+        "--no-auto-maintenance",
+    ];
+    if prune {
+        args.push("--prune");
+    }
+    let options = Options {
+        env: vec![
+            ("GCM_INTERACTIVE", "never".to_owned()),
+            ("SSH_ASKPASS_REQUIRE", "never".to_owned()),
+        ],
+        ..Options::default()
+    };
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        run(repo, &args, options),
+    )
+    .await
+    {
+        Ok(result) => {
+            result?;
+        }
+        Err(_) => return invalid("The fetch took too long and was stopped"),
+    }
+    Ok(refs().await?.out() != before)
+}
+
+/// Downloads history a shallow or partial clone left out: `deepen` 500 more commits,
+/// `unshallow` all of it, or `refetch` everything a partial clone filtered out.
+pub async fn fetch_more(repo: &str, how: &str, progress: Option<&Progress>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let args: Vec<&str> = match how {
+        "deepen" => vec!["fetch", "--progress", "--deepen=500"],
+        "unshallow" => vec!["fetch", "--progress", "--unshallow"],
+        "refetch" => vec!["fetch", "--progress", "--refetch", "--no-filter"],
+        other => return invalid(format!("Unknown way to fetch more: {other}")),
+    };
+    Ok(ok(&run(repo, &args, with_progress(progress)).await?))
+}
+
+/// Replaces `branch` on `remote` with the local one, but only while the remote still has
+/// `expected` there (the commit the user agreed to overwrite): anything pushed since makes
+/// git refuse, rather than that being lost too.
+pub async fn force_push_over(
+    repo: &str,
+    remote: &str,
+    branch: &str,
+    expected: &str,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    let (remote, branch, expected) = (check_ref(remote)?, check_ref(branch)?, check_ref(expected)?);
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let lease = format!("--force-with-lease=refs/heads/{branch}:{expected}");
+    let spec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    let result = run(
+        repo,
+        &["push", "--progress", &lease, remote, &spec],
+        with_progress(progress),
+    )
+    .await?;
+    Ok(ok(&result))
 }
 
 /// Pulls with mode merge, rebase or ff-only; autostash stashes local changes and reapplies them.
@@ -675,7 +1295,45 @@ pub async fn clone(
     name: Option<&str>,
     progress: Option<&Progress>,
 ) -> Result<String> {
+    clone_with(parent, url, name, &CloneOptions::default(), progress).await
+}
+
+/// Clones with `options`; returns the new repository's path.
+pub async fn clone_with(
+    parent: &str,
+    url: &str,
+    name: Option<&str>,
+    options: &CloneOptions,
+    progress: Option<&Progress>,
+) -> Result<String> {
     check_ref(url)?;
+    let branch = options
+        .branch
+        .as_deref()
+        .map(str::trim)
+        .filter(|b| !b.is_empty());
+    let since = options
+        .since
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    if let Some(value) = branch.or(since) {
+        check_ref(value)?;
+    }
+    if options.depth == Some(0) {
+        return Err(Error::Validation(
+            "The depth must be a number of commits above 0".into(),
+        ));
+    }
+    let sparse: Vec<&str> = options
+        .sparse
+        .iter()
+        .map(|path| path.trim())
+        .filter(|path| !path.is_empty())
+        .collect();
+    for path in &sparse {
+        check_ref(path)?;
+    }
     std::fs::create_dir_all(parent)?;
     let last = url.trim_end_matches('/').rsplit('/').next().unwrap_or("");
     let last = last.rsplit(':').next().unwrap_or("");
@@ -690,21 +1348,97 @@ pub async fn clone(
             destination.display()
         ));
     }
-    let args = [
-        "clone",
-        "--progress",
-        "--recurse-submodules",
-        url,
-        &destination.to_string_lossy(),
-    ];
+    let depth = options.depth.map(|depth| format!("--depth={depth}"));
+    let since = since.map(|since| format!("--shallow-since={since}"));
+    let mut args = vec!["clone", "--progress"];
+    if options.submodules {
+        args.push("--recurse-submodules");
+    }
+    if let Some(branch) = branch {
+        args.extend(["--branch", branch]);
+    }
+    args.extend(depth.as_deref());
+    args.extend(since.as_deref());
+    if options.blobless {
+        args.push("--filter=blob:none");
+    }
+    if !sparse.is_empty() {
+        args.push("--sparse");
+    }
+    let target = destination.to_string_lossy().into_owned();
+    args.extend(["--", url, &target]);
     run(parent, &args, with_progress(progress)).await?;
+    if !sparse.is_empty() {
+        let mut set = vec!["sparse-checkout", "set", "--no-cone", "--"];
+        set.extend(&sparse);
+        run(&target, &set, with_progress(progress)).await?;
+    }
     Ok(paths::resolve_str(destination))
 }
 
 pub async fn init(path: &str) -> Result<String> {
+    init_with(path, &InitOptions::default()).await
+}
+
+/// Makes a repository in `path` and starts it as `options` says. Files that are there
+/// already are left as they are.
+pub async fn init_with(path: &str, options: &InitOptions) -> Result<String> {
+    let branch = options
+        .branch
+        .as_deref()
+        .map(str::trim)
+        .filter(|b| !b.is_empty());
+    if let Some(branch) = branch {
+        check_ref(branch)?;
+    }
     std::fs::create_dir_all(path)?;
-    git(path, &["init"]).await?;
-    queries::toplevel(path).await
+    let mut args = vec!["init"];
+    if let Some(branch) = branch {
+        args.extend(["-b", branch]);
+    }
+    git(path, &args).await?;
+    let top = queries::toplevel(path).await?;
+    // `init -b` is ignored for a repository that was there already; one without commits
+    // yet can still start on the branch asked for.
+    if let Some(branch) = branch
+        && !queries::has_head(&top).await?
+    {
+        let head = format!("refs/heads/{branch}");
+        git(&top, &["symbolic-ref", "HEAD", &head]).await?;
+    }
+    let root = PathBuf::from(&top);
+    let write_new = |name: &str, content: &str| -> Result<()> {
+        let file = root.join(name);
+        if !content.is_empty() && !file.exists() {
+            craft_atomic::atomic_write(&file, content.as_bytes())?;
+        }
+        Ok(())
+    };
+    write_new(
+        ".gitignore",
+        &crate::gitignore::file(options.gitignore.as_deref(), options.ignore_editors),
+    )?;
+    if options.readme {
+        let title = root.file_name().map_or_else(
+            || "Project".to_owned(),
+            |name| name.to_string_lossy().into_owned(),
+        );
+        write_new("README.md", &format!("# {title}\n"))?;
+    }
+    if options.commit {
+        git(&top, &["add", "-A"]).await?;
+        let committed = git(
+            &top,
+            &["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+        )
+        .await;
+        if let Err(error) = committed {
+            return Err(Error::Invalid(format!(
+                "The repository was created, but the first commit failed: {error}"
+            )));
+        }
+    }
+    Ok(top)
 }
 
 // -------------------------------------------------- merge / rebase / reset
@@ -734,6 +1468,23 @@ pub async fn rebase(repo: &str, onto: &str, autostash: bool) -> Result<OpResult>
         "--no-autostash"
     };
     may_conflict(repo, &["rebase", stash, onto], Options::default()).await
+}
+
+/// Cherry-picks a merge commit: its changes relative to parent `mainline` (1 is the first).
+pub async fn cherry_pick_merge(repo: &str, sha: &str, mainline: i64) -> Result<OpResult> {
+    let sha = check_ref(sha)?;
+    if mainline < 1 {
+        return invalid("Choose a parent");
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mainline = mainline.to_string();
+    may_conflict(
+        repo,
+        &["cherry-pick", "-m", &mainline, sha],
+        Options::default(),
+    )
+    .await
 }
 
 pub async fn cherry_pick(repo: &str, shas: &[String]) -> Result<OpResult> {
@@ -777,13 +1528,22 @@ pub async fn reset(repo: &str, target: &str, mode: &str) -> Result<OpResult> {
     ))
 }
 
-pub async fn continue_operation(repo: &str) -> Result<OpResult> {
+/// Goes on with the operation in progress. A merge is committed with `message`, or with
+/// the message git prepared when there is none.
+pub async fn continue_operation(repo: &str, message: Option<&str>) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
     let Some(state) = queries::operation_state(repo).await? else {
         return invalid("No operation in progress");
     };
     if matches!(state, Operation::Merge { .. }) {
+        if let Some(message) = message.map(str::trim).filter(|message| !message.is_empty()) {
+            let options = Options {
+                stdin: Some(message.as_bytes()),
+                ..Options::default()
+            };
+            return may_conflict(repo, &["commit", "--cleanup=strip", "-F", "-"], options).await;
+        }
         return may_conflict(repo, &["commit", "--no-edit"], Options::default()).await;
     }
     may_conflict(repo, &[state.command(), "--continue"], Options::default()).await
@@ -823,6 +1583,32 @@ pub async fn interactive_rebase(
     steps: &[RebaseStep],
     autostash: bool,
 ) -> Result<OpResult> {
+    let target = match base {
+        Some(base) => vec![check_ref(base)?],
+        None => vec!["--root"],
+    };
+    run_todo(repo, &target, steps, autostash).await
+}
+
+/// Replays the given commits on top of HEAD, in the order and with the actions of `steps`
+/// (an interactive cherry-pick). Uses the same todo list as an interactive rebase, so
+/// squash, fixup, reword and edit work too, and Continue, Skip and Abort apply.
+pub async fn interactive_cherry_pick(
+    repo: &str,
+    steps: &[RebaseStep],
+    autostash: bool,
+) -> Result<OpResult> {
+    run_todo(repo, &["--onto", "HEAD", "HEAD"], steps, autostash).await
+}
+
+/// `git rebase -i` with `target` (a base, `--root`, or `--onto …`), whose todo list is
+/// replaced by `steps`.
+async fn run_todo(
+    repo: &str,
+    target: &[&str],
+    steps: &[RebaseStep],
+    autostash: bool,
+) -> Result<OpResult> {
     if steps.is_empty() {
         return invalid("Nothing to rebase");
     }
@@ -834,6 +1620,17 @@ pub async fn interactive_rebase(
         }
         check_ref(&step.sha)?;
         lines.push(format!("{} {}", step.action, step.sha));
+        if let Some(command) = step
+            .exec
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
+        {
+            if command.contains(['\n', '\r']) {
+                return invalid("A command to run must be one line");
+            }
+            lines.push(format!("exec {command}"));
+        }
         if matches!(step.action.as_str(), "reword" | "squash")
             && let Some(message) = step.message.as_ref().filter(|message| !message.is_empty())
         {
@@ -871,10 +1668,7 @@ pub async fn interactive_rebase(
             "--no-autostash"
         },
     ];
-    match base {
-        Some(base) => args.push(check_ref(base)?),
-        None => args.push("--root"),
-    }
+    args.extend(target);
     may_conflict(repo, &args, options).await
 }
 
@@ -910,10 +1704,26 @@ pub async fn stash_push(
     Ok(ok(&git(repo, &args).await?))
 }
 
+/// The `stash@{n}` of a stash, given as its commit or as `stash@{n}`. A commit is looked up
+/// in the list as it is now, so a stash that moved down since the list was shown (another
+/// stash was made) is still the one meant, and one that is gone is refused.
+async fn stash_entry(repo: &str, id: &str) -> Result<String> {
+    let id = check_ref(id)?;
+    if id.starts_with("stash@{") {
+        return Ok(id.to_owned());
+    }
+    let list = git_unchecked(repo, &["stash", "list", "--format=%H"]).await?;
+    match list.out().lines().position(|sha| sha == id) {
+        Some(index) => Ok(format!("stash@{{{index}}}")),
+        None => invalid("This stash no longer exists; the list has been refreshed"),
+    }
+}
+
 pub async fn stash_apply(repo: &str, name: &str, pop: bool) -> Result<OpResult> {
-    let name = check_ref(name)?;
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
+    let name = stash_entry(repo, name).await?;
+    let name = name.as_str();
     let result = git_unchecked(
         repo,
         &["stash", if pop { "pop" } else { "apply" }, "--index", name],
@@ -941,10 +1751,107 @@ pub async fn stash_apply(repo: &str, name: &str, pop: bool) -> Result<OpResult> 
 }
 
 pub async fn stash_drop(repo: &str, name: &str) -> Result<OpResult> {
-    let name = check_ref(name)?;
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
-    Ok(ok(&git(repo, &["stash", "drop", name]).await?))
+    let name = stash_entry(repo, name).await?;
+    Ok(ok(&git(repo, &["stash", "drop", &name]).await?))
+}
+
+/// Stashes the untracked files only; tracked changes and the index stay as they are.
+pub async fn stash_untracked(repo: &str, message: Option<&str>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let status = queries::status(repo).await?;
+    let untracked: Vec<&str> = status
+        .unstaged
+        .iter()
+        .filter(|entry| entry.status == "?")
+        .map(|entry| entry.path.as_str())
+        .collect();
+    if untracked.is_empty() {
+        return invalid("There are no untracked files to stash");
+    }
+    let mut input = Vec::new();
+    for path in &untracked {
+        input.extend_from_slice(path.as_bytes());
+        input.push(0);
+    }
+    let mut args = vec!["stash", "push", "--include-untracked"];
+    if let Some(message) = message.filter(|message| !message.trim().is_empty()) {
+        args.extend(["-m", message]);
+    }
+    args.extend(["--pathspec-from-file=-", "--pathspec-file-nul"]);
+    let result = run(
+        repo,
+        &args,
+        Options {
+            stdin: Some(&input),
+            env: vec![("GIT_LITERAL_PATHSPECS", "1".to_owned())],
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(ok(&result))
+}
+
+/// Gives a stash a new message. It becomes the newest stash (`stash@{0}`), since git keeps
+/// stashes in the order they were stored.
+pub async fn stash_rename(repo: &str, id: &str, message: &str) -> Result<OpResult> {
+    if message.trim().is_empty() {
+        return invalid("The message is empty");
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let name = stash_entry(repo, id).await?;
+    let sha = git(repo, &["rev-parse", "--verify", &name])
+        .await?
+        .out()
+        .trim()
+        .to_owned();
+    git(repo, &["stash", "drop", "-q", &name]).await?;
+    if let Err(error) = git(repo, &["stash", "store", "-m", message, &sha]).await {
+        // Put it back under its old message rather than lose it.
+        let _ = git(repo, &["stash", "store", &sha]).await;
+        return Err(error.into());
+    }
+    Ok(ok_empty())
+}
+
+/// Writes one file of a stash into the working tree, leaving the index and the stash alone.
+/// Refused when the file has local changes, so nothing is overwritten.
+pub async fn stash_restore_file(repo: &str, id: &str, path: &str) -> Result<OpResult> {
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let name = stash_entry(repo, id).await?;
+    let status = queries::status(repo).await?;
+    let touched = status
+        .staged
+        .iter()
+        .chain(&status.unstaged)
+        .any(|entry| entry.path == path)
+        || status.conflicts.iter().any(|entry| entry.path == path);
+    if touched {
+        return invalid(format!(
+            "{path} has local changes; commit, stash or discard them first"
+        ));
+    }
+    // Untracked files of a stash are in its third parent.
+    let mut source = name.clone();
+    let listed = git(repo, &["ls-tree", "-z", "--name-only", &name, "--", path]).await?;
+    if listed.out().is_empty() {
+        source = format!("{name}^3");
+    }
+    run(
+        repo,
+        &["restore", "--source", &source, "--worktree", "--", path],
+        Options {
+            env: vec![("GIT_LITERAL_PATHSPECS", "1".to_owned())],
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(ok_empty())
 }
 
 // ------------------------------------------------------------- worktrees
@@ -991,6 +1898,63 @@ pub async fn worktree_remove(repo: &str, path: &str, force: bool) -> Result<OpRe
     Ok(ok(&git(repo, &args).await?))
 }
 
+/// Keeps a worktree from being pruned or removed (for one on a drive that isn't always
+/// there, say), with an optional reason.
+pub async fn worktree_lock(repo: &str, path: &str, reason: Option<&str>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["worktree", "lock"];
+    let reason = reason.map(str::trim).filter(|reason| !reason.is_empty());
+    if let Some(reason) = reason {
+        args.extend(["--reason", reason]);
+    }
+    args.extend(["--", path]);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+pub async fn worktree_unlock(repo: &str, path: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["worktree", "unlock", "--", path]).await?))
+}
+
+/// Tidies the repository: `gc` packs objects and drops unreachable ones git no longer needs
+/// (git's own grace periods apply), `graph` writes the commit-graph that speeds up history,
+/// and `prune` fetches every remote and removes branches deleted there.
+pub async fn maintenance(
+    repo: &str,
+    gc: bool,
+    graph: bool,
+    prune: bool,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    if !(gc || graph || prune) {
+        return invalid("Choose something to do");
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if prune {
+        run(
+            repo,
+            &["fetch", "--all", "--prune", "--progress"],
+            with_progress(progress),
+        )
+        .await?;
+    }
+    if gc {
+        run(
+            repo,
+            &["maintenance", "run", "--task=gc"],
+            with_progress(progress),
+        )
+        .await?;
+    }
+    if graph {
+        git(repo, &["commit-graph", "write", "--reachable"]).await?;
+    }
+    Ok(ok_empty())
+}
+
 pub async fn worktree_prune(repo: &str) -> Result<OpResult> {
     let lock = repo_lock(repo);
     let _guard = lock.lock().await;
@@ -1016,10 +1980,6 @@ pub async fn conflict_versions(repo: &str, path: &str) -> Result<ConflictVersion
         queries::raw_show(repo, &ours_spec),
         queries::raw_show(repo, &theirs_spec),
     );
-    let rebasing = matches!(
-        queries::operation_state(repo).await?,
-        Some(Operation::Rebase { .. })
-    );
     Ok(ConflictVersions {
         path: path.to_owned(),
         base: base?,
@@ -1030,18 +1990,6 @@ pub async fn conflict_versions(repo: &str, path: &str) -> Result<ConflictVersion
             .map(parsers::parse_conflict_markers)
             .unwrap_or_default(),
         working,
-        ours_label: if rebasing {
-            "Upstream (being rebased onto)"
-        } else {
-            "Ours (HEAD)"
-        }
-        .to_owned(),
-        theirs_label: if rebasing {
-            "Your commit (being replayed)"
-        } else {
-            "Theirs (incoming)"
-        }
-        .to_owned(),
     })
 }
 
@@ -1292,6 +2240,69 @@ pub async fn clean(
     })
 }
 
+/// One patch per commit from `sha` up to HEAD, in one mailbox file that `git am` applies.
+/// Merge commits are left out, as `git format-patch` does.
+pub async fn format_patch_series(repo: &str, sha: &str) -> Result<String> {
+    let sha = check_ref(sha)?;
+    let ancestor = git_unchecked(repo, &["merge-base", "--is-ancestor", sha, "HEAD"]).await?;
+    if ancestor.code != 0 {
+        return invalid("That commit is not on the current branch");
+    }
+    let parent = format!("{sha}^");
+    let has_parent = git_unchecked(repo, &["rev-parse", "--verify", "-q", &parent])
+        .await?
+        .code
+        == 0;
+    let range = format!("{sha}^..HEAD");
+    let args = if has_parent {
+        vec!["format-patch", "--stdout", &range]
+    } else {
+        vec!["format-patch", "--stdout", "--root", "HEAD"]
+    };
+    let patch = git(repo, &args).await?.out().into_owned();
+    if patch.trim().is_empty() {
+        return invalid("No patches could be created (merge commits are not supported)");
+    }
+    Ok(patch)
+}
+
+/// The uncommitted changes, staged or not and new files included, as one patch against HEAD
+/// that `git apply` takes. The working tree and the index are left as they are.
+pub async fn working_patch(repo: &str) -> Result<String> {
+    let status = queries::status(repo).await?;
+    let list: Vec<String> = status
+        .staged
+        .iter()
+        .chain(&status.unstaged)
+        .flat_map(|entry| std::iter::once(entry.path.clone()).chain(entry.orig_path.clone()))
+        .collect();
+    if list.is_empty() {
+        return invalid("There are no local changes");
+    }
+    let tree = backups::snapshot(repo, None, &list).await?;
+    let base = if queries::has_head(repo).await? {
+        "HEAD".to_owned()
+    } else {
+        queries::empty_tree(repo).await?
+    };
+    let result = git(
+        repo,
+        &[
+            "diff",
+            "--binary",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-relative",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
+            &base,
+            &tree,
+        ],
+    )
+    .await?;
+    Ok(result.out().into_owned())
+}
+
 pub async fn format_patch(repo: &str, sha: &str) -> Result<String> {
     let result = git(repo, &["format-patch", "-1", "--stdout", check_ref(sha)?]).await?;
     let patch = result.out();
@@ -1362,6 +2373,188 @@ pub async fn ensure_commit_graph(repo: &str) -> Result<bool> {
     }
     git(repo, &["commit-graph", "write", "--reachable"]).await?;
     Ok(true)
+}
+
+/// Adds the repository at `url` as a submodule in `path` (cloning it there).
+pub async fn submodule_add(
+    repo: &str,
+    url: &str,
+    path: &str,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    let url = check_ref(url.trim())?;
+    let path = path.trim().trim_end_matches('/');
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["submodule", "add", "--progress", "--", url];
+    if !path.is_empty() {
+        args.push(check_ref(path)?);
+    }
+    Ok(ok(&run(repo, &args, with_progress(progress)).await?))
+}
+
+/// Checks out the commit the repository records for one submodule (cloning it first if
+/// needed), and its own submodules.
+pub async fn submodule_update(
+    repo: &str,
+    path: &str,
+    progress: Option<&Progress>,
+) -> Result<OpResult> {
+    safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let args = [
+        "submodule",
+        "update",
+        "--init",
+        "--recursive",
+        "--progress",
+        "--",
+        path,
+    ];
+    Ok(ok(&run(repo, &args, with_progress(progress)).await?))
+}
+
+/// Removes a submodule: its files and its entry in `.gitmodules`, staged for the next commit.
+/// Refused while it has changes of its own, untracked and ignored files included, which would
+/// be lost.
+pub async fn submodule_remove(repo: &str, path: &str) -> Result<OpResult> {
+    let inside = safe_path(repo, path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    if inside.join(".git").exists() {
+        let sub = inside.to_string_lossy().into_owned();
+        let changes = git(
+            &sub,
+            &[
+                "status",
+                "--porcelain",
+                "--untracked-files=all",
+                "--ignored",
+            ],
+        )
+        .await?;
+        if !changes.out().trim().is_empty() {
+            return invalid(format!(
+                "{path} has changes of its own (or files git ignores there); commit, push or move them first"
+            ));
+        }
+    }
+    git(repo, &["submodule", "deinit", "-f", "--", path]).await?;
+    Ok(ok(&git(repo, &["rm", "-q", "-f", "--", path]).await?))
+}
+
+/// Sets Git LFS up for this repository only: its filters and its hooks.
+pub async fn lfs_install(repo: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["lfs", "install", "--local"]).await?))
+}
+
+/// Stores files matching these patterns in LFS from now on (written to `.gitattributes`).
+/// `lockable` files are checked out read-only until someone locks them.
+pub async fn lfs_track(repo: &str, patterns: &[String], lockable: bool) -> Result<OpResult> {
+    let patterns: Vec<&str> = patterns
+        .iter()
+        .map(|pattern| pattern.trim())
+        .filter(|pattern| !pattern.is_empty())
+        .collect();
+    if patterns.is_empty() {
+        return Err(Error::Validation("Enter a pattern, such as *.psd".into()));
+    }
+    for pattern in &patterns {
+        check_ref(pattern)?;
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["lfs", "track"];
+    if lockable {
+        args.push("--lockable");
+    }
+    args.extend(patterns);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Stops storing new versions of files matching `pattern` in LFS. Files already stored there
+/// stay there.
+pub async fn lfs_untrack(repo: &str, pattern: &str) -> Result<OpResult> {
+    let pattern = check_ref(pattern.trim())?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["lfs", "untrack", pattern]).await?))
+}
+
+/// Downloads the LFS files of the current commit and puts them in the working tree.
+pub async fn lfs_pull(repo: &str, progress: Option<&Progress>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(
+        &run(repo, &["lfs", "pull"], with_progress(progress)).await?
+    ))
+}
+
+/// Locks a file on the LFS server, so nobody else pushes changes to it.
+pub async fn lfs_lock(repo: &str, path: &str) -> Result<OpResult> {
+    safe_path(repo, path)?;
+    let path = check_ref(path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["lfs", "lock", path]).await?))
+}
+
+/// Gives up a lock, by its path or (for a file not checked out here) its id. `force` also
+/// removes someone else's lock, where the server allows it.
+pub async fn lfs_unlock(repo: &str, path: &str, id: Option<&str>, force: bool) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let id_arg;
+    let mut args = vec!["lfs", "unlock"];
+    if force {
+        args.push("--force");
+    }
+    match id.filter(|id| !id.is_empty()) {
+        Some(id) => {
+            id_arg = format!("--id={}", check_ref(id)?);
+            args.push(&id_arg);
+        }
+        None => {
+            safe_path(repo, path)?;
+            args.push(check_ref(path)?);
+        }
+    }
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Refuses a checkout of `targets` that would leave LFS pointer files where the real files
+/// belong: one of them stores files in LFS (by any `.gitattributes` in its tree, nested ones
+/// too), and git-lfs isn't installed.
+async fn check_lfs_for(repo: &str, targets: &[&str]) -> Result<()> {
+    if git_unchecked(repo, &["lfs", "version"]).await?.code == 0 {
+        return Ok(());
+    }
+    for target in targets {
+        let found = git_unchecked(
+            repo,
+            &[
+                "grep",
+                "-h",
+                "-I",
+                "-e",
+                "filter=lfs",
+                check_ref(target)?,
+                "--",
+                ":(glob)**/.gitattributes",
+            ],
+        )
+        .await?;
+        if found.code == 0 && parsers::attributes_use_lfs(&found.out()) {
+            return invalid(format!(
+                "{target} stores files in Git LFS, which isn't installed. Install git-lfs first, or the checkout would hold placeholder files instead of them."
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub async fn update_submodules(repo: &str, progress: Option<&Progress>) -> Result<OpResult> {

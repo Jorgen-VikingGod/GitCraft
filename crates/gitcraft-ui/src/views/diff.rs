@@ -10,8 +10,8 @@ use egui::{
 use gitcraft_core::model::{DiffLine, FileDiff};
 
 use super::widgets::{
-    accent, bar, danger, fill, hline, paint_text, placeholder, region, scroll, segmented, split_x,
-    text, warning,
+    accent, bar, btn, danger, fill, hline, paint_text, placeholder, region, scroll, segmented,
+    split_x, text, warning,
 };
 use super::{Cx, icon};
 use crate::app::{DIFF_ROW_HEIGHT, DiffPane, DiffRow, Message, PaneKey};
@@ -298,8 +298,57 @@ impl Lines<'_> {
             hunk.old_start, hunk.old_lines, hunk.new_start, hunk.new_lines
         );
         let mid = rect.center().y;
-        let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+        let count = self.pane.selected_in(index).len();
+        let lines = plural(count, "line");
+        let name = |verb: &str| match (verb, count > 0) {
+            ("Stage", true) => trf("Stage {lines}", &[("lines", &lines)]),
+            ("Discard", true) => trf("Discard {lines}", &[("lines", &lines)]),
+            ("Stash", true) => trf("Stash {lines}", &[("lines", &lines)]),
+            ("Revert", true) => trf("Revert {lines}", &[("lines", &lines)]),
+            (_, true) => trf("Unstage {lines}", &[("lines", &lines)]),
+            ("Stage", false) => tr("Stage hunk").to_owned(),
+            ("Discard", false) => tr("Discard hunk").to_owned(),
+            ("Stash", false) => tr("Stash hunk").to_owned(),
+            ("Revert", false) => tr("Revert hunk").to_owned(),
+            (_, false) => tr("Unstage hunk").to_owned(),
+        };
+        // The buttons first: the title then stops where they start, rather than showing
+        // through the gaps between them.
+        let mut title_right = rect.right();
+        if let Some(mode) = stage_mode.filter(|_| show_buttons) {
+            let slot = Rect::from_min_max(
+                Pos2::new((visible_right - 560.0).max(rect.left()), rect.top() + 4.0),
+                Pos2::new(visible_right - 10.0, rect.bottom() - 4.0),
+            );
+            title_right = region(ui, slot, |ui| {
+                ui.spacing_mut().item_spacing.x = 6.0;
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if mode == "stage" {
+                        if accent(ui, look, &name("Stage"), true) {
+                            self.cx.send(Message::HunkAction(index, "stage"));
+                        }
+                        if danger(ui, look, &name("Discard"), true) {
+                            self.cx.send(Message::HunkAction(index, "discard"));
+                        }
+                        if btn(ui, look, &name("Stash"), true) {
+                            self.cx.send(Message::HunkAction(index, "stash"));
+                        }
+                    } else if mode == "revert" {
+                        if warning(ui, look, &name("Revert"), true) {
+                            self.cx.send(Message::HunkRevert(index));
+                        }
+                    } else if warning(ui, look, &name("Unstage"), true) {
+                        self.cx.send(Message::HunkAction(index, "unstage"));
+                    }
+                    // Right to left: the cursor is just left of the last button.
+                    ui.cursor().max.x - 2.0
+                })
+                .inner
+            });
+        }
         if show_title {
+            let clip = Rect::from_min_max(rect.min, Pos2::new(title_right, rect.max.y));
+            let painter = ui.painter().with_clip_rect(clip.intersect(ui.clip_rect()));
             let mut x = rect.left() + 10.0;
             x += paint_text(
                 &painter,
@@ -316,39 +365,6 @@ impl Lines<'_> {
                 c.text,
             );
         }
-
-        let count = self.pane.selected_in(index).len();
-        let lines = plural(count, "line");
-        let name = |verb: &str| match (verb, count > 0) {
-            ("Stage", true) => trf("Stage {lines}", &[("lines", &lines)]),
-            ("Discard", true) => trf("Discard {lines}", &[("lines", &lines)]),
-            (_, true) => trf("Unstage {lines}", &[("lines", &lines)]),
-            ("Stage", false) => tr("Stage hunk").to_owned(),
-            ("Discard", false) => tr("Discard hunk").to_owned(),
-            (_, false) => tr("Unstage hunk").to_owned(),
-        };
-        let Some(mode) = stage_mode.filter(|_| show_buttons) else {
-            return;
-        };
-        let slot = Rect::from_min_max(
-            Pos2::new((visible_right - 420.0).max(rect.left()), rect.top() + 4.0),
-            Pos2::new(visible_right - 10.0, rect.bottom() - 4.0),
-        );
-        region(ui, slot, |ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if mode == "stage" {
-                    if accent(ui, look, &name("Stage"), true) {
-                        self.cx.send(Message::HunkAction(index, "stage"));
-                    }
-                    if danger(ui, look, &name("Discard"), true) {
-                        self.cx.send(Message::HunkAction(index, "discard"));
-                    }
-                } else if warning(ui, look, &name("Unstage"), true) {
-                    self.cx.send(Message::HunkAction(index, "unstage"));
-                }
-            });
-        });
     }
 }
 
@@ -415,13 +431,22 @@ pub fn view(
     }
 
     // Line staging can't work while the diff ignores whitespace: it wouldn't match the file.
+    // A commit's lines are only taken back for a file it modified.
+    let revert = stage_mode == Some("revert");
+    let stage_mode = stage_mode.filter(|_| !revert || diff.status == "M");
     let selectable =
         stage_mode.is_some() && !cx.app.settings.diff.ignore_whitespace && diff.status != "?";
     let shown_mode = stage_mode.filter(|_| selectable);
-    let note = if selectable {
+    let note = if selectable && stage_mode == Some("revert") {
+        Some(tr(
+            "Click lines to select them (Shift+click for a range), then revert just those lines in the working tree.",
+        ))
+    } else if selectable {
         Some(tr(
             "Click lines to select them (Shift+click for a range), then stage or discard just those lines.",
         ))
+    } else if revert {
+        stage_mode.map(|_| tr("Reverting lines is disabled while “Ignore whitespace” is on."))
     } else if stage_mode.is_some() {
         Some(if diff.status == "?" {
             tr("Untracked file: stage the whole file to include it.")

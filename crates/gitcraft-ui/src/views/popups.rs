@@ -162,6 +162,7 @@ fn form_field(ui: &mut Ui, cx: &Cx, index: usize, field: &crate::form::Field) {
 fn entries(ui: &mut Ui, cx: &Cx, items: &[MenuItem]) {
     let c = cx.c();
     ui.set_min_width(MENU_MIN_WIDTH);
+    ui.spacing_mut().item_spacing.y = crate::theme::DROPDOWN_GAP;
     for item in items {
         match item {
             MenuItem::Separator => {

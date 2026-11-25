@@ -148,6 +148,46 @@ pub fn paint_text(painter: &Painter, at: Pos2, content: &str, font: FontId, colo
         .width()
 }
 
+/// Lines of code as they are, indentation included: one painted line each (as the diff draws
+/// them), never wrapped; a line too long for the width scrolls sideways.
+pub fn code_block(
+    ui: &mut Ui,
+    look: &Look,
+    id: impl std::hash::Hash + std::fmt::Debug,
+    lines: &[String],
+    color: Color32,
+) {
+    let font = look.mono(12.5);
+    let row = (font.size * 1.45).round();
+    let shown: Vec<String> = lines
+        .iter()
+        .map(|line| line.replace('\t', "    "))
+        .collect();
+    egui::ScrollArea::horizontal()
+        .id_salt(id)
+        .auto_shrink([false, true])
+        .show(ui, |ui| {
+            let widest = shown
+                .iter()
+                .map(|line| text_width(ui, line, &font))
+                .fold(0.0, f32::max);
+            let size = vec2(
+                widest.max(ui.available_width()),
+                row * shown.len().max(1) as f32,
+            );
+            let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+            for (index, line) in shown.iter().enumerate() {
+                paint_text(
+                    ui.painter(),
+                    Pos2::new(rect.left(), rect.top() + row * (index as f32 + 0.5)),
+                    line,
+                    font.clone(),
+                    color,
+                );
+            }
+        });
+}
+
 // ----------------------------------------------------------------- buttons
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -181,7 +221,9 @@ fn brighter(color: Color32) -> Color32 {
 /// The standard small button, drawn by egui so that it reacts like every other widget.
 /// True when it was clicked.
 pub fn button(ui: &mut Ui, look: &Look, label: &str, kind: Kind, enabled: bool) -> bool {
-    enabled && button_response(ui, look, label, kind, enabled).clicked()
+    // Drawn either way: a button that is off shows faded rather than vanishing.
+    let response = button_response(ui, look, label, kind, enabled);
+    enabled && response.clicked()
 }
 
 /// A [`button`] that says what it does when the pointer rests on it, also while it is off.
@@ -481,6 +523,7 @@ pub fn choice(
         .selected_text(shown)
         .width(width)
         .show_ui(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = crate::theme::DROPDOWN_GAP;
             for (candidate, label) in options {
                 if ui.selectable_label(candidate == value, label).clicked() {
                     chosen = Some(candidate.clone());
@@ -704,16 +747,6 @@ pub fn paint_strong(painter: &Painter, at: Pos2, content: &str, font: FontId, co
         font,
         color,
     );
-}
-
-/// Lays `add` out in the middle of `rect`, as wide as it needs to be.
-pub fn centered<R>(ui: &mut Ui, rect: Rect, height: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
-    let inner =
-        Rect::from_center_size(rect.center(), vec2(rect.width(), height.min(rect.height())));
-    region(ui, inner, |ui| {
-        ui.with_layout(egui::Layout::top_down(egui::Align::Center), add)
-            .inner
-    })
 }
 
 /// How far a list row's hover or selection fill stays inside the row, above and below, so that

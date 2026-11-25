@@ -27,7 +27,12 @@ pub fn forward_to_running(repo: Option<&str>) -> bool {
         return false;
     };
     let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
-    let path = repo.map(gitcraft_core::paths::expand).unwrap_or_default();
+    // A link goes over as it is; a path is made absolute, since the other instance runs elsewhere.
+    let path = match repo {
+        Some(link) if link.starts_with("gitcraft://") => link.to_owned(),
+        Some(path) => gitcraft_core::paths::expand(path),
+        None => String::new(),
+    };
     if stream
         .write_all(format!("{GREETING}{path}").as_bytes())
         .is_err()

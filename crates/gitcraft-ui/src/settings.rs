@@ -20,8 +20,127 @@ pub struct Settings {
     pub history: History,
     pub pull: Pull,
     pub rebase: Rebase,
+    pub commit: Commit,
+    pub graph: Graph,
+    pub columns: Columns,
     pub layout: Layout,
     pub session: Session,
+    pub shortcuts: Shortcuts,
+}
+
+/// The keys the user gave commands, by command id (see `logic::SHORTCUTS`): an empty list
+/// clears a command's keys; commands not listed keep their defaults.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Shortcuts {
+    #[serde(with = "listed_keys")]
+    pub keys: std::collections::BTreeMap<String, Vec<String>>,
+}
+
+// craft-settings merges a table with what the file holds key by key, so a key taken out of a map
+// (a shortcut reset, a repository's last hidden branch shown again) would stay in the file. Arrays
+// are replaced whole: these maps are written as arrays of entries, and read in either form.
+
+/// `[[shortcuts.keys]]` entries: `command` and its `keys`.
+mod listed_keys {
+    use std::collections::BTreeMap;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Entry {
+        command: String,
+        #[serde(default)]
+        keys: Vec<String>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Stored {
+        List(Vec<Entry>),
+        Map(BTreeMap<String, Vec<String>>),
+    }
+
+    pub fn serialize<S: Serializer>(
+        map: &BTreeMap<String, Vec<String>>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        map.iter()
+            .map(|(command, keys)| Entry {
+                command: command.clone(),
+                keys: keys.clone(),
+            })
+            .collect::<Vec<_>>()
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<BTreeMap<String, Vec<String>>, D::Error> {
+        Ok(match Stored::deserialize(deserializer)? {
+            Stored::List(entries) => entries
+                .into_iter()
+                .map(|entry| (entry.command, entry.keys))
+                .collect(),
+            Stored::Map(map) => map,
+        })
+    }
+}
+
+/// `[[graph.views]]` entries: the `repo` and its `hidden` and `solo` branches.
+mod listed_views {
+    use std::collections::BTreeMap;
+
+    use gitcraft_core::model::RefView;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Entry {
+        repo: String,
+        #[serde(default)]
+        hidden: Vec<String>,
+        #[serde(default)]
+        solo: Vec<String>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Stored {
+        List(Vec<Entry>),
+        Map(BTreeMap<String, RefView>),
+    }
+
+    pub fn serialize<S: Serializer>(
+        map: &BTreeMap<String, RefView>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        map.iter()
+            .map(|(repo, view)| Entry {
+                repo: repo.clone(),
+                hidden: view.hidden.clone(),
+                solo: view.solo.clone(),
+            })
+            .collect::<Vec<_>>()
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<BTreeMap<String, RefView>, D::Error> {
+        Ok(match Stored::deserialize(deserializer)? {
+            Stored::List(entries) => entries
+                .into_iter()
+                .map(|entry| {
+                    let view = RefView {
+                        hidden: entry.hidden,
+                        solo: entry.solo,
+                    };
+                    (entry.repo, view)
+                })
+                .collect(),
+            Stored::Map(map) => map,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,12 +148,15 @@ pub struct Settings {
 pub struct General {
     /// A language code such as `de`, or `auto` for the system's language.
     pub language: String,
+    /// The git program to run; empty finds `git` on PATH.
+    pub git_program: String,
 }
 
 impl Default for General {
     fn default() -> Self {
         Self {
             language: crate::i18n::AUTO.to_owned(),
+            git_program: String::new(),
         }
     }
 }
@@ -87,6 +209,14 @@ pub struct History {
     pub fetch_on_open: bool,
     /// Keep a commit-graph file in the repository, which makes history load far faster.
     pub commit_graph: bool,
+    /// Merge and rebase dialogs say beforehand which files would conflict.
+    pub conflict_check: bool,
+    /// The history by commit date instead of keeping each branch's commits together.
+    pub date_order: bool,
+    /// Stashes as rows in the history, above the commit each was made on.
+    pub show_stashes: bool,
+    /// Fetches every remote in the background this often; 0 never does.
+    pub auto_fetch_minutes: u32,
 }
 
 impl Default for History {
@@ -95,6 +225,10 @@ impl Default for History {
             log_limit: 2000,
             fetch_on_open: false,
             commit_graph: true,
+            conflict_check: true,
+            date_order: false,
+            show_stashes: true,
+            auto_fetch_minutes: 0,
         }
     }
 }
@@ -116,6 +250,52 @@ impl Default for Pull {
             backup: true,
         }
     }
+}
+
+/// The history list's columns: which show, and how wide the resizable ones are.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Columns {
+    pub author: bool,
+    pub date: bool,
+    pub sha: bool,
+    /// Files and lines each commit changed.
+    pub changes: bool,
+    pub author_width: f32,
+    pub date_width: f32,
+}
+
+impl Default for Columns {
+    fn default() -> Self {
+        Self {
+            author: true,
+            date: true,
+            sha: true,
+            changes: false,
+            author_width: 150.0,
+            date_width: 120.0,
+        }
+    }
+}
+
+/// Branches hidden from or soloed in the graph, by repository path.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Graph {
+    #[serde(with = "listed_views")]
+    pub views: std::collections::BTreeMap<String, gitcraft_core::model::RefView>,
+}
+
+/// The commit box's options, remembered for the next commit.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Commit {
+    /// `--signoff`.
+    pub sign_off: bool,
+    /// `--no-verify`.
+    pub skip_hooks: bool,
+    /// Pushes the branch to its upstream once the commit is made.
+    pub push_after: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -227,6 +407,10 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
     let old: OldSettings = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
     Ok(Settings {
         general: General::default(),
+        commit: Commit::default(),
+        graph: Graph::default(),
+        columns: Columns::default(),
+        shortcuts: Shortcuts::default(),
         appearance: Appearance {
             theme: old.theme,
             zoom: old.zoom,
@@ -242,6 +426,7 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
             log_limit: old.log_limit,
             fetch_on_open: old.fetch_on_open,
             commit_graph: old.commit_graph,
+            ..History::default()
         },
         pull: Pull {
             mode: old.pull_mode,
@@ -334,6 +519,55 @@ mod tests {
         assert_eq!(Settings::load(dir.path()), changed);
         std::fs::write(dir.path().join("config.toml"), "not = [toml").unwrap();
         assert_eq!(Settings::load(dir.path()), Settings::default());
+    }
+
+    #[test]
+    fn a_hidden_branch_shown_again_and_a_reset_shortcut_stay_so_on_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut settings = Settings::default();
+        settings.graph.views.insert(
+            "/repo".into(),
+            gitcraft_core::model::RefView {
+                hidden: vec!["refs/heads/main".into()],
+                solo: Vec::new(),
+            },
+        );
+        settings
+            .shortcuts
+            .keys
+            .insert("search".into(), vec!["Cmd+K".into()]);
+        settings.save(dir.path()).unwrap();
+        assert_eq!(Settings::load(dir.path()), settings);
+        // Shown again and reset: the file must lose them, not keep what it had.
+        settings.graph.views.clear();
+        settings.shortcuts.keys.clear();
+        settings.save(dir.path()).unwrap();
+        let loaded = Settings::load(dir.path());
+        assert!(loaded.graph.views.is_empty(), "{:?}", loaded.graph.views);
+        assert!(
+            loaded.shortcuts.keys.is_empty(),
+            "{:?}",
+            loaded.shortcuts.keys
+        );
+    }
+
+    #[test]
+    fn flags_and_keys_saved_as_tables_by_an_earlier_build_are_still_read() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("config.toml"),
+            "[graph.views.\"/repo\"]\nhidden = [\"refs/heads/main\"]\nsolo = []\n\n\
+             [shortcuts.keys]\nsearch = [\"Cmd+K\"]\n",
+        )
+        .unwrap();
+        let loaded = Settings::load(dir.path());
+        assert_eq!(loaded.graph.views["/repo"].hidden, ["refs/heads/main"]);
+        assert_eq!(loaded.shortcuts.keys["search"], ["Cmd+K"]);
+        // Saved again as entries, and then they can be taken out.
+        let mut settings = loaded;
+        settings.graph.views.clear();
+        settings.save(dir.path()).unwrap();
+        assert!(Settings::load(dir.path()).graph.views.is_empty());
     }
 
     #[test]

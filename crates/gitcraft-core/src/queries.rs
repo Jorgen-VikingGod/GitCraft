@@ -7,7 +7,7 @@ use crate::model::*;
 use crate::parsers::{
     self, DETAIL_FORMAT, LOG_FORMAT, REF_FORMAT, REFLOG_FORMAT, RS, STASH_FORMAT,
 };
-use crate::runner::{Options, git, git_unchecked, run};
+use crate::runner::{Options, git, git_unchecked, run, run_unchecked};
 use crate::{Error, Result, check_ref, paths};
 
 pub async fn toplevel(path: &str) -> Result<String> {
@@ -28,6 +28,273 @@ pub async fn common_dir(repo: &str) -> Result<PathBuf> {
     )
     .await?;
     Ok(PathBuf::from(result.out().trim()))
+}
+
+/// How much each of the given commits changed, in one run of git.
+pub async fn commit_stats(repo: &str, shas: &[String]) -> Result<Vec<(String, CommitStats)>> {
+    if shas.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut input = String::new();
+    for sha in shas {
+        input.push_str(check_ref(sha)?);
+        input.push('\n');
+    }
+    let result = run(
+        repo,
+        &[
+            "log",
+            "--stdin",
+            "--no-walk=unsorted",
+            "--format=%x1e%H",
+            "--shortstat",
+            "--diff-merges=first-parent",
+            "--no-ext-diff",
+            "--no-textconv",
+        ],
+        Options {
+            stdin: Some(input.as_bytes()),
+            ..Options::default()
+        },
+    )
+    .await?;
+    Ok(parsers::parse_shortstats(&result.out()))
+}
+
+/// The branch others are merged into: `origin`'s HEAD, else `init.defaultBranch`,
+/// else `main` or `master`, whichever exists.
+pub async fn default_branch(repo: &str) -> Result<Option<String>> {
+    let head = git_unchecked(
+        repo,
+        &["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
+    )
+    .await?;
+    if head.code == 0 {
+        return Ok(Some(head.out().trim().to_owned()));
+    }
+    let configured = git_unchecked(repo, &["config", "--get", "init.defaultBranch"]).await?;
+    let mut names: Vec<String> = Vec::new();
+    if configured.code == 0 {
+        names.push(configured.out().trim().to_owned());
+    }
+    names.extend(["main".to_owned(), "master".to_owned()]);
+    for name in names {
+        let spec = format!("refs/heads/{name}");
+        if git_unchecked(repo, &["rev-parse", "--verify", "-q", &spec])
+            .await?
+            .code
+            == 0
+        {
+            return Ok(Some(name));
+        }
+    }
+    Ok(None)
+}
+
+/// Local branches that look done with: merged into the default branch, squash- or
+/// rebase-merged into it (all their changes are there already), or with a deleted upstream.
+/// The current branch, the default branch and branches checked out in a worktree are left
+/// out. `None` when there is no default branch to compare with.
+pub async fn branch_cleanup(repo: &str) -> Result<Option<Vec<CleanupCandidate>>> {
+    let Some(default) = default_branch(repo).await? else {
+        return Ok(None);
+    };
+    let format = "--format=%(refname:short)%00%(objectname)%00%(upstream:short)%00%(upstream:track)%00%(committerdate:unix)";
+    let all = git(repo, &["for-each-ref", format, "refs/heads/"]).await?;
+    let merged = git(
+        repo,
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "--merged",
+            &default,
+            "refs/heads/",
+        ],
+    )
+    .await?;
+    let merged: Vec<String> = merged.out().lines().map(str::to_owned).collect();
+    let current = git_unchecked(repo, &["symbolic-ref", "--short", "-q", "HEAD"]).await?;
+    let current = current.out().trim().to_owned();
+    let checked_out: Vec<String> = refs(repo)
+        .await?
+        .worktrees
+        .into_iter()
+        .filter_map(|tree| tree.branch)
+        .collect();
+    let default_local = default
+        .split_once('/')
+        .map_or(default.as_str(), |(_, name)| name)
+        .to_owned();
+    let mut found = Vec::new();
+    for line in all.out().lines() {
+        let fields: Vec<&str> = line.split('\0').collect();
+        let [name, sha, upstream, track, time, ..] = fields[..] else {
+            continue;
+        };
+        if name == current
+            || name == default
+            || name == default_local
+            || checked_out.iter().any(|b| b == name)
+        {
+            continue;
+        }
+        let gone = track.contains("gone");
+        let reason = if merged.iter().any(|m| m == name) {
+            "merged"
+        } else if squashed(repo, &default, name).await? {
+            "squashed"
+        } else if gone {
+            "gone"
+        } else {
+            continue;
+        };
+        found.push(CleanupCandidate {
+            name: name.to_owned(),
+            sha: sha.to_owned(),
+            reason: reason.to_owned(),
+            upstream: (!upstream.is_empty() && !gone).then(|| upstream.to_owned()),
+            time: time.parse().unwrap_or(0),
+        });
+    }
+    Ok(Some(found))
+}
+
+/// Whether all of `branch`'s changes are on `target` already as other commits: each of its
+/// commits rebased there (`git cherry`), or all of them squashed into one there (the same
+/// patch id as the branch's whole diff).
+async fn squashed(repo: &str, target: &str, branch: &str) -> Result<bool> {
+    let cherry = git_unchecked(repo, &["cherry", target, branch]).await?;
+    let lines: Vec<String> = cherry.out().lines().map(str::to_owned).collect();
+    if cherry.code == 0 && !lines.is_empty() && lines.iter().all(|line| line.starts_with('-')) {
+        return Ok(true);
+    }
+    let base = git_unchecked(repo, &["merge-base", target, branch]).await?;
+    if base.code != 0 {
+        return Ok(false);
+    }
+    let base = base.out().trim().to_owned();
+    let patch_id = |patch: Vec<u8>| async move {
+        let result = run(
+            repo,
+            &["patch-id", "--stable"],
+            Options {
+                stdin: Some(&patch),
+                ..Options::default()
+            },
+        )
+        .await?;
+        Ok::<Vec<String>, Error>(
+            result
+                .out()
+                .lines()
+                .filter_map(|line| line.split_whitespace().next().map(str::to_owned))
+                .collect(),
+        )
+    };
+    let whole = git(
+        repo,
+        &["diff", "--no-ext-diff", "--no-textconv", &base, branch],
+    )
+    .await?;
+    let Some(wanted) = patch_id(whole.stdout).await?.into_iter().next() else {
+        return Ok(false);
+    };
+    let range = format!("{base}..{target}");
+    let there = git(
+        repo,
+        &[
+            "log",
+            "-p",
+            "--no-merges",
+            "--max-count=500",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--format=commit %H",
+            &range,
+        ],
+    )
+    .await?;
+    Ok(patch_id(there.stdout).await?.contains(&wanted))
+}
+
+/// The sparse checkout's patterns; `None` when every file is checked out.
+pub async fn sparse_patterns(repo: &str) -> Result<Option<Vec<String>>> {
+    let on = git_unchecked(repo, &["config", "--bool", "--get", "core.sparseCheckout"]).await?;
+    if on.out().trim() != "true" {
+        return Ok(None);
+    }
+    let listed = git_unchecked(repo, &["sparse-checkout", "list"]).await?;
+    Ok(Some(
+        listed
+            .out()
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_owned)
+            .collect(),
+    ))
+}
+
+/// The git settings GitCraft lets the user change.
+pub const CONFIG_KEYS: [&str; 11] = [
+    "user.name",
+    "user.email",
+    "commit.gpgsign",
+    "tag.gpgsign",
+    "gpg.format",
+    "user.signingkey",
+    "gpg.ssh.allowedsignersfile",
+    "core.autocrlf",
+    "init.defaultbranch",
+    "rerere.enabled",
+    "core.hookspath",
+];
+
+/// Those of [`CONFIG_KEYS`] that are set, everywhere (`--global`, when `repo` is `None`) or
+/// in one repository only (`--local`). Keys come back in lower case, as git spells them.
+pub async fn git_config(repo: Option<&str>) -> Result<std::collections::BTreeMap<String, String>> {
+    let home = crate::store::home_dir().to_string_lossy().into_owned();
+    let (cwd, scope) = match repo {
+        Some(repo) => (repo.to_owned(), "--local"),
+        None => (home, "--global"),
+    };
+    // Exit code 1 only means there is no such file yet.
+    let result = git_unchecked(&cwd, &["config", scope, "--list", "-z"]).await?;
+    let mut found = std::collections::BTreeMap::new();
+    for entry in result.out().split('\0').filter(|entry| !entry.is_empty()) {
+        let (key, value) = entry.split_once('\n').unwrap_or((entry, ""));
+        let key = key.to_lowercase();
+        if CONFIG_KEYS.contains(&key.as_str()) {
+            found.insert(key, value.to_owned());
+        }
+    }
+    Ok(found)
+}
+
+/// The bisect in progress, if any.
+pub async fn bisect_state(repo: &str) -> Result<Option<Bisect>> {
+    let log = git_dir(repo).await?.join("BISECT_LOG");
+    Ok(std::fs::read_to_string(log)
+        .ok()
+        .map(|text| parsers::parse_bisect_log(&text)))
+}
+
+/// The commit `branch` points at on `remote` right now (asks the remote), if it exists there.
+pub async fn remote_branch_sha(repo: &str, remote: &str, branch: &str) -> Result<Option<String>> {
+    let name = format!("refs/heads/{}", check_ref(branch)?);
+    let result = git(repo, &["ls-remote", "--refs", check_ref(remote)?, &name]).await?;
+    Ok(result
+        .out()
+        .lines()
+        .find(|line| line.ends_with(&name))
+        .and_then(|line| line.split_whitespace().next())
+        .map(str::to_owned))
+}
+
+/// The commit HEAD points at, if there is one yet.
+pub async fn head_sha(repo: &str) -> Result<Option<String>> {
+    let result = git_unchecked(repo, &["rev-parse", "--verify", "-q", "HEAD"]).await?;
+    Ok((result.code == 0).then(|| result.out().trim().to_owned()))
 }
 
 pub async fn has_head(repo: &str) -> Result<bool> {
@@ -88,6 +355,7 @@ pub async fn operation_state(repo: &str) -> Result<Option<Operation>> {
             step: number(first_of("msgnum", "next")),
             total: number(first_of("end", "last")),
             stopped_sha: some(read("stopped-sha")),
+            editing: state.join("amend").exists(),
         }));
     }
     let first_line = |path: PathBuf| {
@@ -125,27 +393,144 @@ pub async fn operation_state(repo: &str) -> Result<Option<Operation>> {
     Ok(None)
 }
 
+/// Refs left out of "all branches": the stash, and GitCraft's own backups.
+const HIDDEN_REFS: [&str; 2] = ["--exclude=refs/stash", "--exclude=refs/gitcraft/*"];
+
+/// Backups of discarded changes, newest first.
+pub async fn discard_backups(repo: &str) -> Result<Vec<DiscardBackup>> {
+    crate::backups::list(repo).await
+}
+
 pub async fn log(
     repo: &str,
     limit: usize,
     all_refs: bool,
     reference: Option<&str>,
 ) -> Result<LogPage> {
+    log_filtered(
+        repo,
+        limit,
+        all_refs,
+        reference,
+        &LogFilter::default(),
+        &LogOptions::default(),
+    )
+    .await
+}
+
+/// The history, only with the commits `filter` lets through; for all branches, without the
+/// ones `view` hides (or only those it solos). Refs that no longer exist are ignored.
+pub async fn log_filtered(
+    repo: &str,
+    limit: usize,
+    all_refs: bool,
+    reference: Option<&str>,
+    filter: &LogFilter,
+    options: &LogOptions,
+) -> Result<LogPage> {
+    let view = &options.view;
+    let existing: Vec<String> = if all_refs && reference.is_none() && !view.is_empty() {
+        let listed = git(
+            repo,
+            &[
+                "for-each-ref",
+                "--format=%(refname)",
+                "refs/heads/",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+        .await?;
+        listed.out().lines().map(str::to_owned).collect()
+    } else {
+        Vec::new()
+    };
+    let solo: Vec<&str> = view
+        .solo
+        .iter()
+        .filter(|name| existing.contains(name))
+        .map(String::as_str)
+        .collect();
+    let excludes: Vec<String> = view
+        .hidden
+        .iter()
+        .filter(|name| existing.contains(name))
+        .map(|name| format!("--exclude={name}"))
+        .collect();
+    // The labels follow the refs in view: a hidden branch whose commits other branches still
+    // reach loses its label, and soloed branches show only theirs (and the tags).
+    let decorations: Vec<String> = if !all_refs || reference.is_some() {
+        Vec::new()
+    } else if !solo.is_empty() {
+        let mut kept: Vec<String> = solo
+            .iter()
+            .map(|name| format!("--decorate-refs={name}"))
+            .chain(["--decorate-refs=refs/tags/".to_owned()])
+            .collect();
+        // HEAD as well when its branch is soloed, or the current branch would lose its mark;
+        // otherwise HEAD alone would look detached.
+        let current = git_unchecked(repo, &["symbolic-ref", "-q", "HEAD"]).await?;
+        if solo.contains(&current.out().trim()) {
+            kept.push("--decorate-refs=HEAD".to_owned());
+        }
+        kept
+    } else {
+        view.hidden
+            .iter()
+            .filter(|name| existing.contains(name))
+            .map(|name| format!("--decorate-refs-exclude={name}"))
+            .collect()
+    };
     let max_count = format!("--max-count={}", limit + 1);
     let mut args = vec![
         "log",
-        "--topo-order",
+        if options.date_order {
+            "--date-order"
+        } else {
+            "--topo-order"
+        },
         "--decorate=full",
         LOG_FORMAT,
         &max_count,
     ];
+    args.extend(decorations.iter().map(String::as_str));
+    let author = format!("--author={}", filter.author.trim());
+    let text = format!("{}{}", if filter.regex { "-G" } else { "-S" }, filter.text);
+    let path = filter.path.trim().trim_start_matches("./");
+    if !filter.author.trim().is_empty() {
+        args.extend(["--regexp-ignore-case", "--fixed-strings", &author]);
+    }
+    if !filter.text.is_empty() {
+        args.push(&text);
+    }
+    if !path.is_empty() {
+        // Parents as the simplified history has them, so the graph joins up.
+        args.push("--parents");
+    }
     if let Some(reference) = reference {
         args.push(check_ref(reference)?);
+    } else if all_refs && !solo.is_empty() {
+        for name in &solo {
+            args.push(check_ref(name)?);
+        }
     } else if all_refs {
-        args.extend(["--exclude=refs/stash", "--all"]);
+        args.extend(excludes.iter().map(String::as_str));
+        args.extend(HIDDEN_REFS);
+        args.push("--all");
     }
     if reference.is_none() && !has_head(repo).await? {
-        let refs = git(repo, &["for-each-ref", "--count=1", "--format=%(refname)"]).await?;
+        let refs = git(
+            repo,
+            &[
+                "for-each-ref",
+                "--count=1",
+                "--format=%(refname)",
+                "refs/heads/",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+        .await?;
         if refs.out().trim().is_empty() {
             return Ok(LogPage {
                 commits: Vec::new(),
@@ -154,15 +539,46 @@ pub async fn log(
         }
     }
     args.push("--");
+    if !path.is_empty() {
+        paths::inside(repo, path)
+            .ok_or_else(|| Error::Validation(format!("Not inside the repository: {path}")))?;
+        args.push(path);
+    }
     let result = git(repo, &args).await?;
     let mut commits = parsers::parse_log(&result.out());
     let has_more = commits.len() > limit;
     commits.truncate(limit);
+    if options.stashes && all_refs && reference.is_none() && filter.is_empty() {
+        place_stashes(repo, &mut commits).await?;
+    }
     let mut layout = Layout::new();
     for commit in &mut commits {
         commit.graph = Some(layout.push(&commit.sha, &commit.parents));
     }
     Ok(LogPage { commits, has_more })
+}
+
+/// Puts each stash right above the commit it was made on, newest first, with that commit
+/// as its only parent. Stashes on commits beyond the loaded page are left out.
+async fn place_stashes(repo: &str, commits: &mut Vec<Commit>) -> Result<()> {
+    let listed = git_unchecked(repo, &["stash", "list", LOG_FORMAT]).await?;
+    if listed.code != 0 {
+        return Ok(());
+    }
+    for (index, mut stash) in parsers::parse_log(&listed.out()).into_iter().enumerate() {
+        let Some(base) = stash.parents.first().cloned() else {
+            continue;
+        };
+        let Some(at) = commits.iter().position(|commit| commit.sha == base) else {
+            continue;
+        };
+        stash.parents = vec![base];
+        stash.refs = None;
+        stash.stash = Some(format!("stash@{{{index}}}"));
+        // Right above the commit: an older stash on the same commit lands below the newer.
+        commits.insert(at, stash);
+    }
+    Ok(())
 }
 
 pub async fn commit_detail(repo: &str, sha: &str) -> Result<CommitDetail> {
@@ -181,6 +597,15 @@ pub async fn commit_detail(repo: &str, sha: &str) -> Result<CommitDetail> {
     let mut detail = parsers::parse_commit_detail(&result.out())
         .ok_or_else(|| Error::Invalid(format!("Could not read commit {sha}")))?;
     detail.files = commit_files(repo, &detail.sha, &detail.parents).await?;
+    // Only a signed commit makes git start gpg or ssh-keygen here.
+    let signature = git_unchecked(
+        repo,
+        &["log", "-1", "--format=%G?%x1f%GS%x1f%GK", &detail.sha, "--"],
+    )
+    .await?;
+    if signature.code == 0 {
+        detail.signature = parsers::parse_signature(&signature.out());
+    }
     Ok(detail)
 }
 
@@ -249,8 +674,61 @@ pub async fn range_diff(
     let flags = diff_flags(context, false);
     let mut args = vec!["diff"];
     args.extend(flags.iter().map(String::as_str));
+    if target == WORKTREE || base == WORKTREE {
+        let commit = check_ref(if target == WORKTREE { base } else { target })?;
+        if base == WORKTREE {
+            args.push("-R");
+        }
+        args.extend([commit, "--", path]);
+        let diff = diff_one(repo, &args).await?;
+        if diff.is_none() && target == WORKTREE {
+            // A new file git doesn't track yet.
+            return working_diff(repo, path, false, context, false, None).await;
+        }
+        return Ok(diff);
+    }
     args.extend([check_ref(base)?, check_ref(target)?, "--", path]);
     diff_one(repo, &args).await
+}
+
+async fn compare_worktree(repo: &str, base: &str, target: &str) -> Result<Comparison> {
+    let reverse = base == WORKTREE;
+    let commit = check_ref(if reverse { target } else { base })?;
+    let mut args = vec!["diff", "--name-status", "-z", "-M"];
+    if reverse {
+        args.push("-R");
+    }
+    args.extend([commit, "--"]);
+    let mut files = parsers::parse_name_status(&git(repo, &args).await?.out());
+    if !reverse {
+        let status = status(repo).await?;
+        files.extend(
+            status
+                .unstaged
+                .into_iter()
+                .filter(|entry| entry.status == "?")
+                .map(|entry| FileChange {
+                    status: "A".to_owned(),
+                    ..entry
+                }),
+        );
+    }
+    // The working tree sits on HEAD: count the commits between it and the commit.
+    let range = format!("{commit}...HEAD");
+    let counts = git_unchecked(repo, &["rev-list", "--left-right", "--count", &range]).await?;
+    let text = counts.out();
+    let mut numbers = text.split_whitespace().map(|n| n.parse().unwrap_or(0));
+    let (commit_only, head_only) = (numbers.next().unwrap_or(0), numbers.next().unwrap_or(0));
+    let (base_only, target_only) = if reverse {
+        (head_only, commit_only)
+    } else {
+        (commit_only, head_only)
+    };
+    Ok(Comparison {
+        files,
+        base_only,
+        target_only,
+    })
 }
 
 pub async fn status(repo: &str) -> Result<Status> {
@@ -267,7 +745,117 @@ pub async fn status(repo: &str) -> Result<Status> {
     .await?;
     let mut data = parsers::parse_status(&result.out());
     data.operation = operation_state(repo).await?;
+    if let Some(operation) = &data.operation {
+        data.sides = Some(operation_sides(repo, operation).await?);
+    }
     Ok(data)
+}
+
+/// The message git prepared for the merge in progress, without its `#` comment lines (the
+/// list of conflicts git adds); `None` when there is none.
+pub async fn merge_message(repo: &str) -> Result<Option<String>> {
+    let path = git_dir(repo).await?.join("MERGE_MSG");
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Ok(None);
+    };
+    let message = text
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let message = message.trim();
+    Ok((!message.is_empty()).then(|| message.to_owned()))
+}
+
+/// Who the two sides of `operation` are (see [`OperationSides`]).
+pub async fn operation_sides(repo: &str, operation: &Operation) -> Result<OperationSides> {
+    // A branch, remote branch or tag at `sha` (in that order), else its short sha.
+    let name_of = async |sha: &str| -> Result<String> {
+        let sha = check_ref(sha)?;
+        let named = git_unchecked(
+            repo,
+            &[
+                "for-each-ref",
+                "--format=%(refname)%00%(refname:short)",
+                &format!("--points-at={sha}"),
+                "refs/heads/",
+                "refs/remotes/",
+                "refs/tags/",
+            ],
+        )
+        .await?;
+        let out = named.out();
+        // A remote's HEAD (shortened to just "origin") only stands for its default branch.
+        let found = out.lines().find_map(|line| {
+            let (full, short) = line.split_once('\0')?;
+            (!full.ends_with("/HEAD")).then_some(short)
+        });
+        Ok(match found {
+            Some(name) => name.to_owned(),
+            None => sha.chars().take(7).collect(),
+        })
+    };
+    let commit = async |sha: &str| -> Result<String> {
+        let shown = git_unchecked(
+            repo,
+            &["log", "-1", "--format=%h %s", check_ref(sha)?, "--"],
+        )
+        .await?;
+        Ok(if shown.code == 0 {
+            shown.out().trim().to_owned()
+        } else {
+            sha.chars().take(7).collect()
+        })
+    };
+    let current = async || -> Result<String> {
+        let branch = git_unchecked(repo, &["symbolic-ref", "--short", "-q", "HEAD"]).await?;
+        if branch.code == 0 {
+            return Ok(branch.out().trim().to_owned());
+        }
+        let head = git_unchecked(repo, &["rev-parse", "--short", "HEAD"]).await?;
+        Ok(head.out().trim().to_owned())
+    };
+    Ok(match operation {
+        Operation::Merge { head } => OperationSides {
+            ours: current().await?,
+            theirs: name_of(head).await?,
+        },
+        Operation::Rebase {
+            onto, stopped_sha, ..
+        } => {
+            // The commit being replayed: where it stopped, or REBASE_HEAD on a conflict.
+            let replayed = match stopped_sha {
+                Some(sha) => Some(sha.clone()),
+                None => {
+                    let head = git_unchecked(repo, &["rev-parse", "-q", "--verify", "REBASE_HEAD"])
+                        .await?;
+                    (head.code == 0).then(|| head.out().trim().to_owned())
+                }
+            };
+            OperationSides {
+                ours: match onto {
+                    Some(onto) => name_of(onto).await?,
+                    None => current().await?,
+                },
+                theirs: match replayed {
+                    Some(sha) => commit(&sha).await?,
+                    None => String::new(),
+                },
+            }
+        }
+        Operation::CherryPick { head } | Operation::Revert { head } => OperationSides {
+            ours: current().await?,
+            theirs: if head.is_empty() {
+                String::new()
+            } else {
+                commit(head).await?
+            },
+        },
+        Operation::Am => OperationSides {
+            ours: current().await?,
+            theirs: String::new(),
+        },
+    })
 }
 
 pub async fn working_diff(
@@ -334,7 +922,113 @@ pub async fn refs(repo: &str) -> Result<Refs> {
     }
     let head = git_unchecked(repo, &["rev-parse", "HEAD"]).await?;
     data.head = (head.code == 0).then(|| head.out().trim().to_owned());
+    // Newer git marks a partial clone with remote.<name>.promisor, older with an extension.
+    let (shallow, partial, promisor) = tokio::join!(
+        git_unchecked(repo, &["rev-parse", "--is-shallow-repository"]),
+        git_unchecked(repo, &["config", "--get", "extensions.partialClone"]),
+        git_unchecked(repo, &["config", "--get-regexp", r"^remote\..*\.promisor$"]),
+    );
+    data.shallow = shallow?.out().trim() == "true";
+    data.partial =
+        partial?.code == 0 || promisor?.out().lines().any(|line| line.ends_with(" true"));
+    data.lfs = lfs(repo).await?;
     Ok(data)
+}
+
+/// Git LFS in this repository: whether it is set up here and the patterns it tracks; `None`
+/// when git-lfs isn't installed. Only reads: `git lfs track` would install LFS's hooks.
+pub async fn lfs(repo: &str) -> Result<Option<Lfs>> {
+    let (version, filter, hook, files) = tokio::join!(
+        git_unchecked(repo, &["lfs", "version"]),
+        git_unchecked(repo, &["config", "--get", "filter.lfs.process"]),
+        git_unchecked(repo, &["rev-parse", "--git-path", "hooks/pre-push"]),
+        git_unchecked(
+            repo,
+            &[
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                ":(glob)**/.gitattributes",
+            ],
+        ),
+    );
+    if version?.code != 0 {
+        return Ok(None);
+    }
+    // The pre-push hook is what sends the files to the LFS server; without it a push leaves
+    // them behind.
+    let hook = hook?.out().trim().to_owned();
+    let hook_path = Path::new(repo).join(&hook);
+    let hooked = std::fs::read_to_string(if Path::new(&hook).is_absolute() {
+        Path::new(&hook)
+    } else {
+        &hook_path
+    })
+    .is_ok_and(|text| text.contains("git lfs") || text.contains("git-lfs"));
+    let top = toplevel(repo).await?;
+    let mut sources: Vec<String> = files?
+        .out()
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(str::to_owned)
+        .collect();
+    sources.sort();
+    sources.dedup();
+    // The repository's own file first, then the folders' ones.
+    sources.sort_by_key(|path| path.contains('/'));
+    let mut patterns = Vec::new();
+    for source in sources {
+        if let Ok(text) = std::fs::read_to_string(Path::new(&top).join(&source)) {
+            patterns.extend(parsers::parse_lfs_attributes(&source, &text));
+        }
+    }
+    Ok(Some(Lfs {
+        installed: hooked && !filter?.out().trim().is_empty(),
+        patterns,
+    }))
+}
+
+/// The files locked on the repository's LFS server, yours marked. Asks the server, so it is
+/// stopped after 30 seconds.
+pub async fn lfs_locks(repo: &str) -> Result<Vec<LfsLock>> {
+    let options = || Options {
+        env: vec![
+            ("GCM_INTERACTIVE", "never".to_owned()),
+            ("SSH_ASKPASS_REQUIRE", "never".to_owned()),
+        ],
+        ..Options::default()
+    };
+    let ask = async |args: &[&str]| match tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        run_unchecked(repo, args, options()),
+    )
+    .await
+    {
+        Ok(result) => Ok(result?),
+        Err(_) => Err(Error::Invalid(
+            "The LFS server took too long to answer".to_owned(),
+        )),
+    };
+    let verified = ask(&["lfs", "locks", "--verify", "--json"]).await?;
+    let locks = parsers::parse_lfs_locks(&verified.out());
+    if verified.code == 0 && !locks.is_empty() {
+        return Ok(locks);
+    }
+    // Some servers can't say whose a lock is; they still list them.
+    let listed = parsers::parse_lfs_locks(&ask(&["lfs", "locks", "--json"]).await?.out());
+    if !listed.is_empty() {
+        return Ok(listed);
+    }
+    // With --json, git-lfs reports a server it couldn't reach as an empty list; the plain
+    // listing fails as it should.
+    let check = ask(&["lfs", "locks"]).await?;
+    if check.code != 0 {
+        return Err(Error::Invalid(check.output().trim().to_owned()));
+    }
+    Ok(Vec::new())
 }
 
 pub async fn stash_files(repo: &str, name: &str) -> Result<Vec<FileChange>> {
@@ -401,14 +1095,9 @@ pub async fn search(repo: &str, query: &str, mode: &str, limit: usize) -> Result
         return Ok(parsers::parse_log(&result.out()));
     }
     let max_count = format!("--max-count={limit}");
-    let mut args = vec![
-        "log",
-        "--decorate=full",
-        LOG_FORMAT,
-        &max_count,
-        "--exclude=refs/stash",
-        "--all",
-    ];
+    let mut args = vec!["log", "--decorate=full", LOG_FORMAT, &max_count];
+    args.extend(HIDDEN_REFS);
+    args.push("--all");
     let filter;
     match mode {
         "author" => {
@@ -465,13 +1154,45 @@ pub async fn file_history(repo: &str, path: &str, limit: usize) -> Result<Vec<Co
 }
 
 pub async fn blame(repo: &str, path: &str, rev: Option<&str>) -> Result<Vec<BlameLine>> {
+    Ok(blame_with(repo, path, rev, false).await?.0)
+}
+
+/// The list of commits blame can skip (formatting changes and the like), by convention.
+pub const BLAME_IGNORE_FILE: &str = ".git-blame-ignore-revs";
+
+/// Whether the repository has a [`BLAME_IGNORE_FILE`].
+pub async fn has_blame_ignore_file(repo: &str) -> Result<bool> {
+    Ok(Path::new(&toplevel(repo).await?)
+        .join(BLAME_IGNORE_FILE)
+        .is_file())
+}
+
+/// Blame, skipping the commits in [`BLAME_IGNORE_FILE`] when `ignore_revs` is set and the
+/// file is there. The flag returned says whether they were skipped: a file git can't read
+/// falls back to plain blame rather than failing.
+pub async fn blame_with(
+    repo: &str,
+    path: &str,
+    rev: Option<&str>,
+    ignore_revs: bool,
+) -> Result<(Vec<BlameLine>, bool)> {
     let mut args = vec!["blame", "--porcelain"];
     if let Some(rev) = rev {
         args.push(check_ref(rev)?);
     }
     args.extend(["--", path]);
+    if ignore_revs && has_blame_ignore_file(repo).await? {
+        let file = Path::new(&toplevel(repo).await?).join(BLAME_IGNORE_FILE);
+        let flag = format!("--ignore-revs-file={}", file.to_string_lossy());
+        let mut ignoring = vec!["blame", "--porcelain", &flag];
+        ignoring.extend(&args[2..]);
+        let result = git_unchecked(repo, &ignoring).await?;
+        if result.code == 0 {
+            return Ok((parsers::parse_blame(&result.out()), true));
+        }
+    }
     let result = git(repo, &args).await?;
-    Ok(parsers::parse_blame(&result.out()))
+    Ok((parsers::parse_blame(&result.out()), false))
 }
 
 /// The diff tools (`merge`: the merge tools) git can start here: installed ones that open a
@@ -541,6 +1262,25 @@ pub async fn rebase_candidates(repo: &str, base: Option<&str>) -> Result<Vec<Com
 }
 
 /// A blob by `git show` spec, or nothing if it doesn't exist.
+/// A file's text as it is in `rev`, exactly as stored (no filters), for copying.
+pub async fn file_text(repo: &str, rev: &str, path: &str) -> Result<String> {
+    const LIMIT: usize = 10 * 1024 * 1024;
+    let spec = format!("{}:{path}", check_ref(rev)?);
+    let result = git_unchecked(repo, &["cat-file", "blob", &spec]).await?;
+    if result.code != 0 {
+        return Err(Error::Invalid(format!("{path} is not in that commit")));
+    }
+    if result.stdout.len() > LIMIT {
+        return Err(Error::Invalid("The file is too large to copy".into()));
+    }
+    if result.stdout.contains(&0) {
+        return Err(Error::Invalid(
+            "Binary files can't be copied as text".into(),
+        ));
+    }
+    Ok(result.out().into_owned())
+}
+
 pub async fn raw_show(repo: &str, spec: &str) -> Result<Option<String>> {
     let result = git_unchecked(repo, &["show", spec]).await?;
     Ok((result.code == 0).then(|| result.out().into_owned()))
@@ -560,8 +1300,92 @@ pub async fn reflog(repo: &str, reference: &str, limit: usize) -> Result<Vec<Ref
     Ok(parsers::parse_reflog(&result.out()))
 }
 
+/// The reflogs of HEAD and every branch, newest first: also where a branch was before
+/// it was deleted, reset or rebased while another one was checked out.
+pub async fn reflog_all(repo: &str, limit: usize) -> Result<Vec<ReflogEntry>> {
+    let count = format!("-n{limit}");
+    let args = ["reflog", "show", REFLOG_FORMAT, &count, "--all", "--"];
+    let result = git_unchecked(repo, &args).await?;
+    Ok(parsers::parse_reflog(&result.out()))
+}
+
 /// Files changed between two commits (base to target), plus commit counts each way.
+/// The files a merge of `target` into HEAD would leave conflicted, worked out without
+/// touching the working tree or the index (`git merge-tree --write-tree`). An empty list
+/// means it would merge cleanly; `None` that git can't tell (it is older than 2.38, or the
+/// two have no common history).
+pub async fn conflict_check(repo: &str, target: &str) -> Result<Option<Vec<String>>> {
+    let target = check_ref(target)?;
+    let result = git_unchecked(
+        repo,
+        &[
+            "merge-tree",
+            "--write-tree",
+            "--name-only",
+            "--no-messages",
+            "-z",
+            "HEAD",
+            target,
+        ],
+    )
+    .await?;
+    match result.code {
+        0 => Ok(Some(Vec::new())),
+        1 => {
+            let out = result.out();
+            // The tree written first, then one name per conflicted file.
+            let files = out
+                .split('\0')
+                .skip(1)
+                .filter(|path| !path.is_empty())
+                .map(str::to_owned)
+                .collect::<std::collections::BTreeSet<_>>();
+            Ok(Some(files.into_iter().collect()))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// How two versions of a series of commits differ (`git range-diff old new`), for example a
+/// branch before and after a rebase: which commits match, which changed and how.
+/// Each range is `A..B`, or `A...B` for two branches from where they part.
+pub async fn range_diff_ranges(repo: &str, old: &str, new: &str) -> Result<String> {
+    const LIMIT: usize = 2 * 1024 * 1024;
+    let (old, new) = (check_ref(old.trim())?, check_ref(new.trim())?);
+    if old.is_empty() || new.is_empty() {
+        return Err(Error::Validation(
+            "Give both ranges, such as main..topic".into(),
+        ));
+    }
+    let result = git_unchecked(
+        repo,
+        &["range-diff", "--no-color", "--no-ext-diff", old, new],
+    )
+    .await?;
+    if result.code != 0 {
+        return Err(Error::Invalid(result.output()));
+    }
+    let mut text = result.out().into_owned();
+    if text.len() > LIMIT {
+        let mut cut = LIMIT;
+        while !text.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        text.truncate(cut);
+        text.push_str("\n…");
+    }
+    Ok(text)
+}
+
+/// Stands for the working tree (with what is staged) as either side of [`compare`].
+pub const WORKTREE: &str = "";
+
+/// Files changed between two commits (base to target), plus commit counts each way. Either
+/// side may be [`WORKTREE`]; new untracked files then count as added.
 pub async fn compare(repo: &str, base: &str, target: &str) -> Result<Comparison> {
+    if base == WORKTREE || target == WORKTREE {
+        return compare_worktree(repo, base, target).await;
+    }
     let (base, target) = (check_ref(base)?, check_ref(target)?);
     let files = git(
         repo,

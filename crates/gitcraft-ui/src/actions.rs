@@ -6,7 +6,7 @@ use gitcraft_core::{ops, queries};
 
 use crate::task::Task;
 
-use crate::app::{App, Area, Effect, Message, Pick, RepoTab, ToastKind, View};
+use crate::app::{App, Area, Effect, Message, PatchOf, Pick, RepoTab, ToastKind, View};
 use crate::command::Command;
 use crate::form::{Field, Form, Values};
 use crate::i18n::{tr, trf};
@@ -21,6 +21,7 @@ pub enum Action {
     Stash,
     StashFiles(Vec<String>),
     DropStash(String),
+    RenameStash(String),
     /// Adds a working tree; `start` is the branch or commit it begins at.
     AddWorktree(Option<String>),
     RemoveWorktree(String),
@@ -39,6 +40,37 @@ pub enum Action {
         label: String,
     },
     Revert(String),
+    /// Asks which parent counts for a merge commit; other commits are picked right away.
+    CherryPick(String),
+    /// Deletes a tag on one remote only, after asking.
+    DeleteRemoteTag {
+        remote: String,
+        name: String,
+    },
+    /// Asks what to narrow the history to.
+    FilterHistory,
+    AddSubmodule,
+    ForgetCredentials,
+    Maintenance,
+    LockWorktree(String),
+    RemoveSubmodule(String),
+    /// Asks for patterns for LFS to store, with this one filled in.
+    LfsTrack(String),
+    LfsUntrack(String),
+    /// Asks before removing someone else's lock.
+    LfsForceUnlock {
+        path: String,
+        id: String,
+        owner: String,
+    },
+    /// Asks for two ranges of commits to compare.
+    RangeDiff,
+    /// Asks for a commit that still worked, then bisects up to this broken one.
+    BisectStart(String),
+    /// Asks for a command to run after step `index` of the rebase editor.
+    RebaseExec(usize),
+    /// Swaps a commit with its child (`up`) or its parent.
+    MoveCommit(String, bool),
     Abort,
     CreateTag(String),
     DeleteTag(String),
@@ -60,6 +92,9 @@ pub enum Action {
     },
     DropCommit(String),
     SavePatch(String),
+    /// The commits from this one up to HEAD, as patches.
+    SavePatchSeries(String),
+    SaveChangesPatch,
     PatchSaved(Result<Option<String>, String>),
     ApplyPatch,
     PatchPicked(Option<(String, String)>),
@@ -78,15 +113,20 @@ pub enum Action {
         path: String,
     },
     Discard(Vec<String>),
+    DeleteDiscard(String),
+    CoAuthors,
     Clone,
+    /// The clone dialog with this URL filled in, as a `gitcraft://clone` link asks.
+    CloneUrl(String),
     CloneTo {
         url: String,
         parent: String,
         name: Option<String>,
+        options: gitcraft_core::model::CloneOptions,
     },
     Cloned(Result<String, String>),
     Init,
-    InitAt(String),
+    InitAt(String, gitcraft_core::model::InitOptions),
     ConflictOverwrite(Option<usize>, Choice),
     ConflictResolve {
         path: String,
@@ -107,6 +147,11 @@ pub enum MenuRequest {
         sha: String,
         focus: Option<RefTarget>,
     },
+    Submodule(String),
+    /// A pattern LFS tracks.
+    LfsPattern(String),
+    /// Several commits picked in the history, newest first.
+    Commits(Vec<String>),
     Stash(String),
     Worktree(String),
     Remote(String),
@@ -118,6 +163,10 @@ pub enum MenuRequest {
         rev: Option<String>,
     },
     Tab(usize),
+    /// The options of the commit box.
+    CommitOptions,
+    /// Which columns the history list shows.
+    Columns,
 }
 
 fn run(command: Command) -> Message {
@@ -181,6 +230,28 @@ impl App {
         Task::none()
     }
 
+    /// Works out in the background which files merging `target` would conflict in, for the
+    /// dialog just opened (a rebase conflicts in the same files, near enough).
+    fn preview_conflicts(&mut self, target: &str) -> Task<Message> {
+        let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        if !self.settings.history.conflict_check {
+            return Task::none();
+        }
+        self.conflict_preview = Some(target.to_owned());
+        let target = target.to_owned();
+        Task::perform(
+            async move {
+                let result = crate::app::answer(
+                    gitcraft_core::queries::conflict_check(&repo, &target).await,
+                );
+                (target, result)
+            },
+            |(target, result)| Message::ConflictPreview(target, result),
+        )
+    }
+
     fn warn(&mut self, message: &str) -> Task<Message> {
         self.toast(ToastKind::Warning, message, None);
         Task::none()
@@ -201,11 +272,19 @@ impl App {
     pub fn perform(&mut self, action: Action) -> Task<Message> {
         // These work without an open repository.
         match action {
-            Action::Clone => return self.clone_dialog(),
+            Action::Clone => return self.clone_dialog(""),
+            Action::CloneUrl(url) => return self.clone_dialog(&url),
             Action::Init => return self.init_dialog(),
-            Action::CloneTo { url, parent, name } => return clone_task(url, parent, name),
+            Action::CloneTo {
+                url,
+                parent,
+                name,
+                options,
+            } => {
+                return clone_task(url, parent, name, options);
+            }
             Action::Cloned(result) => return self.cloned(result),
-            Action::InitAt(path) => return init_task(path),
+            Action::InitAt(path, options) => return init_task(path, options),
             _ => {}
         }
         let Some(tab) = self.current() else {
@@ -292,6 +371,11 @@ impl App {
                     return Task::none();
                 }
                 let form = Form::new("Stash changes", "Stash", |values: &Values| {
+                    if values.check("untrackedOnly") {
+                        return run(Command::StashUntracked {
+                            message: values.opt("message"),
+                        });
+                    }
                     run(Command::StashPush {
                         message: values.opt("message"),
                         include_untracked: values.check("includeUntracked"),
@@ -303,7 +387,8 @@ impl App {
                 .field(Field::text("message", "Message", "").hint("Optional description"))
                 .field(Field::check("includeUntracked", "Include untracked files", true))
                 .field(Field::check("stagedOnly", "Stash staged changes only", false))
-                .field(Field::check("keepIndex", "Keep staged changes in the working tree", false));
+                .field(Field::check("keepIndex", "Keep staged changes in the working tree", false))
+                .field(Field::check("untrackedOnly", "Only untracked files", false));
                 self.ask(form)
             }
             Action::StashFiles(paths) => {
@@ -325,7 +410,10 @@ impl App {
                 self.ask(form)
             }
             Action::DropStash(name) => {
-                let message = tab.refs.stashes.iter().find(|stash| stash.name == name).map_or(name.clone(), |s| s.message.clone());
+                // By its commit, so the stash meant is dropped even if the list moved meanwhile.
+                let found = tab.refs.stashes.iter().find(|stash| stash.name == name || stash.sha == name);
+                let message = found.map_or(name.clone(), |stash| stash.message.clone());
+                let name = found.map_or(name, |stash| stash.sha.clone());
                 self.ask(Form::confirm(
                     "Drop stash",
                     &trf("Delete “{message}”? This cannot be undone.", &[("message", &message)]),
@@ -334,10 +422,37 @@ impl App {
                     run(Command::StashDrop { name }),
                 ))
             }
+            Action::RenameStash(name) => {
+                let Some(stash) = tab.refs.stashes.iter().find(|stash| stash.name == name || stash.sha == name) else {
+                    return Task::none();
+                };
+                let id = stash.sha.clone();
+                self.ask(
+                    Form::new("Rename stash", "Rename", move |values: &Values| {
+                        run(Command::StashRename {
+                            id: id.clone(),
+                            message: values.text("message"),
+                        })
+                    })
+                    .message("The stash moves to the top of the list.")
+                    .field(Field::text("message", "Message", &stash.message).required()),
+                )
+            }
             Action::AddWorktree(start) => {
                 let parent = std::path::Path::new(&tab.path).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
                 let suggested = join_path(&parent, &format!("{}-worktree", tab.name));
-                let based = start.as_deref().map_or_else(|| head.clone(), |s| short_sha(s).to_owned());
+                // A branch is checked out there as it is; anything else, detached or on a new branch.
+                let is_branch = start.as_ref().is_some_and(|start| tab.refs.local.iter().any(|b| b.name == *start));
+                let based = match start.as_deref() {
+                    Some(start) if is_branch => start.to_owned(),
+                    Some(start) => short_sha(start).to_owned(),
+                    None => head.clone(),
+                };
+                let hint = if is_branch {
+                    trf("Leave empty to check out {branch}", &[("branch", &based)])
+                } else {
+                    tr("Leave empty to check out detached").to_owned()
+                };
                 let form = Form::new("Add worktree", "Add worktree", move |values: &Values| {
                     let branch = values.text("branch").split_whitespace().collect::<Vec<_>>().join("-");
                     run(Command::WorktreeAdd {
@@ -348,7 +463,7 @@ impl App {
                 })
                 .message(&trf("Based on {based}", &[("based", &based)]))
                 .field(Field::text("path", "Folder", &suggested).required())
-                .field(Field::text("branch", "New branch", "").hint("Leave empty to check out detached"));
+                .field(Field::text("branch", "New branch", "").hint(&hint));
                 self.ask(form)
             }
             Action::RemoveWorktree(path) => self.ask(Form::confirm(
@@ -447,15 +562,218 @@ impl App {
                         ("squash", "Squash (stage changes, do not commit)"),
                     ]),
                 ));
-                self.ask(form)
+                let check = self.preview_conflicts(&reference);
+                Task::batch([self.ask(form), check])
             }
             Action::Rebase { onto, label } => {
+                let target = onto.clone();
                 let form = Form::new("Rebase", "Rebase", move |values: &Values| Message::RebaseChosen {
                     onto: onto.clone(),
                     autostash: values.check("autostash"),
                 })
                 .message(&trf("Rebase {head} onto {label}?", &[("head", &head), ("label", &label)]))
                 .field(Field::check("autostash", "Stash and reapply local changes", self.settings.rebase.autostash));
+                let check = self.preview_conflicts(&target);
+                Task::batch([self.ask(form), check])
+            }
+            Action::DeleteRemoteTag { remote, name } => self.ask(Form::confirm(
+                "Delete tag from remote",
+                &trf(
+                    "Delete tag {name} from {remote}? It stays in this repository.",
+                    &[("name", &name), ("remote", &remote)],
+                ),
+                "Delete",
+                true,
+                run(Command::DeleteRemoteTag { remote, name }),
+            )),
+            Action::FilterHistory => {
+                let current = tab.history_filter.clone().unwrap_or_default();
+                self.ask(
+                    Form::new("Filter history", "Filter", |values: &Values| {
+                        Message::SetHistoryFilter(Some(gitcraft_core::model::LogFilter {
+                            author: values.text("author"),
+                            path: values.text("path"),
+                            text: values.text("text"),
+                            regex: values.check("regex"),
+                        }))
+                    })
+                    .message("Shows only the commits that match every filled-in field.")
+                    .field(Field::text("author", "Author", &current.author).hint("Part of a name or address"))
+                    .field(Field::text("path", "File or folder", &current.path).hint("src/main.rs"))
+                    .field(Field::text("text", "Changed text", &current.text).hint("Text a commit added or removed"))
+                    .field(Field::check("regex", "Changed text is a regular expression", current.regex)),
+                )
+            }
+            Action::LockWorktree(path) => {
+                let target = path.clone();
+                self.ask(
+                    Form::new("Lock worktree", "Lock", move |values: &Values| {
+                        run(Command::WorktreeLock { path: target.clone(), reason: values.opt("reason") })
+                    })
+                    .message(&trf(
+                        "A locked worktree isn't pruned or removed, even when its folder is gone for a while (on a drive that isn't plugged in, say): {path}",
+                        &[("path", &path)],
+                    ))
+                    .field(Field::text("reason", "Reason", "").hint("Optional")),
+                )
+            }
+            Action::Maintenance => {
+                let has_remotes = !remotes.is_empty();
+                let mut form = Form::new("Repository maintenance", "Run", |values: &Values| {
+                    run(Command::Maintenance {
+                        gc: values.check("gc"),
+                        graph: values.check("graph"),
+                        prune: values.check("prune"),
+                    })
+                })
+                .message("Housekeeping git otherwise does now and then by itself. Nothing in the history or the working tree changes.")
+                .field(Field::check("gc", "Pack objects and drop ones nothing needs any more (gc)", true))
+                .field(Field::check("graph", "Write the commit-graph, which speeds up the history", true));
+                if has_remotes {
+                    form = form.field(Field::check("prune", "Fetch and remove branches deleted on the remotes", false));
+                }
+                self.ask(form)
+            }
+            Action::ForgetCredentials => self.ask(Form::confirm(
+                "Forget saved passwords",
+                "Have git's credential helpers forget the passwords and tokens they keep for the http(s) servers of this repository's remotes? The next fetch or push asks for them again. SSH keys aren't affected.",
+                "Forget",
+                true,
+                run(Command::ForgetCredentials),
+            )),
+            Action::AddSubmodule => self.ask(
+                Form::new("Add submodule", "Add", |values: &Values| {
+                    run(Command::SubmoduleAdd { url: values.text("url"), path: values.text("path") })
+                })
+                .message("Clones another repository into a folder of this one, pinned to one commit of it.")
+                .field(Field::text("url", "URL", "").required().hint("https://… or git@…"))
+                .field(Field::text("path", "Folder", "").hint("Derived from the URL")),
+            ),
+            Action::LfsTrack(pattern) => self.ask(
+                Form::new("Store files in LFS", "Track", |values: &Values| {
+                    run(Command::LfsTrack {
+                        patterns: values.text("patterns").split_whitespace().map(str::to_owned).collect(),
+                        lockable: values.check("lockable"),
+                    })
+                })
+                .message("New versions of matching files go to the LFS server; the repository keeps a small pointer to each. Files already committed stay as they are.")
+                .field(Field::text("patterns", "Patterns, separated by spaces", &pattern).required().hint("*.psd *.zip"))
+                .field(Field::check("lockable", "Lockable (read-only until locked)", false)),
+            ),
+            Action::LfsUntrack(pattern) => self.ask(Form::confirm(
+                "Stop storing in LFS",
+                &trf(
+                    "Stop storing new versions of {pattern} files in LFS? Versions already stored there stay there.",
+                    &[("pattern", &pattern)],
+                ),
+                "Untrack",
+                false,
+                run(Command::LfsUntrack { pattern }),
+            )),
+            Action::LfsForceUnlock { path, id, owner } => self.ask(Form::confirm(
+                "Force unlock",
+                &trf(
+                    "Remove {owner}'s lock on {path}? Changes they haven't pushed yet may then conflict with someone else's.",
+                    &[("owner", &owner), ("path", &path)],
+                ),
+                "Force unlock",
+                true,
+                run(Command::LfsUnlock { path, id: Some(id), force: true }),
+            )),
+            Action::RemoveSubmodule(path) => self.ask(Form::confirm(
+                "Remove submodule",
+                &trf(
+                    "Remove the submodule {path}: its files and its entry in .gitmodules? The change is staged for you to commit.",
+                    &[("path", &path)],
+                ),
+                "Remove",
+                true,
+                run(Command::SubmoduleRemove { path }),
+            )),
+            Action::RangeDiff => {
+                let upstream = tab.status.as_ref().and_then(|status| status.branch.upstream.clone());
+                let new = match &upstream {
+                    Some(upstream) => format!("{upstream}..HEAD"),
+                    None => String::new(),
+                };
+                self.ask(
+                    Form::new("Compare commit ranges", "Compare", |values: &Values| {
+                        Message::RangeDiff(values.text("old"), values.text("new"))
+                    })
+                    .message("Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.")
+                    .field(Field::text("old", "Old range", "").required().hint("main..topic@{1}"))
+                    .field(Field::text("new", "New range", &new).required().hint("main..topic")),
+                )
+            }
+            Action::BisectStart(bad) => {
+                let subject = self.commit_by_sha(&bad).map_or_else(String::new, |commit| commit.subject.clone());
+                self.ask(
+                    Form::new("Start bisect", "Start", move |values: &Values| {
+                        run(Command::BisectStart { bad: bad.clone(), good: values.text("good") })
+                    })
+                    .message(&trf(
+                        "“{subject}” is broken. Name an older commit that still worked: GitCraft then checks out commits in between for you to test, until the first broken one is found.",
+                        &[("subject", &subject)],
+                    ))
+                    .field(Field::text("good", "Good commit", "").required().hint("A tag, branch or SHA")),
+                )
+            }
+            Action::RebaseExec(index) => {
+                let current = match &self.overlay {
+                    Some(crate::app::Overlay::Rebase(state)) => {
+                        state.steps.get(index).and_then(|step| step.exec.clone()).unwrap_or_default()
+                    }
+                    _ => return Task::none(),
+                };
+                self.ask(
+                    Form::new("Run a command", "Save", move |values: &Values| {
+                        Message::RebaseExec(index, values.text("command"))
+                    })
+                    .message("Runs in the repository right after this commit is applied (exec). The rebase stops when it fails, for example to fix a failing test. Leave it empty to remove it.")
+                    .field(Field::text("command", "Command", &current).hint("cargo test")),
+                )
+            }
+            Action::MoveCommit(sha, up) => {
+                let Some(commit) = self.commit_by_sha(&sha).cloned() else { return Task::none() };
+                if commit.parents.len() > 1 {
+                    return self.warn("Merge commits cannot be edited this way");
+                }
+                let Some(parent) = commit.parents.first().cloned() else {
+                    return self.warn("The first commit has nothing below it");
+                };
+                // Moving down swaps it with its parent, so the rebase starts one further back.
+                let base = if up {
+                    Some(parent)
+                } else {
+                    match self.commit_by_sha(&parent).map(|parent| parent.parents.clone()) {
+                        Some(grand) if grand.is_empty() => None,
+                        Some(grand) => grand.first().cloned(),
+                        None => Some(format!("{parent}^")),
+                    }
+                };
+                Task::done(run(Command::QuickRebase { sha, base, action: if up { "up" } else { "down" }, message: None }))
+            }
+            Action::CherryPick(sha) => {
+                let Some(commit) = self.commit_by_sha(&sha).cloned() else {
+                    return Task::done(run(Command::CherryPick { sha }));
+                };
+                if commit.parents.len() < 2 {
+                    return Task::done(run(Command::CherryPick { sha }));
+                }
+                let choices = commit
+                    .parents
+                    .iter()
+                    .enumerate()
+                    .map(|(i, parent)| ((i + 1).to_string(), format!("{}: {}", i + 1, short_sha(parent))))
+                    .collect();
+                let form = Form::new("Cherry-pick merge commit", "Cherry-pick", move |values: &Values| {
+                    run(Command::CherryPickMerge {
+                        sha: sha.clone(),
+                        mainline: values.text("mainline").parse().unwrap_or(1),
+                    })
+                })
+                .message("A merge commit is taken as its changes against one parent: choose the mainline it was merged into.")
+                .field(Field::select("mainline", "Mainline parent", "1", choices));
                 self.ask(form)
             }
             Action::Revert(sha) => {
@@ -516,16 +834,27 @@ impl App {
                 let names: Vec<String> = remotes.iter().map(|remote| remote.name.clone()).collect();
                 let has_remotes = !names.is_empty();
                 let tag = name.clone();
+                let all = names.clone();
                 let mut form = Form::new("Delete tag", "Delete", move |values: &Values| {
-                    run(Command::DeleteTag {
-                        name: tag.clone(),
-                        remotes: if values.check("remote") { names.clone() } else { Vec::new() },
-                    })
+                    // "" only here, "*" on every remote too, otherwise that one remote too.
+                    let remotes = match values.text("remotes").as_str() {
+                        "" => Vec::new(),
+                        "*" => all.clone(),
+                        one => vec![one.to_owned()],
+                    };
+                    run(Command::DeleteTag { name: tag.clone(), remotes })
                 })
                 .message(&trf("Delete tag {name}?", &[("name", &name)]))
                 .danger();
                 if has_remotes {
-                    form = form.field(Field::check("remote", "Also delete from all remotes", false));
+                    let mut choices = vec![
+                        (String::new(), tr("Only in this repository").to_owned()),
+                        ("*".to_owned(), tr("Here and on every remote").to_owned()),
+                    ];
+                    choices.extend(
+                        names.iter().map(|remote| (remote.clone(), trf("Here and on {remote}", &[("remote", remote)]))),
+                    );
+                    form = form.field(Field::select("remotes", "Delete", "", choices));
                 }
                 self.ask(form)
             }
@@ -552,10 +881,23 @@ impl App {
                     return Task::none();
                 };
                 let form = Form::new("Edit remote", "Save", move |values: &Values| {
-                    run(Command::EditRemote { name: name.clone(), new_name: values.text("newName"), url: values.text("url") })
+                    run(Command::EditRemote {
+                        name: name.clone(),
+                        new_name: values.text("newName"),
+                        url: values.text("url"),
+                        push_url: values.text("pushUrl"),
+                    })
                 })
                 .field(Field::text("newName", "Name", &remote.name).required())
-                .field(Field::text("url", "URL", &remote.fetch_url).required());
+                .field(Field::text("url", "URL", &remote.fetch_url).required())
+                .field(
+                    Field::text(
+                        "pushUrl",
+                        "Push URL",
+                        if remote.push_url == remote.fetch_url { "" } else { &remote.push_url },
+                    )
+                    .hint("Empty: push to the URL above"),
+                );
                 self.ask(form)
             }
             Action::RemoveRemote(name) => self.ask(Form::confirm(
@@ -681,7 +1023,23 @@ impl App {
                 let repo = tab.path.clone();
                 let subject = self.commit_by_sha(&sha).map_or_else(String::new, |commit| commit.subject.clone());
                 let name = logic::patch_file_name(&sha, &subject);
-                self.effects.push(Effect::Ask(Pick::SavePatch { repo, sha, name }));
+                self.effects.push(Effect::Ask(Pick::SavePatch { repo, of: PatchOf::Commit(sha), name }));
+                Task::none()
+            }
+            Action::SavePatchSeries(sha) => {
+                let repo = tab.path.clone();
+                let name = format!("{}-to-head.patch", short_sha(&sha));
+                self.effects.push(Effect::Ask(Pick::SavePatch { repo, of: PatchOf::Series(sha), name }));
+                Task::none()
+            }
+            Action::SaveChangesPatch => {
+                if tab.change_count() == 0 {
+                    self.toast(ToastKind::Info, "There are no local changes", None);
+                    return Task::none();
+                }
+                let repo = tab.path.clone();
+                let name = "local-changes.patch".to_owned();
+                self.effects.push(Effect::Ask(Pick::SavePatch { repo, of: PatchOf::Changes, name }));
                 Task::none()
             }
             Action::PatchSaved(result) => {
@@ -778,48 +1136,128 @@ impl App {
                 };
                 self.ask(Form::confirm(
                     "Discard changes",
-                    &trf("Discard all changes to {what}? This cannot be undone.", &[("what", &what)]),
+                    &trf(
+                        "Discard all changes to {what}? A backup is kept: Repository › Recover discarded changes.",
+                        &[("what", &what)],
+                    ),
                     "Discard",
                     true,
                     run(Command::Discard { paths }),
                 ))
             }
+            Action::CoAuthors => {
+                let current = self.current().map(|tab| tab.co_authors.clone()).unwrap_or_default();
+                self.ask(
+                    Form::new("Co-authors", "Save", |values| {
+                        Message::CoAuthors(values.text("authors"))
+                    })
+                    .message("Each co-author gets a “Co-authored-by” line in the commits you make next.")
+                    .field(
+                        Field::area("authors", "One per line", &current)
+                            .hint("Name <name@example.com>"),
+                    ),
+                )
+            }
+            Action::DeleteDiscard(name) => self.ask(Form::confirm(
+                "Delete backup",
+                "Delete this backup of discarded changes? It can't be restored afterwards.",
+                "Delete",
+                true,
+                run(Command::DeleteDiscard { name }),
+            )),
             Action::ConflictOverwrite(index, choice) => self.conflict_choose(index, choice, true),
             Action::ConflictResolve { path, side } => Task::done(run(Command::Resolve { path, content: None, side })),
-            Action::Clone | Action::Init | Action::CloneTo { .. } | Action::Cloned(_) | Action::InitAt(_) => Task::none(),
+            Action::Clone | Action::CloneUrl(_) | Action::Init | Action::CloneTo { .. } | Action::Cloned(_) | Action::InitAt(..) => Task::none(),
         }
     }
 
-    fn clone_dialog(&mut self) -> Task<Message> {
+    fn clone_dialog(&mut self, url: &str) -> Task<Message> {
         let home = gitcraft_core::store::home_dir()
             .to_string_lossy()
             .into_owned();
         let form = Form::new("Clone repository", "Clone", |values: &Values| {
+            let options = gitcraft_core::model::CloneOptions {
+                branch: values.opt("branch"),
+                // Anything but a number is refused by the clone (as depth 0).
+                depth: values
+                    .opt("depth")
+                    .map(|depth| depth.trim().parse().unwrap_or(0)),
+                since: values.opt("since"),
+                submodules: values.check("submodules"),
+                blobless: values.check("blobless"),
+                sparse: values.text("sparse").lines().map(str::to_owned).collect(),
+            };
             act(Action::CloneTo {
                 url: values.text("url"),
                 parent: values.text("parent"),
                 name: values.opt("name"),
+                options,
             })
         })
         .field(
-            Field::text("url", "URL", "")
+            Field::text("url", "URL", url)
                 .required()
                 .hint("https://… or git@…"),
         )
         .field(Field::text("parent", "Into folder", &home).required())
-        .field(Field::text("name", "Folder name", "").hint("Derived from the URL"));
+        .field(Field::text("name", "Folder name", "").hint("Derived from the URL"))
+        .field(Field::text("branch", "Branch", "").hint("The remote's default branch"))
+        .field(
+            Field::text("depth", "Only the newest commits", "")
+                .hint("All of them; or a number, such as 50"),
+        )
+        .field(Field::text("since", "Only commits since", "").hint("A date, such as 2024-01-01"))
+        .field(Field::check("submodules", "Clone submodules too", true))
+        .field(Field::check(
+            "blobless",
+            "Download files' contents only when needed (blobless)",
+            false,
+        ))
+        .field(
+            Field::area("sparse", "Only these folders (sparse checkout)", "")
+                .hint("One per line, such as /src/; empty for everything"),
+        );
         self.ask(form)
     }
 
     fn init_dialog(&mut self) -> Task<Message> {
         let form = Form::new("New repository", "Create", |values: &Values| {
-            act(Action::InitAt(values.text("path")))
+            let options = gitcraft_core::model::InitOptions {
+                branch: values.opt("branch"),
+                gitignore: values.opt("gitignore"),
+                ignore_editors: values.check("editors"),
+                readme: values.check("readme"),
+                commit: values.check("commit"),
+            };
+            act(Action::InitAt(values.text("path"), options))
         })
         .field(
             Field::text("path", "Folder", "")
                 .required()
                 .hint("A new or existing folder"),
-        );
+        )
+        .field(Field::text("branch", "First branch", "").hint("Git's default, such as main"))
+        .field(Field::select(
+            "gitignore",
+            "Ignore what this language's tools make",
+            "",
+            {
+                let mut choices = vec![(String::new(), tr("Nothing").to_owned())];
+                choices.extend(
+                    gitcraft_core::gitignore::LANGUAGES
+                        .iter()
+                        .map(|(key, name)| ((*key).to_owned(), (*name).to_owned())),
+                );
+                choices
+            },
+        ))
+        .field(Field::check(
+            "editors",
+            "Ignore editor settings and system files",
+            true,
+        ))
+        .field(Field::check("readme", "Add a README", true))
+        .field(Field::check("commit", "Make a first commit", true));
         self.ask(form)
     }
 
@@ -868,29 +1306,80 @@ impl App {
                                 subject: detail.subject,
                                 graph: None,
                                 file: None,
+                                stash: None,
                             })
                             .map_err(|error| error.to_string())
                     },
                     move |result| Message::MenuResolved(request.clone(), at, result),
                 )
             }
+            MenuRequest::Submodule(path) => {
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let full = join_path(&tab.path, path);
+                let path = path.clone();
+                self.menu_at_cursor(vec![
+                    MenuItem::entry("Open as a repository", Message::OpenPath(full.clone())),
+                    MenuItem::entry(
+                        "Update (check out its recorded commit)",
+                        run(Command::SubmoduleUpdate { path: path.clone() }),
+                    ),
+                    MenuItem::Separator,
+                    MenuItem::entry("Copy path", Message::Copy(path.clone())),
+                    MenuItem::entry(reveal_label(), Message::Reveal(full)),
+                    MenuItem::Separator,
+                    MenuItem::danger("Remove…", act(Action::RemoveSubmodule(path))),
+                ]);
+                Task::none()
+            }
+            MenuRequest::LfsPattern(pattern) => {
+                self.menu_at_cursor(vec![
+                    MenuItem::entry("Copy pattern", Message::Copy(pattern.clone())),
+                    MenuItem::Separator,
+                    MenuItem::entry(
+                        "Stop storing in LFS…",
+                        act(Action::LfsUntrack(pattern.clone())),
+                    ),
+                ]);
+                Task::none()
+            }
+            MenuRequest::Commits(shas) => {
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                let items = commits_menu_items(tab, shas);
+                self.menu_at_cursor(items);
+                Task::none()
+            }
             MenuRequest::Stash(name) => {
+                let Some(tab) = self.current() else {
+                    return Task::none();
+                };
+                // Commands name the stash by its commit: see `ops::stash_apply`.
+                let sha = tab
+                    .refs
+                    .stashes
+                    .iter()
+                    .find(|stash| stash.name == *name)
+                    .map_or_else(|| name.clone(), |stash| stash.sha.clone());
                 let name = name.clone();
                 self.menu_at_cursor(vec![
                     MenuItem::entry(
                         "Apply",
                         run(Command::StashApply {
-                            name: name.clone(),
+                            name: sha.clone(),
                             pop: false,
                         }),
                     ),
                     MenuItem::entry(
                         "Pop (apply and drop)",
                         run(Command::StashApply {
-                            name: name.clone(),
+                            name: sha.clone(),
                             pop: true,
                         }),
                     ),
+                    MenuItem::entry("Rename…", act(Action::RenameStash(sha.clone()))),
                     MenuItem::entry(
                         "New branch from stash…",
                         act(Action::NewBranch {
@@ -898,7 +1387,7 @@ impl App {
                             label: Some(name.clone()),
                         }),
                     ),
-                    MenuItem::danger("Drop…", act(Action::DropStash(name))),
+                    MenuItem::danger("Drop…", act(Action::DropStash(sha))),
                 ]);
                 Task::none()
             }
@@ -918,14 +1407,28 @@ impl App {
                     ),
                     MenuItem::entry("Copy path", Message::Copy(tree.path.clone())),
                 ];
-                if tree.prunable {
+                if !tree.main {
+                    items.push(if tree.locked {
+                        MenuItem::entry(
+                            "Unlock",
+                            run(Command::WorktreeUnlock {
+                                path: tree.path.clone(),
+                            }),
+                        )
+                    } else {
+                        MenuItem::entry("Lock…", act(Action::LockWorktree(tree.path.clone())))
+                    });
+                }
+                if tree.prunable && !tree.locked {
                     items.push(MenuItem::entry(
                         "Prune stale worktrees",
                         run(Command::WorktreePrune),
                     ));
                 } else if !tree.main && !tree.current {
-                    items.push(MenuItem::danger(
+                    // A locked worktree is kept on purpose: unlock it first.
+                    items.push(MenuItem::danger_if(
                         "Remove…",
+                        !tree.locked,
                         act(Action::RemoveWorktree(tree.path.clone())),
                     ));
                 }
@@ -974,6 +1477,64 @@ impl App {
                 self.menu_at_cursor(items);
                 Task::none()
             }
+            MenuRequest::Columns => {
+                use crate::app::Column;
+                use crate::menu::Mark;
+                let columns = &self.settings.columns;
+                let toggle = |label: &str, column: Column, on: bool| {
+                    MenuItem::entry(label, Message::ToggleColumn(column)).marked(Mark::Check(on))
+                };
+                self.menu_at_cursor(vec![
+                    MenuItem::Header(tr("Columns").to_owned()),
+                    toggle("Author", Column::Author, columns.author),
+                    toggle("Date", Column::Date, columns.date),
+                    toggle("Commit", Column::Sha, columns.sha),
+                    toggle("Changes", Column::Changes, columns.changes),
+                    MenuItem::Separator,
+                    MenuItem::entry("Reset columns", Message::ColumnsReset),
+                ]);
+                Task::none()
+            }
+            MenuRequest::CommitOptions => {
+                use crate::app::CommitOption;
+                use crate::menu::Mark;
+                let prefs = &self.settings.commit;
+                let toggle = |label: &str, option: CommitOption, on: bool| {
+                    MenuItem::entry(label, Message::CommitOption(option, !on))
+                        .marked(Mark::Check(on))
+                };
+                let co_authors = self
+                    .current()
+                    .map_or(0, |tab| logic::co_author_trailers(&tab.co_authors).len());
+                let co_label = if co_authors == 0 {
+                    tr("Co-authors…").to_owned()
+                } else {
+                    trf(
+                        "Co-authors ({count})…",
+                        &[("count", &co_authors.to_string())],
+                    )
+                };
+                self.menu_at_cursor(vec![
+                    toggle(
+                        "Sign off (Signed-off-by line)",
+                        CommitOption::SignOff,
+                        prefs.sign_off,
+                    ),
+                    toggle(
+                        "Skip commit hooks",
+                        CommitOption::SkipHooks,
+                        prefs.skip_hooks,
+                    ),
+                    toggle(
+                        "Push after committing",
+                        CommitOption::PushAfter,
+                        prefs.push_after,
+                    ),
+                    MenuItem::Separator,
+                    MenuItem::entry(co_label, act(Action::CoAuthors)),
+                ]);
+                Task::none()
+            }
             MenuRequest::Tab(index) => {
                 let last = self.tabs.len().saturating_sub(1);
                 let path = self
@@ -1008,8 +1569,7 @@ impl App {
 
     /// The menus of the menu bar: title and entries. The bar itself is drawn by craft-menu.
     pub fn bar_menus(&self) -> Vec<(&'static str, Vec<MenuItem>)> {
-        use crate::menu::{Mark, Shortcut};
-        use egui::Key;
+        use crate::menu::Mark;
         let tab = self.current();
         let has_repo = tab.is_some();
         let in_changes = tab.is_some_and(|tab| tab.view == View::Changes);
@@ -1022,7 +1582,8 @@ impl App {
             .map(|repo| MenuItem::entry(repo.name.clone(), Message::OpenPath(repo.path.clone())))
             .collect();
         let mut file = vec![
-            MenuItem::entry("Open repository…", Message::OpenDialog).key(Shortcut::command(Key::O)),
+            MenuItem::entry("Open repository…", Message::OpenDialog)
+                .key(self.shortcut("repo.open")),
             MenuItem::entry("Clone repository…", act(Action::Clone)),
             MenuItem::entry("New repository…", act(Action::Init)),
         ];
@@ -1032,12 +1593,35 @@ impl App {
         file.extend([
             MenuItem::Separator,
             MenuItem::entry_if("Close tab", has_repo, Message::Close(self.active))
-                .key(Shortcut::command(Key::W)),
+                .key(self.shortcut("tab.close")),
             MenuItem::Separator,
-            MenuItem::entry("Settings…", Message::OpenSettings).key(Shortcut::command(Key::Comma)),
+            MenuItem::entry("Settings…", Message::OpenSettings).key(self.shortcut("settings")),
             MenuItem::Separator,
             MenuItem::entry("Quit", Message::Quit),
         ]);
+
+        let no_labels = gitcraft_core::model::UndoLabels::default();
+        let labels = tab.map_or(&no_labels, |tab| &tab.undo);
+        let undo = match &labels.undo {
+            Some(label) => MenuItem::entry_if(
+                trf("Undo: {action}", &[("action", tr(label))]),
+                idle,
+                Message::Undo,
+            ),
+            None => MenuItem::entry_if("Undo", false, Message::Undo),
+        };
+        let redo = match &labels.redo {
+            Some(label) => MenuItem::entry_if(
+                trf("Redo: {action}", &[("action", tr(label))]),
+                idle,
+                Message::Redo,
+            ),
+            None => MenuItem::entry_if("Redo", false, Message::Redo),
+        };
+        let edit = vec![
+            undo.key(self.shortcut("edit.undo")),
+            redo.key(self.shortcut("edit.redo")),
+        ];
 
         let mut repository = match tab {
             Some(tab) => {
@@ -1119,24 +1703,25 @@ impl App {
         }
         view.extend([
             MenuItem::entry_if("All commits", has_repo, Message::SetView(View::History))
-                .key(Shortcut::command(Key::Num1)),
+                .key(self.shortcut("view.history")),
             MenuItem::entry_if("Local changes", has_repo, Message::SetView(View::Changes))
-                .key(Shortcut::command(Key::Num2)),
+                .key(self.shortcut("view.changes")),
             MenuItem::entry_if("Select all files", in_changes, Message::SelectAllFiles)
-                .key(Shortcut::command(Key::A)),
+                .key(self.shortcut("files.select_all")),
             MenuItem::entry_if("Search commits", has_repo, Message::SearchFocus)
-                .key(Shortcut::command(Key::F)),
-            MenuItem::entry_if("Refresh", has_repo, Message::Refresh).key(Shortcut::plain(Key::F5)),
+                .key(self.shortcut("search")),
+            MenuItem::entry_if("Filter history…", has_repo, act(Action::FilterHistory)),
+            MenuItem::entry_if("Refresh", has_repo, Message::Refresh)
+                .key(self.shortcut("repo.refresh")),
             MenuItem::Separator,
-            MenuItem::entry("Zoom in", Message::Zoom(1.1)).key(Shortcut::command(Key::Equals)),
-            MenuItem::entry("Zoom out", Message::Zoom(1.0 / 1.1))
-                .key(Shortcut::command(Key::Minus)),
-            MenuItem::entry("Actual size", Message::Zoom(0.0)).key(Shortcut::command(Key::Num0)),
+            MenuItem::entry("Zoom in", Message::Zoom(1.1)).key(self.shortcut("zoom.in")),
+            MenuItem::entry("Zoom out", Message::Zoom(1.0 / 1.1)).key(self.shortcut("zoom.out")),
+            MenuItem::entry("Actual size", Message::Zoom(0.0)).key(self.shortcut("zoom.reset")),
             MenuItem::entry(
                 "Full screen",
                 Message::Window(crate::app::WindowAction::ToggleFullscreen),
             )
-            .key(Shortcut::plain(Key::F11))
+            .key(self.shortcut("window.fullscreen"))
             .marked(Mark::Check(self.fullscreen)),
             MenuItem::Separator,
             MenuItem::sub("Theme", themes),
@@ -1148,13 +1733,15 @@ impl App {
         let folder = gitcraft_core::store::config_dir()
             .to_string_lossy()
             .into_owned();
-        let help = vec![MenuItem::entry(
-            "Show data folder",
-            Message::OpenFile(folder),
-        )];
+        let help = vec![
+            MenuItem::entry("Show data folder", Message::OpenFile(folder)),
+            MenuItem::Separator,
+            MenuItem::entry("About GitCraft", Message::OpenAbout),
+        ];
 
         vec![
             ("File", file),
+            ("Edit", edit),
             ("Repository", repository),
             ("View", view),
             ("Help", help),
@@ -1171,11 +1758,16 @@ impl App {
     }
 }
 
-fn clone_task(url: String, parent: String, name: Option<String>) -> Task<Message> {
+fn clone_task(
+    url: String,
+    parent: String,
+    name: Option<String>,
+    options: gitcraft_core::model::CloneOptions,
+) -> Task<Message> {
     Task::perform(
         async move {
             let parent = gitcraft_core::paths::expand(&parent);
-            ops::clone(&parent, url.trim(), name.as_deref(), None)
+            ops::clone_with(&parent, url.trim(), name.as_deref(), &options, None)
                 .await
                 .map_err(|error| error.to_string())
         },
@@ -1183,16 +1775,20 @@ fn clone_task(url: String, parent: String, name: Option<String>) -> Task<Message
     )
 }
 
-fn init_task(path: String) -> Task<Message> {
+fn init_task(path: String, options: gitcraft_core::model::InitOptions) -> Task<Message> {
     Task::perform(
         async move {
             let path = gitcraft_core::paths::expand(&path);
-            ops::init(&path).await.map_err(|error| error.to_string())
+            match ops::init_with(&path, &options).await {
+                Ok(top) => (Some(top), None),
+                // Created, but a later step failed: it opens all the same.
+                Err(error) => {
+                    let top = gitcraft_core::queries::toplevel(&path).await.ok();
+                    (top, Some(error.to_string()))
+                }
+            }
         },
-        |result| match result {
-            Ok(path) => Message::OpenPath(path),
-            Err(error) => Message::Located(Err(error)),
-        },
+        |(top, error)| Message::Created(top, error),
     )
 }
 
@@ -1235,40 +1831,35 @@ fn ref_title(target: &RefTarget) -> String {
     }
 }
 
-fn local_ref_items(tab: &RepoTab, branch: &LocalBranch) -> Vec<MenuItem> {
+/// `copy_name` adds "Copy branch name"; a right-clicked branch has it in the commit's Copy
+/// submenu instead.
+fn local_ref_items(tab: &RepoTab, branch: &LocalBranch, copy_name: bool) -> Vec<MenuItem> {
     let current = tab.current_branch();
     let shown = current.unwrap_or("HEAD");
     let name = branch.name.clone();
-    let other = !branch.current && current.is_some();
-    let mut items = vec![
-        MenuItem::entry_if(
+    let mut items = Vec::new();
+    // The current branch can't be checked out, merged or rebased onto itself: left out
+    // rather than offered disabled.
+    if !branch.current {
+        items.push(MenuItem::entry(
             trf("Checkout {name}", &[("name", &name)]),
-            !branch.current,
             run(Command::Checkout {
                 reference: name.clone(),
                 kind: "local",
             }),
-        ),
-        MenuItem::entry_if(
-            trf(
-                "Merge {name} into {shown}…",
-                &[("name", &name), ("shown", shown)],
-            ),
-            other,
-            act(Action::Merge(name.clone())),
-        ),
-        MenuItem::entry_if(
-            trf(
-                "Rebase {shown} onto {name}…",
-                &[("name", &name), ("shown", shown)],
-            ),
-            other,
-            act(Action::Rebase {
-                onto: name.clone(),
-                label: name.clone(),
-            }),
-        ),
-    ];
+        ));
+        if current.is_some() {
+            items.extend(merge_rebase_items(&name, shown));
+        }
+        items.push(MenuItem::Separator);
+    }
+    items.push(MenuItem::entry(
+        "Push…",
+        act(Action::Push(Some(name.clone()))),
+    ));
+    if branch.current {
+        items.push(MenuItem::entry("Pull…", act(Action::Pull)));
+    }
     if let Some(upstream) = &branch.upstream {
         items.push(MenuItem::entry_if(
             trf("Fast-forward to {upstream}", &[("upstream", upstream)]),
@@ -1279,29 +1870,102 @@ fn local_ref_items(tab: &RepoTab, branch: &LocalBranch) -> Vec<MenuItem> {
             }),
         ));
     }
-    items.push(MenuItem::Separator);
-    items.push(MenuItem::entry(
-        "Push…",
-        act(Action::Push(Some(name.clone()))),
-    ));
-    if branch.current {
-        items.push(MenuItem::entry("Pull…", act(Action::Pull)));
-    }
     items.extend([
-        MenuItem::entry("Set upstream…", act(Action::SetUpstream(name.clone()))),
         MenuItem::Separator,
         MenuItem::entry("Rename…", act(Action::RenameBranch(name.clone()))),
-        MenuItem::danger_if(
-            "Delete…",
-            !branch.current,
-            act(Action::DeleteBranch(name.clone())),
-        ),
-        MenuItem::entry("Copy branch name", Message::Copy(name)),
     ]);
+    if !branch.current {
+        items.push(MenuItem::danger(
+            "Delete…",
+            act(Action::DeleteBranch(name.clone())),
+        ));
+    }
+    let mut more = vec![MenuItem::entry(
+        "Set upstream…",
+        act(Action::SetUpstream(name.clone())),
+    )];
+    // A branch checked out somewhere already can't be checked out in another worktree.
+    let elsewhere = tab
+        .refs
+        .worktrees
+        .iter()
+        .any(|tree| tree.branch.as_deref() == Some(name.as_str()));
+    if !elsewhere {
+        more.push(MenuItem::entry(
+            "Check out in a new worktree…",
+            act(Action::AddWorktree(Some(name.clone()))),
+        ));
+    }
+    more.push(MenuItem::Separator);
+    more.extend(visibility_items(tab, &format!("refs/heads/{name}")));
+    if copy_name {
+        more.extend([
+            MenuItem::Separator,
+            MenuItem::entry("Copy branch name", Message::Copy(name)),
+        ]);
+    }
+    items.push(MenuItem::sub("More", more));
     items
 }
 
-fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
+/// "Merge X into the current branch" and "Rebase the current branch onto X".
+fn merge_rebase_items(name: &str, shown: &str) -> [MenuItem; 2] {
+    [
+        MenuItem::entry(
+            trf(
+                "Merge {name} into {shown}…",
+                &[("name", name), ("shown", shown)],
+            ),
+            act(Action::Merge(name.to_owned())),
+        ),
+        MenuItem::entry(
+            trf(
+                "Rebase {shown} onto {name}…",
+                &[("name", name), ("shown", shown)],
+            ),
+            act(Action::Rebase {
+                onto: name.to_owned(),
+                label: name.to_owned(),
+            }),
+        ),
+    ]
+}
+
+/// Hide or solo a branch in the graph of all branches.
+fn visibility_items(tab: &RepoTab, full: &str) -> Vec<MenuItem> {
+    use crate::app::RefVisibility;
+    let view = &tab.ref_view;
+    let hidden = view.hidden.iter().any(|name| name == full);
+    let solo = view.solo.iter().any(|name| name == full);
+    let change = |change| Message::RefVisibility(change);
+    let mut items = Vec::new();
+    if hidden {
+        items.push(MenuItem::entry(
+            "Show in graph",
+            change(RefVisibility::Show(full.to_owned())),
+        ));
+    } else if crate::logic::can_hide(full, tab.current_branch()) {
+        // The branch checked out can't be hidden: git shows its commits anyway.
+        items.push(MenuItem::entry(
+            "Hide in graph",
+            change(RefVisibility::Hide(full.to_owned())),
+        ));
+    }
+    items.push(if solo {
+        MenuItem::entry(
+            "Stop soloing",
+            change(RefVisibility::Unsolo(full.to_owned())),
+        )
+    } else {
+        MenuItem::entry(
+            "Solo in graph",
+            change(RefVisibility::Solo(full.to_owned())),
+        )
+    });
+    items
+}
+
+fn ref_items(tab: &RepoTab, target: &RefTarget, copy_name: bool) -> Vec<MenuItem> {
     let current = tab.current_branch();
     let shown = current.unwrap_or("HEAD");
     match target {
@@ -1310,7 +1974,7 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
             .local
             .iter()
             .find(|branch| branch.name == *name)
-            .map_or_else(Vec::new, |branch| local_ref_items(tab, branch)),
+            .map_or_else(Vec::new, |branch| local_ref_items(tab, branch, copy_name)),
         RefTarget::Remote(name) => {
             let Some(branch) = tab.refs.remote.iter().find(|branch| branch.name == *name) else {
                 return Vec::new();
@@ -1327,6 +1991,9 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                     kind: "remote",
                 }),
             )];
+            if current.is_some() {
+                items.extend(merge_rebase_items(name, shown));
+            }
             if let Some(local) = local {
                 items.push(MenuItem::entry_if(
                     trf("Fast-forward {branch} to here", &[("branch", &local.name)]),
@@ -1337,32 +2004,20 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                     }),
                 ));
             }
+            let mut more = visibility_items(tab, &format!("refs/remotes/{name}"));
+            if copy_name {
+                more.extend([
+                    MenuItem::Separator,
+                    MenuItem::entry("Copy branch name", Message::Copy(name.clone())),
+                ]);
+            }
             items.extend([
-                MenuItem::entry_if(
-                    trf(
-                        "Merge {name} into {shown}…",
-                        &[("name", name), ("shown", shown)],
-                    ),
-                    current.is_some(),
-                    act(Action::Merge(name.clone())),
-                ),
-                MenuItem::entry_if(
-                    trf(
-                        "Rebase {shown} onto {name}…",
-                        &[("name", name), ("shown", shown)],
-                    ),
-                    current.is_some(),
-                    act(Action::Rebase {
-                        onto: name.clone(),
-                        label: name.clone(),
-                    }),
-                ),
                 MenuItem::Separator,
                 MenuItem::danger(
                     trf("Delete from {remote}…", &[("remote", &branch.remote)]),
                     act(Action::DeleteRemoteBranch(name.clone())),
                 ),
-                MenuItem::entry("Copy branch name", Message::Copy(name.clone())),
+                MenuItem::sub("More", more),
             ]);
             items
         }
@@ -1373,24 +2028,55 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                 .iter()
                 .find(|tag| tag.name == *name)
                 .map_or_else(String::new, |tag| tag.sha.clone());
-            vec![
-                MenuItem::entry("Checkout tag…", act(Action::CheckoutCommit(sha))),
-                MenuItem::entry_if(
+            let mut items = vec![MenuItem::entry(
+                "Checkout tag…",
+                act(Action::CheckoutCommit(sha)),
+            )];
+            if current.is_some() {
+                items.push(MenuItem::entry(
                     trf(
                         "Merge {name} into {shown}…",
                         &[("name", name), ("shown", shown)],
                     ),
-                    current.is_some(),
                     act(Action::Merge(name.clone())),
-                ),
-                MenuItem::entry_if(
+                ));
+            }
+            items.push(MenuItem::Separator);
+            if !tab.refs.remotes.is_empty() {
+                items.push(MenuItem::entry(
                     "Push to remote…",
-                    !tab.refs.remotes.is_empty(),
                     act(Action::PushTag(name.clone())),
-                ),
-                MenuItem::danger("Delete…", act(Action::DeleteTag(name.clone()))),
-                MenuItem::entry("Copy tag name", Message::Copy(name.clone())),
-            ]
+                ));
+            }
+            items.push(MenuItem::danger(
+                "Delete…",
+                act(Action::DeleteTag(name.clone())),
+            ));
+            if !tab.refs.remotes.is_empty() {
+                items.push(MenuItem::sub(
+                    "Delete from remote",
+                    tab.refs
+                        .remotes
+                        .iter()
+                        .map(|remote| {
+                            MenuItem::danger(
+                                remote.name.clone(),
+                                act(Action::DeleteRemoteTag {
+                                    remote: remote.name.clone(),
+                                    name: name.clone(),
+                                }),
+                            )
+                        })
+                        .collect(),
+                ));
+            }
+            if copy_name {
+                items.extend([
+                    MenuItem::Separator,
+                    MenuItem::entry("Copy tag name", Message::Copy(name.clone())),
+                ]);
+            }
+            items
         }
     }
 }
@@ -1404,7 +2090,7 @@ pub fn commit_menu_items(
     let mut items = Vec::new();
     if let Some(focus) = focus {
         items.push(MenuItem::Header(ref_title(focus)));
-        items.extend(ref_items(tab, focus));
+        items.extend(ref_items(tab, focus, false));
         items.push(MenuItem::Separator);
     }
     let others: Vec<RefTarget> = refs_of(tab, commit)
@@ -1412,7 +2098,10 @@ pub fn commit_menu_items(
         .filter(|target| Some(target) != focus)
         .collect();
     for target in &others {
-        items.push(MenuItem::sub(ref_title(target), ref_items(tab, target)));
+        items.push(MenuItem::sub(
+            ref_title(target),
+            ref_items(tab, target, true),
+        ));
     }
     if !others.is_empty() {
         items.push(MenuItem::Separator);
@@ -1421,16 +2110,21 @@ pub fn commit_menu_items(
         "Commit {commit}",
         &[("commit", short_sha(&commit.sha))],
     )));
-    items.extend(commit_items(tab, commit));
+    items.extend(commit_items(tab, commit, focus));
     items
 }
 
-fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
+/// The commit's own actions. Those the right-clicked branch or tag above already offers
+/// (checkout, merge, rebase, a worktree) are left out.
+fn commit_items(tab: &RepoTab, commit: &Commit, focus: Option<&RefTarget>) -> Vec<MenuItem> {
     let current = tab.current_branch().unwrap_or("HEAD");
     let head = tab.refs.head.as_deref();
     let is_head = Some(commit.sha.as_str()) == head;
     let sha = commit.sha.clone();
     let has_parent = !commit.parents.is_empty();
+    // A focused branch offers checkout, merge and rebase itself; a tag checkout and merge.
+    let by_ref = focus.is_some();
+    let by_branch = matches!(focus, Some(RefTarget::Local(_) | RefTarget::Remote(_)));
     let reset = |label: &str, mode: &'static str| {
         let message = act(Action::ResetTo {
             sha: sha.clone(),
@@ -1442,44 +2136,96 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             MenuItem::entry(label, message)
         }
     };
-    let mut items = vec![
-        MenuItem::entry_if(
+    let mut items = Vec::new();
+    if !is_head && !by_ref {
+        items.push(MenuItem::entry(
             "Checkout commit…",
-            !is_head,
             act(Action::CheckoutCommit(sha.clone())),
-        ),
+        ));
+    }
+    let mut create = vec![
         MenuItem::entry(
-            "New branch here…",
+            "Branch…",
             act(Action::NewBranch {
                 start: Some(sha.clone()),
                 label: None,
             }),
         ),
-        MenuItem::entry("New tag here…", act(Action::CreateTag(sha.clone()))),
+        MenuItem::entry("Tag…", act(Action::CreateTag(sha.clone()))),
+    ];
+    if !matches!(focus, Some(RefTarget::Local(_))) {
+        create.push(MenuItem::entry(
+            "Worktree…",
+            act(Action::AddWorktree(Some(sha.clone()))),
+        ));
+    }
+    items.extend([MenuItem::sub("Create here", create), MenuItem::Separator]);
+    if !is_head {
+        if !by_ref {
+            items.push(MenuItem::entry(
+                trf("Merge into {current}…", &[("current", current)]),
+                act(Action::Merge(sha.clone())),
+            ));
+        }
+        if !by_branch {
+            items.push(MenuItem::entry(
+                trf("Rebase {current} onto here…", &[("current", current)]),
+                act(Action::Rebase {
+                    onto: sha.clone(),
+                    label: short_sha(&sha).to_owned(),
+                }),
+            ));
+        }
+        items.push(MenuItem::entry(
+            trf("Cherry-pick into {current}", &[("current", current)]),
+            act(Action::CherryPick(sha.clone())),
+        ));
+    }
+    items.push(MenuItem::entry(
+        "Revert commit…",
+        act(Action::Revert(sha.clone())),
+    ));
+    let mut edit = vec![
+        MenuItem::entry("Edit message…", act(Action::EditMessage(sha.clone()))),
+        MenuItem::entry_if(
+            "Squash into parent…",
+            has_parent,
+            act(Action::Squash(sha.clone())),
+        ),
+        MenuItem::danger("Drop commit…", act(Action::DropCommit(sha.clone()))),
+        MenuItem::entry_if(
+            "Move up (after its child)",
+            !is_head,
+            act(Action::MoveCommit(sha.clone(), true)),
+        ),
+        MenuItem::entry_if(
+            "Move down (before its parent)",
+            has_parent,
+            act(Action::MoveCommit(sha.clone(), false)),
+        ),
         MenuItem::Separator,
         MenuItem::entry_if(
-            trf("Merge into {current}…", &[("current", current)]),
-            !is_head,
-            act(Action::Merge(sha.clone())),
+            "Fixup commit of the staged changes",
+            tab.status
+                .as_ref()
+                .is_some_and(|status| !status.staged.is_empty()),
+            run(Command::FixupCommit { sha: sha.clone() }),
         ),
-        MenuItem::entry_if(
-            trf("Rebase {current} onto here…", &[("current", current)]),
-            !is_head,
-            act(Action::Rebase {
-                onto: sha.clone(),
-                label: short_sha(&sha).to_owned(),
-            }),
-        ),
+        MenuItem::Separator,
         MenuItem::entry(
             "Interactive rebase from here…",
             Message::OpenRebase(Some(sha.clone())),
         ),
-        MenuItem::entry_if(
-            trf("Cherry-pick into {current}", &[("current", current)]),
-            !is_head,
-            run(Command::CherryPick { sha: sha.clone() }),
-        ),
-        MenuItem::entry("Revert commit…", act(Action::Revert(sha.clone()))),
+    ];
+    if is_head && has_parent {
+        edit.push(MenuItem::entry(
+            "Undo last commit (keep changes)",
+            act(Action::UndoLast),
+        ));
+    }
+    items.extend([
+        MenuItem::Separator,
+        MenuItem::sub("Edit commit", edit),
         MenuItem::sub(
             trf("Reset {current} to here", &[("current", current)]),
             vec![
@@ -1489,63 +2235,142 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
                 reset("Hard: discard all changes", "hard"),
             ],
         ),
-    ];
-    if is_head && has_parent {
-        items.push(MenuItem::entry(
-            "Undo last commit (keep changes)",
-            act(Action::UndoLast),
-        ));
-    }
-    items.push(MenuItem::sub(
-        "Edit commit",
-        vec![
-            MenuItem::entry("Edit message…", act(Action::EditMessage(sha.clone()))),
-            MenuItem::entry_if(
-                "Squash into parent…",
-                has_parent,
-                act(Action::Squash(sha.clone())),
-            ),
-            MenuItem::danger("Drop commit…", act(Action::DropCommit(sha.clone()))),
-        ],
-    ));
-    items.push(MenuItem::Separator);
+    ]);
+    let bisect = match &tab.bisect {
+        None => vec![MenuItem::entry(
+            "Start bisect: this commit is bad…",
+            act(Action::BisectStart(sha.clone())),
+        )],
+        Some(_) => {
+            let mark = |verdict| {
+                run(Command::BisectMark {
+                    verdict,
+                    sha: Some(sha.clone()),
+                })
+            };
+            vec![
+                MenuItem::entry("Mark as good", mark("good")),
+                MenuItem::entry("Mark as bad", mark("bad")),
+                MenuItem::entry("Skip (can't be tested)", mark("skip")),
+                MenuItem::Separator,
+                MenuItem::entry("End bisect", run(Command::BisectReset)),
+            ]
+        }
+    };
+    items.extend([MenuItem::sub("Bisect", bisect), MenuItem::Separator]);
+    let mut compare = Vec::new();
     if let Some(head) = head.filter(|_| !is_head) {
-        items.push(MenuItem::entry(
-            "Compare with HEAD",
+        compare.push(MenuItem::entry(
+            "With HEAD",
             Message::CompareStart(sha.clone(), head.to_owned()),
         ));
     }
+    compare.push(MenuItem::entry(
+        "With the working directory",
+        Message::CompareStart(sha.clone(), gitcraft_core::queries::WORKTREE.to_owned()),
+    ));
     if let Some(selected) = tab.selected.as_deref().filter(|selected| *selected != sha) {
-        items.push(MenuItem::entry(
-            trf("Compare with {commit}", &[("commit", short_sha(selected))]),
+        compare.push(MenuItem::entry(
+            trf("With {commit}", &[("commit", short_sha(selected))]),
             Message::CompareStart(sha.clone(), selected.to_owned()),
         ));
     }
-    items.push(MenuItem::entry_if(
+    let mut patch = vec![MenuItem::entry_if(
         "Save as patch…",
         commit.parents.len() <= 1,
         act(Action::SavePatch(sha.clone())),
-    ));
-    items.push(MenuItem::sub(
-        "Copy",
-        vec![
-            MenuItem::entry("SHA", Message::Copy(sha.clone())),
-            MenuItem::entry("Short SHA", Message::Copy(short_sha(&sha).to_owned())),
-            MenuItem::entry("Subject", Message::Copy(commit.subject.clone())),
-            MenuItem::entry(
-                "Author",
-                Message::Copy(format!("{} <{}>", commit.author, commit.email)),
-            ),
-        ],
-    ));
+    )];
+    if !is_head {
+        patch.push(MenuItem::entry(
+            "Save commits from here to HEAD as patches…",
+            act(Action::SavePatchSeries(sha.clone())),
+        ));
+    }
+    // The right-clicked branch's or tag's name comes first.
+    let mut copy = match focus {
+        Some(RefTarget::Local(name) | RefTarget::Remote(name)) => {
+            vec![MenuItem::entry("Branch name", Message::Copy(name.clone()))]
+        }
+        Some(RefTarget::Tag(name)) => {
+            vec![MenuItem::entry("Tag name", Message::Copy(name.clone()))]
+        }
+        None => Vec::new(),
+    };
+    if !copy.is_empty() {
+        copy.push(MenuItem::Separator);
+    }
+    copy.extend([
+        MenuItem::entry("SHA", Message::Copy(sha.clone())),
+        MenuItem::entry("Short SHA", Message::Copy(short_sha(&sha).to_owned())),
+        MenuItem::entry("Subject", Message::Copy(commit.subject.clone())),
+        MenuItem::entry(
+            "Author",
+            Message::Copy(format!("{} <{}>", commit.author, commit.email)),
+        ),
+    ]);
+    items.extend([
+        MenuItem::sub("Compare", compare),
+        MenuItem::sub("Patch", patch),
+        MenuItem::sub("Copy", copy),
+    ]);
     items
+}
+
+/// The menu for several picked commits (newest first).
+pub fn commits_menu_items(tab: &RepoTab, shas: &[String]) -> Vec<MenuItem> {
+    use crate::app::Preset;
+    let count = shas.len().to_string();
+    let n = |text: &str| trf(text, &[("count", &count)]);
+    let has_merge = tab
+        .commits
+        .iter()
+        .any(|commit| shas.contains(&commit.sha) && commit.parents.len() > 1);
+    // Oldest first, as they are applied.
+    let oldest_first: Vec<String> = shas.iter().rev().cloned().collect();
+    vec![
+        MenuItem::Header(n("{count} commits")),
+        MenuItem::entry_if(
+            n("Cherry-pick {count} commits into current"),
+            !has_merge,
+            run(Command::CherryPickMany {
+                shas: oldest_first.clone(),
+            }),
+        ),
+        MenuItem::entry_if(
+            "Interactive cherry-pick…",
+            !has_merge,
+            Message::OpenReplay(shas.to_vec()),
+        ),
+        MenuItem::Separator,
+        MenuItem::entry_if(
+            n("Squash {count} commits…"),
+            !has_merge,
+            Message::PlanCommits(Preset::Squash(shas.to_vec())),
+        ),
+        MenuItem::entry_if(
+            n("Drop {count} commits…"),
+            !has_merge,
+            Message::PlanCommits(Preset::Drop(shas.to_vec())),
+        ),
+        MenuItem::Separator,
+        MenuItem::entry("Copy SHAs", Message::Copy(oldest_first.join("\n"))),
+    ]
 }
 
 fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
     let mut items = vec![
         MenuItem::entry("Apply patch…", act(Action::ApplyPatch)),
+        MenuItem::entry(
+            "Save local changes as patch…",
+            act(Action::SaveChangesPatch),
+        ),
         MenuItem::danger("Clean untracked files…", act(Action::Clean)),
         MenuItem::entry("Reflog (recover lost commits)…", Message::OpenReflog),
+        MenuItem::entry("Recover discarded changes…", Message::OpenDiscards),
+        MenuItem::entry("Compare commit ranges…", act(Action::RangeDiff)),
+        MenuItem::entry("Clean up branches…", Message::OpenCleanup),
+        MenuItem::entry("Sparse checkout…", Message::OpenSparse),
+        MenuItem::entry("Maintenance…", act(Action::Maintenance)),
         MenuItem::Separator,
         MenuItem::entry_if(
             "Fetch all remotes (incl. tags)",
@@ -1556,13 +2381,64 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
             }),
         ),
         MenuItem::entry("Add remote…", act(Action::AddRemote)),
-        MenuItem::entry("Add worktree…", act(Action::AddWorktree(None))),
+        MenuItem::entry_if(
+            "Forget saved passwords for the remotes…",
+            !tab.refs.remotes.is_empty(),
+            act(Action::ForgetCredentials),
+        ),
     ];
+    // A shallow or partial clone can get what it left out.
+    if tab.refs.shallow {
+        items.extend([
+            MenuItem::entry(
+                "Fetch 500 more commits",
+                run(Command::FetchMore { how: "deepen" }),
+            ),
+            MenuItem::entry(
+                "Fetch the whole history",
+                run(Command::FetchMore { how: "unshallow" }),
+            ),
+        ]);
+    }
+    if tab.refs.partial {
+        items.push(MenuItem::entry(
+            "Download everything the partial clone left out",
+            run(Command::FetchMore { how: "refetch" }),
+        ));
+    }
+    items.extend([MenuItem::entry(
+        "Add worktree…",
+        act(Action::AddWorktree(None)),
+    )]);
+    items.push(MenuItem::entry("Add submodule…", act(Action::AddSubmodule)));
     if !tab.refs.submodules.is_empty() {
         items.push(MenuItem::entry(
             "Update submodules",
             run(Command::UpdateSubmodules),
         ));
+    }
+    if let Some(lfs) = &tab.refs.lfs {
+        let mut lfs_items = Vec::new();
+        if !lfs.installed {
+            lfs_items.push(MenuItem::entry(
+                "Set up LFS for this repository",
+                run(Command::LfsInstall),
+            ));
+        }
+        lfs_items.extend([
+            MenuItem::entry("Store files in LFS…", act(Action::LfsTrack(String::new()))),
+            MenuItem::entry_if(
+                "Download LFS files",
+                !tab.refs.remotes.is_empty(),
+                run(Command::LfsPull),
+            ),
+            MenuItem::entry_if(
+                "Locks…",
+                !tab.refs.remotes.is_empty(),
+                Message::OpenLfsLocks,
+            ),
+        ]);
+        items.push(MenuItem::sub("Git LFS", lfs_items));
     }
     items.extend([
         MenuItem::Separator,
@@ -1700,9 +2576,20 @@ fn file_menu_items(
                     ),
                     MenuItem::entry(
                         label("Stash…", "Stash {count} files…"),
-                        act(Action::StashFiles(paths)),
+                        act(Action::StashFiles(paths.clone())),
                     ),
                 ]);
+                // A file resolved during a merge, rebase or cherry-pick can be taken up again.
+                if tab
+                    .status
+                    .as_ref()
+                    .is_some_and(|status| status.operation.is_some())
+                {
+                    items.push(MenuItem::entry(
+                        "Mark as conflicted again",
+                        run(Command::MarkConflicted { paths }),
+                    ));
+                }
                 if one {
                     let orig = file_in(area).and_then(|file| file.orig_path);
                     items.push(diff_tool_item(
@@ -1742,6 +2629,17 @@ fn file_menu_items(
     let full = join_path(&tab.path, path);
     items.extend([
         MenuItem::entry("File history", Message::OpenFileHistory(path.to_owned())),
+        MenuItem::entry(
+            "History of its folder",
+            Message::SetHistoryFilter(Some(gitcraft_core::model::LogFilter {
+                path: std::path::Path::new(path)
+                    .parent()
+                    .map(|dir| dir.to_string_lossy().replace('\\', "/"))
+                    .filter(|dir| !dir.is_empty())
+                    .unwrap_or_else(|| ".".to_owned()),
+                ..Default::default()
+            })),
+        ),
         MenuItem::entry(
             "Blame",
             Message::OpenBlame(path.to_owned(), rev.map(str::to_owned)),
@@ -1786,6 +2684,62 @@ fn file_menu_items(
                 path: path.to_owned(),
             }),
         ));
+        items.push(MenuItem::entry(
+            "Copy file contents",
+            Message::CopyFileText(rev.to_owned(), path.to_owned()),
+        ));
+        let stash = tab
+            .stash
+            .as_ref()
+            .filter(|_| tab.view == View::Stash)
+            .and_then(|open| {
+                tab.refs
+                    .stashes
+                    .iter()
+                    .find(|stash| stash.name == open.name)
+            });
+        if let Some(stash) = stash {
+            items.push(MenuItem::entry(
+                "Take this file from the stash",
+                run(Command::StashFile {
+                    id: stash.sha.clone(),
+                    path: path.to_owned(),
+                }),
+            ));
+        }
+    }
+    // LFS, for a file of the working tree.
+    if let (Some(lfs), None) = (&tab.refs.lfs, rev) {
+        let mut lfs_items = Vec::new();
+        if let Some(pattern) = logic::lfs_track_suggestion(path, &lfs.patterns) {
+            lfs_items.push(MenuItem::entry(
+                trf("Store “{pattern}” files in LFS…", &[("pattern", &pattern)]),
+                act(Action::LfsTrack(pattern)),
+            ));
+        }
+        let new = file_in(Area::Unstaged).is_some_and(|file| file.status == "?");
+        if !new && lfs.patterns.iter().any(|pattern| pattern.lockable) {
+            lfs_items.extend([
+                MenuItem::entry(
+                    "Lock (LFS)",
+                    run(Command::LfsLock {
+                        path: path.to_owned(),
+                    }),
+                ),
+                MenuItem::entry(
+                    "Unlock (LFS)",
+                    run(Command::LfsUnlock {
+                        path: path.to_owned(),
+                        id: None,
+                        force: false,
+                    }),
+                ),
+            ]);
+        }
+        if !lfs_items.is_empty() {
+            items.push(MenuItem::Separator);
+            items.extend(lfs_items);
+        }
     }
     items.extend([
         MenuItem::Separator,

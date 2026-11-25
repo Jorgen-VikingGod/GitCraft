@@ -17,9 +17,6 @@ use crate::logic::{plural, short_date, short_sha};
 
 /// Rows drawn beyond the visible ones, so that a small scroll never shows a gap.
 const OVERSCAN: usize = 4;
-const AUTHOR_WIDTH: f32 = 150.0;
-const DATE_WIDTH: f32 = 120.0;
-const SHA_WIDTH: f32 = 76.0;
 
 pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let look = cx.look();
@@ -53,11 +50,87 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
 fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let look = cx.look();
     let c = &look.c;
-    let graph_width = if tab.search.is_some() {
+    // Search results and most filters leave gaps in the history, so no graph is drawn then.
+    let gaps = tab
+        .history_filter
+        .as_ref()
+        .is_some_and(|filter| !filter.keeps_graph());
+    let graph_width = if tab.search.is_some() || gaps {
         10.0
     } else {
         width_for(tab.graph_lanes)
     };
+    let view = &tab.ref_view;
+    if !view.is_empty() && tab.search.is_none() && tab.all_branches {
+        let short = |name: &String| {
+            name.strip_prefix("refs/heads/")
+                .or_else(|| name.strip_prefix("refs/remotes/"))
+                .unwrap_or(name)
+                .to_owned()
+        };
+        let summary = if view.solo.is_empty() {
+            trf(
+                "{branches} hidden: {names}",
+                &[
+                    ("branches", &plural(view.hidden.len(), "branch")),
+                    (
+                        "names",
+                        &view.hidden.iter().map(short).collect::<Vec<_>>().join(", "),
+                    ),
+                ],
+            )
+        } else {
+            trf(
+                "Only {names}",
+                &[(
+                    "names",
+                    &view.solo.iter().map(short).collect::<Vec<_>>().join(", "),
+                )],
+            )
+        };
+        super::widgets::bar(ui, 29.0, c.accent_soft, 10.0, |ui| {
+            icon::icon(ui, "branch", 13.0, c.text_muted);
+            text(ui, summary, 12.0, c.text);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if btn(ui, look, "Show all branches", true) {
+                    cx.send(Message::RefVisibility(crate::app::RefVisibility::ShowAll));
+                }
+            });
+        });
+        hline(ui, look);
+    }
+    if let Some(filter) = tab.history_filter.as_ref().filter(|_| tab.search.is_none()) {
+        let mut parts = Vec::new();
+        if !filter.author.trim().is_empty() {
+            parts.push(trf("by “{author}”", &[("author", filter.author.trim())]));
+        }
+        if !filter.path.trim().is_empty() {
+            parts.push(trf("in {path}", &[("path", filter.path.trim())]));
+        }
+        if !filter.text.is_empty() {
+            parts.push(trf("changing “{text}”", &[("text", &filter.text)]));
+        }
+        let summary = trf(
+            "Filtered history: {commits} {filters}",
+            &[
+                ("commits", &plural(tab.commits.len(), "commit")),
+                ("filters", &parts.join(" · ")),
+            ],
+        );
+        super::widgets::bar(ui, 29.0, c.accent_soft, 10.0, |ui| {
+            icon::icon(ui, "search", 13.0, c.text_muted);
+            text(ui, summary, 12.0, c.text);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if btn(ui, look, "Clear filter", true) {
+                    cx.send(Message::SetHistoryFilter(None));
+                }
+                if btn(ui, look, "Edit…", true) {
+                    cx.send(Message::Action(crate::actions::Action::FilterHistory));
+                }
+            });
+        });
+        hline(ui, look);
+    }
     if let Some(search) = &tab.search {
         let summary = if search.loading {
             tr("Searching…").to_owned()
@@ -119,21 +192,57 @@ fn top_pane(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
 fn header(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
     let look = cx.look();
     let c = &look.c;
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 25.0), Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 25.0), Sense::click());
     fill(ui, rect, c.panel);
+    if response.secondary_clicked() {
+        cx.send(Message::OpenMenu(crate::actions::MenuRequest::Columns));
+    }
     let mid = rect.center().y;
-    let right = rect.right();
-    let sha_x = right - SHA_WIDTH + 4.0;
-    let date_x = right - SHA_WIDTH - DATE_WIDTH + 8.0;
-    let author_x = right - SHA_WIDTH - DATE_WIDTH - AUTHOR_WIDTH + 8.0;
-    for (title, x) in [("Commit", sha_x), ("Date", date_x), ("Author", author_x)] {
+    let columns = &cx.app.settings.columns;
+    let x = crate::logic::column_x(rect.right(), columns);
+    for (title, at) in [
+        ("Commit", x.sha),
+        ("Date", x.date),
+        ("Author", x.author),
+        ("Changes", x.changes),
+    ] {
+        let Some(at) = at else { continue };
         paint_text(
             ui.painter(),
-            Pos2::new(x, mid),
+            Pos2::new(at, mid),
             &tr(title).to_uppercase(),
             look.ui(11.0),
             c.text_muted,
         );
+    }
+    // The date and author columns widen by dragging their left edge.
+    for (column, edge, width) in [
+        (crate::app::Column::Date, x.date_edge, columns.date_width),
+        (
+            crate::app::Column::Author,
+            x.author_edge,
+            columns.author_width,
+        ),
+    ] {
+        let Some(edge) = edge else { continue };
+        let handle = Rect::from_center_size(Pos2::new(edge, mid), vec2(8.0, rect.height()));
+        let drag = ui.interact(
+            handle,
+            ui.scope_id().with(("column-edge", column as u8)),
+            Sense::drag(),
+        );
+        if drag.hovered() || drag.dragged() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+            ui.painter()
+                .vline(edge, rect.y_range(), Stroke::new(1.0, c.border));
+        }
+        if drag.dragged() {
+            let delta = drag.drag_delta().x;
+            cx.send(Message::ColumnWidth(column, width - delta, false));
+        }
+        if drag.drag_stopped() {
+            cx.send(Message::ColumnWidth(column, width, true));
+        }
     }
     let description = paint_text(
         ui.painter(),
@@ -196,7 +305,8 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, graph_width: f32) {
                 origin + vec2(0.0, index as f32 * ROW_HEIGHT),
                 vec2(width, ROW_HEIGHT),
             );
-            let selected = tab.selected.as_deref() == Some(commit.sha.as_str());
+            let selected = tab.selected.as_deref() == Some(commit.sha.as_str())
+                || tab.picked_commits.contains(&commit.sha);
             let compared = tab
                 .compare
                 .as_ref()
@@ -316,42 +426,73 @@ fn commit_row(
         }
         .paint(&painter, rect.min);
     }
-    let sha_x = rect.right() - SHA_WIDTH + 4.0;
-    let date_x = rect.right() - SHA_WIDTH - DATE_WIDTH + 8.0;
-    let author_x = rect.right() - SHA_WIDTH - DATE_WIDTH - AUTHOR_WIDTH + 8.0;
-    paint_text(
-        &painter,
-        Pos2::new(sha_x, mid),
-        short_sha(&commit.sha),
-        look.mono(12.0),
-        secondary,
-    );
-    let date = painter.with_clip_rect(Rect::from_min_max(
-        Pos2::new(date_x - 8.0, rect.top()),
-        Pos2::new(sha_x, rect.bottom()),
-    ));
-    paint_text(
-        &date,
-        Pos2::new(date_x, mid),
-        &short_date(commit.time),
-        look.ui(13.0),
-        secondary,
-    );
-    let author = painter.with_clip_rect(Rect::from_min_max(
-        Pos2::new(author_x - 8.0, rect.top()),
-        Pos2::new(date_x - 8.0, rect.bottom()),
-    ));
-    paint_text(
-        &author,
-        Pos2::new(author_x, mid),
-        &commit.author,
-        look.ui(13.0),
-        secondary,
-    );
+    let columns = &cx.app.settings.columns;
+    let x = crate::logic::column_x(rect.right(), columns);
+    // Each column is clipped to its own room, up to where the next one starts.
+    let clip = |from: f32, to: f32| {
+        painter.with_clip_rect(Rect::from_min_max(
+            Pos2::new(from, rect.top()),
+            Pos2::new(to, rect.bottom()),
+        ))
+    };
+    if let Some(sha_x) = x.sha {
+        paint_text(
+            &painter,
+            Pos2::new(sha_x, mid),
+            short_sha(&commit.sha),
+            look.mono(12.0),
+            secondary,
+        );
+    }
+    if let (Some(date_x), Some(edge)) = (x.date, x.date_edge) {
+        paint_text(
+            &clip(edge, edge + columns.date_width),
+            Pos2::new(date_x, mid),
+            &short_date(commit.time),
+            look.ui(13.0),
+            secondary,
+        );
+    }
+    if let (Some(author_x), Some(edge)) = (x.author, x.author_edge) {
+        paint_text(
+            &clip(edge, edge + columns.author_width),
+            Pos2::new(author_x, mid),
+            &commit.author,
+            look.ui(13.0),
+            secondary,
+        );
+    }
+    if let Some(changes_x) = x.changes {
+        let stats = cx
+            .app
+            .current()
+            .and_then(|tab| tab.stats.get(&commit.sha).copied());
+        if let Some(stats) = stats {
+            let room = clip(
+                changes_x - 8.0,
+                changes_x - 8.0 + crate::logic::CHANGES_COLUMN,
+            );
+            let added = format!("+{}", stats.added);
+            let width = paint_text(
+                &room,
+                Pos2::new(changes_x, mid),
+                &added,
+                look.mono(12.0),
+                c.diff_add_text,
+            );
+            paint_text(
+                &room,
+                Pos2::new(changes_x + width + 6.0, mid),
+                &format!("−{}", stats.removed),
+                look.mono(12.0),
+                c.diff_del_text,
+            );
+        }
+    }
 
     let subject_area = Rect::from_min_max(
         Pos2::new(rect.left() + graph_width, rect.top()),
-        Pos2::new(author_x - 8.0, rect.bottom()),
+        Pos2::new(x.subject_end, rect.bottom()),
     );
     let subject_painter = painter.with_clip_rect(subject_area.intersect(painter.clip_rect()));
     let mut x = subject_area.left();
@@ -366,6 +507,30 @@ fn commit_row(
     }
     if commit.refs.as_ref().is_some_and(|refs| !refs.is_empty()) {
         x += 2.0;
+    }
+    if let Some(name) = &commit.stash {
+        // A stash: its name, then its message, muted, and it opens as a stash.
+        x += paint_text(
+            &subject_painter,
+            Pos2::new(x, mid),
+            name,
+            look.mono(12.0),
+            secondary,
+        );
+        x += 8.0;
+        paint_text(
+            &subject_painter,
+            Pos2::new(x, mid),
+            &commit.subject,
+            look.ui(13.0),
+            secondary,
+        );
+        if response.clicked() || response.double_clicked() {
+            cx.send(Message::OpenStash(name.clone()));
+        } else if response.secondary_clicked() {
+            cx.send(Message::OpenMenu(MenuRequest::Stash(name.clone())));
+        }
+        return;
     }
     if is_head {
         paint_strong(
@@ -390,9 +555,18 @@ fn commit_row(
     } else if response.clicked() {
         cx.send(Message::Select(commit.sha.clone()));
     } else if response.secondary_clicked() {
-        cx.send(Message::OpenMenu(MenuRequest::Commit {
-            sha: commit.sha.clone(),
-            focus: None,
-        }));
+        let picked = cx
+            .app
+            .current()
+            .map(|tab| tab.picked_commits.clone())
+            .unwrap_or_default();
+        if picked.len() > 1 && picked.contains(&commit.sha) {
+            cx.send(Message::OpenMenu(MenuRequest::Commits(picked)));
+        } else {
+            cx.send(Message::OpenMenu(MenuRequest::Commit {
+                sha: commit.sha.clone(),
+                focus: None,
+            }));
+        }
     }
 }

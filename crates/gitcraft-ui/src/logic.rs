@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use gitcraft_core::model::{ConflictChunk, Remote, Status};
+use gitcraft_core::model::{ConflictChunk, Operation, OperationSides, Remote, Status};
 
 use crate::i18n::{tr, trf};
 
@@ -20,6 +20,346 @@ pub fn plural(count: usize, word: &str) -> String {
             &format!("{{count}} {word}s"),
             &[("count", &count.to_string())],
         )
+    }
+}
+
+/// The commits picked after a Ctrl/Cmd+click (`range` false: the clicked one is added or
+/// taken out) or a Shift+click (`range`: everything between the selected commit and the
+/// clicked one) on `sha`. `listed` is the history as shown, newest first; the result keeps
+/// that order. A first Ctrl+click starts from the selected commit.
+pub fn pick_commits(
+    listed: &[String],
+    picked: &[String],
+    selected: Option<&str>,
+    sha: &str,
+    range: bool,
+) -> Vec<String> {
+    let position = |wanted: &str| listed.iter().position(|sha| sha == wanted);
+    let mut chosen: Vec<String> = if picked.is_empty() {
+        selected.map(str::to_owned).into_iter().collect()
+    } else {
+        picked.to_vec()
+    };
+    if range {
+        let anchor = selected.and_then(position).or_else(|| position(sha));
+        if let (Some(anchor), Some(end)) = (anchor, position(sha)) {
+            let (from, to) = (anchor.min(end), anchor.max(end));
+            chosen = listed[from..=to].to_vec();
+        }
+    } else if let Some(at) = chosen.iter().position(|picked| picked == sha) {
+        chosen.remove(at);
+    } else {
+        chosen.push(sha.to_owned());
+    }
+    chosen.sort_by_key(|sha| position(sha).unwrap_or(usize::MAX));
+    chosen
+}
+
+/// The order and actions `git rebase --autosquash` would give: `(subject, sha)` oldest
+/// first in, `(index into steps, new action)` out. `fixup!`/`amend!` become fixups and
+/// `squash!` squashes, each right after the commit it names (by subject or sha prefix) and
+/// after earlier ones for the same commit. Those naming nothing in the list stay put.
+pub fn autosquash(steps: &[(String, String)]) -> Vec<(usize, Option<&'static str>)> {
+    let marker = |subject: &str| -> Option<(&'static str, String)> {
+        for (prefix, action) in [
+            ("fixup! ", "fixup"),
+            ("amend! ", "fixup"),
+            ("squash! ", "squash"),
+        ] {
+            if let Some(rest) = subject.strip_prefix(prefix) {
+                return Some((action, rest.to_owned()));
+            }
+        }
+        None
+    };
+    let mut order: Vec<(usize, Option<&'static str>)> = Vec::new();
+    for (index, (subject, _)) in steps.iter().enumerate() {
+        if let Some((action, target)) = marker(subject) {
+            // A marker on a marker ("fixup! fixup! x") names the same commit.
+            let mut target = target;
+            while let Some((_, inner)) = marker(&target) {
+                target = inner;
+            }
+            let found = order.iter().position(|(other, _)| {
+                let (other_subject, other_sha) = &steps[*other];
+                *other != index
+                    && (*other_subject == target
+                        || (target.len() >= 4 && other_sha.starts_with(&target)))
+            });
+            if let Some(found) = found {
+                let mut at = found + 1;
+                while at < order.len() && order[at].1.is_some() {
+                    at += 1;
+                }
+                order.insert(at, (index, Some(action)));
+                continue;
+            }
+        }
+        order.push((index, None));
+    }
+    order
+}
+
+/// "a, b, c and 2 more files": at most `shown` names, then how many more.
+pub fn list_short(names: &[String], shown: usize) -> String {
+    let joined = names
+        .iter()
+        .take(shown)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    match names.len().saturating_sub(shown) {
+        0 => joined,
+        rest => trf(
+            "{path} and {more}",
+            &[("path", &joined), ("more", &plural(rest, "more file"))],
+        ),
+    }
+}
+
+/// Where the history list's columns start, from the right edge in: commit, date, author,
+/// changes. `None` for a hidden column; the description ends at `subject_end`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ColumnX {
+    pub sha: Option<f32>,
+    pub date: Option<f32>,
+    pub author: Option<f32>,
+    pub changes: Option<f32>,
+    /// The left edges of the date and author columns, where they are resized.
+    pub date_edge: Option<f32>,
+    pub author_edge: Option<f32>,
+    pub subject_end: f32,
+}
+
+pub const SHA_COLUMN: f32 = 76.0;
+pub const CHANGES_COLUMN: f32 = 100.0;
+
+pub fn column_x(right: f32, columns: &crate::settings::Columns) -> ColumnX {
+    let mut edge = right;
+    let mut take = |shown: bool, width: f32, pad: f32| {
+        shown.then(|| {
+            edge -= width;
+            (edge + pad, edge)
+        })
+    };
+    let sha = take(columns.sha, SHA_COLUMN, 4.0);
+    let date = take(columns.date, columns.date_width, 8.0);
+    let author = take(columns.author, columns.author_width, 8.0);
+    let changes = take(columns.changes, CHANGES_COLUMN, 8.0);
+    ColumnX {
+        sha: sha.map(|(x, _)| x),
+        date: date.map(|(x, _)| x),
+        author: author.map(|(x, _)| x),
+        changes: changes.map(|(x, _)| x),
+        date_edge: date.map(|(_, edge)| edge),
+        author_edge: author.map(|(_, edge)| edge),
+        subject_end: edge,
+    }
+}
+
+/// What to offer after a push, pull or fetch failed, read from git's message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NextStep {
+    /// The remote has commits the branch doesn't: pull them, or force-push.
+    PullOrForce,
+    /// The branch tracks nothing to pull from.
+    SetUpstream,
+    /// There is no remote to talk to.
+    AddRemote,
+}
+
+pub fn next_step(error: &str) -> Option<NextStep> {
+    if error.contains("[rejected]")
+        && (error.contains("fetch first") || error.contains("non-fast-forward"))
+    {
+        Some(NextStep::PullOrForce)
+    } else if error.contains("There is no tracking information for the current branch")
+        || error.contains("has no upstream branch")
+    {
+        Some(NextStep::SetUpstream)
+    } else if error.contains("No configured push destination")
+        || error.contains("No remote repository specified")
+    {
+        Some(NextStep::AddRemote)
+    } else {
+        None
+    }
+}
+
+/// The repository URL of a `gitcraft://clone?url=…` link, which a web page can use to offer
+/// "clone in GitCraft". Only https URLs are taken: a link must not point the clone at a local
+/// path or an ssh host it names. The dialog still asks before anything is cloned.
+pub fn clone_link(link: &str) -> Option<String> {
+    let query = link
+        .strip_prefix("gitcraft://clone")?
+        .trim_start_matches('/');
+    let query = query.strip_prefix('?')?;
+    let value = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("url="))?;
+    // Percent-decoding, byte by byte; malformed escapes make the link unusable.
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'%' => {
+                let hex = std::str::from_utf8(bytes.get(index + 1..index + 3)?).ok()?;
+                decoded.push(u8::from_str_radix(hex, 16).ok()?);
+                index += 3;
+            }
+            b'+' => {
+                decoded.push(b' ');
+                index += 1;
+            }
+            byte => {
+                decoded.push(byte);
+                index += 1;
+            }
+        }
+    }
+    let url = String::from_utf8(decoded).ok()?;
+    let safe = url.starts_with("https://")
+        && url.len() > "https://".len()
+        && !url.chars().any(|c| c.is_whitespace() || c.is_control());
+    safe.then_some(url)
+}
+
+/// How a git setting is entered in Settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingKind {
+    /// Free text, with a hint.
+    Text(&'static str),
+    /// One of these (value, English label); "" is "not set".
+    Choice(&'static [(&'static str, &'static str)]),
+}
+
+const YES_NO: &[(&str, &str)] = &[("", "Not set"), ("true", "Yes"), ("false", "No")];
+
+/// The git settings shown in Settings › Git, by key (lower case, as git lists them), with
+/// their English label.
+pub const GIT_SETTINGS: [(&str, &str, SettingKind); 11] = [
+    (
+        "user.name",
+        "Name",
+        SettingKind::Text("Your name, as commits show it"),
+    ),
+    ("user.email", "Email", SettingKind::Text("you@example.com")),
+    (
+        "commit.gpgsign",
+        "Sign commits",
+        SettingKind::Choice(YES_NO),
+    ),
+    (
+        "tag.gpgsign",
+        "Sign annotated tags",
+        SettingKind::Choice(YES_NO),
+    ),
+    (
+        "gpg.format",
+        "Signing with",
+        SettingKind::Choice(&[
+            ("", "Not set (GPG)"),
+            ("openpgp", "GPG"),
+            ("ssh", "An SSH key"),
+            ("x509", "X.509 (S/MIME)"),
+        ]),
+    ),
+    (
+        "user.signingkey",
+        "Signing key",
+        SettingKind::Text("A GPG key id, or an SSH key file"),
+    ),
+    (
+        "gpg.ssh.allowedsignersfile",
+        "Allowed signers file",
+        SettingKind::Text("To check SSH signatures"),
+    ),
+    (
+        "core.autocrlf",
+        "Line endings",
+        SettingKind::Choice(&[
+            ("", "Not set"),
+            ("true", "CRLF in the working tree (Windows)"),
+            ("input", "LF in commits, as written in the working tree"),
+            ("false", "Leave them as they are"),
+        ]),
+    ),
+    (
+        "init.defaultbranch",
+        "First branch of new repositories",
+        SettingKind::Text("main"),
+    ),
+    (
+        "rerere.enabled",
+        "Remember conflict resolutions (rerere)",
+        SettingKind::Choice(YES_NO),
+    ),
+    (
+        "core.hookspath",
+        "Hooks folder",
+        SettingKind::Text(".git/hooks"),
+    ),
+];
+
+/// How a signature's state is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Good,
+    Warning,
+    Bad,
+    Muted,
+}
+
+/// What a commit's signature state (`%G?`) means, in English, and how it looks.
+pub fn signature_label(status: char) -> (&'static str, Tone) {
+    match status {
+        'G' => ("Good signature", Tone::Good),
+        'U' => ("Good signature, key of unknown trust", Tone::Warning),
+        'X' => ("Good signature, but it has expired", Tone::Warning),
+        'Y' => ("Good signature by an expired key", Tone::Warning),
+        'R' => ("Signed by a revoked key", Tone::Bad),
+        'B' => ("Bad signature", Tone::Bad),
+        _ => ("Signed, but it can't be checked here", Tone::Muted),
+    }
+}
+
+/// Amending HEAD rewrites a commit others may already have: it is on its upstream when the
+/// branch has one and nothing of its own beyond it.
+pub fn amend_rewrites_pushed(status: &Status) -> bool {
+    let branch = &status.branch;
+    branch.upstream.is_some() && branch.ahead == 0 && !branch.detached && branch.oid.is_some()
+}
+
+/// One co-author per line, as `Name <mail>`; other lines are left out.
+pub fn co_author_trailers(text: &str) -> Vec<String> {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| is_co_author(line))
+        .map(|line| format!("Co-authored-by: {line}"))
+        .collect()
+}
+
+/// Where "Push after committing" pushes without asking: the upstream, when it is a branch
+/// of the same name. `None` asks with the push dialog instead.
+pub fn push_target(status: &Status, remotes: &[Remote]) -> Option<(String, String)> {
+    let head = status
+        .branch
+        .head
+        .as_deref()
+        .filter(|_| !status.branch.detached)?;
+    match split_upstream(status.branch.upstream.as_deref(), remotes) {
+        (Some(remote), Some(branch)) if branch == head => Some((remote, branch)),
+        _ => None,
+    }
+}
+
+/// Whether a co-author line looks like `Name <mail>`.
+pub fn is_co_author(line: &str) -> bool {
+    let line = line.trim();
+    match (line.find('<'), line.strip_suffix('>')) {
+        (Some(open), Some(_)) => open > 0 && line[open + 1..line.len() - 1].contains('@'),
+        _ => false,
     }
 }
 
@@ -122,6 +462,236 @@ pub fn build_result(chunks: &[ConflictChunk], choices: &[Option<Choice>]) -> Str
         }
     }
     lines.join("\n")
+}
+
+// -------------------------------------------------------------- shortcuts
+
+/// The commands keys can be given to: (id, English label, default keys). Keys are written as
+/// craft-keymap chords, where `Cmd` is Ctrl outside macOS. The arrow keys, Escape and the
+/// rebase editor's letters are fixed and not listed.
+pub const SHORTCUTS: [(&str, &str, &[&str]); 16] = [
+    ("view.history", "All commits", &["Cmd+1"]),
+    ("view.changes", "Local changes", &["Cmd+2"]),
+    ("edit.undo", "Undo the last operation", &["Cmd+Z"]),
+    (
+        "edit.redo",
+        "Redo the last operation",
+        &["Cmd+Shift+Z", "Cmd+Y"],
+    ),
+    ("search", "Search commits", &["Cmd+F"]),
+    (
+        "files.select_all",
+        "Select every file of the list",
+        &["Cmd+A"],
+    ),
+    ("repo.open", "Open repository", &["Cmd+O", "Cmd+T"]),
+    ("tab.close", "Close tab", &["Cmd+W"]),
+    ("commit", "Commit", &["Cmd+Enter"]),
+    (
+        "commit.all",
+        "Stage everything and commit",
+        &["Cmd+Shift+Enter"],
+    ),
+    ("repo.refresh", "Refresh repository", &["F5", "Cmd+R"]),
+    ("settings", "Settings", &["Cmd+Comma"]),
+    ("zoom.in", "Zoom in", &["Cmd+Equals", "Cmd+Plus"]),
+    ("zoom.out", "Zoom out", &["Cmd+Minus"]),
+    ("zoom.reset", "Actual size", &["Cmd+0"]),
+    ("window.fullscreen", "Full screen", &["F11"]),
+];
+
+/// A command's keys: the user's (an empty list: cleared), else its defaults.
+pub fn shortcut_keys(user: &BTreeMap<String, Vec<String>>, id: &str) -> Vec<craft_keymap::Chord> {
+    let texts: Vec<&str> = match user.get(id) {
+        Some(own) => own.iter().map(String::as_str).collect(),
+        None => SHORTCUTS
+            .iter()
+            .find(|(each, _, _)| *each == id)
+            .map_or_else(Vec::new, |(_, _, keys)| keys.to_vec()),
+    };
+    texts
+        .into_iter()
+        .filter_map(|text| craft_keymap::Chord::parse(text).ok())
+        .collect()
+}
+
+/// Gives `id` the key `chord`, in place of its key number `slot` or (`None`) added to its keys,
+/// and takes it from any other command that had it. Returns the commands it was taken from.
+pub fn assign_shortcut(
+    user: &mut BTreeMap<String, Vec<String>>,
+    id: &str,
+    slot: Option<usize>,
+    chord: &craft_keymap::Chord,
+) -> Vec<&'static str> {
+    let mut taken = Vec::new();
+    for (other, _, _) in SHORTCUTS {
+        if other == id {
+            continue;
+        }
+        let keys = shortcut_keys(user, other);
+        if keys.contains(chord) {
+            let kept: Vec<String> = keys
+                .iter()
+                .filter(|key| *key != chord)
+                .map(ToString::to_string)
+                .collect();
+            user.insert(other.to_owned(), kept);
+            taken.push(other);
+        }
+    }
+    let mut keys = shortcut_keys(user, id);
+    match slot.filter(|slot| *slot < keys.len()) {
+        Some(slot) => keys[slot] = *chord,
+        None if !keys.contains(chord) => keys.push(*chord),
+        None => {}
+    }
+    // The same key twice, after replacing one with a key it already has.
+    let mut unique: Vec<craft_keymap::Chord> = Vec::new();
+    for key in keys {
+        if !unique.contains(&key) {
+            unique.push(key);
+        }
+    }
+    user.insert(
+        id.to_owned(),
+        unique.iter().map(ToString::to_string).collect(),
+    );
+    forget_defaults(user, id);
+    taken
+}
+
+/// A command whose keys are its defaults again needs no entry of its own.
+fn forget_defaults(user: &mut BTreeMap<String, Vec<String>>, id: &str) {
+    let defaults: Vec<craft_keymap::Chord> = shortcut_keys(&BTreeMap::new(), id);
+    if user.get(id).is_some() && shortcut_keys(user, id) == defaults {
+        user.remove(id);
+    }
+}
+
+/// Whether the branch `full` (`refs/heads/…`) can be hidden from the graph: not the branch
+/// checked out, whose commits git shows anyway (only its label would go).
+pub fn can_hide(full: &str, current_branch: Option<&str>) -> bool {
+    current_branch.is_none_or(|current| full != format!("refs/heads/{current}"))
+}
+
+/// What the operation banner calls the operation in progress: "Merging feature into main",
+/// "Rebasing feature onto main". Without names (sides unknown) the plain "Merge in progress".
+pub fn operation_title(operation: &Operation, sides: Option<&OperationSides>) -> String {
+    let named = |value: &str| (!value.is_empty()).then(|| value.to_owned());
+    let ours = sides.and_then(|sides| named(&sides.ours));
+    let theirs = sides.and_then(|sides| named(&sides.theirs));
+    match (operation, ours, theirs) {
+        (Operation::Merge { .. }, Some(ours), Some(theirs)) => trf(
+            "Merging {theirs} into {ours}",
+            &[("theirs", &theirs), ("ours", &ours)],
+        ),
+        (Operation::Merge { .. }, ..) => tr("Merge in progress").to_owned(),
+        (Operation::Rebase { branch, .. }, Some(ours), _) => match branch {
+            Some(branch) => trf(
+                "Rebasing {branch} onto {ours}",
+                &[("branch", branch), ("ours", &ours)],
+            ),
+            None => trf("Rebasing onto {ours}", &[("ours", &ours)]),
+        },
+        (Operation::Rebase { .. }, ..) => tr("Rebase in progress").to_owned(),
+        (Operation::CherryPick { .. }, Some(ours), Some(theirs)) => trf(
+            "Cherry-picking {theirs} onto {ours}",
+            &[("theirs", &theirs), ("ours", &ours)],
+        ),
+        (Operation::CherryPick { .. }, ..) => tr("Cherry-pick in progress").to_owned(),
+        (Operation::Revert { .. }, Some(ours), Some(theirs)) => trf(
+            "Reverting {theirs} on {ours}",
+            &[("theirs", &theirs), ("ours", &ours)],
+        ),
+        (Operation::Revert { .. }, ..) => tr("Revert in progress").to_owned(),
+        (Operation::Am, ..) => tr("Applying patches (git am)").to_owned(),
+    }
+}
+
+/// What the two sides of a conflict are called, with what they are in this operation: "main
+/// · this branch" and "feature · being merged". A rebase swaps the roles git gives them: ours
+/// is what the branch goes onto, theirs your own commit.
+pub fn side_labels(
+    operation: Option<&Operation>,
+    sides: Option<&OperationSides>,
+) -> (String, String) {
+    let named = |value: &str| (!value.is_empty()).then(|| value.to_owned());
+    let ours = sides.and_then(|sides| named(&sides.ours));
+    let theirs = sides.and_then(|sides| named(&sides.theirs));
+    let label = |name: Option<String>, role: &str, fallback: &str| match name {
+        Some(name) => trf(role, &[("name", &name)]),
+        None => tr(fallback).to_owned(),
+    };
+    match operation {
+        Some(Operation::Rebase { .. }) => (
+            label(
+                ours,
+                "{name} · being rebased onto",
+                "Upstream (being rebased onto)",
+            ),
+            label(
+                theirs,
+                "{name} · your commit",
+                "Your commit (being replayed)",
+            ),
+        ),
+        Some(Operation::CherryPick { .. }) => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            label(theirs, "{name} · being picked", "Theirs (incoming)"),
+        ),
+        Some(Operation::Revert { .. }) => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            label(theirs, "{name} · being reverted", "Theirs (incoming)"),
+        ),
+        Some(Operation::Merge { .. }) => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            label(theirs, "{name} · being merged", "Theirs (incoming)"),
+        ),
+        _ => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            tr("Theirs (incoming)").to_owned(),
+        ),
+    }
+}
+
+/// What Continue commits a merge with: the commit box's message, once it has a summary.
+/// Other operations commit what they replay, with its own message.
+pub fn continue_message(operation: &Operation, summary: &str, body: &str) -> Option<String> {
+    (matches!(operation, Operation::Merge { .. }) && !summary.trim().is_empty())
+        .then(|| commit_message(summary, body))
+}
+
+/// Whether the commit box gives way to a note about the operation in progress: a rebase,
+/// cherry-pick, revert or patch commits what it replays when continued. A merge keeps it for
+/// its message, and a rebase stopped at an `edit` step for amending.
+pub fn commit_box_gives_way(operation: Option<&Operation>) -> bool {
+    match operation {
+        None | Some(Operation::Merge { .. }) => false,
+        Some(Operation::Rebase { editing, .. }) => !editing,
+        Some(_) => true,
+    }
+}
+
+/// What each side did to a conflicted file, from its two status letters (`UU`, `AA`, `DU`…:
+/// ours first): "Changed", "Added" or "Deleted"; and in one sentence what that makes.
+pub fn conflict_kind(status: &str) -> (&'static str, &'static str, &'static str) {
+    let side = |letter: Option<char>| match letter {
+        Some('A') => "Added",
+        Some('D') => "Deleted",
+        _ => "Changed",
+    };
+    let mut letters = status.chars();
+    let (ours, theirs) = (letters.next(), letters.next());
+    let summary = match (ours, theirs) {
+        (Some('A'), Some('A')) => {
+            "Both sides added a file with this name, with different contents."
+        }
+        (Some('D'), Some('D')) => "Both sides deleted this file.",
+        (Some('D'), _) | (_, Some('D')) => "One side changed this file, the other deleted it.",
+        (Some('A'), _) | (_, Some('A')) => "One side added this file while the other changed it.",
+        _ => "Both sides changed this file in the same places.",
+    };
+    (side(ours), side(theirs), summary)
 }
 
 pub fn has_conflict_markers(text: &str) -> bool {
@@ -288,6 +858,32 @@ pub fn ignore_patterns(path: &str) -> Vec<(String, String)> {
     options
 }
 
+/// The pattern that would store files like this one in LFS ("*.psd"), unless LFS already
+/// tracks exactly that for this file: a pattern counts only when its attributes file's folder
+/// holds the file (a root `.gitattributes` holds everything). Files without an extension get
+/// none: their own path is rarely what someone wants tracked.
+pub fn lfs_track_suggestion(
+    path: &str,
+    tracked: &[gitcraft_core::model::LfsPattern],
+) -> Option<String> {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let at = name
+        .rfind('.')
+        .filter(|at| *at > 0 && *at + 1 < name.len())?;
+    let pattern = format!("*{}", &name[at..]);
+    let covers = |source: &str| {
+        let folder = source
+            .strip_suffix(".gitattributes")
+            .unwrap_or(source)
+            .trim_end_matches('/');
+        folder.is_empty() || path.starts_with(&format!("{folder}/"))
+    };
+    (!tracked
+        .iter()
+        .any(|known| known.pattern == pattern && covers(&known.source)))
+    .then_some(pattern)
+}
+
 /// "3 hours ago", "in 1 minute": whole phrases in the table, as other languages change the
 /// word with the phrase around it ("vor 3 Stunden").
 fn relative(amount: i64, unit: &str, past: bool) -> String {
@@ -380,6 +976,215 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lfs_suggests_the_extension_unless_it_is_tracked() {
+        let tracked = |pattern: &str| gitcraft_core::model::LfsPattern {
+            pattern: pattern.to_owned(),
+            source: ".gitattributes".to_owned(),
+            lockable: false,
+        };
+        assert_eq!(
+            lfs_track_suggestion("art/cover.psd", &[]).as_deref(),
+            Some("*.psd")
+        );
+        assert_eq!(
+            lfs_track_suggestion("cover.PSD", &[tracked("*.psd")]).as_deref(),
+            Some("*.PSD")
+        );
+        assert_eq!(
+            lfs_track_suggestion("art/cover.psd", &[tracked("*.psd")]),
+            None
+        );
+        assert_eq!(lfs_track_suggestion("Makefile", &[]), None);
+        assert_eq!(lfs_track_suggestion(".env", &[]), None);
+        assert_eq!(lfs_track_suggestion("notes.", &[]), None);
+        // A folder's attributes cover only that folder.
+        let in_assets = gitcraft_core::model::LfsPattern {
+            source: "assets/.gitattributes".to_owned(),
+            ..tracked("*.wav")
+        };
+        assert_eq!(
+            lfs_track_suggestion("assets/drums/kick.wav", std::slice::from_ref(&in_assets)),
+            None
+        );
+        assert_eq!(
+            lfs_track_suggestion("sounds/kick.wav", std::slice::from_ref(&in_assets)).as_deref(),
+            Some("*.wav")
+        );
+        assert_eq!(
+            lfs_track_suggestion("assetsplus/kick.wav", &[in_assets]).as_deref(),
+            Some("*.wav"),
+            "a folder with a longer name isn't inside it"
+        );
+    }
+
+    #[test]
+    fn every_git_setting_shown_is_one_the_core_changes() {
+        for (key, _, _) in GIT_SETTINGS {
+            assert!(gitcraft_core::queries::CONFIG_KEYS.contains(&key), "{key}");
+        }
+        assert_eq!(
+            GIT_SETTINGS.len(),
+            gitcraft_core::queries::CONFIG_KEYS.len()
+        );
+    }
+
+    #[test]
+    fn clone_links_give_https_urls_only() {
+        assert_eq!(
+            clone_link("gitcraft://clone?url=https%3A%2F%2Fexample.com%2Fa%2Fb.git").as_deref(),
+            Some("https://example.com/a/b.git")
+        );
+        assert_eq!(
+            clone_link("gitcraft://clone/?url=https://example.com/x.git&ref=main").as_deref(),
+            Some("https://example.com/x.git")
+        );
+        assert_eq!(clone_link("gitcraft://clone?url=file%3A%2F%2F%2Fetc"), None);
+        assert_eq!(clone_link("gitcraft://clone?url=git%40host%3Ax.git"), None);
+        assert_eq!(clone_link("gitcraft://clone?url=https%3A%2F%2Fa%20b"), None);
+        assert_eq!(clone_link("gitcraft://clone?url=%zz"), None);
+        assert_eq!(clone_link("/home/me/repo"), None);
+        assert_eq!(clone_link("gitcraft://other?url=https://x"), None);
+    }
+
+    #[test]
+    fn failed_pushes_and_pulls_say_what_to_do_next() {
+        let rejected =
+            " ! [rejected]        HEAD -> main (fetch first)\nerror: failed to push some refs";
+        assert_eq!(next_step(rejected), Some(NextStep::PullOrForce));
+        assert_eq!(
+            next_step(" ! [rejected]        main -> main (non-fast-forward)"),
+            Some(NextStep::PullOrForce)
+        );
+        assert_eq!(
+            next_step("There is no tracking information for the current branch.\nPlease specify"),
+            Some(NextStep::SetUpstream)
+        );
+        assert_eq!(
+            next_step("fatal: No configured push destination."),
+            Some(NextStep::AddRemote)
+        );
+        assert_eq!(next_step("fatal: Authentication failed"), None);
+    }
+
+    #[test]
+    fn columns_are_laid_out_from_the_right() {
+        let mut columns = crate::settings::Columns::default();
+        let x = column_x(1000.0, &columns);
+        assert_eq!(x.sha, Some(1000.0 - 76.0 + 4.0));
+        assert_eq!(x.date, Some(1000.0 - 76.0 - 120.0 + 8.0));
+        assert_eq!(x.author, Some(1000.0 - 76.0 - 120.0 - 150.0 + 8.0));
+        assert_eq!(x.changes, None);
+        assert_eq!(x.subject_end, 1000.0 - 76.0 - 120.0 - 150.0);
+        columns.date = false;
+        columns.changes = true;
+        let x = column_x(1000.0, &columns);
+        assert_eq!(x.date, None);
+        assert_eq!(x.author, Some(1000.0 - 76.0 - 150.0 + 8.0));
+        assert_eq!(x.subject_end, 1000.0 - 76.0 - 150.0 - 100.0);
+    }
+
+    #[test]
+    fn autosquash_moves_fixups_after_their_commit() {
+        let steps: Vec<(String, String)> = [
+            ("add a", "aaaa1111"),
+            ("add b", "bbbb2222"),
+            ("fixup! add a", "cccc3333"),
+            ("squash! aaaa1111", "dddd4444"),
+            ("fixup! nothing here", "eeee5555"),
+        ]
+        .map(|(s, h)| (s.to_owned(), h.to_owned()))
+        .to_vec();
+        assert_eq!(
+            autosquash(&steps),
+            [
+                (0, None),
+                (2, Some("fixup")),
+                (3, Some("squash")),
+                (1, None),
+                (4, None)
+            ]
+        );
+    }
+
+    #[test]
+    fn commits_are_picked_one_by_one_or_as_a_range_in_list_order() {
+        let listed: Vec<String> = ["e", "d", "c", "b", "a"].map(String::from).to_vec();
+        let picked = pick_commits(&listed, &[], Some("d"), "b", false);
+        assert_eq!(picked, ["d", "b"]);
+        let picked = pick_commits(&listed, &picked, Some("d"), "e", false);
+        assert_eq!(picked, ["e", "d", "b"]);
+        let picked = pick_commits(&listed, &picked, Some("d"), "d", false);
+        assert_eq!(picked, ["e", "b"], "a second click takes it out");
+        assert_eq!(
+            pick_commits(&listed, &[], Some("b"), "e", true),
+            ["e", "d", "c", "b"]
+        );
+        assert_eq!(pick_commits(&listed, &[], None, "c", true), ["c"]);
+    }
+
+    #[test]
+    fn signature_states_read_as_words() {
+        assert_eq!(signature_label('G'), ("Good signature", Tone::Good));
+        assert_eq!(signature_label('B').1, Tone::Bad);
+        assert_eq!(signature_label('U').1, Tone::Warning);
+        assert_eq!(signature_label('E').1, Tone::Muted);
+        for status in ['G', 'U', 'X', 'Y', 'R', 'B', 'E'] {
+            let (label, _) = signature_label(status);
+            let de = crate::i18n::I18N.from_code("de").unwrap();
+            assert_ne!(
+                crate::i18n::I18N.t(de, label),
+                label,
+                "no translation for {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn co_authors_need_a_name_and_an_address() {
+        assert!(is_co_author("Ada Lovelace <ada@example.com>"));
+        assert!(!is_co_author("<ada@example.com>"));
+        assert!(!is_co_author("Ada"));
+        assert!(!is_co_author("Ada <nowhere>"));
+        assert_eq!(
+            co_author_trailers("  Ada <a@b.c>\n\nnope\nBob <b@c.d>"),
+            ["Co-authored-by: Ada <a@b.c>", "Co-authored-by: Bob <b@c.d>"]
+        );
+    }
+
+    #[test]
+    fn amending_warns_only_for_a_pushed_head_and_push_after_needs_a_same_named_upstream() {
+        use gitcraft_core::model::BranchStatus;
+        let remotes = [Remote {
+            name: "origin".into(),
+            fetch_url: String::new(),
+            push_url: String::new(),
+        }];
+        let status = |upstream: Option<&str>, ahead| Status {
+            branch: BranchStatus {
+                head: Some("main".into()),
+                oid: Some("abc".into()),
+                upstream: upstream.map(str::to_owned),
+                ahead,
+                behind: 0,
+                detached: false,
+            },
+            ..Status::default()
+        };
+        assert!(amend_rewrites_pushed(&status(Some("origin/main"), 0)));
+        assert!(!amend_rewrites_pushed(&status(Some("origin/main"), 1)));
+        assert!(!amend_rewrites_pushed(&status(None, 0)));
+        assert_eq!(
+            push_target(&status(Some("origin/main"), 1), &remotes),
+            Some(("origin".into(), "main".into()))
+        );
+        assert_eq!(
+            push_target(&status(Some("origin/other"), 1), &remotes),
+            None
+        );
+        assert_eq!(push_target(&status(None, 1), &remotes), None);
+    }
 
     #[test]
     fn only_tracked_changes_get_in_the_way_of_a_checkout() {
@@ -517,6 +1322,142 @@ mod tests {
         );
         assert!(has_conflict_markers(&open));
         assert!(!has_conflict_markers("top\n<<<<<<<not a marker\nend"));
+    }
+
+    #[test]
+    fn operations_and_their_sides_are_named() {
+        let sides = OperationSides {
+            ours: "main".into(),
+            theirs: "feature/alerts".into(),
+        };
+        let merge = Operation::Merge { head: "abc".into() };
+        assert_eq!(
+            operation_title(&merge, Some(&sides)),
+            "Merging feature/alerts into main"
+        );
+        assert_eq!(operation_title(&merge, None), "Merge in progress");
+        assert_eq!(
+            side_labels(Some(&merge), Some(&sides)),
+            (
+                "main · this branch".to_owned(),
+                "feature/alerts · being merged".to_owned()
+            )
+        );
+        let rebase = Operation::Rebase {
+            branch: Some("feature/alerts".into()),
+            onto: Some("abc".into()),
+            step: Some(1),
+            total: Some(2),
+            stopped_sha: None,
+            editing: false,
+        };
+        let replaying = OperationSides {
+            ours: "main".into(),
+            theirs: "1234abc Warn earlier".into(),
+        };
+        assert_eq!(
+            operation_title(&rebase, Some(&replaying)),
+            "Rebasing feature/alerts onto main"
+        );
+        assert_eq!(
+            side_labels(Some(&rebase), Some(&replaying)),
+            (
+                "main · being rebased onto".to_owned(),
+                "1234abc Warn earlier · your commit".to_owned()
+            )
+        );
+        assert_eq!(
+            side_labels(Some(&rebase), None).1,
+            "Your commit (being replayed)"
+        );
+    }
+
+    #[test]
+    fn a_merge_continues_with_the_commit_box_and_other_operations_without_it() {
+        let merge = Operation::Merge { head: "abc".into() };
+        assert_eq!(
+            continue_message(&merge, "Merge feature", "Why.").as_deref(),
+            Some("Merge feature\n\nWhy.\n")
+        );
+        assert_eq!(continue_message(&merge, "  ", "body only"), None);
+        let rebase = |editing| Operation::Rebase {
+            branch: None,
+            onto: None,
+            step: None,
+            total: None,
+            stopped_sha: None,
+            editing,
+        };
+        assert_eq!(continue_message(&rebase(false), "typed", ""), None);
+        assert!(!commit_box_gives_way(None));
+        assert!(!commit_box_gives_way(Some(&merge)));
+        assert!(commit_box_gives_way(Some(&rebase(false))));
+        assert!(
+            !commit_box_gives_way(Some(&rebase(true))),
+            "an edit stop amends"
+        );
+        assert!(commit_box_gives_way(Some(&Operation::CherryPick {
+            head: "a".into()
+        })));
+    }
+
+    #[test]
+    fn every_default_shortcut_is_a_key_and_none_is_given_twice() {
+        let none = BTreeMap::new();
+        let mut seen = Vec::new();
+        for (id, _, defaults) in SHORTCUTS {
+            let keys = shortcut_keys(&none, id);
+            assert_eq!(keys.len(), defaults.len(), "{id}: {defaults:?}");
+            for key in keys {
+                assert!(!seen.contains(&key), "{key} twice");
+                seen.push(key);
+            }
+        }
+    }
+
+    #[test]
+    fn shortcuts_are_changed_added_cleared_and_taken_from_others() {
+        let chord = |text: &str| craft_keymap::Chord::parse(text).unwrap();
+        let mut user = BTreeMap::new();
+        // Search gets Ctrl+K in place of Ctrl+F.
+        assert!(assign_shortcut(&mut user, "search", Some(0), &chord("Cmd+K")).is_empty());
+        assert_eq!(shortcut_keys(&user, "search"), [chord("Cmd+K")]);
+        // A second key for it, taken from Refresh.
+        let taken = assign_shortcut(&mut user, "search", None, &chord("F5"));
+        assert_eq!(taken, ["repo.refresh"]);
+        assert_eq!(
+            shortcut_keys(&user, "search"),
+            [chord("Cmd+K"), chord("F5")]
+        );
+        assert_eq!(shortcut_keys(&user, "repo.refresh"), [chord("Cmd+R")]);
+        // Cleared is kept as cleared; defaults again need no entry.
+        user.insert("commit".into(), Vec::new());
+        assert!(shortcut_keys(&user, "commit").is_empty());
+        assign_shortcut(&mut user, "zoom.out", Some(0), &chord("Cmd+Minus"));
+        assert!(!user.contains_key("zoom.out"), "back to its default");
+    }
+
+    #[test]
+    fn the_checked_out_branch_cannot_be_hidden() {
+        assert!(!can_hide("refs/heads/main", Some("main")));
+        assert!(can_hide("refs/heads/topic", Some("main")));
+        assert!(can_hide("refs/remotes/origin/main", Some("main")));
+        assert!(
+            can_hide("refs/heads/main", None),
+            "detached: nothing is checked out"
+        );
+    }
+
+    #[test]
+    fn conflicts_say_what_each_side_did() {
+        assert_eq!(conflict_kind("UU").0, "Changed");
+        assert!(conflict_kind("UU").2.starts_with("Both sides changed"));
+        let (ours, theirs, _) = conflict_kind("DU");
+        assert_eq!((ours, theirs), ("Deleted", "Changed"));
+        let (ours, theirs, _) = conflict_kind("UD");
+        assert_eq!((ours, theirs), ("Changed", "Deleted"));
+        assert!(conflict_kind("UD").2.contains("deleted"));
+        assert!(conflict_kind("AA").2.starts_with("Both sides added"));
     }
 
     #[test]

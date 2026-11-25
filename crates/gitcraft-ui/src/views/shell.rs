@@ -41,16 +41,8 @@ fn bar_node(item: &MenuItem, path: &str) -> Option<craft_menu::Node> {
             ..
         } => {
             let mut entry = Item::new(CommandRef::new(path), tr(label)).enabled(message.is_some());
-            if let Some(shortcut) = shortcut
-                && let Some(key) = craft_keymap::Key::from_egui(shortcut.key)
-            {
-                let mods = craft_keymap::Mods {
-                    cmd: shortcut.command,
-                    ctrl: false,
-                    alt: false,
-                    shift: shortcut.shift,
-                };
-                entry = entry.shortcut(craft_menu::Chord { mods, key });
+            if let Some(chord) = shortcut {
+                entry = entry.shortcut(*chord);
             }
             entry = match mark {
                 Mark::None => entry,
@@ -59,6 +51,10 @@ fn bar_node(item: &MenuItem, path: &str) -> Option<craft_menu::Node> {
             };
             if matches!(message, Some(crate::app::Message::Quit)) {
                 entry = entry.role(craft_menu::ItemRole::Quit);
+            }
+            // On a Mac it moves to the app's own menu.
+            if matches!(message, Some(crate::app::Message::OpenAbout)) {
+                entry = entry.role(craft_menu::ItemRole::About);
             }
             Some(entry.into())
         }
@@ -95,8 +91,11 @@ fn bar_message(menus: &[(&str, Vec<MenuItem>)], path: &str) -> Option<crate::app
 fn menus(ui: &mut Ui, cx: &Cx) {
     use craft_menu::{LayoutOptions, Menu, MenuBar, MenuBarUi, MenuRole, Target};
     let menus = cx.app.bar_menus();
+    // One for each of File, Edit, Repository, View and Help, in that order: About goes last in
+    // the menu with the Help role.
     let roles = [
         Some(MenuRole::File),
+        None,
         None,
         Some(MenuRole::View),
         Some(MenuRole::Help),
@@ -134,7 +133,7 @@ fn menus(ui: &mut Ui, cx: &Cx) {
     let bar = craft_menu::desktop_layout(&bar, target, &options).bar;
     let gate = craft_menu::Gate {
         modal: cx.app.form.is_some(),
-        recording_shortcut: false,
+        recording_shortcut: cx.app.recording.is_some(),
         text_editing: ui.ctx().egui_wants_keyboard_input(),
     };
     // egui's built-in fonts have no ✓ or ●, craft-menu's default marks.
@@ -766,13 +765,7 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         return;
     };
     let conflicts = status.conflicts.len();
-    let mut title = match operation {
-        Operation::Merge { .. } => tr("Merge in progress").to_owned(),
-        Operation::Rebase { .. } => tr("Rebase in progress").to_owned(),
-        Operation::CherryPick { .. } => tr("Cherry-pick in progress").to_owned(),
-        Operation::Revert { .. } => tr("Revert in progress").to_owned(),
-        Operation::Am => tr("Applying patches (git am)").to_owned(),
-    };
+    let mut title = crate::logic::operation_title(operation, status.sides.as_ref());
     if let Operation::Rebase {
         step: Some(step),
         total: Some(total),
@@ -784,13 +777,6 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
             "step {step} of {total}",
             &[("step", &step.to_string()), ("total", &total.to_string())],
         ));
-    }
-    if let Operation::Rebase {
-        branch: Some(branch),
-        ..
-    } = operation
-    {
-        title.push_str(&format!(" · {branch}"));
     }
     let hint = if conflicts > 0 {
         trf(
@@ -828,7 +814,9 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if accent(ui, look, "Continue", conflicts == 0) {
-                        cx.send(Message::Run(Command::Continue));
+                        let message =
+                            crate::logic::continue_message(operation, &tab.summary, &tab.body);
+                        cx.send(Message::Run(Command::Continue { message }));
                     }
                     if danger(ui, look, "Abort", true) {
                         cx.send(Message::Action(Action::Abort));
@@ -839,6 +827,82 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                     }
                     if conflicts > 0 && btn(ui, look, "Show conflicts", true) {
                         cx.send(Message::SetView(View::Changes));
+                    }
+                });
+            });
+        });
+    hline(ui, look);
+}
+
+/// While bisecting: how far it got, and Good / Bad / Skip for the commit checked out.
+pub fn bisect_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
+    use crate::app::Message;
+    let Some(bisect) = &tab.bisect else {
+        return;
+    };
+    let look = cx.look();
+    let c = &look.c;
+    let head = tab
+        .status
+        .as_ref()
+        .and_then(|status| status.branch.oid.clone());
+    let subject = |sha: &str| {
+        tab.commits
+            .iter()
+            .find(|commit| commit.sha == sha)
+            .map_or_else(String::new, |commit| commit.subject.clone())
+    };
+    let (title, hint) = match &bisect.first_bad {
+        Some(first) => (
+            trf(
+                "First bad commit: {commit}",
+                &[("commit", short_sha(first))],
+            ),
+            subject(first),
+        ),
+        None => (
+            tr("Bisecting").to_owned(),
+            trf(
+                "Test the commit checked out ({commit}), then mark it. {good} good so far.",
+                &[
+                    ("commit", head.as_deref().map(short_sha).unwrap_or("?")),
+                    ("good", &bisect.good.to_string()),
+                ],
+            ),
+        ),
+    };
+    Frame::new()
+        .fill(c.warning_bg)
+        .inner_margin(Margin::symmetric(12, 6))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
+            ui.horizontal(|ui| {
+                icon::icon(ui, "search", 16.0, c.warning);
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 1.0;
+                    text(ui, title, 13.0, c.text);
+                    muted(ui, look, hint, 12.0);
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if danger(ui, look, "End bisect", true) {
+                        cx.send(Message::Run(Command::BisectReset));
+                    }
+                    if let Some(first) = &bisect.first_bad {
+                        if btn(ui, look, "Show", true) {
+                            cx.send(Message::ShowCommit(first.clone()));
+                        }
+                        return;
+                    }
+                    let mark = |verdict| Message::Run(Command::BisectMark { verdict, sha: None });
+                    if btn(ui, look, "Skip", true) {
+                        cx.send(mark("skip"));
+                    }
+                    if danger(ui, look, "Bad", true) {
+                        cx.send(mark("bad"));
+                    }
+                    if accent(ui, look, "Good", true) {
+                        cx.send(mark("good"));
                     }
                 });
             });

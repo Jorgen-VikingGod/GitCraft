@@ -80,6 +80,7 @@ pub fn parse_log(out: &str) -> Vec<Commit> {
             subject: subject.to_owned(),
             graph: None,
             file: None,
+            stash: None,
         });
     }
     commits
@@ -117,6 +118,128 @@ pub fn parse_commit_detail(out: &str) -> Option<CommitDetail> {
         subject: message.split('\n').next().unwrap_or("").to_owned(),
         message,
         files: Vec::new(),
+        signature: None,
+    })
+}
+
+/// The protocol and host (with port) of an http(s) remote URL, without any user name or
+/// password in it; `None` for ssh, file and other URLs, whose credentials git doesn't keep.
+pub fn credential_host(url: &str) -> Option<(String, String)> {
+    let (protocol, rest) = url.split_once("://")?;
+    if protocol != "https" && protocol != "http" {
+        return None;
+    }
+    let authority = rest.split(['/', '?', '#']).next()?;
+    let host = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
+    (!host.is_empty()).then(|| (protocol.to_owned(), host.to_owned()))
+}
+
+#[cfg(test)]
+mod credential_tests {
+    use super::*;
+
+    #[test]
+    fn only_http_hosts_have_credentials_to_forget() {
+        assert_eq!(
+            credential_host("https://me:secret@example.com:8443/team/x.git"),
+            Some(("https".to_owned(), "example.com:8443".to_owned()))
+        );
+        assert_eq!(
+            credential_host("http://example.com"),
+            Some(("http".to_owned(), "example.com".to_owned()))
+        );
+        assert_eq!(credential_host("git@example.com:team/x.git"), None);
+        assert_eq!(credential_host("ssh://git@example.com/x.git"), None);
+        assert_eq!(credential_host("file:///srv/x.git"), None);
+    }
+}
+
+/// `log --format=%x1e%H --shortstat`: each commit's sha, then a line such as
+/// " 3 files changed, 10 insertions(+), 2 deletions(-)" (absent when nothing changed).
+pub fn parse_shortstats(out: &str) -> Vec<(String, CommitStats)> {
+    let mut found = Vec::new();
+    for record in out.split(RS).skip(1) {
+        let mut lines = record.lines().filter(|line| !line.trim().is_empty());
+        let Some(sha) = lines.next() else { continue };
+        let mut stats = CommitStats::default();
+        if let Some(line) = lines.next() {
+            for part in line.split(',') {
+                let mut words = part.split_whitespace();
+                let number = words.next().and_then(|n| n.parse().ok()).unwrap_or(0);
+                match words.next() {
+                    Some(word) if word.starts_with("file") => stats.files = number,
+                    Some(word) if word.starts_with("insertion") => stats.added = number,
+                    Some(word) if word.starts_with("deletion") => stats.removed = number,
+                    _ => {}
+                }
+            }
+        }
+        found.push((sha.trim().to_owned(), stats));
+    }
+    found
+}
+
+/// The bisect log (`.git/BISECT_LOG`): git notes each verdict as `# good: [sha] subject`
+/// (also `bad`, `skip`, and those given at the start) and, once done,
+/// `# first bad commit: [sha] subject` (newer versions quote the term: `'bad'`).
+pub fn parse_bisect_log(log: &str) -> Bisect {
+    let mut state = Bisect::default();
+    let sha = |rest: &str| {
+        rest.strip_prefix('[')
+            .and_then(|rest| rest.split(']').next())
+            .map(str::to_owned)
+    };
+    for line in log.lines() {
+        let Some(comment) = line.strip_prefix("# ") else {
+            continue;
+        };
+        if let Some(rest) = comment.strip_prefix("first ") {
+            if let Some((_, rest)) = rest.split_once("commit: ") {
+                state.first_bad = sha(rest);
+            }
+        } else if let Some(rest) = comment.strip_prefix("bad: ") {
+            state.bad = sha(rest);
+        } else if comment.starts_with("good: ") {
+            state.good += 1;
+        } else if comment.starts_with("skip: ") {
+            state.skipped += 1;
+        }
+    }
+    state
+}
+
+#[cfg(test)]
+mod bisect_tests {
+    use super::*;
+
+    #[test]
+    fn the_bisect_log_of_old_and_new_git_versions() {
+        let log = "# bad: [bbb] commit 8\n# good: [aaa] commit 1\ngit bisect start 'HEAD' 'HEAD~7'\n\
+                   # good: [ccc] commit 4\ngit bisect good ccc\n# bad: [ddd] commit 6\n\
+                   # skip: [eee] commit 5\n# first 'bad' commit: [ddd] commit 6\n";
+        let state = parse_bisect_log(log);
+        assert_eq!(state.bad.as_deref(), Some("ddd"));
+        assert_eq!((state.good, state.skipped), (2, 1));
+        assert_eq!(state.first_bad.as_deref(), Some("ddd"));
+        let old = parse_bisect_log("# first bad commit: [fff] x\n");
+        assert_eq!(old.first_bad.as_deref(), Some("fff"));
+    }
+}
+
+/// `%G?%x1f%GS%x1f%GK`: `None` when the commit is not signed.
+pub fn parse_signature(out: &str) -> Option<Signature> {
+    let line = out.trim_end_matches('\n');
+    let mut fields = line.split('\x1f');
+    let status = fields.next()?.chars().next()?;
+    if status == 'N' {
+        return None;
+    }
+    Some(Signature {
+        status,
+        signer: fields.next().unwrap_or("").to_owned(),
+        key: fields.next().unwrap_or("").to_owned(),
     })
 }
 
@@ -936,8 +1059,117 @@ fn runs_in_terminal(name: &str) -> bool {
     name == "emerge" || name.starts_with("vimdiff") || name.starts_with("nvimdiff")
 }
 
+/// The patterns one attributes file hands to LFS (`filter=lfs`), in its order. `source` is
+/// the file's path in the repository, such as `.gitattributes` or `assets/.gitattributes`.
+/// Lines that take a pattern out of LFS (`!filter`, `-filter`) are left out.
+pub fn parse_lfs_attributes(source: &str, text: &str) -> Vec<LfsPattern> {
+    lines(text)
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let mut parts = line.split_whitespace();
+            let pattern = parts.next()?;
+            let attributes: Vec<&str> = parts.collect();
+            attributes.contains(&"filter=lfs").then(|| LfsPattern {
+                pattern: pattern.to_owned(),
+                source: source.to_owned(),
+                lockable: attributes.contains(&"lockable"),
+            })
+        })
+        .collect()
+}
+
+/// Locks from `git lfs locks --json`: a list, or with `--verify` an object of `ours` and
+/// `theirs` lists.
+pub fn parse_lfs_locks(out: &str) -> Vec<LfsLock> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(out) else {
+        return Vec::new();
+    };
+    let read = |list: &serde_json::Value, ours: bool| -> Vec<LfsLock> {
+        list.as_array()
+            .into_iter()
+            .flatten()
+            .map(|item| {
+                let text = |value: &serde_json::Value| match value {
+                    serde_json::Value::String(text) => text.clone(),
+                    serde_json::Value::Number(number) => number.to_string(),
+                    _ => String::new(),
+                };
+                LfsLock {
+                    id: text(&item["id"]),
+                    path: text(&item["path"]),
+                    owner: text(&item["owner"]["name"]),
+                    locked_at: text(&item["locked_at"]),
+                    ours,
+                }
+            })
+            .filter(|lock| !lock.path.is_empty())
+            .collect()
+    };
+    let mut locks = if value.is_array() {
+        read(&value, false)
+    } else {
+        let mut locks = read(&value["ours"], true);
+        locks.extend(read(&value["theirs"], false));
+        locks
+    };
+    locks.sort_by(|a, b| a.path.cmp(&b.path));
+    locks
+}
+
+/// Whether an attributes file hands any files to LFS (`filter=lfs`).
+pub fn attributes_use_lfs(text: &str) -> bool {
+    lines(text).any(|line| {
+        let line = line.trim();
+        !line.starts_with('#')
+            && line
+                .split_whitespace()
+                .skip(1)
+                .any(|attr| attr == "filter=lfs")
+    })
+}
+
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn lfs_patterns_and_locks_are_read() {
+        let attributes = "# art\n*.psd filter=lfs diff=lfs merge=lfs -text\n\
+            *.bin filter=lfs diff=lfs merge=lfs -text lockable\n\
+            keep.psd !filter !diff !merge\n*.txt text eol=lf\n";
+        let patterns = parse_lfs_attributes("assets/.gitattributes", attributes);
+        assert_eq!(patterns.len(), 2);
+        assert_eq!(patterns[1].pattern, "*.bin");
+        assert_eq!(patterns[1].source, "assets/.gitattributes");
+        assert!(patterns[1].lockable && !patterns[0].lockable);
+        assert!(parse_lfs_attributes(".gitattributes", "").is_empty());
+
+        let verified = r#"{"ours":[{"id":"7","path":"b.psd","owner":{"name":"Me"},"locked_at":"2026-01-02T03:04:05Z"}],
+            "theirs":[{"id":"8","path":"a.psd","owner":{"name":"Them"},"locked_at":"2026-01-01T00:00:00Z"}]}"#;
+        let locks = parse_lfs_locks(verified);
+        assert_eq!(locks.len(), 2);
+        assert_eq!((locks[0].path.as_str(), locks[0].ours), ("a.psd", false));
+        assert_eq!(
+            (locks[1].owner.as_str(), locks[1].ours, locks[1].id.as_str()),
+            ("Me", true, "7")
+        );
+        let plain = r#"[{"id":12,"path":"c.bin","owner":{"name":"X"},"locked_at":""}]"#;
+        assert_eq!(parse_lfs_locks(plain)[0].id, "12");
+        assert!(parse_lfs_locks("[]").is_empty());
+    }
+
+    #[test]
+    fn attributes_that_use_lfs_are_recognised() {
+        assert!(attributes_use_lfs(
+            "*.psd filter=lfs diff=lfs merge=lfs -text\n"
+        ));
+        assert!(!attributes_use_lfs(
+            "# *.psd filter=lfs\n*.txt text eol=lf\n"
+        ));
+        assert!(!attributes_use_lfs(""));
+    }
 
     #[test]
     fn tool_help_of_older_git_lists_names_only() {

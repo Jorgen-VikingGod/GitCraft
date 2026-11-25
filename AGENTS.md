@@ -22,6 +22,7 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-core/src/graph.rs` | Commit-graph lane layout |
 | `crates/gitcraft-core/src/queries.rs` | Read-only queries |
 | `crates/gitcraft-core/src/ops.rs` | Mutating operations (always holding `repo_lock`) |
+| `crates/gitcraft-core/src/backups.rs` | Backups of discarded changes under `refs/gitcraft/discards/` (kept 30 days, at most 50), and putting them back |
 | `crates/gitcraft-core/src/editor.rs` | Non-interactive editor mode, used for `GIT_EDITOR` / `GIT_SEQUENCE_EDITOR` |
 | `crates/gitcraft-core/src/model.rs` | Data handed to callers |
 | `crates/gitcraft-core/src/watcher.rs` | File-system change notifications for one repository |
@@ -100,7 +101,9 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 - If it needs a dialog, add an `Action` in `actions.rs`. Forms are in `form.rs`; a confirmation is a form
   without fields. Menus are `MenuItem` lists with one level of submenus.
 - The menu bar is `App::bar_menus()`, drawn by craft-menu in `views/shell.rs`. Give an entry its key with
-  `.key(Shortcut::…)` (the key itself is handled in `App::key`) and a tick or dot with `.marked(Mark::…)`.
+  `.key(self.shortcut("id"))` and a tick or dot with `.marked(Mark::…)`. Keys belong to the commands
+  of `logic::SHORTCUTS` (id, label, default chords); `App::shortcut_message` says what each runs, and
+  the user's own keys are `settings.shortcuts` (edited in Settings › Keyboard shortcuts).
 - File dialogs never block the window: push `Effect::Ask(Pick::…)`, the shell shows it (craft-dialogs)
   and answers with `Message::Picked(pick, path)`. Add the `Pick` variant and its dialog in `app.rs`.
 - Interface text is written in English and goes through `crate::i18n::tr("…")`, or `trf("… {name} …",
@@ -149,12 +152,15 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 - `gitcraft_core::editor::run_if_requested()` must stay the first call in `main`. Keep it working when
   touching `runner::editor_command()` or `editor.rs`. The core's tests use `gitcraft-editor-stub` in its place.
 - Set `GITCRAFT_SHOT=<file.png>` to have the app save a picture of its window once the first repository has
-  loaded, then quit (handy for looking at the UI without a screenshot tool).
+  loaded, then quit (handy for looking at the UI without a screenshot tool). The mouse is ignored meanwhile,
+  so nothing is hovered in the picture. The README's screenshots are of the made-up repository
+  `docs/screenshots/make-demo-repo.py` builds (`target/screenshots/aurora`), never of a real one.
 - craft-window decides before the window opens who draws the title bar (`window::decide`); the app draws
   it in `views/frame.rs`. `GITCRAFT_TITLEBAR=app|system` (or `CRAFT_TITLEBAR`) overrides the setting, and
   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 - The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
-- `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`) opens that
+- `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`,
+  `discards`, `clone`, `lfs`, `about`, `branch-menu`, or `settings:git` and the other settings pages) opens that
   before the picture is taken. Set `language = "de"` under `[general]` in the test folder's `config.toml`
   to look at a translated window.
 - Tests run side by side in one process, and the interface language is global: don't switch it to another

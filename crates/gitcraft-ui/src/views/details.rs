@@ -56,7 +56,15 @@ fn files(
     super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
 }
 
-fn with_diff(ui: &mut Ui, cx: &Cx, tab: &RepoTab, empty: &str, left: impl FnOnce(&mut Ui)) {
+/// `mode` "revert" lets the hunks of the diff be taken back out of the working tree.
+fn with_diff(
+    ui: &mut Ui,
+    cx: &Cx,
+    tab: &RepoTab,
+    mode: Option<&'static str>,
+    empty: &str,
+    left: impl FnOnce(&mut Ui),
+) {
     let c = cx.c();
     let area = ui.max_rect();
     let width = cx
@@ -79,7 +87,7 @@ fn with_diff(ui: &mut Ui, cx: &Cx, tab: &RepoTab, empty: &str, left: impl FnOnce
             cx,
             &tab.commit_pane,
             PaneKey::Commit,
-            None,
+            mode,
             empty,
             None,
             right.width(),
@@ -104,7 +112,7 @@ fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color32 {
     Color32::from_rgb(byte(r), byte(g), byte(b))
 }
 
-fn avatar(ui: &mut Ui, cx: &Cx, name: &str) {
+pub(super) fn avatar(ui: &mut Ui, cx: &Cx, name: &str) {
     let color = hsl(name_hue(name) as f32, 0.55, 0.45);
     let (rect, _) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
     ui.painter().circle_filled(rect.center(), 16.0, color);
@@ -124,7 +132,7 @@ fn meta_height(cx: &Cx) -> f32 {
     (pane * 0.55).max(120.0)
 }
 
-fn fact(ui: &mut Ui, cx: &Cx, label: &str, value: impl FnOnce(&mut Ui)) {
+pub(super) fn fact(ui: &mut Ui, cx: &Cx, label: &str, value: impl FnOnce(&mut Ui)) {
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         let (rect, _) = ui.allocate_exact_size(vec2(62.0, 16.0), Sense::hover());
@@ -163,7 +171,7 @@ pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     } else {
         tr("Select a file to see its changes")
     };
-    with_diff(ui, cx, tab, empty, |ui| {
+    with_diff(ui, cx, tab, Some("revert"), empty, |ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
         let scrolled = scroll(("meta", &detail.sha))
             .auto_shrink([false, true])
@@ -241,6 +249,31 @@ pub fn commit(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                                 }
                             },
                         );
+                        if let Some(signature) = &detail.signature {
+                            let (label, tone) = crate::logic::signature_label(signature.status);
+                            let color = match tone {
+                                crate::logic::Tone::Good => c.success,
+                                crate::logic::Tone::Warning => c.warning,
+                                crate::logic::Tone::Bad => c.danger,
+                                crate::logic::Tone::Muted => c.text_muted,
+                            };
+                            let text = if signature.signer.is_empty() {
+                                tr(label).to_owned()
+                            } else {
+                                format!("{} · {}", tr(label), signature.signer)
+                            };
+                            fact(ui, cx, "Signature", |ui| {
+                                let label = ui.add(
+                                    Label::new(RichText::new(text).size(12.0).color(color)).wrap(),
+                                );
+                                if !signature.key.is_empty() {
+                                    label.on_hover_text(trf(
+                                        "Key {key}",
+                                        &[("key", &signature.key)],
+                                    ));
+                                }
+                            });
+                        }
                         if detail.committer != detail.author || detail.commit_time != detail.time {
                             fact(ui, cx, "Committer", |ui| {
                                 ui.add(
@@ -304,61 +337,73 @@ pub fn compare(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
             .find(|commit| commit.sha == sha)
             .map_or_else(String::new, |commit| commit.subject.clone())
     };
-    with_diff(ui, cx, tab, "Select a file to see its changes", |ui| {
-        ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
-        egui::Frame::new()
-            .inner_margin(Margin::symmetric(14, 12))
-            .show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                text(ui, tr("Comparing commits"), 13.0, c.text);
-                for (prefix, sha) in [("", &state.base), ("→", &state.target)] {
+    with_diff(
+        ui,
+        cx,
+        tab,
+        None,
+        "Select a file to see its changes",
+        |ui| {
+            ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
+            egui::Frame::new()
+                .inner_margin(Margin::symmetric(14, 12))
+                .show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    text(ui, tr("Comparing commits"), 13.0, c.text);
+                    for (prefix, sha) in [("", &state.base), ("→", &state.target)] {
+                        ui.horizontal(|ui| {
+                            muted(ui, look, prefix, 12.0);
+                            if sha.as_str() == gitcraft_core::queries::WORKTREE {
+                                text(ui, tr("Working directory"), 12.0, c.text);
+                            } else {
+                                mono(ui, short_sha(sha), 12.0, c.text);
+                                muted(ui, look, subject(sha), 12.0);
+                            }
+                        });
+                    }
+                    if let Some(result) = &state.result {
+                        muted(
+                            ui,
+                            look,
+                            trf(
+                                "{commits} only in target, {count} only in base",
+                                &[
+                                    ("commits", &plural(result.target_only as usize, "commit")),
+                                    ("count", &result.base_only.to_string()),
+                                ],
+                            ),
+                            12.0,
+                        );
+                    }
+                    if let Some(error) = &state.error {
+                        text(ui, error.as_str(), 12.0, c.danger);
+                    }
                     ui.horizontal(|ui| {
-                        muted(ui, look, prefix, 12.0);
-                        mono(ui, short_sha(sha), 12.0, c.text);
-                        muted(ui, look, subject(sha), 12.0);
+                        if btn(ui, look, "Swap", true) {
+                            cx.send(Message::CompareSwap);
+                        }
+                        if btn(ui, look, "Close", true) {
+                            cx.send(Message::CompareClose);
+                        }
                     });
-                }
-                if let Some(result) = &state.result {
-                    muted(
-                        ui,
-                        look,
-                        trf(
-                            "{commits} only in target, {count} only in base",
-                            &[
-                                ("commits", &plural(result.target_only as usize, "commit")),
-                                ("count", &result.base_only.to_string()),
-                            ],
-                        ),
-                        12.0,
-                    );
-                }
-                if let Some(error) = &state.error {
-                    text(ui, error.as_str(), 12.0, c.danger);
-                }
-                ui.horizontal(|ui| {
-                    if btn(ui, look, "Swap", true) {
-                        cx.send(Message::CompareSwap);
-                    }
-                    if btn(ui, look, "Close", true) {
-                        cx.send(Message::CompareClose);
-                    }
                 });
-            });
-        hline(ui, look);
-        let list = state
-            .result
-            .as_ref()
-            .map_or(&[][..], |result| &result.files);
-        files(
-            ui,
-            cx,
-            "compare",
-            list,
-            state.selected.as_deref(),
-            Some(&state.target),
-            "No differences",
-        );
-    });
+            hline(ui, look);
+            let list = state
+                .result
+                .as_ref()
+                .map_or(&[][..], |result| &result.files);
+            files(
+                ui,
+                cx,
+                "compare",
+                list,
+                state.selected.as_deref(),
+                // A file of the working tree has no commit to check it out from.
+                Some(state.target.as_str()).filter(|target| !target.is_empty()),
+                "No differences",
+            );
+        },
+    );
 }
 
 pub fn stash(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
@@ -374,48 +419,55 @@ pub fn stash(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         placeholder(ui, look, "Stash not found");
         return;
     };
-    with_diff(ui, cx, tab, "Select a file to see its changes", |ui| {
-        egui::Frame::new()
-            .inner_margin(Margin::symmetric(14, 12))
-            .show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
-                text(ui, stash.message.as_str(), 13.0, look.c.text);
-                muted(
-                    ui,
-                    look,
-                    format!("{} · {}", stash.name, full_date(stash.time)),
-                    12.0,
-                );
-                ui.horizontal(|ui| {
-                    if accent(ui, look, "Apply", true) {
-                        cx.send(Message::Run(Command::StashApply {
-                            name: stash.name.clone(),
-                            pop: false,
-                        }));
-                    }
-                    if btn(ui, look, "Pop", true) {
-                        cx.send(Message::Run(Command::StashApply {
-                            name: stash.name.clone(),
-                            pop: true,
-                        }));
-                    }
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if danger(ui, look, "Drop…", true) {
-                            cx.send(Message::Action(Action::DropStash(stash.name.clone())));
+    with_diff(
+        ui,
+        cx,
+        tab,
+        None,
+        "Select a file to see its changes",
+        |ui| {
+            egui::Frame::new()
+                .inner_margin(Margin::symmetric(14, 12))
+                .show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
+                    text(ui, stash.message.as_str(), 13.0, look.c.text);
+                    muted(
+                        ui,
+                        look,
+                        format!("{} · {}", stash.name, full_date(stash.time)),
+                        12.0,
+                    );
+                    ui.horizontal(|ui| {
+                        if accent(ui, look, "Apply", true) {
+                            cx.send(Message::Run(Command::StashApply {
+                                name: stash.sha.clone(),
+                                pop: false,
+                            }));
                         }
+                        if btn(ui, look, "Pop", true) {
+                            cx.send(Message::Run(Command::StashApply {
+                                name: stash.sha.clone(),
+                                pop: true,
+                            }));
+                        }
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if danger(ui, look, "Drop…", true) {
+                                cx.send(Message::Action(Action::DropStash(stash.sha.clone())));
+                            }
+                        });
                     });
                 });
-            });
-        hline(ui, look);
-        files(
-            ui,
-            cx,
-            "stash",
-            &open.files,
-            open.selected.as_deref(),
-            None,
-            "No files",
-        );
-    });
+            hline(ui, look);
+            files(
+                ui,
+                cx,
+                "stash",
+                &open.files,
+                open.selected.as_deref(),
+                None,
+                "No files",
+            );
+        },
+    );
 }

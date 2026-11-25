@@ -2,69 +2,121 @@
 (empty)	(leer)	(vide)	(vacío)
 (none)	(keiner)	(aucune)	(ninguno)
 (root commit)	(Wurzel-Commit)	(commit racine)	(commit raíz)
+.git/hooks	.git/hooks	.git/hooks	.git/hooks
+/src/	/src/	/src/	/src/
+1 branch	1 Branch	1 branche	1 rama
 1 commit	1 Commit	1 commit	1 commit
 1 conflict	1 Konflikt	1 conflit	1 conflicto
 1 file	1 Datei	1 fichier	1 archivo
 1 hour ago	vor 1 Stunde	il y a 1 heure	hace 1 hora
 1 line	1 Zeile	1 ligne	1 línea
 1 minute ago	vor 1 Minute	il y a 1 minute	hace 1 minuto
+1 more file	1 weitere Datei	1 autre fichier	1 archivo más
 1 pattern	1 Muster	1 motif	1 patrón
+A date, such as 2024-01-01	Ein Datum, etwa 2024-01-01	Une date, par exemple 2024-01-01	Una fecha, por ejemplo 2024-01-01
+A GPG key id, or an SSH key file	Eine GPG-Schlüssel-ID oder eine SSH-Schlüsseldatei	Un identifiant de clé GPG, ou un fichier de clé SSH	Un id de clave GPG o un archivo de clave SSH
+A graphical Git client for Windows, macOS and Linux, built on the git you have installed.	Ein grafischer Git-Client für Windows, macOS und Linux, der auf dem installierten git aufbaut.	Un client Git graphique pour Windows, macOS et Linux, qui s’appuie sur le git installé.	Un cliente gráfico de Git para Windows, macOS y Linux, basado en el git que tienes instalado.
+A locked worktree isn't pruned or removed, even when its folder is gone for a while (on a drive that isn't plugged in, say): {path}	Ein gesperrter Worktree wird weder bereinigt noch entfernt, auch wenn sein Ordner eine Weile fehlt (etwa auf einem nicht angeschlossenen Laufwerk): {path}	Un arbre de travail verrouillé n’est ni nettoyé ni supprimé, même si son dossier disparaît un moment (sur un disque débranché, par exemple) : {path}	Un árbol de trabajo bloqueado no se poda ni se elimina, aunque su carpeta falte un tiempo (en una unidad desconectada, por ejemplo): {path}
+A merge commit is taken as its changes against one parent: choose the mainline it was merged into.	Ein Merge-Commit wird als seine Änderungen gegenüber einem Elternteil übernommen: Wähle die Hauptlinie, in die er gemergt wurde.	Un commit de fusion est appliqué comme ses modifications par rapport à un parent : choisissez la ligne principale dans laquelle il a été fusionné.	Un commit de fusión se aplica como sus cambios respecto a un padre: elige la línea principal en la que se fusionó.
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
+A tag, branch or SHA	Ein Tag, Branch oder SHA	Un tag, une branche ou un SHA	Una etiqueta, rama o SHA
 Abort	Abbrechen	Annuler	Abortar
 Abort the {kind} and restore the previous state?	{kind} abbrechen und den vorherigen Zustand wiederherstellen?	Annuler l’opération ({kind}) et rétablir l’état précédent ?	¿Abortar {kind} y restaurar el estado anterior?
 Abort {kind}	{kind} abbrechen	Annuler : {kind}	Abortar {kind}
 Aborting	Wird abgebrochen	Annulation	Abortando
+About GitCraft	Über GitCraft	À propos de GitCraft	Acerca de GitCraft
 About {app}	Über {app}	À propos de {app}	Acerca de {app}
 Actual size	Originalgröße	Taille réelle	Tamaño real
+Add	Hinzufügen	Ajouter	Añadir
+Add a key	Taste hinzufügen	Ajouter une touche	Añadir una tecla
+Add a README	Ein README anlegen	Ajouter un README	Añadir un README
 Add remote	Remote hinzufügen	Ajouter un dépôt distant	Añadir remoto
 Add remote…	Remote hinzufügen…	Ajouter un dépôt distant…	Añadir remoto…
+Add submodule	Submodul hinzufügen	Ajouter un sous-module	Añadir submódulo
+Add submodule…	Submodul hinzufügen…	Ajouter un sous-module…	Añadir submódulo…
 Add worktree	Worktree hinzufügen	Ajouter un arbre de travail	Añadir árbol de trabajo
 Add worktree…	Worktree hinzufügen…	Ajouter un arbre de travail…	Añadir árbol de trabajo…
+Added	Hinzugefügt	Ajouté	Añadido
+Added submodule {path}; commit to keep it	Submodul {path} hinzugefügt; committe, um es zu behalten	Sous-module {path} ajouté ; validez pour le garder	Submódulo {path} añadido; haz commit para conservarlo
 Added worktree {path}	Worktree {path} hinzugefügt	Arbre de travail {path} ajouté	Árbol de trabajo {path} añadido
 Added {patterns} to .gitignore	{patterns} zu .gitignore hinzugefügt	{patterns} ajoutés à .gitignore	{patterns} añadidos a .gitignore
 Added “{pattern}” to .gitignore	„{pattern}“ zu .gitignore hinzugefügt	« {pattern} » ajouté à .gitignore	«{pattern}» añadido a .gitignore
 Adding remote	Remote wird hinzugefügt	Ajout du dépôt distant	Añadiendo remoto
+Adding submodule	Submodul wird hinzugefügt	Ajout du sous-module	Añadiendo submódulo
 Adding worktree	Worktree wird hinzugefügt	Ajout de l’arbre de travail	Añadiendo árbol de trabajo
 All branches	Alle Branches	Toutes les branches	Todas las ramas
 All commits	Alle Commits	Tous les commits	Todos los commits
 All Commits	Alle Commits	Tous les commits	Todos los commits
-All commits / Local changes	Alle Commits / Lokale Änderungen	Tous les commits / Modifications locales	Todos los commits / Cambios locales
 All commits are dropped.	Alle Commits werden verworfen.	Tous les commits sont supprimés.	Se descartan todos los commits.
 All conflicts resolved. Continue to finish.	Alle Konflikte gelöst. Zum Abschließen fortsetzen.	Tous les conflits sont résolus. Continuez pour terminer.	Todos los conflictos resueltos. Continúa para terminar.
+All of them; or a number, such as 50	Alle; oder eine Zahl, etwa 50	Tous ; ou un nombre, par exemple 50	Todos; o un número, por ejemplo 50
 All ours	Alles von uns	Tout le nôtre	Todo lo nuestro
 All theirs	Alles von ihnen	Tout le leur	Todo lo suyo
+Allowed signers file	Datei der zugelassenen Signierer	Fichier des signataires autorisés	Archivo de firmantes permitidos
 Also delete from all remotes	Auch auf allen Remotes löschen	Supprimer aussi de tous les dépôts distants	Eliminar también de todos los remotos
 Also delete ignored files (build output, dependencies…)	Auch ignorierte Dateien löschen (Build-Ausgaben, Abhängigkeiten…)	Supprimer aussi les fichiers ignorés (sorties de compilation, dépendances…)	Eliminar también los archivos ignorados (compilaciones, dependencias…)
+Also delete their branches on the remote	Auch ihre Branches auf dem Remote löschen	Supprimer aussi leurs branches sur le dépôt distant	Eliminar también sus ramas en el remoto
 Also delete {upstream} on the remote	Auch {upstream} auf dem Remote löschen	Supprimer aussi {upstream} sur le dépôt distant	Eliminar también {upstream} en el remoto
 Always create a merge commit (--no-ff)	Immer einen Merge-Commit erstellen (--no-ff)	Toujours créer un commit de fusion (--no-ff)	Crear siempre un commit de fusión (--no-ff)
+Amend	Amend	Modification du commit	Enmienda
+Amend a pushed commit	Bereits gepushten Commit ändern	Modifier un commit déjà poussé	Enmendar un commit ya enviado
 Amend commit	Commit ergänzen	Modifier le commit	Enmendar commit
 Amend last commit	Letzten Commit ergänzen	Modifier le dernier commit	Enmendar el último commit
 Amending commit	Commit wird ergänzt	Modification du commit	Enmendando commit
+An SSH key	Einem SSH-Schlüssel	Une clé SSH	Una clave SSH
 Appearance	Darstellung	Apparence	Apariencia
 Apply	Anwenden	Appliquer	Aplicar
 Apply changes only, staged (git apply)	Nur Änderungen anwenden, vorgemerkt (git apply)	Appliquer seulement les modifications, indexées (git apply)	Aplicar solo los cambios, preparados (git apply)
 Apply patch	Patch anwenden	Appliquer un patch	Aplicar parche
 Apply patch…	Patch anwenden…	Appliquer un patch…	Aplicar parche…
+Apply the commits as planned above	Die Commits wie oben geplant anwenden	Appliquer les commits comme prévu ci-dessus	Aplicar los commits como se planeó arriba
+Apply these commits on top of {branch}, from top to bottom.	Diese Commits von oben nach unten auf {branch} anwenden.	Appliquer ces commits sur {branch}, de haut en bas.	Aplicar estos commits sobre {branch}, de arriba abajo.
 Applying patch	Patch wird angewendet	Application du patch	Aplicando parche
 Applying patches (git am)	Patches werden angewendet (git am)	Application des patchs (git am)	Aplicando parches (git am)
 Applying stash	Stash wird angewendet	Application de la remise	Aplicando stash
 author	Autor	auteur	autor
 Author	Autor	Auteur	Autor
+Author: Jürgen Könnemann	Autor: Jürgen Könnemann	Auteur : Jürgen Könnemann	Autor: Jürgen Könnemann
+Autosquash	Autosquash	Autosquash	Autosquash
+Back to the default keys	Zurück zu den Standardtasten	Revenir aux touches par défaut	Volver a las teclas predeterminadas
+Backup deleted	Sicherung gelöscht	Sauvegarde supprimée	Copia de seguridad eliminada
+Bad	Fehlerhaft	Mauvais	Malo
+Bad signature	Ungültige Signatur	Signature invalide	Firma no válida
 Based on {based}	Basierend auf {based}	À partir de {based}	Basado en {based}
 Binary file — no text diff available	Binärdatei — kein Text-Diff verfügbar	Fichier binaire — pas de diff texte	Archivo binario: no hay diff de texto
+Bisect	Bisect	Bisection	Bisección
+Bisecting	Bisect läuft	Bisection en cours	Bisección en curso
 Blame	Blame	Annotations (blame)	Blame
 Blame at this commit	Blame bei diesem Commit	Annotations à ce commit	Blame en este commit
+Both ranges hold the same commits	Beide Bereiche enthalten dieselben Commits	Les deux plages contiennent les mêmes commits	Ambos rangos contienen los mismos commits
+Both sides added a file with this name, with different contents.	Beide Seiten haben eine Datei mit diesem Namen hinzugefügt, mit unterschiedlichem Inhalt.	Les deux côtés ont ajouté un fichier de ce nom, avec un contenu différent.	Ambos lados añadieron un archivo con este nombre, con contenido distinto.
+Both sides changed this file in the same places.	Beide Seiten haben diese Datei an denselben Stellen geändert.	Les deux côtés ont modifié ce fichier aux mêmes endroits.	Ambos lados cambiaron este archivo en los mismos sitios.
+Both sides deleted this file.	Beide Seiten haben diese Datei gelöscht.	Les deux côtés ont supprimé ce fichier.	Ambos lados eliminaron este archivo.
 Branch	Branch	Branche	Rama
 Branch name	Branch-Name	Nom de la branche	Nombre de la rama
 Branch overwritten	Branch überschrieben	Branche écrasée	Rama sobrescrita
 Branch {name}	Branch {name}	Branche {name}	Rama {name}
 Branches	Branches	Branches	Ramas
 Branch…	Branch…	Branche…	Rama…
+Bring them along	Mitnehmen	Les emporter	Llevarlos
+Bring them along checks out {name} with the changes as they are; git refuses if a changed file differs there.	„Mitnehmen“ checkt {name} mit den Änderungen aus, wie sie sind; git verweigert das, wenn eine geänderte Datei dort anders ist.	« Les emporter » extrait {name} avec les modifications telles quelles ; git refuse si un fichier modifié y est différent.	«Llevarlos» extrae {name} con los cambios tal como están; git se niega si un archivo cambiado es distinto allí.
+by “{author}”	von „{author}“	par « {author} »	de «{author}»
 Cancel	Abbrechen	Annuler	Cancelar
 Cancelled	Abgebrochen	Annulé	Cancelado
+cargo test	cargo test	cargo test	cargo test
+Changed	Geändert	Modifié	Cambiado
+Changed text	Geänderter Text	Texte modifié	Texto cambiado
+Changed text is a regular expression	Geänderter Text ist ein regulärer Ausdruck	Le texte modifié est une expression régulière	El texto cambiado es una expresión regular
+Changes	Änderungen	Modifications	Cambios
 Changes stashed	Änderungen im Stash abgelegt	Modifications remisées	Cambios guardados en el stash
+Changing the sparse checkout	Sparse-Checkout wird geändert	Modification de l’extraction partielle	Cambiando el checkout parcial
+Changing what LFS stores	LFS-Speicherung wird geändert	Modification de ce que LFS stocke	Cambiando lo que guarda LFS
+changing “{text}”	ändert „{text}“	modifiant « {text} »	que cambia «{text}»
 Check out a branch before pushing	Vor dem Pushen einen Branch auschecken	Extrayez une branche avant de pousser	Cambia a una rama antes de enviar
 Check out after creating	Nach dem Erstellen auschecken	Extraire après la création	Cambiar a ella después de crearla
+Check out everything	Alles auschecken	Tout extraire	Extraer todo
+Check out in a new worktree…	In einem neuen Worktree auschecken…	Extraire dans un nouvel arbre de travail…	Extraer en un nuevo árbol de trabajo…
+Check out only part of the repository, such as the folders you work in. Everything else stays in the history, just not in the working tree.	Nur einen Teil des Repositorys auschecken, etwa die Ordner, in denen du arbeitest. Alles andere bleibt im Verlauf, nur nicht im Arbeitsverzeichnis.	N’extraire qu’une partie du dépôt, par exemple les dossiers sur lesquels vous travaillez. Le reste demeure dans l’historique, simplement pas dans le répertoire de travail.	Extraer solo una parte del repositorio, como las carpetas en las que trabajas. Lo demás sigue en el historial, solo que no en el directorio de trabajo.
 Check out {commit}? You will be in a “detached HEAD” state; create a branch to keep new commits.	{commit} auschecken? Du bist dann im Zustand „detached HEAD“; erstelle einen Branch, um neue Commits zu behalten.	Extraire {commit} ? Vous serez dans l’état « HEAD détachée » ; créez une branche pour conserver les nouveaux commits.	¿Cambiar a {commit}? Quedarás en estado «HEAD separado»; crea una rama para conservar los commits nuevos.
 Checking out file	Datei wird ausgecheckt	Extraction du fichier	Extrayendo archivo
 Checking out {name}	{name} wird ausgecheckt	Extraction de {name}	Cambiando a {name}
@@ -76,45 +128,69 @@ Checkout tag…	Tag auschecken…	Extraire le tag…	Cambiar a la etiqueta…
 Checkout this version of the file…	Diese Version der Datei auschecken…	Extraire cette version du fichier…	Extraer esta versión del archivo…
 Checkout {branch} (track)	{branch} auschecken (verfolgen)	Extraire {branch} (suivre)	Cambiar a {branch} (seguir)
 Checkout {name}	{name} auschecken	Extraire {name}	Cambiar a {name}
+Cherry-pick	Cherry-Pick	Cherry-pick	Cherry-pick
 Cherry-pick in progress	Cherry-Pick läuft	Cherry-pick en cours	Cherry-pick en curso
 Cherry-pick into {current}	Per Cherry-Pick in {current} übernehmen	Cherry-pick dans {current}	Cherry-pick en {current}
+Cherry-pick merge commit	Merge-Commit übernehmen	Appliquer un commit de fusion	Aplicar commit de fusión
+Cherry-pick {count} commits into current	{count} Commits in den aktuellen Branch übernehmen	Appliquer {count} commits sur la branche actuelle	Aplicar {count} commits a la rama actual
+Cherry-picked {commits}	{commits} übernommen	{commits} appliqués	{commits} aplicados
 Cherry-picked {commit}	{commit} per Cherry-Pick übernommen	{commit} picoré (cherry-pick)	{commit} aplicado con cherry-pick
 Cherry-picking	Cherry-Pick läuft	Cherry-pick en cours	Aplicando cherry-pick
+Cherry-picking {theirs} onto {ours}	Cherry-pick von {theirs} auf {ours}	Cherry-pick de {theirs} sur {ours}	Cherry-pick de {theirs} sobre {ours}
+Choose a parent	Wähle ein Elternteil	Choisissez un parent	Elige un padre
 Choose the parent that should be kept (the mainline).	Wähle den Elternteil, der behalten werden soll (die Hauptlinie).	Choisissez le parent à conserver (la ligne principale).	Elige el padre que se conserva (la línea principal).
 Choose the upstream of {name}	Upstream von {name} wählen	Choisir la branche amont de {name}	Elige el upstream de {name}
 Choosing a side rebuilds the result and discards your manual edits.	Eine Seite zu wählen baut das Ergebnis neu auf und verwirft deine Handänderungen.	Choisir un côté reconstruit le résultat et supprime vos modifications manuelles.	Elegir un lado reconstruye el resultado y descarta tus ediciones manuales.
 Clean failed	Bereinigen fehlgeschlagen	Échec du nettoyage	Error al limpiar
 Clean untracked files…	Nicht verfolgte Dateien entfernen…	Supprimer les fichiers non suivis…	Limpiar archivos sin seguimiento…
+Clean up branches	Branches aufräumen	Nettoyer les branches	Limpiar ramas
+Clean up branches…	Branches aufräumen…	Nettoyer les branches…	Limpiar ramas…
 Clean working tree	Arbeitsverzeichnis bereinigen	Nettoyer l’arbre de travail	Limpiar el árbol de trabajo
 Cleaned	Bereinigt	Nettoyé	Limpiado
 Cleaning	Wird bereinigt	Nettoyage	Limpiando
+Clear filter	Filter entfernen	Effacer le filtre	Quitar filtro
 Clear search	Suche löschen	Effacer la recherche	Borrar la búsqueda
+Clear the keys	Tasten entfernen	Retirer les touches	Quitar las teclas
+Click a key to change it, or + to add one; Escape stops waiting for a key.	Klicke auf eine Taste, um sie zu ändern, oder auf +, um eine hinzuzufügen; Escape bricht das Warten auf eine Taste ab.	Cliquez sur une touche pour la changer, ou sur + pour en ajouter une ; Échap arrête l’attente d’une touche.	Haz clic en una tecla para cambiarla, o en + para añadir otra; Escape deja de esperar una tecla.
+Click lines to select them (Shift+click for a range), then revert just those lines in the working tree.	Zeilen anklicken, um sie auszuwählen (Umschalt+Klick für einen Bereich), dann nur diese Zeilen im Arbeitsverzeichnis zurücknehmen.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis annulez uniquement ces lignes dans le répertoire de travail.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y revierte solo esas líneas en el directorio de trabajo.
 Click lines to select them (Shift+click for a range), then stage or discard just those lines.	Klicke auf Zeilen, um sie auszuwählen (Umschalt+Klick für einen Bereich), und merke dann nur diese Zeilen vor oder verwirf sie.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis indexez ou supprimez seulement ces lignes.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y luego prepara o descarta solo esas líneas.
+Click, then press the new key	Klicken, dann die neue Taste drücken	Cliquez, puis appuyez sur la nouvelle touche	Haz clic y pulsa la nueva tecla
 Clone	Klonen	Cloner	Clonar
 Clone complete	Klonen abgeschlossen	Clonage terminé	Clonación completada
 Clone failed	Klonen fehlgeschlagen	Échec du clonage	Error al clonar
 Clone repository	Repository klonen	Cloner un dépôt	Clonar repositorio
 Clone repository…	Repository klonen…	Cloner un dépôt…	Clonar repositorio…
+Clone submodules too	Submodule mitklonen	Cloner aussi les sous-modules	Clonar también los submódulos
+Clones another repository into a folder of this one, pinned to one commit of it.	Klont ein anderes Repository in einen Ordner dieses Repositorys, festgelegt auf einen seiner Commits.	Clone un autre dépôt dans un dossier de celui-ci, fixé sur l’un de ses commits.	Clona otro repositorio en una carpeta de este, fijado a uno de sus commits.
 Clone…	Klonen…	Cloner…	Clonar…
 Close	Schließen	Fermer	Cerrar
+Close a menu, dialog or search	Menü, Dialog oder Suche schließen	Fermer un menu, une boîte de dialogue ou la recherche	Cerrar un menú, un diálogo o la búsqueda
 Close tab	Tab schließen	Fermer l’onglet	Cerrar pestaña
 Close without changing anything	Schließen, ohne etwas zu ändern	Fermer sans rien modifier	Cerrar sin cambiar nada
+Co-authors	Co-Autoren	Co-auteurs	Coautores
+Co-authors ({count})…	Co-Autoren ({count})…	Co-auteurs ({count})…	Coautores ({count})…
+Co-authors…	Co-Autoren…	Co-auteurs…	Coautores…
+Columns	Spalten	Colonnes	Columnas
 Combine both messages	Beide Nachrichten zusammenführen	Combiner les deux messages	Combinar ambos mensajes
+Command	Befehl	Commande	Comando
 Commit	Commit	Commit	Commit
 Commit amended	Commit ergänzt	Commit modifié	Commit enmendado
+Commit merge	Merge committen	Valider la fusion	Hacer commit de la fusión
 Commit message	Commit-Nachricht	Message de commit	Mensaje del commit
 Commit not found	Commit nicht gefunden	Commit introuvable	Commit no encontrado
 Commit reverted	Commit rückgängig gemacht	Commit annulé (revert)	Commit revertido
 Commit summary	Commit-Zusammenfassung	Résumé du commit	Resumen del commit
 Commit {commit}	Commit {commit}	Commit {commit}	Commit {commit}
 Commit {files}	{files} committen	Valider {files}	Hacer commit de {files}
+Commits cherry-picked	Commits übernommen	Commits appliqués	Commits aplicados
 Commits loaded at a time	Auf einmal geladene Commits	Commits chargés à la fois	Commits cargados a la vez
 Committed	Committet	Validé	Commit hecho
 Committer	Committer	Validateur	Committer
 Committing	Commit läuft	Validation	Haciendo commit
 Committing…	Commit läuft…	Validation…	Haciendo commit…
-Compare with HEAD	Mit HEAD vergleichen	Comparer avec HEAD	Comparar con HEAD
-Compare with {commit}	Mit {commit} vergleichen	Comparer avec {commit}	Comparar con {commit}
+Compare	Vergleichen	Comparer	Comparar
+Compare commit ranges	Commit-Bereiche vergleichen	Comparer des plages de commits	Comparar rangos de commits
+Compare commit ranges…	Commit-Bereiche vergleichen…	Comparer des plages de commits…	Comparar rangos de commits…
 Comparing commits	Commits vergleichen	Comparaison de commits	Comparando commits
 Conflict markers remain	Konfliktmarkierungen vorhanden	Des marqueurs de conflit subsistent	Quedan marcadores de conflicto
 Conflict {number}	Konflikt {number}	Conflit {number}	Conflicto {number}
@@ -128,17 +204,24 @@ Continuing	Wird fortgesetzt	Poursuite	Continuando
 Copied to clipboard	In die Zwischenablage kopiert	Copié dans le presse-papiers	Copiado al portapapeles
 Copy	Kopieren	Copier	Copiar
 Copy branch name	Branch-Namen kopieren	Copier le nom de la branche	Copiar el nombre de la rama
+Copy file contents	Dateiinhalt kopieren	Copier le contenu du fichier	Copiar el contenido del archivo
 Copy full path	Vollständigen Pfad kopieren	Copier le chemin complet	Copiar la ruta completa
 Copy path	Pfad kopieren	Copier le chemin	Copiar la ruta
+Copy pattern	Muster kopieren	Copier le motif	Copiar el patrón
 Copy repository path	Repository-Pfad kopieren	Copier le chemin du dépôt	Copiar la ruta del repositorio
+Copy SHAs	SHAs kopieren	Copier les SHA	Copiar SHA
 Copy tag name	Tag-Namen kopieren	Copier le nom du tag	Copiar el nombre de la etiqueta
 Copy URL	URL kopieren	Copier l’URL	Copiar la URL
+Could not copy the file	Die Datei konnte nicht kopiert werden	Impossible de copier le fichier	No se pudo copiar el archivo
+Could not count the changes	Die Änderungen konnten nicht gezählt werden	Impossible de compter les modifications	No se pudieron contar los cambios
 Could not create patch	Patch konnte nicht erstellt werden	Impossible de créer le patch	No se pudo crear el parche
 Could not edit the commit	Commit konnte nicht bearbeitet werden	Impossible de modifier le commit	No se pudo editar el commit
 Could not load diff	Diff konnte nicht geladen werden	Impossible de charger le diff	No se pudo cargar el diff
 Could not load stash	Stash konnte nicht geladen werden	Impossible de charger la remise	No se pudo cargar el stash
 Could not load the commit message	Commit-Nachricht konnte nicht geladen werden	Impossible de charger le message du commit	No se pudo cargar el mensaje del commit
 Could not open the file	Datei konnte nicht geöffnet werden	Impossible d’ouvrir le fichier	No se pudo abrir el archivo
+Could not read git's settings	Die Einstellungen von git konnten nicht gelesen werden	Impossible de lire les réglages de git	No se pudieron leer los ajustes de git
+Could not save git's settings	Die Einstellungen von git konnten nicht gespeichert werden	Impossible d’enregistrer les réglages de git	No se pudieron guardar los ajustes de git
 Could not save settings: {error}	Einstellungen konnten nicht gespeichert werden: {error}	Impossible d’enregistrer les paramètres : {error}	No se pudieron guardar los ajustes: {error}
 Could not save the recent list: {error}	Liste der zuletzt geöffneten konnte nicht gespeichert werden: {error}	Impossible d’enregistrer la liste récente : {error}	No se pudo guardar la lista de recientes: {error}
 Could not show the file	Datei konnte nicht angezeigt werden	Impossible d’afficher le fichier	No se pudo mostrar el archivo
@@ -146,31 +229,46 @@ Create	Erstellen	Créer	Crear
 Create a commit that reverts “{subject}”?	Einen Commit erstellen, der „{subject}“ rückgängig macht?	Créer un commit qui annule « {subject} » ?	¿Crear un commit que revierta «{subject}»?
 Create branch	Branch erstellen	Créer une branche	Crear rama
 Create commits (git am, for format-patch files)	Commits erstellen (git am, für format-patch-Dateien)	Créer des commits (git am, pour les fichiers format-patch)	Crear commits (git am, para archivos de format-patch)
+Create here	Hier erstellen	Créer ici	Crear aquí
 Create tag	Tag erstellen	Créer un tag	Crear etiqueta
 Created tag {name}	Tag {name} erstellt	Tag {name} créé	Etiqueta {name} creada
 Created {name}	{name} erstellt	{name} créée	{name} creada
 Creating branch	Branch wird erstellt	Création de la branche	Creando rama
 Creating tag	Tag wird erstellt	Création du tag	Creando etiqueta
+CRLF in the working tree (Windows)	CRLF im Arbeitsverzeichnis (Windows)	CRLF dans le répertoire de travail (Windows)	CRLF en el directorio de trabajo (Windows)
 Current branch	Aktueller Branch	Branche actuelle	Rama actual
 Dark	Dunkel	Sombre	Oscuro
 Date	Datum	Date	Fecha
 Default (fast-forward if possible)	Standard (vorspulen, wenn möglich)	Par défaut (avance rapide si possible)	Predeterminado (avance rápido si es posible)
 Delete	Löschen	Supprimer	Eliminar
+Delete backup	Sicherung löschen	Supprimer la sauvegarde	Eliminar copia de seguridad
 Delete branch	Branch löschen	Supprimer la branche	Eliminar rama
+Delete from remote	Vom Remote löschen	Supprimer du dépôt distant	Eliminar del remoto
 Delete from {remote}…	Von {remote} löschen…	Supprimer de {remote}…	Eliminar de {remote}…
 Delete local branch {name}?	Lokalen Branch {name} löschen?	Supprimer la branche locale {name} ?	¿Eliminar la rama local {name}?
 Delete remote branch	Remote-Branch löschen	Supprimer la branche distante	Eliminar rama remota
 Delete tag	Tag löschen	Supprimer le tag	Eliminar etiqueta
+Delete tag from remote	Tag vom Remote löschen	Supprimer le tag du dépôt distant	Eliminar etiqueta del remoto
+Delete tag {name} from {remote}? It stays in this repository.	Tag {name} von {remote} löschen? In diesem Repository bleibt er erhalten.	Supprimer le tag {name} de {remote} ? Il reste dans ce dépôt.	¿Eliminar la etiqueta {name} de {remote}? Se conserva en este repositorio.
 Delete tag {name}?	Tag {name} löschen?	Supprimer le tag {name} ?	¿Eliminar la etiqueta {name}?
 Delete the working folder “{path}”? Uncommitted changes in it are lost.	Den Arbeitsordner „{path}“ löschen? Nicht committete Änderungen darin gehen verloren.	Supprimer le dossier de travail « {path} » ? Les modifications non validées qu’il contient sont perdues.	¿Eliminar la carpeta de trabajo «{path}»? Se pierden los cambios sin commit que contiene.
+Delete this backup of discarded changes? It can't be restored afterwards.	Diese Sicherung verworfener Änderungen löschen? Danach lässt sie sich nicht mehr wiederherstellen.	Supprimer cette sauvegarde de modifications supprimées ? Elle ne pourra plus être restaurée.	¿Eliminar esta copia de seguridad de cambios descartados? Después ya no se podrá restaurar.
 Delete untracked files from the working tree.	Nicht verfolgte Dateien aus dem Arbeitsverzeichnis löschen.	Supprimer les fichiers non suivis de l’arbre de travail.	Eliminar los archivos sin seguimiento del árbol de trabajo.
+Delete {branches}? Undo brings local branches back.	{branches} löschen? Rückgängig holt lokale Branches zurück.	Supprimer {branches} ? Annuler restaure les branches locales.	¿Eliminar {branches}? Deshacer recupera las ramas locales.
+Delete {branches}…	{branches} löschen…	Supprimer {branches}…	Eliminar {branches}…
 Delete {branch} from {remote}?	{branch} von {remote} löschen?	Supprimer {branch} de {remote} ?	¿Eliminar {branch} de {remote}?
 Delete {count} item(s)?	{count} Einträge löschen?	Supprimer {count} élément(s) ?	¿Eliminar {count} elemento(s)?
 Delete “{message}”? This cannot be undone.	„{message}“ löschen? Das kann nicht rückgängig gemacht werden.	Supprimer « {message} » ? Cette action est irréversible.	¿Eliminar «{message}»? No se puede deshacer.
+Deleted	Gelöscht	Supprimé	Eliminado
+Deleted {branches}	{branches} gelöscht	{branches} supprimées	{branches} eliminadas
+Deleted {name} from {remote}	{name} von {remote} gelöscht	{name} supprimé de {remote}	{name} eliminada de {remote}
 Delete…	Löschen…	Supprimer…	Eliminar…
+Deleting backup	Sicherung wird gelöscht	Suppression de la sauvegarde	Eliminando copia de seguridad
 Deleting branch	Branch wird gelöscht	Suppression de la branche	Eliminando rama
+Deleting branches	Branches werden gelöscht	Suppression des branches	Eliminando ramas
 Deleting remote branch	Remote-Branch wird gelöscht	Suppression de la branche distante	Eliminando rama remota
 Deleting tag	Tag wird gelöscht	Suppression du tag	Eliminando etiqueta
+Deleting tag from remote	Tag wird vom Remote gelöscht	Suppression du tag du dépôt distant	Eliminando etiqueta del remoto
 Derived from the URL	Aus der URL abgeleitet	Déduit de l’URL	Tomado de la URL
 Description	Beschreibung	Description	Descripción
 detached at {commit}	losgelöst bei {commit}	détachée à {commit}	separado en {commit}
@@ -178,64 +276,135 @@ Diff truncated — the file is too large to show completely.	Diff gekürzt – d
 Diffs	Diffs	Diffs	Diffs
 Discard	Verwerfen	Supprimer	Descartar
 Discard all	Alles verwerfen	Tout supprimer	Descartar todo
-Discard all changes to {what}? This cannot be undone.	Alle Änderungen an {what} verwerfen? Das kann nicht rückgängig gemacht werden.	Supprimer toutes les modifications de {what} ? Cette action est irréversible.	¿Descartar todos los cambios de {what}? No se puede deshacer.
+Discard all changes to {what}? A backup is kept: Repository › Recover discarded changes.	Alle Änderungen an {what} verwerfen? Eine Sicherung bleibt erhalten: Repository › Verworfene Änderungen wiederherstellen.	Supprimer toutes les modifications de {what} ? Une sauvegarde est conservée : Dépôt › Récupérer les modifications supprimées.	¿Descartar todos los cambios de {what}? Se guarda una copia de seguridad: Repositorio › Recuperar cambios descartados.
 Discard changes	Änderungen verwerfen	Supprimer les modifications	Descartar cambios
 Discard changes to {count} files…	Änderungen an {count} Dateien verwerfen…	Supprimer les modifications de {count} fichiers…	Descartar cambios de {count} archivos…
 Discard changes…	Änderungen verwerfen…	Supprimer les modifications…	Descartar cambios…
 Discard file	Datei verwerfen	Supprimer le fichier	Descartar archivo
 Discard hunk	Abschnitt verwerfen	Supprimer le bloc	Descartar bloque
 Discard {lines}	{lines} verwerfen	Supprimer {lines}	Descartar {lines}
-Discard {what}? This cannot be undone.	{what} verwerfen? Das kann nicht rückgängig gemacht werden.	Supprimer {what} ? Cette action est irréversible.	¿Descartar {what}? No se puede deshacer.
+Discard {what}? A backup is kept: Repository › Recover discarded changes.	{what} verwerfen? Eine Sicherung bleibt erhalten: Repository › Verworfene Änderungen wiederherstellen.	Supprimer {what} ? Une sauvegarde est conservée : Dépôt › Récupérer les modifications supprimées.	¿Descartar {what}? Se guarda una copia de seguridad: Repositorio › Recuperar cambios descartados.
+Discarded changes are kept for 30 days (the last 50). Putting them back never overwrites what you changed since.	Verworfene Änderungen bleiben 30 Tage lang erhalten (die letzten 50). Beim Zurückholen wird nichts überschrieben, was du seitdem geändert hast.	Les modifications supprimées sont conservées 30 jours (les 50 dernières). Les récupérer n’écrase jamais ce que vous avez modifié depuis.	Los cambios descartados se guardan 30 días (los últimos 50). Recuperarlos nunca sobrescribe lo que hayas cambiado después.
+Discarded changes restored	Verworfene Änderungen wiederhergestellt	Modifications supprimées restaurées	Cambios descartados restaurados
 Discarding	Wird verworfen	Suppression	Descartando
 Done	Fertig	Terminé	Listo
+Download everything the partial clone left out	Alles herunterladen, was der Teilklon ausgelassen hat	Télécharger tout ce que le clone partiel a laissé de côté	Descargar todo lo que el clon parcial omitió
+Download files' contents only when needed (blobless)	Dateiinhalte erst bei Bedarf herunterladen (blobless)	Télécharger le contenu des fichiers seulement si nécessaire (blobless)	Descargar el contenido de los archivos solo cuando haga falta (blobless)
+Download LFS files	LFS-Dateien herunterladen	Télécharger les fichiers LFS	Descargar los archivos LFS
+Downloading LFS files	LFS-Dateien werden heruntergeladen	Téléchargement des fichiers LFS	Descargando los archivos LFS
 Drag up or down to move this commit (or Alt + ↑ / ↓)	Nach oben oder unten ziehen, um diesen Commit zu verschieben (oder Alt + ↑ / ↓)	Faites glisser vers le haut ou le bas pour déplacer ce commit (ou Alt + ↑ / ↓)	Arrastra arriba o abajo para mover este commit (o Alt + ↑ / ↓)
 Drop	Verwerfen	Supprimer	Descartar
 Drop commit	Commit verwerfen	Supprimer le commit	Descartar commit
 Drop commit…	Commit verwerfen…	Supprimer le commit…	Descartar commit…
 Drop stash	Stash verwerfen	Supprimer la remise	Descartar stash
+Drop {count} commits…	{count} Commits verwerfen…	Supprimer {count} commits…	Eliminar {count} commits…
 Dropping stash	Stash wird verworfen	Suppression de la remise	Descartando stash
 Drop…	Verwerfen…	Supprimer…	Descartar…
+Each co-author gets a “Co-authored-by” line in the commits you make next.	Jeder Co-Autor bekommt eine „Co-authored-by“-Zeile in den nächsten Commits.	Chaque co-auteur reçoit une ligne « Co-authored-by » dans vos prochains commits.	Cada coautor recibe una línea «Co-authored-by» en los próximos commits.
 Edit	Bearbeiten	Édition	Editar
 Edit commit	Commit bearbeiten	Modifier le commit	Editar commit
 Edit commit message	Commit-Nachricht bearbeiten	Modifier le message du commit	Editar el mensaje del commit
+Edit history	Verlauf bearbeiten	Modification de l’historique	Edición del historial
 Edit message…	Nachricht bearbeiten…	Modifier le message…	Editar mensaje…
 Edit remote	Remote bearbeiten	Modifier le dépôt distant	Editar remoto
 edited by hand	von Hand bearbeitet	modifié à la main	editado a mano
 Edit…	Bearbeiten…	Modifier…	Editar…
+Email	E-Mail	E-mail	Correo
+Empty: push to the URL above	Leer: an die URL oben pushen	Vide : pousser vers l’URL ci-dessus	Vacío: enviar a la URL de arriba
+End bisect	Bisect beenden	Terminer la bisection	Terminar bisección
+Ending bisect	Bisect wird beendet	Fin de la bisection	Terminando bisección
+Every file is checked out again	Alle Dateien sind wieder ausgecheckt	Tous les fichiers sont de nouveau extraits	Todos los archivos vuelven a estar extraídos
+Every position HEAD and each branch have been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD und die einzelnen Branches waren. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Chaque position où HEAD et chaque branche se sont trouvés. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que han estado HEAD y cada rama. Haz clic derecho en una entrada para todas las acciones de commit.
 Every position HEAD has been at. Right-click an entry for all commit actions.	Jede Position, an der HEAD war. Rechtsklick auf einen Eintrag zeigt alle Commit-Aktionen.	Toutes les positions occupées par HEAD. Clic droit sur une entrée pour toutes les actions de commit.	Cada posición en la que ha estado HEAD. Haz clic derecho en una entrada para ver todas las acciones de commit.
+Everywhere	Überall	Partout	En todas partes
 Exit	Beenden	Quitter	Salir
+Expect a conflict in {path}.	Ein Konflikt in {path} ist zu erwarten.	Un conflit est attendu dans {path}.	Se espera un conflicto en {path}.
+Expect conflicts in {files}: {names}	Konflikte in {files} zu erwarten: {names}	Conflits attendus dans {files} : {names}	Se esperan conflictos en {files}: {names}
+Fast-forward	Vorspulen	Avance rapide	Avance rápido
 Fast-forward only	Nur vorspulen	Avance rapide uniquement	Solo avance rápido
 Fast-forward to {upstream}	Auf {upstream} vorspulen	Avancer jusqu’à {upstream}	Avanzar hasta {upstream}
 Fast-forward {branch} to here	{branch} bis hierher vorspulen	Avancer {branch} jusqu’ici	Avanzar {branch} hasta aquí
 Fast-forwarding	Wird vorgespult	Avance rapide	Avanzando
 Fetch	Fetch	Récupérer	Recuperar
+Fetch 500 more commits	500 weitere Commits abrufen	Récupérer 500 commits de plus	Obtener 500 commits más
 Fetch after adding	Nach dem Hinzufügen abrufen	Récupérer après l’ajout	Recuperar después de añadir
 Fetch all remotes (incl. tags)	Alle Remotes abrufen (inkl. Tags)	Récupérer tous les dépôts distants (tags compris)	Recuperar todos los remotos (con etiquetas)
+Fetch and remove branches deleted on the remotes	Abrufen und auf den Remotes gelöschte Branches entfernen	Récupérer et supprimer les branches effacées sur les dépôts distants	Obtener y quitar las ramas eliminadas en los remotos
 Fetch complete	Fetch abgeschlossen	Récupération terminée	Recuperación completada
+Fetch in the background every (minutes, 0 = never)	Im Hintergrund abrufen alle (Minuten, 0 = nie)	Récupérer en arrière-plan toutes les (minutes, 0 = jamais)	Obtener en segundo plano cada (minutos, 0 = nunca)
+Fetch the whole history	Den ganzen Verlauf abrufen	Récupérer tout l’historique	Obtener todo el historial
 Fetch when opening a repository	Beim Öffnen eines Repositorys abrufen	Récupérer à l’ouverture d’un dépôt	Recuperar al abrir un repositorio
 Fetch {name}	{name} abrufen	Récupérer {name}	Recuperar {name}
 Fetching	Fetch läuft	Récupération	Recuperando
+Fetching more history	Weiterer Verlauf wird abgerufen	Récupération de l’historique supplémentaire	Obteniendo más historial
 Fetching {remote}	{remote} wird abgerufen	Récupération de {remote}	Recuperando {remote}
 File	Datei	Fichier	Archivo
 File history	Dateiverlauf	Historique du fichier	Historial del archivo
+File or folder	Datei oder Ordner	Fichier ou dossier	Archivo o carpeta
+Files locked on the LFS server. Only whoever holds a lock can push changes to that file.	Auf dem LFS-Server gesperrte Dateien. Nur wer eine Sperre hält, kann Änderungen an dieser Datei pushen.	Fichiers verrouillés sur le serveur LFS. Seul le détenteur d’un verrou peut pousser des modifications de ce fichier.	Archivos bloqueados en el servidor LFS. Solo quien tiene el bloqueo puede enviar cambios de ese archivo.
 Files stashed	Dateien im Stash abgelegt	Fichiers remisés	Archivos guardados en el stash
+Filter	Filtern	Filtrer	Filtrar
 Filter branches & tags	Branches & Tags filtern	Filtrer branches et tags	Filtrar ramas y etiquetas
+Filter history	Verlauf filtern	Filtrer l’historique	Filtrar historial
+Filter history…	Verlauf filtern…	Filtrer l’historique…	Filtrar historial…
+Filtered history: {commits} {filters}	Gefilterter Verlauf: {commits} {filters}	Historique filtré : {commits} {filters}	Historial filtrado: {commits} {filters}
+First bad commit: {commit}	Erster fehlerhafter Commit: {commit}	Premier commit cassé : {commit}	Primer commit roto: {commit}
+First branch	Erster Branch	Première branche	Primera rama
+First branch of new repositories	Erster Branch neuer Repositorys	Première branche des nouveaux dépôts	Primera rama de los repositorios nuevos
+Fixup	Fixup	Fusionner (fixup)	Fixup
+Fixup commit for {commit} created; an interactive rebase with autosquash folds it in	Fixup-Commit für {commit} erstellt; ein interaktiver Rebase mit Autosquash fügt ihn ein	Commit fixup pour {commit} créé ; un rebase interactif avec autosquash l’intègre	Commit fixup para {commit} creado; un rebase interactivo con autosquash lo integra
+Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen	Commit fixup des modifications indexées	Commit fixup de los cambios preparados
 Fold “{subject}” into its parent commit.	„{subject}“ in den Eltern-Commit einfalten.	Fusionner « {subject} » dans son commit parent.	Integrar «{subject}» en su commit padre.
 Folder	Ordner	Dossier	Carpeta
 Folder name	Ordnername	Nom du dossier	Nombre de la carpeta
+Folders or patterns, one per line	Ordner oder Muster, eines pro Zeile	Dossiers ou motifs, un par ligne	Carpetas o patrones, uno por línea
 Follow system	Wie das System	Comme le système	Como el sistema
 Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer la suppression, même si elle n’est pas fusionnée	Forzar la eliminación aunque no esté fusionada
+Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
+Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
+Force unlock	Entsperren erzwingen	Forcer le déverrouillage	Forzar el desbloqueo
+Force unlock…	Entsperren erzwingen…	Forcer le déverrouillage…	Forzar el desbloqueo…
+Forget	Vergessen	Oublier	Olvidar
+Forget saved passwords	Gespeicherte Passwörter vergessen	Oublier les mots de passe enregistrés	Olvidar las contraseñas guardadas
+Forget saved passwords for the remotes…	Gespeicherte Passwörter der Remotes vergessen…	Oublier les mots de passe enregistrés des dépôts distants…	Olvidar las contraseñas guardadas de los remotos…
+Forgetting saved passwords	Gespeicherte Passwörter werden vergessen	Oubli des mots de passe enregistrés	Olvidando las contraseñas guardadas
+Git	Git	Git	Git
+Git LFS	Git LFS	Git LFS	Git LFS
+Git LFS is set up for this repository	Git LFS ist für dieses Repository eingerichtet	Git LFS est configuré pour ce dépôt	Git LFS está configurado para este repositorio
+git on PATH	git aus PATH	git du PATH	git del PATH
+Git program	Git-Programm	Programme git	Programa git
+Git settings saved	Git-Einstellungen gespeichert	Réglages git enregistrés	Ajustes de git guardados
+Git's default, such as main	Standard von git, etwa main	Celle par défaut de git, par exemple main	La predeterminada de git, como main
+Git: {version} ({program})	Git: {version} ({program})	Git : {version} ({program})	Git: {version} ({program})
+Give at least one folder or pattern, or turn sparse checkout off	Gib mindestens einen Ordner oder ein Muster an oder schalte Sparse-Checkout aus	Indiquez au moins un dossier ou un motif, ou désactivez l’extraction partielle	Indica al menos una carpeta o un patrón, o desactiva el checkout parcial
+Give both ranges, such as main..topic	Gib beide Bereiche an, etwa main..topic	Indiquez les deux plages, par exemple main..topic	Indica ambos rangos, por ejemplo main..topic
+Good	Gut	Bon	Bueno
+Good commit	Guter Commit	Commit fonctionnel	Commit bueno
+Good signature	Gültige Signatur	Signature valide	Firma válida
+Good signature by an expired key	Gültige Signatur mit abgelaufenem Schlüssel	Signature valide par une clé expirée	Firma válida con una clave caducada
+Good signature, but it has expired	Gültige Signatur, aber abgelaufen	Signature valide, mais expirée	Firma válida, pero caducada
+Good signature, key of unknown trust	Gültige Signatur, Schlüssel mit unbekanntem Vertrauen	Signature valide, clé de confiance inconnue	Firma válida, clave de confianza desconocida
+GPG	GPG	GPG	GPG
 Hard reset	Harter Reset	Réinitialisation dure	Reset duro
 Hard: discard all changes	Hart: alle Änderungen verwerfen	Dur : supprimer toutes les modifications	Duro: descartar todos los cambios
+Have git's credential helpers forget the passwords and tokens they keep for the http(s) servers of this repository's remotes? The next fetch or push asks for them again. SSH keys aren't affected.	Sollen die Credential-Helfer von git die Passwörter und Tokens vergessen, die sie für die http(s)-Server der Remotes dieses Repositorys aufbewahren? Das nächste Abrufen oder Pushen fragt wieder danach. SSH-Schlüssel sind nicht betroffen.	Faire oublier aux gestionnaires d’identifiants de git les mots de passe et jetons qu’ils gardent pour les serveurs http(s) des dépôts distants de ce dépôt ? La prochaine récupération ou le prochain envoi les redemande. Les clés SSH ne sont pas concernées.	¿Hacer que los asistentes de credenciales de git olviden las contraseñas y tokens que guardan para los servidores http(s) de los remotos de este repositorio? La próxima obtención o envío los vuelve a pedir. Las claves SSH no se ven afectadas.
 Help	Hilfe	Aide	Ayuda
+Here and on every remote	Hier und auf allen Remotes	Ici et sur tous les dépôts distants	Aquí y en todos los remotos
+Here and on {remote}	Hier und auf {remote}	Ici et sur {remote}	Aquí y en {remote}
+Hide in graph	Im Graphen ausblenden	Masquer dans le graphe	Ocultar en el gráfico
 Hide Others	Andere ausblenden	Masquer les autres	Ocultar otros
 Hide {app}	{app} ausblenden	Masquer {app}	Ocultar {app}
+History of its folder	Verlauf seines Ordners	Historique de son dossier	Historial de su carpeta
 History rewritten	Verlauf neu geschrieben	Historique réécrit	Historial reescrito
+Hooks folder	Hooks-Ordner	Dossier des hooks	Carpeta de hooks
+Housekeeping git otherwise does now and then by itself. Nothing in the history or the working tree changes.	Hausarbeit, die git sonst ab und zu von selbst erledigt. Weder Verlauf noch Arbeitsverzeichnis ändern sich.	Le ménage que git fait sinon de temps en temps tout seul. Rien ne change dans l’historique ni dans le répertoire de travail.	Tareas que git hace de vez en cuando por sí solo. No cambia nada en el historial ni en el directorio de trabajo.
 How	Wie	Comment	Cómo
 Ignore	Ignorieren	Ignorer	Ignorar
 Ignore all “*{extension}” files	Alle „*{extension}“-Dateien ignorieren	Ignorer tous les fichiers « *{extension} »	Ignorar todos los archivos «*{extension}»
+Ignore editor settings and system files	Editor-Einstellungen und Systemdateien ignorieren	Ignorer les réglages d’éditeur et les fichiers système	Ignorar los ajustes del editor y los archivos del sistema
 Ignore folder “{dir}”	Ordner „{dir}“ ignorieren	Ignorer le dossier « {dir} »	Ignorar la carpeta «{dir}»
+Ignore what this language's tools make	Ignorieren, was die Werkzeuge dieser Sprache erzeugen	Ignorer ce que produisent les outils de ce langage	Ignorar lo que generan las herramientas de este lenguaje
 Ignore whitespace changes	Leerraum-Änderungen ignorieren	Ignorer les modifications d’espaces	Ignorar cambios de espacios
 Ignore {count} files	{count} Dateien ignorieren	Ignorer {count} fichiers	Ignorar {count} archivos
 Ignore “{path}”	„{path}“ ignorieren	Ignorer « {path} »	Ignorar «{path}»
@@ -244,24 +413,38 @@ in 1 minute	in 1 Minute	dans 1 minute	dentro de 1 minuto
 in {count} days	in {count} Tagen	dans {count} jours	dentro de {count} días
 in {count} hours	in {count} Stunden	dans {count} heures	dentro de {count} horas
 in {count} minutes	in {count} Minuten	dans {count} minutes	dentro de {count} minutos
+in {path}	in {path}	dans {path}	en {path}
 Include untracked files	Nicht verfolgte Dateien einschließen	Inclure les fichiers non suivis	Incluir archivos sin seguimiento
 Include untracked folders	Nicht verfolgte Ordner einschließen	Inclure les dossiers non suivis	Incluir carpetas sin seguimiento
+Interactive cherry-pick	Interaktives Cherry-Pick	Cherry-pick interactif	Cherry-pick interactivo
+Interactive cherry-pick…	Interaktives Cherry-Pick…	Cherry-pick interactif…	Cherry-pick interactivo…
 Interactive rebase	Interaktiver Rebase	Rebase interactif	Rebase interactivo
 Interactive rebase complete	Interaktiver Rebase abgeschlossen	Rebase interactif terminé	Rebase interactivo completado
 Interactive rebase from here…	Interaktiver Rebase ab hier…	Rebase interactif à partir d’ici…	Rebase interactivo desde aquí…
 Into folder	In den Ordner	Dans le dossier	En la carpeta
+Its changes are in already (squashed or rebased)	Die Änderungen sind schon drin (gesquasht oder rebased)	Ses modifications sont déjà intégrées (squash ou rebase)	Sus cambios ya están dentro (squash o rebase)
 its upstream	seinen Upstream	sa branche amont	su upstream
+Its upstream was deleted	Sein Upstream wurde gelöscht	Son amont a été supprimé	Su upstream se eliminó
 just now	gerade eben	à l’instant	ahora mismo
 Keep a commit-graph file for faster history	Commit-Graph-Datei für schnelleren Verlauf anlegen	Conserver un fichier commit-graph pour un historique plus rapide	Mantener un archivo commit-graph para un historial más rápido
 Keep staged changes in the working tree	Vorgemerkte Änderungen im Arbeitsverzeichnis behalten	Garder les modifications indexées dans l’arbre de travail	Mantener los cambios preparados en el árbol de trabajo
 Keep the parent's message, discard this one	Nachricht des Elternteils behalten, diese verwerfen	Garder le message du parent, supprimer celui-ci	Conservar el mensaje del padre y descartar este
 Keep: discard commits, keep local changes	Behalten: Commits verwerfen, lokale Änderungen behalten	Garder : supprimer les commits, garder les modifications locales	Conservar: descartar commits, conservar cambios locales
+Key {key}	Schlüssel {key}	Clé {key}	Clave {key}
 Keyboard shortcuts	Tastenkürzel	Raccourcis clavier	Atajos de teclado
 Language	Sprache	Langue	Idioma
 Last commit undone; its changes are staged	Letzter Commit rückgängig gemacht; seine Änderungen sind vorgemerkt	Dernier commit annulé ; ses modifications sont indexées	Último commit deshecho; sus cambios están preparados
 Layout	Ansicht	Disposition	Diseño
 Leave empty to check out detached	Leer lassen, um losgelöst auszuchecken	Laisser vide pour extraire en HEAD détachée	Déjalo vacío para cambiar en modo separado
+Leave empty to check out {branch}	Leer lassen, um {branch} auszuchecken	Laisser vide pour extraire {branch}	Déjalo vacío para extraer {branch}
+Leave them as they are	So lassen, wie sie sind	Les laisser tels quels	Dejarlos como están
+LF in commits, as written in the working tree	LF in Commits, im Arbeitsverzeichnis wie geschrieben	LF dans les commits, tel qu’écrit dans le répertoire de travail	LF en los commits, tal como se escribe en el directorio de trabajo
+LFS files downloaded	LFS-Dateien heruntergeladen	Fichiers LFS téléchargés	Archivos LFS descargados
+LFS locks	LFS-Sperren	Verrous LFS	Bloqueos LFS
+LFS no longer stores new {pattern} files; commit .gitattributes to keep it	LFS speichert keine neuen {pattern}-Dateien mehr; committe .gitattributes, damit es so bleibt	LFS ne stocke plus les nouveaux fichiers {pattern} ; validez .gitattributes pour le garder	LFS ya no guarda los nuevos archivos {pattern}; haz commit de .gitattributes para mantenerlo
+LFS stores {pattern} from now on; commit .gitattributes to keep it	LFS speichert ab jetzt {pattern}; committe .gitattributes, damit es so bleibt	LFS stocke désormais {pattern} ; validez .gitattributes pour le garder	LFS guarda {pattern} a partir de ahora; haz commit de .gitattributes para mantenerlo
 Light	Hell	Clair	Claro
+Line endings	Zeilenenden	Fins de ligne	Finales de línea
 Line staging is disabled while “Ignore whitespace” is on.	Zeilenweises Vormerken ist aus, solange „Leerraum ignorieren“ an ist.	L’indexation par ligne est désactivée tant que « Ignorer les espaces » est activé.	Preparar líneas está desactivado mientras «Ignorar espacios» esté activado.
 Live refresh stopped for {path}	Automatisches Aktualisieren für {path} beendet	Actualisation automatique arrêtée pour {path}	Actualización automática detenida para {path}
 Load more commits	Weitere Commits laden	Charger plus de commits	Cargar más commits
@@ -270,14 +453,34 @@ Loading commits…	Commits werden geladen…	Chargement des commits…	Cargando 
 Loading diff…	Diff wird geladen…	Chargement du diff…	Cargando diff…
 Loading history…	Verlauf wird geladen…	Chargement de l’historique…	Cargando historial…
 Loading…	Wird geladen…	Chargement…	Cargando…
+Local branches that look done with. Merged ones are ticked; look at the others first.	Lokale Branches, die erledigt aussehen. Gemergte sind angehakt; die anderen besser erst ansehen.	Branches locales qui semblent terminées. Les fusionnées sont cochées ; examinez d’abord les autres.	Ramas locales que parecen terminadas. Las fusionadas están marcadas; revisa primero las demás.
 Local changes	Lokale Änderungen	Modifications locales	Cambios locales
 Local Changes	Lokale Änderungen	Modifications locales	Cambios locales
+Lock	Sperren	Verrouiller	Bloquear
+Lock (LFS)	Sperren (LFS)	Verrouiller (LFS)	Bloquear (LFS)
+Lock worktree	Worktree sperren	Verrouiller l’arbre de travail	Bloquear árbol de trabajo
+lockable	sperrbar	verrouillable	bloqueable
+Lockable (read-only until locked)	Sperrbar (schreibgeschützt, bis gesperrt)	Verrouillable (en lecture seule jusqu’au verrouillage)	Bloqueable (solo lectura hasta bloquearlo)
 locked	gesperrt	verrouillé	bloqueado
+Locking worktree	Worktree wird gesperrt	Verrouillage de l’arbre de travail	Bloqueando el árbol de trabajo
+Locking {path}	{path} wird gesperrt	Verrouillage de {path}	Bloqueando {path}
+Locks…	Sperren…	Verrous…	Bloqueos…
+Lock…	Sperren…	Verrouiller…	Bloquear…
+main	main	main	main
+main..topic	main..topic	main..topic	main..topic
+main..topic@{1}	main..topic@{1}	main..topic@{1}	main..topic@{1}
 Mainline parent	Elternteil der Hauptlinie	Parent principal	Padre principal
+Maintenance…	Wartung…	Maintenance…	Mantenimiento…
+Make a first commit	Einen ersten Commit machen	Faire un premier commit	Hacer un primer commit
+Mark as bad	Als fehlerhaft markieren	Marquer comme mauvais	Marcar como malo
+Mark as conflicted again	Wieder als Konflikt markieren	Marquer à nouveau comme conflit	Marcar de nuevo como conflicto
+Mark as good	Als gut markieren	Marquer comme bon	Marcar como bueno
 Mark as resolved	Als gelöst markieren	Marquer comme résolu	Marcar como resuelto
+Marking as conflicted	Wird als Konflikt markiert	Marquage comme conflit	Marcando como conflicto
 Maximize	Maximieren	Agrandir	Maximizar
 Meld into the commit above, combine messages	Mit dem Commit darüber verschmelzen, Nachrichten zusammenführen	Fusionner avec le commit au-dessus, combiner les messages	Fundir con el commit de arriba, combinar mensajes
 Meld into the commit above, discard this message	Mit dem Commit darüber verschmelzen, diese Nachricht verwerfen	Fusionner avec le commit au-dessus, supprimer ce message	Fundir con el commit de arriba, descartar este mensaje
+Melds into the commit above	Wird mit dem Commit darüber verschmolzen	Fusionne avec le commit au-dessus	Se funde con el commit de arriba
 Merge	Merge	Fusionner	Fusionar
 Merge (create a merge commit if needed)	Merge (bei Bedarf einen Merge-Commit erstellen)	Fusionner (créer un commit de fusion si nécessaire)	Fusionar (crear un commit de fusión si hace falta)
 Merge commits cannot be edited this way	Merge-Commits können so nicht bearbeitet werden	Les commits de fusion ne peuvent pas être modifiés ainsi	Los commits de fusión no se pueden editar así
@@ -285,8 +488,10 @@ Merge in progress	Merge läuft	Fusion en cours	Fusión en curso
 Merge into {current}…	In {current} mergen…	Fusionner dans {current}…	Fusionar en {current}…
 Merge {name} into {shown}…	{name} in {shown} mergen…	Fusionner {name} dans {shown}…	Fusionar {name} en {shown}…
 Merge {reference} into {head}	{reference} in {head} mergen	Fusionner {reference} dans {head}	Fusionar {reference} en {head}
+Merged	Gemergt	Fusionnée	Fusionada
 Merged {reference}	{reference} gemergt	{reference} fusionnée	{reference} fusionada
 Merging	Merge läuft	Fusion	Fusionando
+Merging {theirs} into {ours}	{theirs} wird in {ours} gemergt	Fusion de {theirs} dans {ours}	Fusionando {theirs} en {ours}
 message	Nachricht	message	mensaje
 Message	Nachricht	Message	Mensaje
 Message (creates an annotated tag)	Nachricht (erstellt ein annotiertes Tag)	Message (crée un tag annoté)	Mensaje (crea una etiqueta anotada)
@@ -294,64 +499,107 @@ Minimize	Minimieren	Réduire	Minimizar
 missing	fehlt	manquant	falta
 Mixed: keep changes, unstaged	Gemischt: Änderungen behalten, nicht vorgemerkt	Mixte : garder les modifications, non indexées	Mixto: conservar los cambios sin preparar
 More	Mehr	Plus	Más
+More history fetched	Weiterer Verlauf abgerufen	Historique supplémentaire récupéré	Más historial obtenido
+Move a commit in the interactive rebase editor	Einen Commit im interaktiven Rebase-Editor verschieben	Déplacer un commit dans l’éditeur de rebase interactif	Mover un commit en el editor de rebase interactivo
+Move down (before its parent)	Nach unten (vor sein Elternteil)	Descendre (avant son parent)	Bajar (antes de su padre)
+Move fixup! and squash! commits under the commit they name	fixup!- und squash!-Commits unter den genannten Commit verschieben	Placer les commits fixup! et squash! sous le commit qu’ils nomment	Mover los commits fixup! y squash! bajo el commit que nombran
 Move left	Nach links	Déplacer à gauche	Mover a la izquierda
 Move right	Nach rechts	Déplacer à droite	Mover a la derecha
 Move this commit down (Alt + ↓)	Diesen Commit nach unten verschieben (Alt + ↓)	Déplacer ce commit vers le bas (Alt + ↓)	Mover este commit hacia abajo (Alt + ↓)
 Move this commit up (Alt + ↑)	Diesen Commit nach oben verschieben (Alt + ↑)	Déplacer ce commit vers le haut (Alt + ↑)	Mover este commit hacia arriba (Alt + ↑)
 Move through commits or files	Durch Commits oder Dateien bewegen	Parcourir les commits ou les fichiers	Moverse por los commits o archivos
+Move up (after its child)	Nach oben (hinter sein Kind)	Monter (après son enfant)	Subir (después de su hijo)
 Name	Name	Nom	Nombre
+Name <name@example.com>	Name <name@example.com>	Nom <nom@example.com>	Nombre <nombre@example.com>
 New branch	Neuer Branch	Nouvelle branche	Nueva rama
 New branch from stash…	Neuer Branch aus Stash…	Nouvelle branche depuis la remise…	Nueva rama desde el stash…
-New branch here…	Neuer Branch hier…	Nouvelle branche ici…	Nueva rama aquí…
 New branch…	Neuer Branch…	Nouvelle branche…	Nueva rama…
 New name	Neuer Name	Nouveau nom	Nombre nuevo
+New range	Neuer Bereich	Nouvelle plage	Rango nuevo
 New repository	Neues Repository	Nouveau dépôt	Repositorio nuevo
 New repository…	Neues Repository…	Nouveau dépôt…	Repositorio nuevo…
 New tag	Neues Tag	Nouveau tag	Etiqueta nueva
-New tag here…	Neues Tag hier…	Nouveau tag ici…	Etiqueta nueva aquí…
+New versions of matching files go to the LFS server; the repository keeps a small pointer to each. Files already committed stay as they are.	Neue Versionen passender Dateien gehen auf den LFS-Server; das Repository behält für jede einen kleinen Verweis. Bereits committete Dateien bleiben, wie sie sind.	Les nouvelles versions des fichiers correspondants vont sur le serveur LFS ; le dépôt garde un petit pointeur vers chacune. Les fichiers déjà validés restent tels quels.	Las nuevas versiones de los archivos que coinciden van al servidor LFS; el repositorio guarda un pequeño puntero a cada una. Los archivos ya confirmados quedan como están.
 New…	Neu…	Nouveau…	Nuevo…
+No	Nein	Non	No
 No branches	Keine Branches	Aucune branche	No hay ramas
+No branches to clean up	Keine Branches zum Aufräumen	Aucune branche à nettoyer	No hay ramas que limpiar
 No commits between the base and HEAD.	Keine Commits zwischen Basis und HEAD.	Aucun commit entre la base et HEAD.	No hay commits entre la base y HEAD.
 No commits yet	Noch keine Commits	Aucun commit pour l’instant	Aún no hay commits
 No conflict markers found (binary file, or the markers were already removed). Edit the result below if needed, then mark the file as resolved.	Keine Konfliktmarkierungen gefunden (Binärdatei, oder die Markierungen wurden schon entfernt). Bearbeite bei Bedarf das Ergebnis unten und markiere die Datei dann als gelöst.	Aucun marqueur de conflit trouvé (fichier binaire, ou marqueurs déjà retirés). Modifiez le résultat ci-dessous si besoin, puis marquez le fichier comme résolu.	No se encontraron marcadores de conflicto (archivo binario, o ya se quitaron). Edita el resultado de abajo si hace falta y marca el archivo como resuelto.
+No conflicts expected.	Keine Konflikte zu erwarten.	Aucun conflit attendu.	No se esperan conflictos.
 No content changes (mode or rename only)	Keine inhaltlichen Änderungen (nur Modus oder Umbenennung)	Aucune modification de contenu (mode ou renommage seulement)	Sin cambios de contenido (solo modo o cambio de nombre)
 No differences	Keine Unterschiede	Aucune différence	Sin diferencias
+No discarded changes are kept	Keine verworfenen Änderungen gesichert	Aucune modification supprimée n’est conservée	No hay cambios descartados guardados
 No files	Keine Dateien	Aucun fichier	No hay archivos
+No files are locked	Keine Dateien gesperrt	Aucun fichier n’est verrouillé	No hay archivos bloqueados
+No files are stored in LFS	Keine Dateien in LFS gespeichert	Aucun fichier n’est stocké dans LFS	No hay archivos guardados en LFS
 No matching commits	Keine passenden Commits	Aucun commit correspondant	No hay commits que coincidan
+No remote	Kein Remote	Aucun dépôt distant	Sin remoto
 No remotes	Keine Remotes	Aucun dépôt distant	No hay remotos
 No repository is open	Kein Repository geöffnet	Aucun dépôt n’est ouvert	No hay ningún repositorio abierto
 No repository open	Kein Repository geöffnet	Aucun dépôt ouvert	Ningún repositorio abierto
 No stashes	Keine Stashes	Aucune remise	No hay stashes
 No tags	Keine Tags	Aucun tag	No hay etiquetas
 No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non indexée	No hay cambios sin preparar
+No upstream	Kein Upstream	Pas d’amont	Sin upstream
+Not assigned	Nicht belegt	Non attribué	Sin asignar
+Not set	Nicht gesetzt	Non défini	Sin definir
+Not set (GPG)	Nicht gesetzt (GPG)	Non défini (GPG)	Sin definir (GPG)
+Nothing	Nichts	Rien	Nada
 Nothing staged yet	Noch nichts vorgemerkt	Rien d’indexé pour l’instant	Aún no hay nada preparado
 Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
+Old range	Alter Bereich	Ancienne plage	Rango antiguo
+One per line	Einer pro Zeile	Un par ligne	Uno por línea
+One per line, such as /src/; empty for everything	Einer pro Zeile, etwa /src/; leer für alles	Un par ligne, par exemple /src/ ; vide pour tout	Una por línea, por ejemplo /src/; vacío para todo
+One side added this file while the other changed it.	Eine Seite hat diese Datei hinzugefügt, während die andere sie geändert hat.	Un côté a ajouté ce fichier pendant que l’autre le modifiait.	Un lado añadió este archivo mientras el otro lo cambiaba.
+One side changed this file, the other deleted it.	Eine Seite hat diese Datei geändert, die andere gelöscht.	Un côté a modifié ce fichier, l’autre l’a supprimé.	Un lado cambió este archivo y el otro lo eliminó.
+Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
+Only commits since	Nur Commits seit	Seulement les commits depuis	Solo los commits desde
+Only for this repository; empty fields use the settings for everywhere.	Nur für dieses Repository; leere Felder nehmen die Einstellungen für überall.	Uniquement pour ce dépôt ; les champs vides reprennent les réglages valables partout.	Solo para este repositorio; los campos vacíos usan los ajustes de todas partes.
+Only in this repository	Nur in diesem Repository	Uniquement dans ce dépôt	Solo en este repositorio
+Only the files these patterns match are checked out. Change them, or check out every file again.	Nur die Dateien, auf die diese Muster passen, sind ausgecheckt. Ändere sie oder checke wieder alle Dateien aus.	Seuls les fichiers correspondant à ces motifs sont extraits. Modifiez-les, ou extrayez de nouveau tous les fichiers.	Solo se extraen los archivos que coinciden con estos patrones. Cámbialos o vuelve a extraer todos los archivos.
+Only the newest commits	Nur die neuesten Commits	Seulement les commits les plus récents	Solo los commits más recientes
+Only these folders (sparse checkout)	Nur diese Ordner (Sparse-Checkout)	Seulement ces dossiers (extraction partielle)	Solo estas carpetas (checkout parcial)
+Only untracked files	Nur nicht verfolgte Dateien	Uniquement les fichiers non suivis	Solo archivos sin seguimiento
+Only {names}	Nur {names}	Seulement {names}	Solo {names}
 Open	Öffnen	Ouvrir	Abrir
 Open a repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir un repositorio…
+Open as a repository	Als Repository öffnen	Ouvrir comme dépôt	Abrir como repositorio
 Open file	Datei öffnen	Ouvrir le fichier	Abrir archivo
 Open in new tab	In neuem Tab öffnen	Ouvrir dans un nouvel onglet	Abrir en una pestaña nueva
-Open merge tool	Merge-Tool öffnen	Ouvrir l’outil de fusion	Abrir la herramienta de fusión
 Open repository	Repository öffnen	Ouvrir un dépôt	Abrir repositorio
 Open repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir repositorio…
+Open source under the MIT License.	Open Source unter der MIT-Lizenz.	Open source sous licence MIT.	Código abierto bajo la licencia MIT.
 Operation paused	Vorgang angehalten	Opération en pause	Operación en pausa
+Optional	Optional	Facultatif	Opcional
 Optional description	Optionale Beschreibung	Description facultative	Descripción opcional
 Options	Optionen	Options	Opciones
+Options ({count})	Optionen ({count})	Options ({count})	Opciones ({count})
+Order the history by date instead of keeping branches together	Verlauf nach Datum ordnen, statt Branches zusammenzuhalten	Trier l’historique par date plutôt que de regrouper les branches	Ordenar el historial por fecha en lugar de agrupar las ramas
 Ours	Unsere	Le nôtre	Lo nuestro
+Ours (HEAD)	Unsere Seite (HEAD)	Notre côté (HEAD)	El nuestro (HEAD)
 Ours + theirs	Unsere + ihre	Le nôtre + le leur	Lo nuestro + lo suyo
 Overwrite	Überschreiben	Écraser	Sobrescribir
 Overwrite local branch with the remote branch	Lokalen Branch mit dem Remote-Branch überschreiben	Écraser la branche locale avec la branche distante	Sobrescribir la rama local con la rama remota
 Overwrite local branch?	Lokalen Branch überschreiben?	Écraser la branche locale ?	¿Sobrescribir la rama local?
 Overwrite only: keep a backup branch of the current state	Nur beim Überschreiben: Backup-Branch des aktuellen Stands behalten	Écrasement seulement : garder une branche de sauvegarde de l’état actuel	Solo al sobrescribir: guardar una rama de respaldo del estado actual
 Overwriting from remote	Wird vom Remote überschrieben	Écrasement depuis le dépôt distant	Sobrescribiendo desde el remoto
+Pack objects and drop ones nothing needs any more (gc)	Objekte packen und nicht mehr benötigte entfernen (gc)	Compacter les objets et supprimer ceux qui ne servent plus (gc)	Empaquetar objetos y quitar los que ya nada necesita (gc)
 Parent	Elternteil	Parent	Padre
 Parents	Eltern	Parents	Padres
+Part of a name or address	Teil eines Namens oder einer Adresse	Partie d’un nom ou d’une adresse	Parte de un nombre o una dirección
+Patch	Patch	Patch	Parche
 Patch applied	Patch angewendet	Patch appliqué	Parche aplicado
 Patches	Patches	Patchs	Parches
+Patterns, separated by spaces	Muster, durch Leerzeichen getrennt	Motifs, séparés par des espaces	Patrones, separados por espacios
+Pick	Übernehmen	Garder	Usar
 Pop	Pop	Appliquer et supprimer	Pop
 Pop (apply and drop)	Pop (anwenden und verwerfen)	Pop (appliquer puis supprimer)	Pop (aplicar y descartar)
 Popping stash	Stash wird angewendet und verworfen	Application et suppression de la remise	Aplicando y descartando el stash
 Preferences…	Einstellungen…	Préférences…	Preferencias…
+Press a key…	Taste drücken…	Appuyez sur une touche…	Pulsa una tecla…
 Preview…	Vorschau…	Aperçu…	Vista previa…
 Prune stale branches	Veraltete Branches entfernen	Nettoyer les branches obsolètes	Eliminar ramas obsoletas
 Prune stale worktrees	Veraltete Worktrees entfernen	Nettoyer les arbres de travail obsolètes	Eliminar árboles de trabajo obsoletos
@@ -365,11 +613,14 @@ Pulling	Pull läuft	Tirage	Trayendo
 Pulling (rebase)	Pull läuft (Rebase)	Tirage (rebase)	Trayendo (rebase)
 Pull…	Pull…	Tirer…	Traer…
 Push	Push	Pousser	Enviar
+Push after committing	Nach dem Commit pushen	Pousser après le commit	Hacer push tras el commit
 Push all tags	Alle Tags pushen	Pousser tous les tags	Enviar todas las etiquetas
 Push complete	Push abgeschlossen	Envoi terminé	Envío completado
+Push rejected	Push abgelehnt	Envoi refusé	Push rechazado
 Push tag	Tag pushen	Pousser le tag	Enviar etiqueta
 Push to all remotes	Auf alle Remotes pushen	Pousser vers tous les dépôts distants	Enviar a todos los remotos
 Push to remote…	Auf Remote pushen…	Pousser vers le dépôt distant…	Enviar al remoto…
+Push URL	Push-URL	URL d’envoi	URL de envío
 Push {branch}	{branch} pushen	Pousser {branch}	Enviar {branch}
 Pushed {name}	{name} gepusht	{name} poussé	{name} enviado
 Pushing	Push läuft	Envoi	Enviando
@@ -377,6 +628,7 @@ Pushing tag	Tag wird gepusht	Envoi du tag	Enviando etiqueta
 Push…	Push…	Pousser…	Enviar…
 Quit	Beenden	Quitter	Salir
 Quit {app}	{app} beenden	Quitter {app}	Salir de {app}
+Reason	Grund	Raison	Motivo
 Rebase	Rebase	Rebaser	Rebase
 Rebase (replay local commits on top)	Rebase (lokale Commits obendrauf neu anwenden)	Rebaser (rejouer les commits locaux par-dessus)	Rebase (volver a aplicar los commits locales encima)
 Rebase complete	Rebase abgeschlossen	Rebase terminé	Rebase completado
@@ -385,68 +637,108 @@ Rebase {current} onto here…	{current} hierauf rebasen…	Rebaser {current} ici
 Rebase {head} onto {label}?	{head} auf {label} rebasen?	Rebaser {head} sur {label} ?	¿Hacer rebase de {head} sobre {label}?
 Rebase {shown} onto {name}…	{shown} auf {name} rebasen…	Rebaser {shown} sur {name}…	Hacer rebase de {shown} sobre {name}…
 Rebasing	Rebase läuft	Rebase	Haciendo rebase
+Rebasing onto {ours}	Rebase auf {ours}	Rebase sur {ours}	Rebase sobre {ours}
+Rebasing {branch} onto {ours}	Rebase von {branch} auf {ours}	Rebase de {branch} sur {ours}	Rebase de {branch} sobre {ours}
 Rebuild	Neu aufbauen	Reconstruire	Reconstruir
 Recent	Zuletzt geöffnet	Récents	Recientes
+Recover discarded changes	Verworfene Änderungen wiederherstellen	Récupérer les modifications supprimées	Recuperar cambios descartados
+Recover discarded changes…	Verworfene Änderungen wiederherstellen…	Récupérer les modifications supprimées…	Recuperar cambios descartados…
+Redo	Wiederholen	Rétablir	Rehacer
+Redo the last operation	Den letzten Vorgang wiederherstellen	Rétablir la dernière opération	Rehacer la última operación
+Redo: {action}	Wiederholen: {action}	Rétablir : {action}	Rehacer: {action}
+Redoing	Wird wiederholt	Rétablissement	Rehaciendo
+Redone: {action}	Wiederholt: {action}	Rétabli : {action}	Rehecho: {action}
 Reflog	Reflog	Reflog	Reflog
 Reflog (recover lost commits)…	Reflog (verlorene Commits wiederfinden)…	Reflog (récupérer des commits perdus)…	Reflog (recuperar commits perdidos)…
 Refresh	Aktualisieren	Actualiser	Actualizar
 Refresh repository	Repository aktualisieren	Actualiser le dépôt	Actualizar el repositorio
+Remember conflict resolutions (rerere)	Konfliktlösungen merken (rerere)	Mémoriser les résolutions de conflits (rerere)	Recordar las resoluciones de conflictos (rerere)
 Remote	Remote	Dépôt distant	Remoto
 Remote branch	Remote-Branch	Branche distante	Rama remota
 Remotes	Remotes	Dépôts distants	Remotos
 Remove	Entfernen	Retirer	Quitar
 Remove remote	Remote entfernen	Retirer le dépôt distant	Quitar remoto
 Remove remote {name} and its remote-tracking branches?	Remote {name} und seine Remote-Tracking-Branches entfernen?	Retirer le dépôt distant {name} et ses branches de suivi ?	¿Quitar el remoto {name} y sus ramas de seguimiento?
+Remove submodule	Submodul entfernen	Supprimer le sous-module	Quitar submódulo
 Remove the commit	Den Commit entfernen	Retirer le commit	Quitar el commit
 Remove the last commit from the branch and keep its changes staged?	Den letzten Commit aus dem Branch entfernen und seine Änderungen vorgemerkt lassen?	Retirer le dernier commit de la branche et garder ses modifications indexées ?	¿Quitar el último commit de la rama y dejar sus cambios preparados?
+Remove the submodule {path}: its files and its entry in .gitmodules? The change is staged for you to commit.	Das Submodul {path} entfernen, also seine Dateien und seinen Eintrag in .gitmodules? Die Änderung wird zum Committen vorgemerkt.	Supprimer le sous-module {path}, ses fichiers et son entrée dans .gitmodules ? La modification est indexée pour que vous la validiez.	¿Quitar el submódulo {path}, sus archivos y su entrada en .gitmodules? El cambio queda preparado para que hagas commit.
 Remove worktree	Worktree entfernen	Retirer l’arbre de travail	Quitar árbol de trabajo
+Remove {owner}'s lock on {path}? Changes they haven't pushed yet may then conflict with someone else's.	Die Sperre von {owner} auf {path} entfernen? Noch nicht gepushte Änderungen könnten dann mit denen anderer kollidieren.	Retirer le verrou de {owner} sur {path} ? Ses modifications pas encore poussées pourraient alors entrer en conflit avec celles d’un autre.	¿Quitar el bloqueo de {owner} en {path}? Sus cambios aún no enviados podrían entrar en conflicto con los de otra persona.
 Remove “{subject}” from the branch history?	„{subject}“ aus dem Verlauf des Branches entfernen?	Retirer « {subject} » de l’historique de la branche ?	¿Quitar «{subject}» del historial de la rama?
+Removed submodule {path}; commit to keep it that way	Submodul {path} entfernt; committe, damit es so bleibt	Sous-module {path} supprimé ; validez pour que cela reste ainsi	Submódulo {path} quitado; haz commit para que siga así
 Remove…	Entfernen…	Retirer…	Quitar…
 Removing remote	Remote wird entfernt	Retrait du dépôt distant	Quitando remoto
+Removing submodule	Submodul wird entfernt	Suppression du sous-module	Quitando submódulo
 Removing worktree	Worktree wird entfernt	Retrait de l’arbre de travail	Quitando árbol de trabajo
 Rename	Umbenennen	Renommer	Renombrar
 Rename branch	Branch umbenennen	Renommer la branche	Renombrar rama
+Rename stash	Stash umbenennen	Renommer la remise	Renombrar stash
 renamed from {orig}	umbenannt von {orig}	renommé depuis {orig}	renombrado desde {orig}
 Rename…	Umbenennen…	Renommer…	Renombrar…
 Renaming branch	Branch wird umbenannt	Renommage de la branche	Renombrando rama
+Renaming stash	Stash wird umbenannt	Renommage de la remise	Renombrando stash
 Replace edits?	Änderungen ersetzen?	Remplacer les modifications ?	¿Reemplazar las ediciones?
 Replace {path} in the working tree and index with its version from {commit}? Local changes to it are lost.	{path} im Arbeitsverzeichnis und Index durch die Version aus {commit} ersetzen? Lokale Änderungen daran gehen verloren.	Remplacer {path} dans l’arbre de travail et l’index par sa version de {commit} ? Ses modifications locales sont perdues.	¿Reemplazar {path} en el árbol de trabajo y el índice por su versión de {commit}? Se pierden sus cambios locales.
 Repository	Repository	Dépôt	Repositorio
+Repository maintenance	Repository-Wartung	Maintenance du dépôt	Mantenimiento del repositorio
+Repository tidied up	Repository aufgeräumt	Dépôt nettoyé	Repositorio ordenado
 Reset	Zurücksetzen	Réinitialiser	Restablecer
 Reset (hard)	Zurücksetzen (hart)	Réinitialiser (dur)	Restablecer (duro)
+Reset all	Alle zurücksetzen	Tout réinitialiser	Restablecer todo
+Reset columns	Spalten zurücksetzen	Réinitialiser les colonnes	Restablecer columnas
 Reset to {commit}	Auf {commit} zurückgesetzt	Réinitialisé à {commit}	Restablecido a {commit}
 Reset {current} to here	{current} hierher zurücksetzen	Réinitialiser {current} ici	Restablecer {current} aquí
 Reset {head} to {commit} “{subject}” and discard ALL uncommitted changes? This cannot be undone.	{head} auf {commit} „{subject}“ zurücksetzen und ALLE nicht committeten Änderungen verwerfen? Das kann nicht rückgängig gemacht werden.	Réinitialiser {head} à {commit} « {subject} » et supprimer TOUTES les modifications non validées ? Cette action est irréversible.	¿Restablecer {head} a {commit} «{subject}» y descartar TODOS los cambios sin commit? No se puede deshacer.
 Resetting ({mode})	Wird zurückgesetzt ({mode})	Réinitialisation ({mode})	Restableciendo ({mode})
 Resolve conflict	Konflikt lösen	Résoudre le conflit	Resolver conflicto
+Resolve in GitCraft	In GitCraft lösen	Résoudre dans GitCraft	Resolver en GitCraft
 Resolve in merge tool…	Im Merge-Tool lösen…	Résoudre dans l’outil de fusion…	Resolver en la herramienta de fusión…
-Resolve the conflicting sections, then the file is marked as resolved.	Löse die widersprüchlichen Stellen; danach wird die Datei als gelöst markiert.	Résolvez les sections en conflit ; le fichier est ensuite marqué comme résolu.	Resuelve las secciones en conflicto y el archivo se marcará como resuelto.
+Resolve the conflicted files above first; Continue is in the bar at the top.	Löse zuerst die Konflikte in den Dateien oben; „Fortsetzen“ ist in der Leiste ganz oben.	Résolvez d’abord les conflits des fichiers ci-dessus ; « Continuer » est dans la barre en haut.	Resuelve primero los conflictos de los archivos de arriba; «Continuar» está en la barra superior.
 Resolve using ours	Mit unserer Seite lösen	Résoudre avec le nôtre	Resolver con lo nuestro
 Resolve using theirs	Mit ihrer Seite lösen	Résoudre avec le leur	Resolver con lo suyo
 Resolved {path}	{path} gelöst	{path} résolu	{path} resuelto
 Resolving conflict	Konflikt wird gelöst	Résolution du conflit	Resolviendo conflicto
 Restore	Wiederherstellen	Restaurer	Restaurar
 Restore the original order and pick every commit	Ursprüngliche Reihenfolge wiederherstellen und jeden Commit übernehmen	Rétablir l’ordre d’origine et garder chaque commit	Restaurar el orden original y usar todos los commits
+Restoring discarded changes	Verworfene Änderungen werden wiederhergestellt	Restauration des modifications supprimées	Restaurando cambios descartados
 Result	Ergebnis	Résultat	Resultado
 Revert	Revert	Annuler (revert)	Revertir
 Revert commit	Commit rückgängig machen	Annuler le commit (revert)	Revertir commit
 Revert commit…	Commit rückgängig machen…	Annuler le commit (revert)…	Revertir commit…
+Revert hunk	Hunk zurücknehmen	Annuler le bloc	Revertir bloque
 Revert in progress	Revert läuft	Revert en cours	Revert en curso
 Revert merge commit	Merge-Commit rückgängig machen	Annuler le commit de fusion (revert)	Revertir commit de fusión
+Revert {lines}	{lines} zurücknehmen	Annuler {lines}	Revertir {lines}
+Reverted in {path}; the change is uncommitted	In {path} zurückgenommen; die Änderung ist noch nicht committet	Annulé dans {path} ; la modification n’est pas encore validée	Revertido en {path}; el cambio aún no tiene commit
 Reverting	Wird rückgängig gemacht	Annulation (revert)	Revirtiendo
+Reverting lines	Zeilen werden zurückgenommen	Annulation des lignes	Revirtiendo líneas
+Reverting lines is disabled while “Ignore whitespace” is on.	Zeilen zurücknehmen ist deaktiviert, solange „Leerraum ignorieren“ an ist.	L’annulation de lignes est désactivée tant que « Ignorer les espaces » est activé.	Revertir líneas está desactivado mientras «Ignorar espacios» esté activado.
+Reverting {theirs} on {ours}	{theirs} wird auf {ours} rückgängig gemacht	Annulation de {theirs} sur {ours}	Revirtiendo {theirs} en {ours}
+Reword	Umformulieren	Reformuler	Reformular
 Reworded commits need a message.	Umformulierte Commits brauchen eine Nachricht.	Les commits reformulés ont besoin d’un message.	Los commits reformulados necesitan un mensaje.
 Rewrite the history as planned above	Den Verlauf wie oben geplant neu schreiben	Réécrire l’historique comme prévu ci-dessus	Reescribir el historial como se planeó arriba
 Rewrite {branch} on top of {base}. Commits are applied from top to bottom.	{branch} auf {base} neu schreiben. Commits werden von oben nach unten angewendet.	Réécrire {branch} sur {base}. Les commits sont appliqués de haut en bas.	Reescribir {branch} sobre {base}. Los commits se aplican de arriba abajo.
 Rewriting history	Verlauf wird neu geschrieben	Réécriture de l’historique	Reescribiendo el historial
+Run	Ausführen	Lancer	Ejecutar
+Run a command	Befehl ausführen	Exécuter une commande	Ejecutar un comando
+Run a command after the highlighted commit, such as the tests	Nach dem markierten Commit einen Befehl ausführen, etwa die Tests	Exécuter une commande après le commit sélectionné, par exemple les tests	Ejecutar un comando tras el commit resaltado, por ejemplo las pruebas
+Run after…	Danach ausführen…	Exécuter après…	Ejecutar después…
+Runs in the repository right after this commit is applied (exec). The rebase stops when it fails, for example to fix a failing test. Leave it empty to remove it.	Läuft im Repository direkt nach diesem Commit (exec). Schlägt er fehl, hält der Rebase an, etwa um einen fehlschlagenden Test zu beheben. Leer lassen, um ihn zu entfernen.	S’exécute dans le dépôt juste après l’application de ce commit (exec). Le rebase s’arrête en cas d’échec, par exemple pour corriger un test. Laissez vide pour la supprimer.	Se ejecuta en el repositorio justo después de aplicar este commit (exec). El rebase se detiene si falla, por ejemplo para corregir una prueba. Déjalo vacío para quitarlo.
 Save	Speichern	Enregistrer	Guardar
 Save & mark resolved	Speichern & als gelöst markieren	Enregistrer et marquer comme résolu	Guardar y marcar como resuelto
 Save anyway	Trotzdem speichern	Enregistrer quand même	Guardar de todos modos
 Save as patch…	Als Patch speichern…	Enregistrer comme patch…	Guardar como parche…
+Save commits from here to HEAD as patches…	Commits von hier bis HEAD als Patches speichern…	Enregistrer les commits d’ici à HEAD comme patchs…	Guardar los commits desde aquí hasta HEAD como parches…
+Save git settings	Git-Einstellungen speichern	Enregistrer les réglages git	Guardar los ajustes de git
+Save local changes as patch…	Lokale Änderungen als Patch speichern…	Enregistrer les modifications locales comme patch…	Guardar los cambios locales como parche…
 Save message	Nachricht speichern	Enregistrer le message	Guardar mensaje
 Save patch	Patch speichern	Enregistrer le patch	Guardar parche
+Saved passwords forgotten; the next fetch or push asks again	Gespeicherte Passwörter vergessen; das nächste Abrufen oder Pushen fragt wieder	Mots de passe enregistrés oubliés ; la prochaine récupération ou le prochain envoi les redemande	Contraseñas guardadas olvidadas; la próxima obtención o envío las vuelve a pedir
 Saved {path}	{path} gespeichert	{path} enregistré	{path} guardado
 Saving remote	Remote wird gespeichert	Enregistrement du dépôt distant	Guardando remoto
 Saving writes the result to the file and stages it.	Speichern schreibt das Ergebnis in die Datei und merkt sie vor.	Enregistrer écrit le résultat dans le fichier et l’indexe.	Guardar escribe el resultado en el archivo y lo prepara.
+Say beforehand which files a merge or rebase would conflict in	Vorab anzeigen, in welchen Dateien ein Merge oder Rebase Konflikte hätte	Indiquer à l’avance les fichiers où une fusion ou un rebase entrerait en conflit	Indicar de antemano en qué archivos un merge o rebase tendría conflictos
 Search commits	Commits durchsuchen	Rechercher des commits	Buscar commits
 Search commits (Ctrl+F)	Commits durchsuchen (Strg+F)	Rechercher des commits (Ctrl+F)	Buscar commits (Ctrl+F)
 Search failed	Suche fehlgeschlagen	Échec de la recherche	Error en la búsqueda
@@ -454,30 +746,59 @@ Searching…	Suche läuft…	Recherche…	Buscando…
 Select a commit	Commit auswählen	Sélectionnez un commit	Selecciona un commit
 Select a commit to see its details	Wähle einen Commit, um seine Details zu sehen	Sélectionnez un commit pour voir ses détails	Selecciona un commit para ver sus detalles
 Select a file to see its changes	Wähle eine Datei, um ihre Änderungen zu sehen	Sélectionnez un fichier pour voir ses modifications	Selecciona un archivo para ver sus cambios
+Select every file of the list	Alle Dateien der Liste auswählen	Sélectionner tous les fichiers de la liste	Seleccionar todos los archivos de la lista
+Selected changes in {path}	Ausgewählte Änderungen in {path}	Modifications sélectionnées dans {path}	Cambios seleccionados en {path}
+Selected changes stashed	Ausgewählte Änderungen gestasht	Modifications sélectionnées remisées	Cambios seleccionados guardados en stash
+Set up LFS for this repository	LFS für dieses Repository einrichten	Configurer LFS pour ce dépôt	Configurar LFS para este repositorio
 Set upstream…	Upstream setzen…	Définir la branche amont…	Establecer upstream…
+Setting up Git LFS	Git LFS wird eingerichtet	Configuration de Git LFS	Configurando Git LFS
 Setting upstream	Upstream wird gesetzt	Définition de la branche amont	Estableciendo upstream
 Settings	Einstellungen	Paramètres	Ajustes
+Settings folder: {path}	Einstellungsordner: {path}	Dossier des réglages : {path}	Carpeta de ajustes: {path}
 Settings…	Einstellungen…	Paramètres…	Ajustes…
 sha	SHA	SHA	SHA
 Short SHA	Kurzer SHA	SHA court	SHA corto
 Shortcut: {key}	Tastenkürzel: {key}	Raccourci : {key}	Atajo: {key}
 Show	Anzeigen	Afficher	Mostrar
+Show all branches	Alle Branches zeigen	Afficher toutes les branches	Mostrar todas las ramas
 Show conflicts	Konflikte anzeigen	Afficher les conflits	Mostrar conflictos
 Show data folder	Datenordner anzeigen	Afficher le dossier de données	Mostrar la carpeta de datos
 Show in Explorer	Im Explorer anzeigen	Afficher dans l’Explorateur	Mostrar en el Explorador
 Show in file manager	Im Dateimanager anzeigen	Afficher dans le gestionnaire de fichiers	Mostrar en el gestor de archivos
+Show in graph	Im Graphen zeigen	Afficher dans le graphe	Mostrar en el gráfico
 Show in history	Im Verlauf anzeigen	Afficher dans l’historique	Mostrar en el historial
+Show stashes in the history	Stashes im Verlauf zeigen	Afficher les remises dans l’historique	Mostrar los stashes en el historial
+Shows how two versions of a series of commits differ, such as a branch before and after a rebase: which commits match, which changed and how.	Zeigt, wie sich zwei Fassungen einer Commit-Reihe unterscheiden, etwa ein Branch vor und nach einem Rebase: welche Commits übereinstimmen, welche sich geändert haben und wie.	Montre en quoi deux versions d’une série de commits diffèrent, comme une branche avant et après un rebase : quels commits correspondent, lesquels ont changé et comment.	Muestra en qué se diferencian dos versiones de una serie de commits, como una rama antes y después de un rebase: qué commits coinciden, cuáles cambiaron y cómo.
+Shows only the commits that match every filled-in field.	Zeigt nur Commits, die zu allen ausgefüllten Feldern passen.	N’affiche que les commits qui correspondent à tous les champs remplis.	Muestra solo los commits que coinciden con todos los campos rellenados.
 Side by side	Nebeneinander	Côte à côte	En paralelo
+Sign annotated tags	Annotierte Tags signieren	Signer les tags annotés	Firmar etiquetas anotadas
+Sign commits	Commits signieren	Signer les commits	Firmar commits
+Sign off (Signed-off-by line)	Abzeichnen (Signed-off-by-Zeile)	Signer (ligne Signed-off-by)	Firmar (línea Signed-off-by)
+Signature	Signatur	Signature	Firma
+Signed by a revoked key	Mit einem widerrufenen Schlüssel signiert	Signé par une clé révoquée	Firmado con una clave revocada
+Signed, but it can't be checked here	Signiert, lässt sich hier aber nicht prüfen	Signé, mais impossible à vérifier ici	Firmado, pero no se puede comprobar aquí
+Signing key	Signaturschlüssel	Clé de signature	Clave de firma
+Signing with	Signieren mit	Signer avec	Firmar con
 Skip	Überspringen	Passer	Omitir
+Skip (can't be tested)	Überspringen (nicht testbar)	Ignorer (impossible à tester)	Omitir (no se puede probar)
+Skip commit hooks	Commit-Hooks überspringen	Ignorer les hooks de commit	Omitir los hooks de commit
+Skip commits in .git-blame-ignore-revs	Commits aus .git-blame-ignore-revs überspringen	Ignorer les commits de .git-blame-ignore-revs	Omitir los commits de .git-blame-ignore-revs
 Skipping	Wird übersprungen	Saut	Omitiendo
 Soft: keep all changes staged	Weich: alle Änderungen vorgemerkt behalten	Doux : garder toutes les modifications indexées	Suave: mantener todos los cambios preparados
+Solo in graph	Allein im Graphen zeigen	Afficher seule dans le graphe	Mostrar sola en el gráfico
+Sparse checkout	Sparse-Checkout	Extraction partielle	Checkout parcial
+Sparse checkout updated	Sparse-Checkout aktualisiert	Extraction partielle mise à jour	Checkout parcial actualizado
+Sparse checkout…	Sparse-Checkout…	Extraction partielle…	Checkout parcial…
 Split	Geteilt	Séparé	Dividido
 Squash	Squash	Fusionner (squash)	Squash
 Squash (stage changes, do not commit)	Squash (Änderungen vormerken, nicht committen)	Squash (indexer les modifications, sans valider)	Squash (preparar los cambios, sin commit)
 Squash into parent	In Eltern-Commit squashen	Fusionner dans le parent (squash)	Hacer squash en el padre
 Squash into parent…	In Eltern-Commit squashen…	Fusionner dans le parent (squash)…	Hacer squash en el padre…
+Squash {count} commits…	{count} Commits zusammenfassen…	Fusionner {count} commits…	Combinar {count} commits…
+src/main.rs	src/main.rs	src/main.rs	src/main.rs
 Stage	Vormerken	Indexer	Preparar
 Stage all	Alles vormerken	Tout indexer	Preparar todo
+Stage everything and commit	Alles stagen und committen	Tout indexer et valider	Preparar todo y hacer commit
 Stage file	Datei vormerken	Indexer le fichier	Preparar archivo
 Stage hunk	Abschnitt vormerken	Indexer le bloc	Preparar bloque
 Stage {count} files	{count} Dateien vormerken	Indexer {count} fichiers	Preparar {count} archivos
@@ -486,24 +807,38 @@ Staged ({count})	Vorgemerkt ({count})	Indexé ({count})	Preparado ({count})
 Staging	Wird vorgemerkt	Indexation	Preparando
 Staging all	Alles wird vorgemerkt	Indexation de tout	Preparando todo
 Stale worktrees pruned	Veraltete Worktrees entfernt	Arbres de travail obsolètes nettoyés	Árboles de trabajo obsoletos eliminados
+Start	Starten	Lancer	Iniciar
+Start bisect	Bisect starten	Lancer la bisection	Iniciar bisección
+Start bisect: this commit is bad…	Bisect starten: dieser Commit ist fehlerhaft…	Lancer la bisection : ce commit est cassé…	Iniciar bisección: este commit está roto…
+Start cherry-pick	Cherry-Pick starten	Lancer le cherry-pick	Iniciar cherry-pick
 Start rebase	Rebase starten	Lancer le rebase	Iniciar rebase
 Stash	Stash	Remiser	Stash
 Stash and reapply local changes	Lokale Änderungen in den Stash legen und wieder anwenden	Remiser puis réappliquer les modifications locales	Guardar en el stash y volver a aplicar los cambios locales
 Stash applied	Stash angewendet	Remise appliquée	Stash aplicado
 Stash changes	Änderungen in den Stash legen	Remiser les modifications	Guardar cambios en el stash
+Stash hunk	Hunk stashen	Remiser le bloc	Guardar bloque en stash
 Stash local changes automatically	Lokale Änderungen automatisch in den Stash legen	Remiser automatiquement les modifications locales	Guardar los cambios locales en el stash automáticamente
 Stash not found	Stash nicht gefunden	Remise introuvable	Stash no encontrado
 Stash popped	Stash angewendet und verworfen	Remise appliquée et supprimée	Stash aplicado y descartado
+Stash renamed	Stash umbenannt	Remise renommée	Stash renombrado
 Stash selected files	Ausgewählte Dateien in den Stash legen	Remiser les fichiers sélectionnés	Guardar los archivos seleccionados en el stash
 Stash staged changes only	Nur vorgemerkte Änderungen in den Stash legen	Remiser seulement les modifications indexées	Guardar solo los cambios preparados en el stash
 Stash {count} files…	{count} Dateien in den Stash legen…	Remiser {count} fichiers…	Guardar {count} archivos en el stash…
+Stash {lines}	{lines} stashen	Remiser {lines}	Guardar {lines} en stash
 Stashes	Stashes	Remises	Stashes
 Stashing	Wird in den Stash gelegt	Remisage	Guardando en el stash
 Stash…	Stash…	Remiser…	Stash…
 step {step} of {total}	Schritt {step} von {total}	étape {step} sur {total}	paso {step} de {total}
+Stop soloing	Nicht mehr allein zeigen	Ne plus afficher seule	Dejar de mostrar sola
+Stop storing in LFS	Nicht mehr in LFS speichern	Ne plus stocker dans LFS	Dejar de guardar en LFS
+Stop storing in LFS…	Nicht mehr in LFS speichern…	Ne plus stocker dans LFS…	Dejar de guardar en LFS…
+Stop storing new versions of {pattern} files in LFS? Versions already stored there stay there.	Neue Versionen von {pattern}-Dateien nicht mehr in LFS speichern? Bereits dort gespeicherte Versionen bleiben dort.	Ne plus stocker les nouvelles versions des fichiers {pattern} dans LFS ? Les versions déjà stockées y restent.	¿Dejar de guardar en LFS las nuevas versiones de los archivos {pattern}? Las versiones ya guardadas allí se quedan.
 Stop to amend the commit	Anhalten, um den Commit zu ergänzen	S’arrêter pour modifier le commit	Detenerse para enmendar el commit
 Stopped at {commit}. Amend or make changes, then continue.	Bei {commit} angehalten. Ergänze oder ändere etwas und setze dann fort.	Arrêté à {commit}. Modifiez le commit ou faites des changements, puis continuez.	Detenido en {commit}. Enmienda o haz cambios y luego continúa.
 Stopped because of conflicts. Resolve them in Local Changes.	Wegen Konflikten angehalten. Löse sie unter Lokale Änderungen.	Arrêté à cause de conflits. Résolvez-les dans Modifications locales.	Detenido por conflictos. Resuélvelos en Cambios locales.
+Store files in LFS	Dateien in LFS speichern	Stocker des fichiers dans LFS	Guardar archivos en LFS
+Store files in LFS…	Dateien in LFS speichern…	Stocker des fichiers dans LFS…	Guardar archivos en LFS…
+Store “{pattern}” files in LFS…	„{pattern}“-Dateien in LFS speichern…	Stocker les fichiers « {pattern} » dans LFS…	Guardar los archivos «{pattern}» en LFS…
 Strategy	Strategie	Stratégie	Estrategia
 Subject	Betreff	Sujet	Asunto
 Submodules	Submodule	Sous-modules	Submódulos
@@ -515,36 +850,68 @@ Tag name	Tag-Name	Nom du tag	Nombre de la etiqueta
 Tag {commit}	{commit} taggen	Taguer {commit}	Etiquetar {commit}
 Tag {name}	Tag {name}	Tag {name}	Etiqueta {name}
 Tags	Tags	Tags	Etiquetas
+Tag…	Tag…	Tag…	Etiqueta…
+Take this file from the stash	Diese Datei aus dem Stash holen	Récupérer ce fichier de la remise	Tomar este archivo del stash
+Taking the file from the stash	Datei wird aus dem Stash geholt	Récupération du fichier de la remise	Tomando el archivo del stash
+Test the commit checked out ({commit}), then mark it. {good} good so far.	Teste den ausgecheckten Commit ({commit}) und markiere ihn. Bisher {good} gut.	Testez le commit extrait ({commit}), puis marquez-le. {good} bons jusqu’ici.	Prueba el commit extraído ({commit}) y márcalo. {good} buenos hasta ahora.
+Text a commit added or removed	Text, den ein Commit hinzugefügt oder entfernt hat	Texte qu’un commit a ajouté ou supprimé	Texto que un commit añadió o eliminó
+That git can't be used	Dieses git lässt sich nicht verwenden	Ce git ne peut pas être utilisé	Ese git no se puede usar
+The branch has changed since this plan was made; open the editor again	Der Branch hat sich geändert, seit dieser Plan erstellt wurde; öffne den Editor erneut	La branche a changé depuis la création de ce plan ; rouvrez l’éditeur	La rama ha cambiado desde que se hizo este plan; vuelve a abrir el editor
+The commit can't move further that way	Der Commit lässt sich nicht weiter in diese Richtung verschieben	Le commit ne peut pas aller plus loin dans ce sens	El commit no puede moverse más en esa dirección
 The current branch will be reset to {source}. Local commits and uncommitted changes are discarded.	Der aktuelle Branch wird auf {source} zurückgesetzt. Lokale Commits und nicht committete Änderungen werden verworfen.	La branche actuelle sera réinitialisée à {source}. Les commits locaux et les modifications non validées sont supprimés.	La rama actual se restablecerá a {source}. Se descartan los commits locales y los cambios sin commit.
 The current state is kept as a backup branch first.	Der aktuelle Stand wird vorher als Backup-Branch behalten.	L’état actuel est d’abord conservé dans une branche de sauvegarde.	Antes se guarda el estado actual en una rama de respaldo.
+The depth must be a number of commits above 0	Die Tiefe muss eine Anzahl Commits über 0 sein	La profondeur doit être un nombre de commits supérieur à 0	La profundidad debe ser un número de commits mayor que 0
 The file dialog couldn't be shown	Der Dateidialog konnte nicht angezeigt werden	Impossible d’afficher la boîte de dialogue des fichiers	No se pudo mostrar el diálogo de archivos
 The file was deleted on one side. Keep one side, or mark it as resolved to keep the current state.	Die Datei wurde auf einer Seite gelöscht. Behalte eine Seite oder markiere sie als gelöst, um den aktuellen Stand zu behalten.	Le fichier a été supprimé d’un côté. Gardez un côté, ou marquez-le comme résolu pour garder l’état actuel.	El archivo se eliminó en un lado. Conserva un lado o márcalo como resuelto para mantener el estado actual.
 The first commit has no parent to squash into	Der erste Commit hat keinen Eltern-Commit zum Squashen	Le premier commit n’a pas de parent dans lequel fusionner	El primer commit no tiene un padre en el que hacer squash
+The first commit has nothing below it	Unter dem ersten Commit liegt nichts	Rien ne se trouve sous le premier commit	No hay nada debajo del primer commit
 The first remaining commit cannot be squashed or fixed up (there is nothing above it).	Der erste verbleibende Commit kann nicht gesquasht oder per Fixup eingefaltet werden (darüber ist nichts).	Le premier commit restant ne peut pas être fusionné (squash ou fixup) : il n’y a rien au-dessus.	El primer commit restante no admite squash ni fixup (no hay nada encima).
+The last commit is already on {upstream}. Amending it rewrites history others may have, and the branch then needs a force push.	Der letzte Commit ist bereits auf {upstream}. Ihn zu ändern schreibt Verlauf um, den andere womöglich schon haben, und der Branch braucht danach einen Force-Push.	Le dernier commit est déjà sur {upstream}. Le modifier réécrit un historique que d’autres ont peut-être déjà, et la branche devra ensuite être poussée de force.	El último commit ya está en {upstream}. Enmendarlo reescribe un historial que otros quizá ya tengan, y la rama necesitará después un push forzado.
 The reflog is empty	Das Reflog ist leer	Le reflog est vide	El reflog está vacío
+The remote's default branch	Standard-Branch des Remotes	La branche par défaut du dépôt distant	La rama predeterminada del remoto
 The result still contains conflict markers. Save and mark the file as resolved anyway?	Das Ergebnis enthält noch Konfliktmarkierungen. Trotzdem speichern und die Datei als gelöst markieren?	Le résultat contient encore des marqueurs de conflit. Enregistrer et marquer le fichier comme résolu quand même ?	El resultado aún contiene marcadores de conflicto. ¿Guardar y marcar el archivo como resuelto de todos modos?
 the root commit	den Wurzel-Commit	le commit racine	el commit raíz
+The stash moves to the top of the list.	Der Stash rückt an den Anfang der Liste.	La remise passe en tête de liste.	El stash pasa al principio de la lista.
 The title bar changes when GitCraft starts again.	Die Titelleiste ändert sich beim nächsten Start von GitCraft.	La barre de titre change au prochain démarrage de GitCraft.	La barra de título cambia la próxima vez que se inicie GitCraft.
 Theirs	Ihre	Le leur	Lo suyo
+Theirs (incoming)	Ihre Seite (eingehend)	Leur côté (entrant)	El suyo (entrante)
 Theirs + ours	Ihre + unsere	Le leur + le nôtre	Lo suyo + lo nuestro
 Theme	Design	Thème	Tema
+then runs: {command}	danach: {command}	puis exécute : {command}	luego ejecuta: {command}
 There are no commits to rebase.	Es gibt keine Commits für einen Rebase.	Il n’y a aucun commit à rebaser.	No hay commits para hacer rebase.
+There are no local changes	Es gibt keine lokalen Änderungen	Il n’y a aucune modification locale	No hay cambios locales
 There are no local changes to stash	Es gibt keine lokalen Änderungen für den Stash	Il n’y a aucune modification locale à remiser	No hay cambios locales que guardar en el stash
 There is no backup: commits only on this branch are lost.	Es gibt kein Backup: Commits, die nur auf diesem Branch sind, gehen verloren.	Il n’y a pas de sauvegarde : les commits présents seulement sur cette branche sont perdus.	No hay respaldo: se pierden los commits que solo están en esta rama.
+There is no main or master branch to compare with.	Es gibt keinen main- oder master-Branch zum Vergleichen.	Il n’y a pas de branche main ou master avec laquelle comparer.	No hay una rama main o master con la que comparar.
 This commit has no file changes	Dieser Commit ändert keine Dateien	Ce commit ne modifie aucun fichier	Este commit no cambia ningún archivo
 this hunk	diesen Abschnitt	ce bloc	este bloque
+This link can't be opened	Dieser Link lässt sich nicht öffnen	Ce lien ne peut pas être ouvert	Este enlace no se puede abrir
+This repository	Dieses Repository	Ce dépôt	Este repositorio
+This repository has no remote to push to or fetch from yet.	Dieses Repository hat noch kein Remote zum Pushen oder Abrufen.	Ce dépôt n’a encore aucun dépôt distant vers lequel pousser ou depuis lequel récupérer.	Este repositorio aún no tiene un remoto al que enviar o del que obtener.
 This repository has no remotes	Dieses Repository hat keine Remotes	Ce dépôt n’a aucun dépôt distant	Este repositorio no tiene remotos
 This repository has no remotes. Add one from the sidebar first.	Dieses Repository hat keine Remotes. Füge zuerst eines über die Seitenleiste hinzu.	Ce dépôt n’a aucun dépôt distant. Ajoutez-en un depuis la barre latérale.	Este repositorio no tiene remotos. Añade uno primero desde la barra lateral.
+Tidying up the repository	Repository wird aufgeräumt	Nettoyage du dépôt	Ordenando el repositorio
+To check SSH signatures	Zum Prüfen von SSH-Signaturen	Pour vérifier les signatures SSH	Para comprobar firmas SSH
 tomorrow	morgen	demain	mañana
+Track	Verfolgen	Suivre	Seguir
 Track remote branch (set upstream)	Remote-Branch verfolgen (Upstream setzen)	Suivre la branche distante (définir l’amont)	Seguir la rama remota (establecer upstream)
 Tracking branch	Verfolgter Branch	Branche suivie	Rama de seguimiento
 Uncommitted changes	Nicht committete Änderungen	Modifications non validées	Cambios sin commit
 Uncommitted changes are stashed before the rebase and put back after it.	Nicht committete Änderungen werden vor dem Rebase in den Stash gelegt und danach zurückgeholt.	Les modifications non validées sont remisées avant le rebase et restaurées après.	Los cambios sin commit se guardan en el stash antes del rebase y se restauran después.
+Undo	Rückgängig	Annuler	Deshacer
 Undo commit	Commit rückgängig machen	Annuler le commit	Deshacer commit
 Undo last commit	Letzten Commit rückgängig machen	Annuler le dernier commit	Deshacer el último commit
 Undo last commit (keep changes)	Letzten Commit rückgängig machen (Änderungen behalten)	Annuler le dernier commit (garder les modifications)	Deshacer el último commit (conservar cambios)
+Undo the last operation	Den letzten Vorgang rückgängig machen	Annuler la dernière opération	Deshacer la última operación
+Undo: {action}	Rückgängig: {action}	Annuler : {action}	Deshacer: {action}
+Undoing	Wird rückgängig gemacht	Annulation	Deshaciendo
 Undoing commit	Commit wird rückgängig gemacht	Annulation du commit	Deshaciendo commit
+Undone: {action}	Rückgängig gemacht: {action}	Annulé : {action}	Deshecho: {action}
 Unified	Einheitlich	Unifié	Unificado
+Unlock	Entsperren	Déverrouiller	Desbloquear
+Unlock (LFS)	Entsperren (LFS)	Déverrouiller (LFS)	Desbloquear (LFS)
+Unlocking worktree	Worktree wird entsperrt	Déverrouillage de l’arbre de travail	Desbloqueando el árbol de trabajo
+Unlocking {path}	{path} wird entsperrt	Déverrouillage de {path}	Desbloqueando {path}
 Unstage	Vormerkung aufheben	Désindexer	Quitar de preparados
 Unstage all	Alle Vormerkungen aufheben	Tout désindexer	Quitar todo de preparados
 Unstage file	Vormerkung der Datei aufheben	Désindexer le fichier	Quitar archivo de preparados
@@ -554,11 +921,16 @@ Unstage {lines}	Vormerkung von {lines} aufheben	Désindexer {lines}	Quitar {line
 Unstaged ({count})	Nicht vorgemerkt ({count})	Non indexé ({count})	Sin preparar ({count})
 Unstaging	Vormerkung wird aufgehoben	Désindexation	Quitando de preparados
 Unstaging all	Alle Vormerkungen werden aufgehoben	Désindexation de tout	Quitando todo de preparados
+Untrack	Nicht mehr verfolgen	Ne plus suivre	Dejar de seguir
 Untracked file: stage the whole file to include it.	Nicht verfolgte Datei: Merke die ganze Datei vor, um sie aufzunehmen.	Fichier non suivi : indexez le fichier entier pour l’inclure.	Archivo sin seguimiento: prepara el archivo completo para incluirlo.
+Untracked files stashed	Nicht verfolgte Dateien gestasht	Fichiers non suivis remisés	Archivos sin seguimiento guardados en stash
+Update (check out its recorded commit)	Aktualisieren (seinen festgehaltenen Commit auschecken)	Mettre à jour (extraire son commit enregistré)	Actualizar (extraer su commit registrado)
 Update submodules	Submodule aktualisieren	Mettre à jour les sous-modules	Actualizar submódulos
 Updating .gitignore	.gitignore wird aktualisiert	Mise à jour de .gitignore	Actualizando .gitignore
 Updating submodules	Submodule werden aktualisiert	Mise à jour des sous-modules	Actualizando submódulos
+Updating {path}	{path} wird aktualisiert	Mise à jour de {path}	Actualizando {path}
 Upstream	Upstream	Branche amont	Upstream
+Upstream (being rebased onto)	Basis (Ziel des Rebase)	Base (cible du rebase)	Base (destino del rebase)
 Use our file	Unsere Datei verwenden	Utiliser notre fichier	Usar nuestro archivo
 Use ours	Unsere verwenden	Utiliser le nôtre	Usar lo nuestro
 Use system title bar	Titelleiste des Systems verwenden	Utiliser la barre de titre du système	Usar la barra de título del sistema
@@ -566,20 +938,43 @@ Use the commit	Den Commit verwenden	Utiliser le commit	Usar el commit
 Use the commit, edit its message	Den Commit verwenden, seine Nachricht bearbeiten	Utiliser le commit, modifier son message	Usar el commit y editar su mensaje
 Use their file	Ihre Datei verwenden	Utiliser leur fichier	Usar su archivo
 Use theirs	Ihre verwenden	Utiliser le leur	Usar lo suyo
+Use this side	Diese Seite übernehmen	Garder ce côté	Usar este lado
+Using git {version}	git {version} wird verwendet	git {version} est utilisé	Se usa git {version}
 View	Ansicht	Affichage	Ver
+When you continue, the change is committed with its own message.	Beim Fortsetzen wird die Änderung mit ihrer eigenen Nachricht committet.	En continuant, la modification est validée avec son propre message.	Al continuar, el cambio se confirma con su propio mensaje.
+When you continue, the rebase goes on with the next commit.	Beim Fortsetzen geht der Rebase mit dem nächsten Commit weiter.	En continuant, le rebase passe au commit suivant.	Al continuar, el rebase sigue con el siguiente commit.
+When you continue, the revert of {commit} is committed.	Beim Fortsetzen wird das Rückgängigmachen von {commit} committet.	En continuant, l’annulation de {commit} est validée.	Al continuar, se confirma la reversión de {commit}.
+When you continue, {commit} is committed again with its own message, and the rebase goes on with the next commit.	Beim Fortsetzen wird {commit} mit seiner eigenen Nachricht erneut committet, und der Rebase geht mit dem nächsten Commit weiter.	En continuant, {commit} est de nouveau validé avec son propre message, et le rebase passe au commit suivant.	Al continuar, {commit} se vuelve a confirmar con su propio mensaje y el rebase sigue con el siguiente commit.
+When you continue, {commit} is committed with its own message.	Beim Fortsetzen wird {commit} mit seiner eigenen Nachricht committet.	En continuant, {commit} est validé avec son propre message.	Al continuar, {commit} se confirma con su propio mensaje.
 Window	Fenster	Fenêtre	Ventana
+With HEAD	Mit HEAD	Avec HEAD	Con HEAD
+With the working directory	Mit dem Arbeitsverzeichnis	Avec le répertoire de travail	Con el directorio de trabajo
+With {commit}	Mit {commit}	Avec {commit}	Con {commit}
+Working directory	Arbeitsverzeichnis	Répertoire de travail	Directorio de trabajo
 Working tree is clean	Arbeitsverzeichnis ist sauber	L’arbre de travail est propre	El árbol de trabajo está limpio
 worktree	Worktree	arbre de travail	árbol de trabajo
+Worktree locked	Worktree gesperrt	Arbre de travail verrouillé	Árbol de trabajo bloqueado
 Worktree removed	Worktree entfernt	Arbre de travail retiré	Árbol de trabajo quitado
+Worktree unlocked	Worktree entsperrt	Arbre de travail déverrouillé	Árbol de trabajo desbloqueado
 Worktrees	Worktrees	Arbres de travail	Árboles de trabajo
+Worktree…	Worktree…	Arbre de travail…	Árbol de trabajo…
+Write the commit-graph, which speeds up the history	Den Commit-Graph schreiben, der den Verlauf beschleunigt	Écrire le commit-graph, qui accélère l’historique	Escribir el commit-graph, que acelera el historial
+X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)
+Yes	Ja	Oui	Sí
 yesterday	gestern	hier	ayer
-Zoom	Zoom	Zoom	Zoom
+you@example.com	du@example.com	vous@example.com	tu@example.com
+Your commit (being replayed)	Dein Commit (wird neu angewendet)	Votre commit (rejoué)	Tu commit (se vuelve a aplicar)
+Your name, as commits show it	Dein Name, wie Commits ihn zeigen	Votre nom, tel que les commits l’affichent	Tu nombre, como lo muestran los commits
+Your settings for every repository (git config --global).	Deine Einstellungen für alle Repositorys (git config --global).	Vos réglages pour tous les dépôts (git config --global).	Tus ajustes para todos los repositorios (git config --global).
 Zoom in	Vergrößern	Zoom avant	Acercar
 Zoom out	Verkleinern	Zoom arrière	Alejar
+{branches} hidden: {names}	{branches} ausgeblendet: {names}	{branches} masquées : {names}	{branches} ocultas: {names}
+{branch} doesn't track a remote branch yet. Choose the one it should pull from and push to.	{branch} folgt noch keinem entfernten Branch. Wähle den, von dem er holen und zu dem er pushen soll.	{branch} ne suit encore aucune branche distante. Choisissez celle depuis laquelle tirer et vers laquelle pousser.	{branch} aún no sigue ninguna rama remota. Elige la rama de la que traer y a la que enviar.
 {branch} fast-forwarded	{branch} vorgespult	{branch} avancée rapidement	{branch} avanzada rápidamente
 {commits} matching “{query}” ({mode})	{commits} passend zu „{query}“ ({mode})	{commits} correspondant à « {query} » ({mode})	{commits} que coinciden con «{query}» ({mode})
 {commits} only in target, {count} only in base	{commits} nur im Ziel, {count} nur in der Basis	{commits} seulement dans la cible, {count} seulement dans la base	{commits} solo en el destino, {count} solo en la base
 {commit}: commits after it are rewritten.	{commit}: Die Commits danach werden neu geschrieben.	{commit} : les commits suivants sont réécrits.	{commit}: se reescriben los commits posteriores.
+{count} branches	{count} Branches	{count} branches	{count} ramas
 {count} commits	{count} Commits	{count} commits	{count} commits
 {count} conflicts	{count} Konflikte	{count} conflits	{count} conflictos
 {count} days ago	vor {count} Tagen	il y a {count} jours	hace {count} días
@@ -587,15 +982,32 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {count} hours ago	vor {count} Stunden	il y a {count} heures	hace {count} horas
 {count} lines	{count} Zeilen	{count} lignes	{count} líneas
 {count} minutes ago	vor {count} Minuten	il y a {count} minutes	hace {count} minutos
+{count} more files	{count} weitere Dateien	{count} autres fichiers	{count} archivos más
 {count} patterns	{count} Muster	{count} motifs	{count} patrones
 {count} unresolved	{count} ungelöst	{count} non résolus	{count} sin resolver
 {count} worktrees	{count} Worktrees	{count} arbres de travail	{count} árboles de trabajo
 {files} changed	{files} geändert	{files} modifiés	{files} modificados
 {files} conflicted. Resolve them in Local Changes, then continue.	{files} mit Konflikten. Löse sie unter Lokale Änderungen und setze dann fort.	{files} en conflit. Résolvez-les dans Modifications locales, puis continuez.	{files} con conflictos. Resuélvelos en Cambios locales y luego continúa.
+{key} was taken from “{command}”	{key} wurde „{command}“ weggenommen	{key} a été retiré de « {command} »	{key} se ha quitado de «{command}»
 {label} failed	{label} fehlgeschlagen	Échec : {label}	Error: {label}
 {lines} selected	{lines} ausgewählt	{lines} sélectionnées	{lines} seleccionadas
+{name} · being merged	{name} · wird gemergt	{name} · en cours de fusion	{name} · se está fusionando
+{name} · being picked	{name} · wird übernommen	{name} · en cours de cherry-pick	{name} · se está aplicando
+{name} · being rebased onto	{name} · Ziel des Rebase	{name} · cible du rebase	{name} · destino del rebase
+{name} · being reverted	{name} · wird rückgängig gemacht	{name} · en cours d’annulation	{name} · se está revirtiendo
+{name} · this branch	{name} · dieser Branch	{name} · cette branche	{name} · esta rama
+{name} · your commit	{name} · dein Commit	{name} · votre commit	{name} · tu commit
+{owner} (you)	{owner} (du)	{owner} (vous)	{owner} (tú)
+{path} and {more}	{path} und {more}	{path} et {more}	{path} y {more}
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos
+{path} is locked for you	{path} ist für dich gesperrt	{path} est verrouillé pour vous	{path} está bloqueado para ti
+{path} is unlocked	{path} ist entsperrt	{path} est déverrouillé	{path} está desbloqueado
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
+{path} taken from the stash	{path} aus dem Stash geholt	{path} récupéré de la remise	{path} tomado del stash
+{path} updated	{path} aktualisiert	{path} mis à jour	{path} actualizado
+{path} · the working folder, uncommitted lines included	{path} · das Arbeitsverzeichnis, mit nicht committeten Zeilen	{path} · le répertoire de travail, lignes non validées comprises	{path} · el directorio de trabajo, con las líneas sin commit
+{remote} has commits that {branch} doesn't have. Pull them in first, or replace them with your branch (force push with lease)?	{remote} hat Commits, die {branch} nicht hat. Zuerst holen oder sie durch deinen Branch ersetzen (Force-Push mit Lease)?	{remote} contient des commits que {branch} n’a pas. Les récupérer d’abord, ou les remplacer par votre branche (push forcé avec bail) ?	{remote} tiene commits que {branch} no tiene. ¿Traerlos primero o reemplazarlos con tu rama (push forzado con lease)?
+“{subject}” is broken. Name an older commit that still worked: GitCraft then checks out commits in between for you to test, until the first broken one is found.	„{subject}“ ist fehlerhaft. Nenne einen älteren Commit, der noch funktioniert hat: GitCraft checkt dann Commits dazwischen zum Testen aus, bis der erste fehlerhafte gefunden ist.	« {subject} » est cassé. Indiquez un commit plus ancien qui fonctionnait encore : GitCraft extrait alors des commits intermédiaires à tester, jusqu’à trouver le premier cassé.	«{subject}» está roto. Indica un commit anterior que aún funcionaba: GitCraft extrae commits intermedios para que los pruebes, hasta encontrar el primero roto.
 … and {count} more	… und {count} weitere	… et {count} de plus	… y {count} más
 Select all files	Alle Dateien auswählen	Sélectionner tous les fichiers	Seleccionar todos los archivos
 Tabs	Tabs	Onglets	Pestañas
