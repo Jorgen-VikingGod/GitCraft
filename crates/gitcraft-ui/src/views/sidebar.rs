@@ -289,8 +289,14 @@ fn graph_toggles(ui: &mut Ui, cx: &Cx, body: Rect, full: &str, right: f32) -> f3
             },
         ),
     ];
+    // The branch checked out can't be hidden: git shows its commits anyway.
+    let current = cx.app.current().and_then(|tab| tab.current_branch());
+    let hideable = crate::logic::can_hide(full, current);
     let mut right = right;
-    for (symbol, on, tip, change) in toggles {
+    for (symbol, on, tip, change) in toggles
+        .into_iter()
+        .filter(|(_, _, _, change)| hideable || !matches!(change, RefVisibility::Hide(_)))
+    {
         let rect =
             Rect::from_center_size(Pos2::new(right - 10.0, body.center().y), vec2(20.0, 20.0));
         right -= 22.0;

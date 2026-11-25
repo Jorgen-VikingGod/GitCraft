@@ -3874,3 +3874,197 @@ async fn a_rebase_conflict_says_what_continuing_commits_instead_of_the_commit_bo
     );
     assert!(!shown.has("Commit summary"), "no commit box to fill in");
 }
+
+#[tokio::test]
+async fn hidden_and_soloed_branches_are_kept_for_the_next_start() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let view = |app: &App| app.current().unwrap().ref_view.clone();
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/side".into())),
+    )
+    .await;
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Solo("refs/heads/main".into())),
+    )
+    .await;
+    drop(app);
+    let mut app = opened(&f, false).await;
+    assert_eq!(
+        view(&app).hidden,
+        ["refs/heads/side"],
+        "restored after a restart"
+    );
+    assert_eq!(view(&app).solo, ["refs/heads/main"]);
+    // Showing it again is kept too: it doesn't come back hidden.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Show("refs/heads/side".into())),
+    )
+    .await;
+    drop(app);
+    let mut app = opened(&f, false).await;
+    assert!(view(&app).hidden.is_empty(), "{:?}", view(&app));
+    assert_eq!(view(&app).solo, ["refs/heads/main"]);
+    // The repository's last flag taken away: nothing may come back from the file.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Unsolo("refs/heads/main".into())),
+    )
+    .await;
+    drop(app);
+    let app = opened(&f, false).await;
+    assert_eq!(view(&app), Default::default(), "nothing hidden or soloed");
+}
+
+#[tokio::test]
+async fn a_hidden_branch_is_shown_again_from_its_row() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/side".into())),
+    )
+    .await;
+    let screen = Screen::new();
+    let label = screen
+        .show(&app)
+        .texts
+        .into_iter()
+        .filter(|(text, rect)| text == "side" && rect.left() < 400.0)
+        .map(|(_, rect)| rect)
+        .next()
+        .expect("side is in the sidebar");
+    let mut sent = Vec::new();
+    let mut x = label.right() + 8.0;
+    while x < 400.0 && sent.is_empty() {
+        let at = Pos2::new(x, label.center().y);
+        let press = |pressed| Event::PointerButton {
+            pos: at,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![press(true)]);
+        sent = screen
+            .frame(&app, vec![press(false)])
+            .messages
+            .into_iter()
+            .filter(|message| matches!(message, Message::RefVisibility(_)))
+            .collect();
+        x += 4.0;
+    }
+    let [Message::RefVisibility(RefVisibility::Show(name))] = &sent[..] else {
+        panic!("the crossed-out eye shows it again: {sent:?}")
+    };
+    assert_eq!(name, "refs/heads/side");
+    drive(&mut app, sent[0].clone()).await;
+    assert!(app.current().unwrap().ref_view.hidden.is_empty());
+}
+
+#[tokio::test]
+async fn the_checked_out_branch_is_never_hidden_not_even_by_an_old_setting() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    // As an older GitCraft could save it: the branch checked out, hidden.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/main".into())),
+    )
+    .await;
+    drop(app);
+    let app = opened(&f, false).await;
+    assert!(
+        app.current().unwrap().ref_view.hidden.is_empty(),
+        "dropped when the repository opens"
+    );
+    drop(app);
+    let app = opened(&f, false).await;
+    assert!(
+        app.current().unwrap().ref_view.hidden.is_empty(),
+        "and that was saved"
+    );
+    // Its menu offers no hiding, another branch's does.
+    let tab = app.current().unwrap();
+    let menu = |name: &str| {
+        let commit = tab
+            .commits
+            .iter()
+            .find(|commit| commit.refs.iter().flatten().any(|label| label.name == name))
+            .unwrap();
+        labels(&commit_menu_items(
+            tab,
+            commit,
+            Some(&RefTarget::Local(name.into())),
+        ))
+    };
+    assert!(!menu("main").iter().any(|label| label == "Hide in graph"));
+    assert!(menu("side").iter().any(|label| label == "Hide in graph"));
+}
+
+#[tokio::test]
+async fn shortcuts_are_recorded_reset_cleared_and_kept_for_the_next_start() {
+    let f = fixture();
+    let chord = |text: &str| craft_keymap::Chord::parse(text).unwrap();
+    let mut app = opened(&f, false).await;
+    // Settings gets Ctrl+K in place of Ctrl+, : click its key, press the new one.
+    drive(&mut app, Message::OpenSettings).await;
+    drive(
+        &mut app,
+        Message::ShortcutRecord("settings".into(), Some(0)),
+    )
+    .await;
+    drive(&mut app, Message::Key(egui::Key::K, Modifiers::COMMAND)).await;
+    assert!(app.recording.is_none(), "one key is taken");
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+K")));
+    // The menu shows it, and the key does it.
+    let menus = app.bar_menus();
+    let (_, file) = menus.iter().find(|(title, _)| *title == "File").unwrap();
+    assert!(file.iter().any(|item| matches!(
+        item,
+        MenuItem::Entry { label, shortcut: Some(key), .. } if label == "Settings…" && *key == chord("Cmd+K")
+    )));
+    drive(&mut app, Message::OverlayClose).await;
+    drive(&mut app, Message::Key(egui::Key::Comma, Modifiers::COMMAND)).await;
+    assert!(app.overlay.is_none(), "the old key does nothing now");
+    drive(&mut app, Message::Key(egui::Key::K, Modifiers::COMMAND)).await;
+    assert!(matches!(app.overlay, Some(Overlay::Settings)));
+
+    // Escape while waiting for a key changes nothing and keeps the dialog open.
+    drive(&mut app, Message::ShortcutRecord("search".into(), None)).await;
+    drive(&mut app, Message::Key(egui::Key::Escape, Modifiers::NONE)).await;
+    assert!(app.recording.is_none());
+    assert!(matches!(app.overlay, Some(Overlay::Settings)));
+    assert_eq!(app.shortcut("search"), Some(chord("Cmd+F")));
+
+    // Cleared keys and changed keys come back after a restart.
+    drive(&mut app, Message::ShortcutClear("commit".into())).await;
+    drop(app);
+    let mut app = opened(&f, false).await;
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+K")));
+    assert_eq!(app.shortcut("commit"), None);
+    drive(&mut app, Message::ShortcutReset("settings".into())).await;
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+Comma")));
+    // A reset key stays reset after a restart too.
+    drop(app);
+    let app = opened(&f, false).await;
+    assert_eq!(app.shortcut("settings"), Some(chord("Cmd+Comma")));
+    let shown = Screen::new().show(&{
+        let mut app = app;
+        drive(&mut app, Message::OpenSettings).await;
+        drive(
+            &mut app,
+            Message::SettingsPage(gitcraft_ui::app::SettingsPage::Shortcuts),
+        )
+        .await;
+        app
+    });
+    assert!(shown.has("Not assigned"), "Commit has no key now");
+}

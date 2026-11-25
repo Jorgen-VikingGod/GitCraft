@@ -25,6 +25,122 @@ pub struct Settings {
     pub columns: Columns,
     pub layout: Layout,
     pub session: Session,
+    pub shortcuts: Shortcuts,
+}
+
+/// The keys the user gave commands, by command id (see `logic::SHORTCUTS`): an empty list
+/// clears a command's keys; commands not listed keep their defaults.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Shortcuts {
+    #[serde(with = "listed_keys")]
+    pub keys: std::collections::BTreeMap<String, Vec<String>>,
+}
+
+// craft-settings merges a table with what the file holds key by key, so a key taken out of a map
+// (a shortcut reset, a repository's last hidden branch shown again) would stay in the file. Arrays
+// are replaced whole: these maps are written as arrays of entries, and read in either form.
+
+/// `[[shortcuts.keys]]` entries: `command` and its `keys`.
+mod listed_keys {
+    use std::collections::BTreeMap;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Entry {
+        command: String,
+        #[serde(default)]
+        keys: Vec<String>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Stored {
+        List(Vec<Entry>),
+        Map(BTreeMap<String, Vec<String>>),
+    }
+
+    pub fn serialize<S: Serializer>(
+        map: &BTreeMap<String, Vec<String>>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        map.iter()
+            .map(|(command, keys)| Entry {
+                command: command.clone(),
+                keys: keys.clone(),
+            })
+            .collect::<Vec<_>>()
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<BTreeMap<String, Vec<String>>, D::Error> {
+        Ok(match Stored::deserialize(deserializer)? {
+            Stored::List(entries) => entries
+                .into_iter()
+                .map(|entry| (entry.command, entry.keys))
+                .collect(),
+            Stored::Map(map) => map,
+        })
+    }
+}
+
+/// `[[graph.views]]` entries: the `repo` and its `hidden` and `solo` branches.
+mod listed_views {
+    use std::collections::BTreeMap;
+
+    use gitcraft_core::model::RefView;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Entry {
+        repo: String,
+        #[serde(default)]
+        hidden: Vec<String>,
+        #[serde(default)]
+        solo: Vec<String>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Stored {
+        List(Vec<Entry>),
+        Map(BTreeMap<String, RefView>),
+    }
+
+    pub fn serialize<S: Serializer>(
+        map: &BTreeMap<String, RefView>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        map.iter()
+            .map(|(repo, view)| Entry {
+                repo: repo.clone(),
+                hidden: view.hidden.clone(),
+                solo: view.solo.clone(),
+            })
+            .collect::<Vec<_>>()
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<BTreeMap<String, RefView>, D::Error> {
+        Ok(match Stored::deserialize(deserializer)? {
+            Stored::List(entries) => entries
+                .into_iter()
+                .map(|entry| {
+                    let view = RefView {
+                        hidden: entry.hidden,
+                        solo: entry.solo,
+                    };
+                    (entry.repo, view)
+                })
+                .collect(),
+            Stored::Map(map) => map,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -166,6 +282,7 @@ impl Default for Columns {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Graph {
+    #[serde(with = "listed_views")]
     pub views: std::collections::BTreeMap<String, gitcraft_core::model::RefView>,
 }
 
@@ -293,6 +410,7 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
         commit: Commit::default(),
         graph: Graph::default(),
         columns: Columns::default(),
+        shortcuts: Shortcuts::default(),
         appearance: Appearance {
             theme: old.theme,
             zoom: old.zoom,
@@ -401,6 +519,55 @@ mod tests {
         assert_eq!(Settings::load(dir.path()), changed);
         std::fs::write(dir.path().join("config.toml"), "not = [toml").unwrap();
         assert_eq!(Settings::load(dir.path()), Settings::default());
+    }
+
+    #[test]
+    fn a_hidden_branch_shown_again_and_a_reset_shortcut_stay_so_on_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut settings = Settings::default();
+        settings.graph.views.insert(
+            "/repo".into(),
+            gitcraft_core::model::RefView {
+                hidden: vec!["refs/heads/main".into()],
+                solo: Vec::new(),
+            },
+        );
+        settings
+            .shortcuts
+            .keys
+            .insert("search".into(), vec!["Cmd+K".into()]);
+        settings.save(dir.path()).unwrap();
+        assert_eq!(Settings::load(dir.path()), settings);
+        // Shown again and reset: the file must lose them, not keep what it had.
+        settings.graph.views.clear();
+        settings.shortcuts.keys.clear();
+        settings.save(dir.path()).unwrap();
+        let loaded = Settings::load(dir.path());
+        assert!(loaded.graph.views.is_empty(), "{:?}", loaded.graph.views);
+        assert!(
+            loaded.shortcuts.keys.is_empty(),
+            "{:?}",
+            loaded.shortcuts.keys
+        );
+    }
+
+    #[test]
+    fn flags_and_keys_saved_as_tables_by_an_earlier_build_are_still_read() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("config.toml"),
+            "[graph.views.\"/repo\"]\nhidden = [\"refs/heads/main\"]\nsolo = []\n\n\
+             [shortcuts.keys]\nsearch = [\"Cmd+K\"]\n",
+        )
+        .unwrap();
+        let loaded = Settings::load(dir.path());
+        assert_eq!(loaded.graph.views["/repo"].hidden, ["refs/heads/main"]);
+        assert_eq!(loaded.shortcuts.keys["search"], ["Cmd+K"]);
+        // Saved again as entries, and then they can be taken out.
+        let mut settings = loaded;
+        settings.graph.views.clear();
+        settings.save(dir.path()).unwrap();
+        assert!(Settings::load(dir.path()).graph.views.is_empty());
     }
 
     #[test]

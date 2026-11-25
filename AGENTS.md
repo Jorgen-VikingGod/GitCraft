@@ -101,7 +101,9 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 - If it needs a dialog, add an `Action` in `actions.rs`. Forms are in `form.rs`; a confirmation is a form
   without fields. Menus are `MenuItem` lists with one level of submenus.
 - The menu bar is `App::bar_menus()`, drawn by craft-menu in `views/shell.rs`. Give an entry its key with
-  `.key(Shortcut::…)` (the key itself is handled in `App::key`) and a tick or dot with `.marked(Mark::…)`.
+  `.key(self.shortcut("id"))` and a tick or dot with `.marked(Mark::…)`. Keys belong to the commands
+  of `logic::SHORTCUTS` (id, label, default chords); `App::shortcut_message` says what each runs, and
+  the user's own keys are `settings.shortcuts` (edited in Settings › Keyboard shortcuts).
 - File dialogs never block the window: push `Effect::Ask(Pick::…)`, the shell shows it (craft-dialogs)
   and answers with `Message::Picked(pick, path)`. Add the `Pick` variant and its dialog in `app.rs`.
 - Interface text is written in English and goes through `crate::i18n::tr("…")`, or `trf("… {name} …",

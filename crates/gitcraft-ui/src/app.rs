@@ -904,6 +904,9 @@ pub struct App {
     pub git_config: GitConfigState,
     /// The page the settings window shows.
     pub settings_page: SettingsPage,
+    /// The command whose key is being recorded in Settings › Keyboard shortcuts, and which of
+    /// its keys it replaces (`None`: a key is added).
+    pub recording: Option<(String, Option<usize>)>,
     next_id: u64,
     pub(crate) config_dir: PathBuf,
     pub(crate) store: RepoStore,
@@ -1050,6 +1053,12 @@ pub enum Message {
     AboutGit(Answer<String>),
     /// Shows this page of the settings.
     SettingsPage(SettingsPage),
+    /// Waits for the next key press for (command, key to replace or `None` to add one).
+    ShortcutRecord(String, Option<usize>),
+    /// Gives a command its default keys again.
+    ShortcutReset(String),
+    /// Takes all keys from a command.
+    ShortcutClear(String),
     /// The locks of (repository, request).
     LfsLocksLoaded(String, u64, Answer<Vec<LfsLock>>),
     OpenCleanup,
@@ -1281,6 +1290,7 @@ impl App {
             conflict_preview: None,
             git_config: GitConfigState::default(),
             settings_page: SettingsPage::default(),
+            recording: None,
             next_id: 1,
             config_dir: store.dir(),
             store,
@@ -2631,6 +2641,22 @@ impl App {
                 );
                 Task::batch([find_tools(cwd), config])
             }
+            Message::ShortcutRecord(id, slot) => {
+                self.recording = Some((id, slot));
+                Task::none()
+            }
+            Message::ShortcutReset(id) => {
+                self.recording = None;
+                self.settings.shortcuts.keys.remove(&id);
+                self.save_settings();
+                Task::none()
+            }
+            Message::ShortcutClear(id) => {
+                self.recording = None;
+                self.settings.shortcuts.keys.insert(id, Vec::new());
+                self.save_settings();
+                Task::none()
+            }
             Message::SettingsPage(page) => {
                 self.settings_page = page;
                 Task::none()
@@ -3302,8 +3328,37 @@ impl App {
                     }
                     _ => false,
                 };
+                // The branch checked out can't stay hidden (a flag saved before, or a branch
+                // hidden and then checked out): its commits show anyway, only its label went.
+                let unhide = status
+                    .branch
+                    .head
+                    .as_deref()
+                    .filter(|_| !status.branch.detached)
+                    .map(|head| format!("refs/heads/{head}"))
+                    .filter(|full| tab.ref_view.hidden.contains(full));
                 tab.status = Some(status);
                 ensure_focus(tab);
+                // This tab's, which needn't be the one in front.
+                let unhide = match unhide {
+                    Some(full) => {
+                        tab.ref_view.hidden.retain(|name| *name != full);
+                        let view = tab.ref_view.clone();
+                        tab.loading = true;
+                        let reload = load_log(path.to_owned(), tab.log_query());
+                        if view.is_empty() {
+                            self.settings.graph.views.remove(path);
+                        } else {
+                            self.settings.graph.views.insert(path.to_owned(), view);
+                        }
+                        self.save_settings();
+                        reload
+                    }
+                    None => Task::none(),
+                };
+                let Some(tab) = self.tab_mut(path) else {
+                    return unhide;
+                };
                 let fill = if fill {
                     let repo = path.to_owned();
                     Task::perform(
@@ -3317,9 +3372,9 @@ impl App {
                     Task::none()
                 };
                 if tab.view == View::Changes && self.current().is_some_and(|tab| tab.path == path) {
-                    return Task::batch([fill, self.reload_changes()]);
+                    return Task::batch([fill, unhide, self.reload_changes()]);
                 }
-                return fill;
+                return Task::batch([fill, unhide]);
             }
             Err(error) => self.toast(ToastKind::Error, error, None),
         }
@@ -4739,7 +4794,78 @@ impl App {
         scroll_to(tab, target);
     }
 
+    /// The first key of a command, for the menus.
+    pub fn shortcut(&self, id: &str) -> Option<craft_keymap::Chord> {
+        logic::shortcut_keys(&self.settings.shortcuts.keys, id)
+            .into_iter()
+            .next()
+    }
+
+    /// What a command of [`logic::SHORTCUTS`] does.
+    fn shortcut_message(&self, id: &str) -> Option<Message> {
+        Some(match id {
+            "view.history" => Message::SetView(View::History),
+            "view.changes" => Message::SetView(View::Changes),
+            "edit.undo" => Message::Undo,
+            "edit.redo" => Message::Redo,
+            "search" => Message::SearchFocus,
+            "files.select_all" => Message::SelectAllFiles,
+            "repo.open" => Message::OpenDialog,
+            "tab.close" => Message::Close(self.active),
+            "commit" => Message::CommitNow,
+            "commit.all" => Message::CommitAll,
+            "repo.refresh" => Message::Refresh,
+            "settings" => Message::OpenSettings,
+            "zoom.in" => Message::Zoom(1.1),
+            "zoom.out" => Message::Zoom(1.0 / 1.1),
+            "zoom.reset" => Message::Zoom(0.0),
+            "window.fullscreen" => Message::Window(WindowAction::ToggleFullscreen),
+            _ => return None,
+        })
+    }
+
+    /// The key pressed while a command waits for its new key: Escape stops waiting, any other
+    /// key becomes the command's (taken from a command that had it, which a toast tells).
+    fn record_key(&mut self, key: Key, modifiers: Modifiers) -> Task<Message> {
+        let Some((id, slot)) = self.recording.take() else {
+            return Task::none();
+        };
+        if key == Key::Escape {
+            return Task::none();
+        }
+        let Some(pressed) = craft_keymap::Key::from_egui(key) else {
+            // Not a key a shortcut can use: keep waiting.
+            self.recording = Some((id, slot));
+            return Task::none();
+        };
+        let platform = craft_keymap::Platform::current();
+        let chord = craft_keymap::Chord {
+            mods: craft_keymap::Mods::from_egui(&modifiers, platform),
+            key: pressed,
+        };
+        let taken = logic::assign_shortcut(&mut self.settings.shortcuts.keys, &id, slot, &chord);
+        self.save_settings();
+        for other in taken {
+            let label = logic::SHORTCUTS
+                .iter()
+                .find(|(each, _, _)| *each == other)
+                .map_or(other, |(_, label, _)| label);
+            self.toast(
+                ToastKind::Info,
+                trf(
+                    "{key} was taken from “{command}”",
+                    &[("key", &chord.display(platform)), ("command", tr(label))],
+                ),
+                None,
+            );
+        }
+        Task::none()
+    }
+
     fn key(&mut self, key: Key, modifiers: Modifiers) -> Task<Message> {
+        if self.recording.is_some() {
+            return self.record_key(key, modifiers);
+        }
         if key == Key::Escape {
             if self.menu.take().is_some() {
                 return Task::none();
@@ -4783,27 +4909,15 @@ impl App {
                 _ => Task::none(),
             };
         }
-        let command = modifiers.command;
-        match key {
-            Key::F5 => return Task::done(Message::Refresh),
-            Key::F11 => return Task::done(Message::Window(WindowAction::ToggleFullscreen)),
-            Key::R if command => return Task::done(Message::Refresh),
-            Key::O | Key::T if command => return Task::done(Message::OpenDialog),
-            Key::W if command => return Task::done(Message::Close(self.active)),
-            Key::Comma if command => return Task::done(Message::OpenSettings),
-            Key::F if command => return Task::done(Message::SearchFocus),
-            Key::Num1 if command => return Task::done(Message::SetView(View::History)),
-            Key::Num2 if command => return Task::done(Message::SetView(View::Changes)),
-            Key::Equals | Key::Plus if command => return Task::done(Message::Zoom(1.1)),
-            Key::Minus if command => return Task::done(Message::Zoom(1.0 / 1.1)),
-            Key::Num0 if command => return Task::done(Message::Zoom(0.0)),
-            Key::Enter if command && modifiers.shift => return Task::done(Message::CommitAll),
-            Key::Enter if command => return Task::done(Message::CommitNow),
-            Key::A if command => return Task::done(Message::SelectAllFiles),
-            Key::Z if command && modifiers.shift => return Task::done(Message::Redo),
-            Key::Z if command => return Task::done(Message::Undo),
-            Key::Y if command => return Task::done(Message::Redo),
-            _ => {}
+        // The commands' keys, as the user set them (Settings › Keyboard shortcuts).
+        let platform = craft_keymap::Platform::current();
+        let hit = logic::SHORTCUTS.iter().find(|(id, _, _)| {
+            logic::shortcut_keys(&self.settings.shortcuts.keys, id)
+                .iter()
+                .any(|chord| craft_keymap::egui::matches(chord, key, &modifiers, platform))
+        });
+        if let Some(message) = hit.and_then(|(id, _, _)| self.shortcut_message(id)) {
+            return Task::done(message);
         }
         if self.overlay.is_some() {
             return Task::none();

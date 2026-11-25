@@ -1569,8 +1569,7 @@ impl App {
 
     /// The menus of the menu bar: title and entries. The bar itself is drawn by craft-menu.
     pub fn bar_menus(&self) -> Vec<(&'static str, Vec<MenuItem>)> {
-        use crate::menu::{Mark, Shortcut};
-        use egui::Key;
+        use crate::menu::Mark;
         let tab = self.current();
         let has_repo = tab.is_some();
         let in_changes = tab.is_some_and(|tab| tab.view == View::Changes);
@@ -1583,7 +1582,8 @@ impl App {
             .map(|repo| MenuItem::entry(repo.name.clone(), Message::OpenPath(repo.path.clone())))
             .collect();
         let mut file = vec![
-            MenuItem::entry("Open repository…", Message::OpenDialog).key(Shortcut::command(Key::O)),
+            MenuItem::entry("Open repository…", Message::OpenDialog)
+                .key(self.shortcut("repo.open")),
             MenuItem::entry("Clone repository…", act(Action::Clone)),
             MenuItem::entry("New repository…", act(Action::Init)),
         ];
@@ -1593,9 +1593,9 @@ impl App {
         file.extend([
             MenuItem::Separator,
             MenuItem::entry_if("Close tab", has_repo, Message::Close(self.active))
-                .key(Shortcut::command(Key::W)),
+                .key(self.shortcut("tab.close")),
             MenuItem::Separator,
-            MenuItem::entry("Settings…", Message::OpenSettings).key(Shortcut::command(Key::Comma)),
+            MenuItem::entry("Settings…", Message::OpenSettings).key(self.shortcut("settings")),
             MenuItem::Separator,
             MenuItem::entry("Quit", Message::Quit),
         ]);
@@ -1619,12 +1619,8 @@ impl App {
             None => MenuItem::entry_if("Redo", false, Message::Redo),
         };
         let edit = vec![
-            undo.key(Shortcut::command(Key::Z)),
-            redo.key(Shortcut {
-                key: Key::Z,
-                command: true,
-                shift: true,
-            }),
+            undo.key(self.shortcut("edit.undo")),
+            redo.key(self.shortcut("edit.redo")),
         ];
 
         let mut repository = match tab {
@@ -1707,25 +1703,25 @@ impl App {
         }
         view.extend([
             MenuItem::entry_if("All commits", has_repo, Message::SetView(View::History))
-                .key(Shortcut::command(Key::Num1)),
+                .key(self.shortcut("view.history")),
             MenuItem::entry_if("Local changes", has_repo, Message::SetView(View::Changes))
-                .key(Shortcut::command(Key::Num2)),
+                .key(self.shortcut("view.changes")),
             MenuItem::entry_if("Select all files", in_changes, Message::SelectAllFiles)
-                .key(Shortcut::command(Key::A)),
+                .key(self.shortcut("files.select_all")),
             MenuItem::entry_if("Search commits", has_repo, Message::SearchFocus)
-                .key(Shortcut::command(Key::F)),
+                .key(self.shortcut("search")),
             MenuItem::entry_if("Filter history…", has_repo, act(Action::FilterHistory)),
-            MenuItem::entry_if("Refresh", has_repo, Message::Refresh).key(Shortcut::plain(Key::F5)),
+            MenuItem::entry_if("Refresh", has_repo, Message::Refresh)
+                .key(self.shortcut("repo.refresh")),
             MenuItem::Separator,
-            MenuItem::entry("Zoom in", Message::Zoom(1.1)).key(Shortcut::command(Key::Equals)),
-            MenuItem::entry("Zoom out", Message::Zoom(1.0 / 1.1))
-                .key(Shortcut::command(Key::Minus)),
-            MenuItem::entry("Actual size", Message::Zoom(0.0)).key(Shortcut::command(Key::Num0)),
+            MenuItem::entry("Zoom in", Message::Zoom(1.1)).key(self.shortcut("zoom.in")),
+            MenuItem::entry("Zoom out", Message::Zoom(1.0 / 1.1)).key(self.shortcut("zoom.out")),
+            MenuItem::entry("Actual size", Message::Zoom(0.0)).key(self.shortcut("zoom.reset")),
             MenuItem::entry(
                 "Full screen",
                 Message::Window(crate::app::WindowAction::ToggleFullscreen),
             )
-            .key(Shortcut::plain(Key::F11))
+            .key(self.shortcut("window.fullscreen"))
             .marked(Mark::Check(self.fullscreen)),
             MenuItem::Separator,
             MenuItem::sub("Theme", themes),
@@ -1942,30 +1938,31 @@ fn visibility_items(tab: &RepoTab, full: &str) -> Vec<MenuItem> {
     let hidden = view.hidden.iter().any(|name| name == full);
     let solo = view.solo.iter().any(|name| name == full);
     let change = |change| Message::RefVisibility(change);
-    vec![
-        if hidden {
-            MenuItem::entry(
-                "Show in graph",
-                change(RefVisibility::Show(full.to_owned())),
-            )
-        } else {
-            MenuItem::entry(
-                "Hide in graph",
-                change(RefVisibility::Hide(full.to_owned())),
-            )
-        },
-        if solo {
-            MenuItem::entry(
-                "Stop soloing",
-                change(RefVisibility::Unsolo(full.to_owned())),
-            )
-        } else {
-            MenuItem::entry(
-                "Solo in graph",
-                change(RefVisibility::Solo(full.to_owned())),
-            )
-        },
-    ]
+    let mut items = Vec::new();
+    if hidden {
+        items.push(MenuItem::entry(
+            "Show in graph",
+            change(RefVisibility::Show(full.to_owned())),
+        ));
+    } else if crate::logic::can_hide(full, tab.current_branch()) {
+        // The branch checked out can't be hidden: git shows its commits anyway.
+        items.push(MenuItem::entry(
+            "Hide in graph",
+            change(RefVisibility::Hide(full.to_owned())),
+        ));
+    }
+    items.push(if solo {
+        MenuItem::entry(
+            "Stop soloing",
+            change(RefVisibility::Unsolo(full.to_owned())),
+        )
+    } else {
+        MenuItem::entry(
+            "Solo in graph",
+            change(RefVisibility::Solo(full.to_owned())),
+        )
+    });
+    items
 }
 
 fn ref_items(tab: &RepoTab, target: &RefTarget, copy_name: bool) -> Vec<MenuItem> {

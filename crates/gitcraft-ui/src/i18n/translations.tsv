@@ -28,6 +28,7 @@ About GitCraft	Über GitCraft	À propos de GitCraft	Acerca de GitCraft
 About {app}	Über {app}	À propos de {app}	Acerca de {app}
 Actual size	Originalgröße	Taille réelle	Tamaño real
 Add	Hinzufügen	Ajouter	Añadir
+Add a key	Taste hinzufügen	Ajouter une touche	Añadir una tecla
 Add a README	Ein README anlegen	Ajouter un README	Añadir un README
 Add remote	Remote hinzufügen	Ajouter un dépôt distant	Añadir remoto
 Add remote…	Remote hinzufügen…	Ajouter un dépôt distant…	Añadir remoto…
@@ -46,7 +47,6 @@ Adding worktree	Worktree wird hinzugefügt	Ajout de l’arbre de travail	Añadie
 All branches	Alle Branches	Toutes les branches	Todas las ramas
 All commits	Alle Commits	Tous les commits	Todos los commits
 All Commits	Alle Commits	Tous les commits	Todos los commits
-All commits / Local changes	Alle Commits / Lokale Änderungen	Tous les commits / Modifications locales	Todos los commits / Cambios locales
 All commits are dropped.	Alle Commits werden verworfen.	Tous les commits sont supprimés.	Se descartan todos los commits.
 All conflicts resolved. Continue to finish.	Alle Konflikte gelöst. Zum Abschließen fortsetzen.	Tous les conflits sont résolus. Continuez pour terminer.	Todos los conflictos resueltos. Continúa para terminar.
 All of them; or a number, such as 50	Alle; oder eine Zahl, etwa 50	Tous ; ou un nombre, par exemple 50	Todos; o un número, por ejemplo 50
@@ -78,6 +78,7 @@ author	Autor	auteur	autor
 Author	Autor	Auteur	Autor
 Author: Jürgen Könnemann	Autor: Jürgen Könnemann	Auteur : Jürgen Könnemann	Autor: Jürgen Könnemann
 Autosquash	Autosquash	Autosquash	Autosquash
+Back to the default keys	Zurück zu den Standardtasten	Revenir aux touches par défaut	Volver a las teclas predeterminadas
 Backup deleted	Sicherung gelöscht	Sauvegarde supprimée	Copia de seguridad eliminada
 Bad	Fehlerhaft	Mauvais	Malo
 Bad signature	Ungültige Signatur	Signature invalide	Firma no válida
@@ -149,8 +150,11 @@ Cleaned	Bereinigt	Nettoyé	Limpiado
 Cleaning	Wird bereinigt	Nettoyage	Limpiando
 Clear filter	Filter entfernen	Effacer le filtre	Quitar filtro
 Clear search	Suche löschen	Effacer la recherche	Borrar la búsqueda
+Clear the keys	Tasten entfernen	Retirer les touches	Quitar las teclas
+Click a key to change it, or + to add one; Escape stops waiting for a key.	Klicke auf eine Taste, um sie zu ändern, oder auf +, um eine hinzuzufügen; Escape bricht das Warten auf eine Taste ab.	Cliquez sur une touche pour la changer, ou sur + pour en ajouter une ; Échap arrête l’attente d’une touche.	Haz clic en una tecla para cambiarla, o en + para añadir otra; Escape deja de esperar una tecla.
 Click lines to select them (Shift+click for a range), then revert just those lines in the working tree.	Zeilen anklicken, um sie auszuwählen (Umschalt+Klick für einen Bereich), dann nur diese Zeilen im Arbeitsverzeichnis zurücknehmen.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis annulez uniquement ces lignes dans le répertoire de travail.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y revierte solo esas líneas en el directorio de trabajo.
 Click lines to select them (Shift+click for a range), then stage or discard just those lines.	Klicke auf Zeilen, um sie auszuwählen (Umschalt+Klick für einen Bereich), und merke dann nur diese Zeilen vor oder verwirf sie.	Cliquez sur des lignes pour les sélectionner (Maj+clic pour une plage), puis indexez ou supprimez seulement ces lignes.	Haz clic en líneas para seleccionarlas (Mayús+clic para un rango) y luego prepara o descarta solo esas líneas.
+Click, then press the new key	Klicken, dann die neue Taste drücken	Cliquez, puis appuyez sur la nouvelle touche	Haz clic y pulsa la nueva tecla
 Clone	Klonen	Cloner	Clonar
 Clone complete	Klonen abgeschlossen	Clonage terminé	Clonación completada
 Clone failed	Klonen fehlgeschlagen	Échec du clonage	Error al clonar
@@ -160,6 +164,7 @@ Clone submodules too	Submodule mitklonen	Cloner aussi les sous-modules	Clonar ta
 Clones another repository into a folder of this one, pinned to one commit of it.	Klont ein anderes Repository in einen Ordner dieses Repositorys, festgelegt auf einen seiner Commits.	Clone un autre dépôt dans un dossier de celui-ci, fixé sur l’un de ses commits.	Clona otro repositorio en una carpeta de este, fijado a uno de sus commits.
 Clone…	Klonen…	Cloner…	Clonar…
 Close	Schließen	Fermer	Cerrar
+Close a menu, dialog or search	Menü, Dialog oder Suche schließen	Fermer un menu, une boîte de dialogue ou la recherche	Cerrar un menú, un diálogo o la búsqueda
 Close tab	Tab schließen	Fermer l’onglet	Cerrar pestaña
 Close without changing anything	Schließen, ohne etwas zu ändern	Fermer sans rien modifier	Cerrar sin cambiar nada
 Co-authors	Co-Autoren	Co-auteurs	Coautores
@@ -495,6 +500,7 @@ missing	fehlt	manquant	falta
 Mixed: keep changes, unstaged	Gemischt: Änderungen behalten, nicht vorgemerkt	Mixte : garder les modifications, non indexées	Mixto: conservar los cambios sin preparar
 More	Mehr	Plus	Más
 More history fetched	Weiterer Verlauf abgerufen	Historique supplémentaire récupéré	Más historial obtenido
+Move a commit in the interactive rebase editor	Einen Commit im interaktiven Rebase-Editor verschieben	Déplacer un commit dans l’éditeur de rebase interactif	Mover un commit en el editor de rebase interactivo
 Move down (before its parent)	Nach unten (vor sein Elternteil)	Descendre (avant son parent)	Bajar (antes de su padre)
 Move fixup! and squash! commits under the commit they name	fixup!- und squash!-Commits unter den genannten Commit verschieben	Placer les commits fixup! et squash! sous le commit qu’ils nomment	Mover los commits fixup! y squash! bajo el commit que nombran
 Move left	Nach links	Déplacer à gauche	Mover a la izquierda
@@ -537,6 +543,7 @@ No stashes	Keine Stashes	Aucune remise	No hay stashes
 No tags	Keine Tags	Aucun tag	No hay etiquetas
 No unstaged changes	Keine nicht vorgemerkten Änderungen	Aucune modification non indexée	No hay cambios sin preparar
 No upstream	Kein Upstream	Pas d’amont	Sin upstream
+Not assigned	Nicht belegt	Non attribué	Sin asignar
 Not set	Nicht gesetzt	Non défini	Sin definir
 Not set (GPG)	Nicht gesetzt (GPG)	Non défini (GPG)	Sin definir (GPG)
 Nothing	Nichts	Rien	Nada
@@ -592,6 +599,7 @@ Pop	Pop	Appliquer et supprimer	Pop
 Pop (apply and drop)	Pop (anwenden und verwerfen)	Pop (appliquer puis supprimer)	Pop (aplicar y descartar)
 Popping stash	Stash wird angewendet und verworfen	Application et suppression de la remise	Aplicando y descartando el stash
 Preferences…	Einstellungen…	Préférences…	Preferencias…
+Press a key…	Taste drücken…	Appuyez sur une touche…	Pulsa una tecla…
 Preview…	Vorschau…	Aperçu…	Vista previa…
 Prune stale branches	Veraltete Branches entfernen	Nettoyer les branches obsolètes	Eliminar ramas obsoletas
 Prune stale worktrees	Veraltete Worktrees entfernen	Nettoyer les arbres de travail obsolètes	Eliminar árboles de trabajo obsoletos
@@ -636,6 +644,7 @@ Recent	Zuletzt geöffnet	Récents	Recientes
 Recover discarded changes	Verworfene Änderungen wiederherstellen	Récupérer les modifications supprimées	Recuperar cambios descartados
 Recover discarded changes…	Verworfene Änderungen wiederherstellen…	Récupérer les modifications supprimées…	Recuperar cambios descartados…
 Redo	Wiederholen	Rétablir	Rehacer
+Redo the last operation	Den letzten Vorgang wiederherstellen	Rétablir la dernière opération	Rehacer la última operación
 Redo: {action}	Wiederholen: {action}	Rétablir : {action}	Rehacer: {action}
 Redoing	Wird wiederholt	Rétablissement	Rehaciendo
 Redone: {action}	Wiederholt: {action}	Rétabli : {action}	Rehecho: {action}
@@ -676,6 +685,7 @@ Repository maintenance	Repository-Wartung	Maintenance du dépôt	Mantenimiento d
 Repository tidied up	Repository aufgeräumt	Dépôt nettoyé	Repositorio ordenado
 Reset	Zurücksetzen	Réinitialiser	Restablecer
 Reset (hard)	Zurücksetzen (hart)	Réinitialiser (dur)	Restablecer (duro)
+Reset all	Alle zurücksetzen	Tout réinitialiser	Restablecer todo
 Reset columns	Spalten zurücksetzen	Réinitialiser les colonnes	Restablecer columnas
 Reset to {commit}	Auf {commit} zurückgesetzt	Réinitialisé à {commit}	Restablecido a {commit}
 Reset {current} to here	{current} hierher zurücksetzen	Réinitialiser {current} ici	Restablecer {current} aquí
@@ -736,6 +746,7 @@ Searching…	Suche läuft…	Recherche…	Buscando…
 Select a commit	Commit auswählen	Sélectionnez un commit	Selecciona un commit
 Select a commit to see its details	Wähle einen Commit, um seine Details zu sehen	Sélectionnez un commit pour voir ses détails	Selecciona un commit para ver sus detalles
 Select a file to see its changes	Wähle eine Datei, um ihre Änderungen zu sehen	Sélectionnez un fichier pour voir ses modifications	Selecciona un archivo para ver sus cambios
+Select every file of the list	Alle Dateien der Liste auswählen	Sélectionner tous les fichiers de la liste	Seleccionar todos los archivos de la lista
 Selected changes in {path}	Ausgewählte Änderungen in {path}	Modifications sélectionnées dans {path}	Cambios seleccionados en {path}
 Selected changes stashed	Ausgewählte Änderungen gestasht	Modifications sélectionnées remisées	Cambios seleccionados guardados en stash
 Set up LFS for this repository	LFS für dieses Repository einrichten	Configurer LFS pour ce dépôt	Configurar LFS para este repositorio
@@ -888,10 +899,10 @@ Tracking branch	Verfolgter Branch	Branche suivie	Rama de seguimiento
 Uncommitted changes	Nicht committete Änderungen	Modifications non validées	Cambios sin commit
 Uncommitted changes are stashed before the rebase and put back after it.	Nicht committete Änderungen werden vor dem Rebase in den Stash gelegt und danach zurückgeholt.	Les modifications non validées sont remisées avant le rebase et restaurées après.	Los cambios sin commit se guardan en el stash antes del rebase y se restauran después.
 Undo	Rückgängig	Annuler	Deshacer
-Undo / redo the last operation	Letzte Aktion rückgängig machen / wiederholen	Annuler / rétablir la dernière opération	Deshacer / rehacer la última operación
 Undo commit	Commit rückgängig machen	Annuler le commit	Deshacer commit
 Undo last commit	Letzten Commit rückgängig machen	Annuler le dernier commit	Deshacer el último commit
 Undo last commit (keep changes)	Letzten Commit rückgängig machen (Änderungen behalten)	Annuler le dernier commit (garder les modifications)	Deshacer el último commit (conservar cambios)
+Undo the last operation	Den letzten Vorgang rückgängig machen	Annuler la dernière opération	Deshacer la última operación
 Undo: {action}	Rückgängig: {action}	Annuler : {action}	Deshacer: {action}
 Undoing	Wird rückgängig gemacht	Annulation	Deshaciendo
 Undoing commit	Commit wird rückgängig gemacht	Annulation du commit	Deshaciendo commit
@@ -955,7 +966,6 @@ you@example.com	du@example.com	vous@example.com	tu@example.com
 Your commit (being replayed)	Dein Commit (wird neu angewendet)	Votre commit (rejoué)	Tu commit (se vuelve a aplicar)
 Your name, as commits show it	Dein Name, wie Commits ihn zeigen	Votre nom, tel que les commits l’affichent	Tu nombre, como lo muestran los commits
 Your settings for every repository (git config --global).	Deine Einstellungen für alle Repositorys (git config --global).	Vos réglages pour tous les dépôts (git config --global).	Tus ajustes para todos los repositorios (git config --global).
-Zoom	Zoom	Zoom	Zoom
 Zoom in	Vergrößern	Zoom avant	Acercar
 Zoom out	Verkleinern	Zoom arrière	Alejar
 {branches} hidden: {names}	{branches} ausgeblendet: {names}	{branches} masquées : {names}	{branches} ocultas: {names}
@@ -978,6 +988,7 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {count} worktrees	{count} Worktrees	{count} arbres de travail	{count} árboles de trabajo
 {files} changed	{files} geändert	{files} modifiés	{files} modificados
 {files} conflicted. Resolve them in Local Changes, then continue.	{files} mit Konflikten. Löse sie unter Lokale Änderungen und setze dann fort.	{files} en conflit. Résolvez-les dans Modifications locales, puis continuez.	{files} con conflictos. Resuélvelos en Cambios locales y luego continúa.
+{key} was taken from “{command}”	{key} wurde „{command}“ weggenommen	{key} a été retiré de « {command} »	{key} se ha quitado de «{command}»
 {label} failed	{label} fehlgeschlagen	Échec : {label}	Error: {label}
 {lines} selected	{lines} ausgewählt	{lines} sélectionnées	{lines} seleccionadas
 {name} · being merged	{name} · wird gemergt	{name} · en cours de fusion	{name} · se está fusionando

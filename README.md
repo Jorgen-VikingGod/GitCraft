@@ -253,6 +253,10 @@ banner with Continue / Skip / Abort and can be resolved in the built-in conflict
 <details>
 <summary><b>Keyboard shortcuts</b></summary>
 
+These are the defaults. *Settings › Keyboard shortcuts* changes them: click a key and press the new
+one, add a second key with +, go back to the default or clear a command's keys. Your keys are saved
+in `config.toml` and shown in the menus.
+
 | Keys | Action |
 | --- | --- |
 | Ctrl/⌘ + 1 / 2 | All commits / Local changes |

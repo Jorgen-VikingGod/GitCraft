@@ -1819,17 +1819,14 @@ const THEMES: [(&str, &str); 3] = [
     ("dark", "Dark"),
 ];
 
-const SHORTCUTS: [(&str, &str); 10] = [
-    ("Ctrl/⌘ + 1 / 2", "All commits / Local changes"),
-    ("Ctrl/⌘ + Z / Shift + Z", "Undo / redo the last operation"),
-    ("Ctrl/⌘ + F", "Search commits"),
-    ("Ctrl/⌘ + T or O", "Open repository"),
-    ("Ctrl/⌘ + W", "Close tab"),
-    ("Ctrl/⌘ + Enter", "Commit"),
-    ("Ctrl/⌘ + Shift + Enter", "Stage everything and commit"),
-    ("Ctrl/⌘ + + / − / 0", "Zoom"),
-    ("F5 / Ctrl/⌘ + R", "Refresh repository"),
+/// Keys that are always the same, listed under the ones that can be changed.
+const FIXED_KEYS: [(&str, &str); 3] = [
     ("↑ ↓ PgUp PgDn", "Move through commits or files"),
+    ("Esc", "Close a menu, dialog or search"),
+    (
+        "Alt + ↑ / ↓",
+        "Move a commit in the interactive rebase editor",
+    ),
 ];
 
 /// A titled group of settings.
@@ -2310,16 +2307,126 @@ fn settings_git(ui: &mut Ui, cx: &Cx) {
 }
 
 fn settings_shortcuts(ui: &mut Ui, cx: &Cx) {
-    use egui::{Grid, RichText};
     let look = cx.look();
-    Grid::new("shortcuts")
+    let c = &look.c;
+    let platform = craft_keymap::Platform::current();
+    let user = &cx.app.settings.shortcuts.keys;
+    let recording = cx.app.recording.as_ref();
+    ui.horizontal(|ui| {
+        muted(
+            ui,
+            look,
+            tr("Click a key to change it, or + to add one; Escape stops waiting for a key."),
+            12.5,
+        );
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if btn(ui, look, "Reset all", !user.is_empty()) {
+                for (id, _, _) in crate::logic::SHORTCUTS {
+                    cx.send(Message::ShortcutReset(id.to_owned()));
+                }
+            }
+        });
+    });
+    ui.add_space(4.0);
+    for (id, label, _) in crate::logic::SHORTCUTS {
+        let keys = crate::logic::shortcut_keys(user, id);
+        let own = user.contains_key(id);
+        let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::hover());
+        ui.painter().hline(
+            rect.x_range(),
+            rect.bottom() - 0.5,
+            Stroke::new(1.0, c.card_line),
+        );
+        region(ui, rect, |ui| {
+            ui.horizontal_centered(|ui| {
+                text(ui, tr(label), look.text_size, c.text);
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing.x = 6.0;
+                    let clear = small_icon(ui, cx, "x", !keys.is_empty(), "Clear the keys");
+                    if clear.clicked() {
+                        cx.send(Message::ShortcutClear(id.to_owned()));
+                    }
+                    let reset = small_icon(ui, cx, "undo", own, "Back to the default keys");
+                    if reset.clicked() {
+                        cx.send(Message::ShortcutReset(id.to_owned()));
+                    }
+                    let adding = recording == Some(&(id.to_owned(), None));
+                    if adding {
+                        key_chip(ui, cx, tr("Press a key…"), true);
+                    } else if small_icon(ui, cx, "plus", true, "Add a key").clicked() {
+                        cx.send(Message::ShortcutRecord(id.to_owned(), None));
+                    }
+                    // Right to left: the last key first, so they read left to right.
+                    for (slot, key) in keys.iter().enumerate().rev() {
+                        let waiting = recording == Some(&(id.to_owned(), Some(slot)));
+                        let shown = if waiting {
+                            tr("Press a key…").to_owned()
+                        } else {
+                            key.display(platform)
+                        };
+                        if key_chip(ui, cx, &shown, waiting)
+                            .on_hover_text(tr("Click, then press the new key"))
+                            .clicked()
+                        {
+                            cx.send(Message::ShortcutRecord(id.to_owned(), Some(slot)));
+                        }
+                    }
+                    if keys.is_empty() && !adding {
+                        muted(ui, look, tr("Not assigned"), 12.5);
+                    }
+                });
+            });
+        });
+    }
+    ui.add_space(12.0);
+    // Keys that can't be changed, for reference.
+    egui::Grid::new("fixed_keys")
         .num_columns(2)
         .spacing([24.0, 6.0])
         .show(ui, |ui| {
-            for (keys, what) in SHORTCUTS {
-                ui.label(RichText::new(keys).monospace().size(12.0));
+            for (keys, what) in FIXED_KEYS {
+                ui.label(egui::RichText::new(keys).monospace().size(12.0));
                 muted(ui, look, tr(what), look.text_size);
                 ui.end_row();
             }
         });
+}
+
+/// A key of a shortcut, as a chip that is clicked to record a new one; lit while it waits.
+fn key_chip(ui: &mut Ui, cx: &Cx, label: &str, waiting: bool) -> egui::Response {
+    let look = cx.look();
+    let c = &look.c;
+    let font = look.mono(12.0);
+    let width = super::widgets::text_width(ui, label, &font) + 16.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 24.0), Sense::click());
+    let (fill_color, line, color) = if waiting {
+        (c.selection, c.accent, c.text)
+    } else if response.hovered() {
+        (c.hover_strong, c.border, c.text)
+    } else {
+        (c.panel_2, c.border, c.text)
+    };
+    ui.painter().rect_filled(rect, 4.0, fill_color);
+    ui.painter()
+        .rect_stroke(rect, 4.0, Stroke::new(1.0, line), StrokeKind::Inside);
+    ui.painter()
+        .text(rect.center(), Align2::CENTER_CENTER, label, font, color);
+    response
+}
+
+/// A small icon button with its tooltip.
+fn small_icon(ui: &mut Ui, cx: &Cx, name: &str, enabled: bool, tip: &str) -> egui::Response {
+    let look = cx.look();
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
+    let (rect, response) = ui.allocate_exact_size(vec2(24.0, 24.0), sense);
+    super::widgets::icon_in(ui, look, &response, rect, name, 13.0, enabled);
+    if enabled {
+        response.on_hover_text(tr(tip))
+    } else {
+        response
+    }
 }

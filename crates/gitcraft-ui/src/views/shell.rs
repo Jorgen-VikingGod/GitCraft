@@ -41,16 +41,8 @@ fn bar_node(item: &MenuItem, path: &str) -> Option<craft_menu::Node> {
             ..
         } => {
             let mut entry = Item::new(CommandRef::new(path), tr(label)).enabled(message.is_some());
-            if let Some(shortcut) = shortcut
-                && let Some(key) = craft_keymap::Key::from_egui(shortcut.key)
-            {
-                let mods = craft_keymap::Mods {
-                    cmd: shortcut.command,
-                    ctrl: false,
-                    alt: false,
-                    shift: shortcut.shift,
-                };
-                entry = entry.shortcut(craft_menu::Chord { mods, key });
+            if let Some(chord) = shortcut {
+                entry = entry.shortcut(*chord);
             }
             entry = match mark {
                 Mark::None => entry,
@@ -141,7 +133,7 @@ fn menus(ui: &mut Ui, cx: &Cx) {
     let bar = craft_menu::desktop_layout(&bar, target, &options).bar;
     let gate = craft_menu::Gate {
         modal: cx.app.form.is_some(),
-        recording_shortcut: false,
+        recording_shortcut: cx.app.recording.is_some(),
         text_editing: ui.ctx().egui_wants_keyboard_input(),
     };
     // egui's built-in fonts have no ✓ or ●, craft-menu's default marks.

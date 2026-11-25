@@ -464,6 +464,116 @@ pub fn build_result(chunks: &[ConflictChunk], choices: &[Option<Choice>]) -> Str
     lines.join("\n")
 }
 
+// -------------------------------------------------------------- shortcuts
+
+/// The commands keys can be given to: (id, English label, default keys). Keys are written as
+/// craft-keymap chords, where `Cmd` is Ctrl outside macOS. The arrow keys, Escape and the
+/// rebase editor's letters are fixed and not listed.
+pub const SHORTCUTS: [(&str, &str, &[&str]); 16] = [
+    ("view.history", "All commits", &["Cmd+1"]),
+    ("view.changes", "Local changes", &["Cmd+2"]),
+    ("edit.undo", "Undo the last operation", &["Cmd+Z"]),
+    (
+        "edit.redo",
+        "Redo the last operation",
+        &["Cmd+Shift+Z", "Cmd+Y"],
+    ),
+    ("search", "Search commits", &["Cmd+F"]),
+    (
+        "files.select_all",
+        "Select every file of the list",
+        &["Cmd+A"],
+    ),
+    ("repo.open", "Open repository", &["Cmd+O", "Cmd+T"]),
+    ("tab.close", "Close tab", &["Cmd+W"]),
+    ("commit", "Commit", &["Cmd+Enter"]),
+    (
+        "commit.all",
+        "Stage everything and commit",
+        &["Cmd+Shift+Enter"],
+    ),
+    ("repo.refresh", "Refresh repository", &["F5", "Cmd+R"]),
+    ("settings", "Settings", &["Cmd+Comma"]),
+    ("zoom.in", "Zoom in", &["Cmd+Equals", "Cmd+Plus"]),
+    ("zoom.out", "Zoom out", &["Cmd+Minus"]),
+    ("zoom.reset", "Actual size", &["Cmd+0"]),
+    ("window.fullscreen", "Full screen", &["F11"]),
+];
+
+/// A command's keys: the user's (an empty list: cleared), else its defaults.
+pub fn shortcut_keys(user: &BTreeMap<String, Vec<String>>, id: &str) -> Vec<craft_keymap::Chord> {
+    let texts: Vec<&str> = match user.get(id) {
+        Some(own) => own.iter().map(String::as_str).collect(),
+        None => SHORTCUTS
+            .iter()
+            .find(|(each, _, _)| *each == id)
+            .map_or_else(Vec::new, |(_, _, keys)| keys.to_vec()),
+    };
+    texts
+        .into_iter()
+        .filter_map(|text| craft_keymap::Chord::parse(text).ok())
+        .collect()
+}
+
+/// Gives `id` the key `chord`, in place of its key number `slot` or (`None`) added to its keys,
+/// and takes it from any other command that had it. Returns the commands it was taken from.
+pub fn assign_shortcut(
+    user: &mut BTreeMap<String, Vec<String>>,
+    id: &str,
+    slot: Option<usize>,
+    chord: &craft_keymap::Chord,
+) -> Vec<&'static str> {
+    let mut taken = Vec::new();
+    for (other, _, _) in SHORTCUTS {
+        if other == id {
+            continue;
+        }
+        let keys = shortcut_keys(user, other);
+        if keys.contains(chord) {
+            let kept: Vec<String> = keys
+                .iter()
+                .filter(|key| *key != chord)
+                .map(ToString::to_string)
+                .collect();
+            user.insert(other.to_owned(), kept);
+            taken.push(other);
+        }
+    }
+    let mut keys = shortcut_keys(user, id);
+    match slot.filter(|slot| *slot < keys.len()) {
+        Some(slot) => keys[slot] = *chord,
+        None if !keys.contains(chord) => keys.push(*chord),
+        None => {}
+    }
+    // The same key twice, after replacing one with a key it already has.
+    let mut unique: Vec<craft_keymap::Chord> = Vec::new();
+    for key in keys {
+        if !unique.contains(&key) {
+            unique.push(key);
+        }
+    }
+    user.insert(
+        id.to_owned(),
+        unique.iter().map(ToString::to_string).collect(),
+    );
+    forget_defaults(user, id);
+    taken
+}
+
+/// A command whose keys are its defaults again needs no entry of its own.
+fn forget_defaults(user: &mut BTreeMap<String, Vec<String>>, id: &str) {
+    let defaults: Vec<craft_keymap::Chord> = shortcut_keys(&BTreeMap::new(), id);
+    if user.get(id).is_some() && shortcut_keys(user, id) == defaults {
+        user.remove(id);
+    }
+}
+
+/// Whether the branch `full` (`refs/heads/…`) can be hidden from the graph: not the branch
+/// checked out, whose commits git shows anyway (only its label would go).
+pub fn can_hide(full: &str, current_branch: Option<&str>) -> bool {
+    current_branch.is_none_or(|current| full != format!("refs/heads/{current}"))
+}
+
 /// What the operation banner calls the operation in progress: "Merging feature into main",
 /// "Rebasing feature onto main". Without names (sides unknown) the plain "Merge in progress".
 pub fn operation_title(operation: &Operation, sides: Option<&OperationSides>) -> String {
@@ -1289,6 +1399,53 @@ mod tests {
         assert!(commit_box_gives_way(Some(&Operation::CherryPick {
             head: "a".into()
         })));
+    }
+
+    #[test]
+    fn every_default_shortcut_is_a_key_and_none_is_given_twice() {
+        let none = BTreeMap::new();
+        let mut seen = Vec::new();
+        for (id, _, defaults) in SHORTCUTS {
+            let keys = shortcut_keys(&none, id);
+            assert_eq!(keys.len(), defaults.len(), "{id}: {defaults:?}");
+            for key in keys {
+                assert!(!seen.contains(&key), "{key} twice");
+                seen.push(key);
+            }
+        }
+    }
+
+    #[test]
+    fn shortcuts_are_changed_added_cleared_and_taken_from_others() {
+        let chord = |text: &str| craft_keymap::Chord::parse(text).unwrap();
+        let mut user = BTreeMap::new();
+        // Search gets Ctrl+K in place of Ctrl+F.
+        assert!(assign_shortcut(&mut user, "search", Some(0), &chord("Cmd+K")).is_empty());
+        assert_eq!(shortcut_keys(&user, "search"), [chord("Cmd+K")]);
+        // A second key for it, taken from Refresh.
+        let taken = assign_shortcut(&mut user, "search", None, &chord("F5"));
+        assert_eq!(taken, ["repo.refresh"]);
+        assert_eq!(
+            shortcut_keys(&user, "search"),
+            [chord("Cmd+K"), chord("F5")]
+        );
+        assert_eq!(shortcut_keys(&user, "repo.refresh"), [chord("Cmd+R")]);
+        // Cleared is kept as cleared; defaults again need no entry.
+        user.insert("commit".into(), Vec::new());
+        assert!(shortcut_keys(&user, "commit").is_empty());
+        assign_shortcut(&mut user, "zoom.out", Some(0), &chord("Cmd+Minus"));
+        assert!(!user.contains_key("zoom.out"), "back to its default");
+    }
+
+    #[test]
+    fn the_checked_out_branch_cannot_be_hidden() {
+        assert!(!can_hide("refs/heads/main", Some("main")));
+        assert!(can_hide("refs/heads/topic", Some("main")));
+        assert!(can_hide("refs/remotes/origin/main", Some("main")));
+        assert!(
+            can_hide("refs/heads/main", None),
+            "detached: nothing is checked out"
+        );
     }
 
     #[test]

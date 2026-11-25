@@ -13,32 +13,6 @@ fn shown(label: impl Into<String>) -> String {
     tr(&label).to_owned()
 }
 
-/// A key with its modifiers. `command` is Ctrl, or ⌘ on a Mac.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Shortcut {
-    pub key: egui::Key,
-    pub command: bool,
-    pub shift: bool,
-}
-
-impl Shortcut {
-    pub const fn command(key: egui::Key) -> Self {
-        Self {
-            key,
-            command: true,
-            shift: false,
-        }
-    }
-
-    pub const fn plain(key: egui::Key) -> Self {
-        Self {
-            key,
-            command: false,
-            shift: false,
-        }
-    }
-}
-
 /// A tick or a dot in front of an entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mark {
@@ -62,7 +36,7 @@ pub enum MenuItem {
         message: Option<Message>,
         danger: bool,
         /// The key that does the same, shown beside the label (the app handles the key itself).
-        shortcut: Option<Shortcut>,
+        shortcut: Option<craft_keymap::Chord>,
         mark: Mark,
     },
     Sub {
@@ -114,10 +88,11 @@ impl MenuItem {
             children,
         }
     }
-    /// Shows `shortcut` beside the entry.
-    pub fn key(mut self, key: Shortcut) -> Self {
+    /// Shows `key` beside the entry, when it has one (a command whose keys were cleared
+    /// has none).
+    pub fn key(mut self, key: Option<craft_keymap::Chord>) -> Self {
         if let Self::Entry { shortcut, .. } = &mut self {
-            *shortcut = Some(key);
+            *shortcut = key;
         }
         self
     }
