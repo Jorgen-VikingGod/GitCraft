@@ -176,9 +176,6 @@ Committing…	Commit läuft…	Validation…	Haciendo commit…
 Compare	Vergleichen	Comparer	Comparar
 Compare commit ranges	Commit-Bereiche vergleichen	Comparer des plages de commits	Comparar rangos de commits
 Compare commit ranges…	Commit-Bereiche vergleichen…	Comparer des plages de commits…	Comparar rangos de commits…
-Compare with HEAD	Mit HEAD vergleichen	Comparer avec HEAD	Comparar con HEAD
-Compare with working directory	Mit dem Arbeitsverzeichnis vergleichen	Comparer avec le répertoire de travail	Comparar con el directorio de trabajo
-Compare with {commit}	Mit {commit} vergleichen	Comparer avec {commit}	Comparar con {commit}
 Comparing commits	Commits vergleichen	Comparaison de commits	Comparando commits
 Conflict markers remain	Konfliktmarkierungen vorhanden	Des marqueurs de conflit subsistent	Quedan marcadores de conflicto
 Conflict {number}	Konflikt {number}	Conflit {number}	Conflicto {number}
@@ -217,6 +214,7 @@ Create	Erstellen	Créer	Crear
 Create a commit that reverts “{subject}”?	Einen Commit erstellen, der „{subject}“ rückgängig macht?	Créer un commit qui annule « {subject} » ?	¿Crear un commit que revierta «{subject}»?
 Create branch	Branch erstellen	Créer une branche	Crear rama
 Create commits (git am, for format-patch files)	Commits erstellen (git am, für format-patch-Dateien)	Créer des commits (git am, pour les fichiers format-patch)	Crear commits (git am, para archivos de format-patch)
+Create here	Hier erstellen	Créer ici	Crear aquí
 Create tag	Tag erstellen	Créer un tag	Crear etiqueta
 Created tag {name}	Tag {name} erstellt	Tag {name} créé	Etiqueta {name} creada
 Created {name}	{name} erstellt	{name} créée	{name} creada
@@ -337,6 +335,7 @@ Filtered history: {commits} {filters}	Gefilterter Verlauf: {commits} {filters}	H
 First bad commit: {commit}	Erster fehlerhafter Commit: {commit}	Premier commit cassé : {commit}	Primer commit roto: {commit}
 First branch	Erster Branch	Première branche	Primera rama
 First branch of new repositories	Erster Branch neuer Repositorys	Première branche des nouveaux dépôts	Primera rama de los repositorios nuevos
+Fixup	Fixup	Fusionner (fixup)	Fixup
 Fixup commit for {commit} created; an interactive rebase with autosquash folds it in	Fixup-Commit für {commit} erstellt; ein interaktiver Rebase mit Autosquash fügt ihn ein	Commit fixup pour {commit} créé ; un rebase interactif avec autosquash l’intègre	Commit fixup para {commit} creado; un rebase interactivo con autosquash lo integra
 Fixup commit of the staged changes	Fixup-Commit aus den vorgemerkten Änderungen	Commit fixup des modifications indexées	Commit fixup de los cambios preparados
 Fold “{subject}” into its parent commit.	„{subject}“ in den Eltern-Commit einfalten.	Fusionner « {subject} » dans son commit parent.	Integrar «{subject}» en su commit padre.
@@ -464,6 +463,7 @@ Marking as conflicted	Wird als Konflikt markiert	Marquage comme conflit	Marcando
 Maximize	Maximieren	Agrandir	Maximizar
 Meld into the commit above, combine messages	Mit dem Commit darüber verschmelzen, Nachrichten zusammenführen	Fusionner avec le commit au-dessus, combiner les messages	Fundir con el commit de arriba, combinar mensajes
 Meld into the commit above, discard this message	Mit dem Commit darüber verschmelzen, diese Nachricht verwerfen	Fusionner avec le commit au-dessus, supprimer ce message	Fundir con el commit de arriba, descartar este mensaje
+Melds into the commit above	Wird mit dem Commit darüber verschmolzen	Fusionne avec le commit au-dessus	Se funde con el commit de arriba
 Merge	Merge	Fusionner	Fusionar
 Merge (create a merge commit if needed)	Merge (bei Bedarf einen Merge-Commit erstellen)	Fusionner (créer un commit de fusion si nécessaire)	Fusionar (crear un commit de fusión si hace falta)
 Merge commits cannot be edited this way	Merge-Commits können so nicht bearbeitet werden	Les commits de fusion ne peuvent pas être modifiés ainsi	Los commits de fusión no se pueden editar así
@@ -494,16 +494,13 @@ Name	Name	Nom	Nombre
 Name <name@example.com>	Name <name@example.com>	Nom <nom@example.com>	Nombre <nombre@example.com>
 New branch	Neuer Branch	Nouvelle branche	Nueva rama
 New branch from stash…	Neuer Branch aus Stash…	Nouvelle branche depuis la remise…	Nueva rama desde el stash…
-New branch here…	Neuer Branch hier…	Nouvelle branche ici…	Nueva rama aquí…
 New branch…	Neuer Branch…	Nouvelle branche…	Nueva rama…
 New name	Neuer Name	Nouveau nom	Nombre nuevo
 New range	Neuer Bereich	Nouvelle plage	Rango nuevo
 New repository	Neues Repository	Nouveau dépôt	Repositorio nuevo
 New repository…	Neues Repository…	Nouveau dépôt…	Repositorio nuevo…
 New tag	Neues Tag	Nouveau tag	Etiqueta nueva
-New tag here…	Neues Tag hier…	Nouveau tag ici…	Etiqueta nueva aquí…
 New versions of matching files go to the LFS server; the repository keeps a small pointer to each. Files already committed stay as they are.	Neue Versionen passender Dateien gehen auf den LFS-Server; das Repository behält für jede einen kleinen Verweis. Bereits committete Dateien bleiben, wie sie sind.	Les nouvelles versions des fichiers correspondants vont sur le serveur LFS ; le dépôt garde un petit pointeur vers chacune. Les fichiers déjà validés restent tels quels.	Las nuevas versiones de los archivos que coinciden van al servidor LFS; el repositorio guarda un pequeño puntero a cada una. Los archivos ya confirmados quedan como están.
-New worktree here…	Neuer Worktree hier…	Nouvel arbre de travail ici…	Nuevo árbol de trabajo aquí…
 New…	Neu…	Nouveau…	Nuevo…
 No	Nein	Non	No
 No branches	Keine Branches	Aucune branche	No hay ramas
@@ -570,9 +567,11 @@ Pack objects and drop ones nothing needs any more (gc)	Objekte packen und nicht 
 Parent	Elternteil	Parent	Padre
 Parents	Eltern	Parents	Padres
 Part of a name or address	Teil eines Namens oder einer Adresse	Partie d’un nom ou d’une adresse	Parte de un nombre o una dirección
+Patch	Patch	Patch	Parche
 Patch applied	Patch angewendet	Patch appliqué	Parche aplicado
 Patches	Patches	Patchs	Parches
 Patterns, separated by spaces	Muster, durch Leerzeichen getrennt	Motifs, séparés par des espaces	Patrones, separados por espacios
+Pick	Übernehmen	Garder	Usar
 Pop	Pop	Appliquer et supprimer	Pop
 Pop (apply and drop)	Pop (anwenden und verwerfen)	Pop (appliquer puis supprimer)	Pop (aplicar y descartar)
 Popping stash	Stash wird angewendet und verworfen	Application et suppression de la remise	Aplicando y descartando el stash
@@ -686,6 +685,7 @@ Reverted in {path}; the change is uncommitted	In {path} zurückgenommen; die Än
 Reverting	Wird rückgängig gemacht	Annulation (revert)	Revirtiendo
 Reverting lines	Zeilen werden zurückgenommen	Annulation des lignes	Revirtiendo líneas
 Reverting lines is disabled while “Ignore whitespace” is on.	Zeilen zurücknehmen ist deaktiviert, solange „Leerraum ignorieren“ an ist.	L’annulation de lignes est désactivée tant que « Ignorer les espaces » est activé.	Revertir líneas está desactivado mientras «Ignorar espacios» esté activado.
+Reword	Umformulieren	Reformuler	Reformular
 Reworded commits need a message.	Umformulierte Commits brauchen eine Nachricht.	Les commits reformulés ont besoin d’un message.	Los commits reformulados necesitan un mensaje.
 Rewrite the history as planned above	Den Verlauf wie oben geplant neu schreiben	Réécrire l’historique comme prévu ci-dessus	Reescribir el historial como se planeó arriba
 Rewrite {branch} on top of {base}. Commits are applied from top to bottom.	{branch} auf {base} neu schreiben. Commits werden von oben nach unten angewendet.	Réécrire {branch} sur {base}. Les commits sont appliqués de haut en bas.	Reescribir {branch} sobre {base}. Los commits se aplican de arriba abajo.
@@ -818,6 +818,7 @@ Tag name	Tag-Name	Nom du tag	Nombre de la etiqueta
 Tag {commit}	{commit} taggen	Taguer {commit}	Etiquetar {commit}
 Tag {name}	Tag {name}	Tag {name}	Etiqueta {name}
 Tags	Tags	Tags	Etiquetas
+Tag…	Tag…	Tag…	Etiqueta…
 Take this file from the stash	Diese Datei aus dem Stash holen	Récupérer ce fichier de la remise	Tomar este archivo del stash
 Taking the file from the stash	Datei wird aus dem Stash geholt	Récupération du fichier de la remise	Tomando el archivo del stash
 Test the commit checked out ({commit}), then mark it. {good} good so far.	Teste den ausgecheckten Commit ({commit}) und markiere ihn. Bisher {good} gut.	Testez le commit extrait ({commit}), puis marquez-le. {good} bons jusqu’ici.	Prueba el commit extraído ({commit}) y márcalo. {good} buenos hasta ahora.
@@ -906,6 +907,9 @@ Use theirs	Ihre verwenden	Utiliser le leur	Usar lo suyo
 Using git {version}	git {version} wird verwendet	git {version} est utilisé	Se usa git {version}
 View	Ansicht	Affichage	Ver
 Window	Fenster	Fenêtre	Ventana
+With HEAD	Mit HEAD	Avec HEAD	Con HEAD
+With the working directory	Mit dem Arbeitsverzeichnis	Avec le répertoire de travail	Con el directorio de trabajo
+With {commit}	Mit {commit}	Avec {commit}	Con {commit}
 Working directory	Arbeitsverzeichnis	Répertoire de travail	Directorio de trabajo
 Working tree is clean	Arbeitsverzeichnis ist sauber	L’arbre de travail est propre	El árbol de trabajo está limpio
 worktree	Worktree	arbre de travail	árbol de trabajo
@@ -913,6 +917,7 @@ Worktree locked	Worktree gesperrt	Arbre de travail verrouillé	Árbol de trabajo
 Worktree removed	Worktree entfernt	Arbre de travail retiré	Árbol de trabajo quitado
 Worktree unlocked	Worktree entsperrt	Arbre de travail déverrouillé	Árbol de trabajo desbloqueado
 Worktrees	Worktrees	Arbres de travail	Árboles de trabajo
+Worktree…	Worktree…	Arbre de travail…	Árbol de trabajo…
 Write the commit-graph, which speeds up the history	Den Commit-Graph schreiben, der den Verlauf beschleunigt	Écrire le commit-graph, qui accélère l’historique	Escribir el commit-graph, que acelera el historial
 X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)
 Yes	Ja	Oui	Sí

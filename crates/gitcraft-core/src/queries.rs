@@ -456,6 +456,30 @@ pub async fn log_filtered(
         .filter(|name| existing.contains(name))
         .map(|name| format!("--exclude={name}"))
         .collect();
+    // The labels follow the refs in view: a hidden branch whose commits other branches still
+    // reach loses its label, and soloed branches show only theirs (and the tags).
+    let decorations: Vec<String> = if !all_refs || reference.is_some() {
+        Vec::new()
+    } else if !solo.is_empty() {
+        let mut kept: Vec<String> = solo
+            .iter()
+            .map(|name| format!("--decorate-refs={name}"))
+            .chain(["--decorate-refs=refs/tags/".to_owned()])
+            .collect();
+        // HEAD as well when its branch is soloed, or the current branch would lose its mark;
+        // otherwise HEAD alone would look detached.
+        let current = git_unchecked(repo, &["symbolic-ref", "-q", "HEAD"]).await?;
+        if solo.contains(&current.out().trim()) {
+            kept.push("--decorate-refs=HEAD".to_owned());
+        }
+        kept
+    } else {
+        view.hidden
+            .iter()
+            .filter(|name| existing.contains(name))
+            .map(|name| format!("--decorate-refs-exclude={name}"))
+            .collect()
+    };
     let max_count = format!("--max-count={}", limit + 1);
     let mut args = vec![
         "log",
@@ -468,6 +492,7 @@ pub async fn log_filtered(
         LOG_FORMAT,
         &max_count,
     ];
+    args.extend(decorations.iter().map(String::as_str));
     let author = format!("--author={}", filter.author.trim());
     let text = format!("{}{}", if filter.regex { "-G" } else { "-S" }, filter.text);
     let path = filter.path.trim().trim_start_matches("./");

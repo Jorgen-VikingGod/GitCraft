@@ -483,6 +483,7 @@ pub fn choice(
         .selected_text(shown)
         .width(width)
         .show_ui(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = crate::theme::DROPDOWN_GAP;
             for (candidate, label) in options {
                 if ui.selectable_label(candidate == value, label).clicked() {
                     chosen = Some(candidate.clone());

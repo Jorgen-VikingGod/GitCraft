@@ -241,6 +241,84 @@ struct Item {
     current: bool,
     /// Small notes at the right end: text and colour.
     badges: Vec<(String, Color32)>,
+    /// A branch's full ref name: it gets the graph's hide and solo toggles.
+    graph_ref: Option<String>,
+}
+
+/// The hide and solo toggles at the right end of a branch's row, right to left from `right`.
+/// They show while the row is hovered, and stay in the accent colour while on. Returns where
+/// the rest of the row ends.
+fn graph_toggles(ui: &mut Ui, cx: &Cx, body: Rect, full: &str, right: f32) -> f32 {
+    use crate::app::RefVisibility;
+    let look = cx.look();
+    let c = &look.c;
+    let view = &cx.app.current().map(|tab| &tab.ref_view);
+    let hidden = view.is_some_and(|view| view.hidden.iter().any(|name| name == full));
+    let solo = view.is_some_and(|view| view.solo.iter().any(|name| name == full));
+    let hovered = ui.rect_contains_pointer(body);
+    if !hovered && !hidden && !solo {
+        return right;
+    }
+    let toggles = [
+        (
+            "filter",
+            solo,
+            if solo {
+                "Stop soloing"
+            } else {
+                "Solo in graph"
+            },
+            if solo {
+                RefVisibility::Unsolo(full.to_owned())
+            } else {
+                RefVisibility::Solo(full.to_owned())
+            },
+        ),
+        (
+            if hidden { "eye-off" } else { "eye" },
+            hidden,
+            if hidden {
+                "Show in graph"
+            } else {
+                "Hide in graph"
+            },
+            if hidden {
+                RefVisibility::Show(full.to_owned())
+            } else {
+                RefVisibility::Hide(full.to_owned())
+            },
+        ),
+    ];
+    let mut right = right;
+    for (symbol, on, tip, change) in toggles {
+        let rect =
+            Rect::from_center_size(Pos2::new(right - 10.0, body.center().y), vec2(20.0, 20.0));
+        right -= 22.0;
+        // Only the hovered row shows the toggles that are off.
+        if !on && !hovered {
+            continue;
+        }
+        let response = ui
+            .interact(
+                rect,
+                egui::Id::unique(("graph-toggle", full, symbol)),
+                Sense::click(),
+            )
+            .on_hover_text(tr(tip));
+        if response.hovered() {
+            hover_fill(ui, look, rect, 4.0);
+        }
+        icon::paint(
+            ui,
+            symbol,
+            Rect::from_center_size(rect.center(), vec2(13.0, 13.0)),
+            if on { c.accent } else { c.text_muted },
+        );
+        if response.clicked() {
+            cx.send(Message::RefVisibility(change));
+        }
+    }
+    right - 4.0
 }
 
 fn leaf(ui: &mut Ui, cx: &Cx, item: &Item) -> Response {
@@ -268,6 +346,9 @@ fn leaf(ui: &mut Ui, cx: &Cx, item: &Item) -> Response {
         symbol_color,
     );
     let mut right = body.right() - 10.0;
+    if let Some(full) = &item.graph_ref {
+        right = graph_toggles(ui, cx, body, full, right + 6.0);
+    }
     for (note, color) in &item.badges {
         let width = text_width(ui, note, &look.mono(11.0));
         ui.painter().text(
@@ -446,6 +527,7 @@ fn branches(
             related: marks(&format!("b:{}", branch.name), &branch.sha).1,
             current: branch.current,
             badges,
+            graph_ref: Some(format!("refs/heads/{}", branch.name)),
         };
         let response = leaf(ui, cx, &item);
         if response.double_clicked() {
@@ -532,6 +614,7 @@ fn remotes(
                 related: marks(&format!("r:{}", branch.name), &branch.sha).1,
                 current: false,
                 badges: Vec::new(),
+                graph_ref: Some(format!("refs/remotes/{}", branch.name)),
             };
             let response = leaf(ui, cx, &item);
             if response.double_clicked() {
@@ -568,6 +651,7 @@ fn tags_and_more(
         related,
         current: false,
         badges,
+        graph_ref: None,
     };
 
     // Tags

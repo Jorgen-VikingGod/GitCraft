@@ -521,6 +521,9 @@ pub struct RebaseState {
     pub error: Option<String>,
     pub autostash: bool,
     pub focused: usize,
+    /// The highlighted commit's details, for the pane under the list: its sha and what was
+    /// loaded (`None` while loading).
+    pub detail: Option<(String, Option<Result<CommitDetail, String>>)>,
 }
 
 impl RebaseState {
@@ -637,6 +640,41 @@ impl RebaseState {
             let step = self.steps.remove(from);
             self.steps.insert(to, step);
             self.focused = to;
+        }
+    }
+}
+
+/// The pages of the settings window.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum SettingsPage {
+    #[default]
+    Appearance,
+    Diffs,
+    Tools,
+    Repository,
+    Git,
+    Shortcuts,
+}
+
+impl SettingsPage {
+    pub const ALL: [Self; 6] = [
+        Self::Appearance,
+        Self::Diffs,
+        Self::Tools,
+        Self::Repository,
+        Self::Git,
+        Self::Shortcuts,
+    ];
+
+    /// The page's title, in English.
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::Diffs => "Diffs",
+            Self::Tools => "External tools",
+            Self::Repository => "Repository",
+            Self::Git => "Git",
+            Self::Shortcuts => "Keyboard shortcuts",
         }
     }
 }
@@ -848,6 +886,8 @@ pub struct App {
     pub conflict_preview: Option<String>,
     /// Settings › Git, as loaded and as being edited.
     pub git_config: GitConfigState,
+    /// The page the settings window shows.
+    pub settings_page: SettingsPage,
     next_id: u64,
     pub(crate) config_dir: PathBuf,
     pub(crate) store: RepoStore,
@@ -986,6 +1026,8 @@ pub enum Message {
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenDiscards,
     OpenLfsLocks,
+    /// Shows this page of the settings.
+    SettingsPage(SettingsPage),
     LfsLocksLoaded(Answer<Vec<LfsLock>>),
     OpenCleanup,
     OpenSparse,
@@ -1019,6 +1061,8 @@ pub enum Message {
     RebaseBodyLoaded(String, Answer<String>),
     RebaseMove(usize, isize),
     RebaseFocus(usize),
+    /// The details of a commit in the rebase editor: (sha, them).
+    RebaseDetailLoaded(String, Answer<CommitDetail>),
     RebaseAutostash(bool),
     RebaseReset,
     RebaseAutosquash,
@@ -1212,6 +1256,7 @@ impl App {
             effects: Vec::new(),
             conflict_preview: None,
             git_config: GitConfigState::default(),
+            settings_page: SettingsPage::default(),
             next_id: 1,
             config_dir: store.dir(),
             store,
@@ -2436,7 +2481,7 @@ impl App {
                         Err(message) => state.error = Some(message),
                     }
                 }
-                Task::none()
+                self.rebase_detail()
             }
             Message::RebaseSetAction(index, action) => self.rebase_set_action(index, action),
             Message::RebaseMessage(index, text) => {
@@ -2470,11 +2515,20 @@ impl App {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.move_step(index, index.saturating_add_signed(delta));
                 }
-                Task::none()
+                self.rebase_detail()
             }
             Message::RebaseFocus(index) => {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.focused = index;
+                }
+                self.rebase_detail()
+            }
+            Message::RebaseDetailLoaded(sha, result) => {
+                if let Some(Overlay::Rebase(state)) = &mut self.overlay
+                    && let Some((shown, detail)) = &mut state.detail
+                    && *shown == sha
+                {
+                    *detail = Some(result);
                 }
                 Task::none()
             }
@@ -2488,13 +2542,13 @@ impl App {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.reset();
                 }
-                Task::none()
+                self.rebase_detail()
             }
             Message::RebaseAutosquash => {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay {
                     state.autosquash();
                 }
-                Task::none()
+                self.rebase_detail()
             }
             Message::RebaseExec(index, command) => {
                 if let Some(Overlay::Rebase(state)) = &mut self.overlay
@@ -2518,6 +2572,10 @@ impl App {
                     |tab| tab.path.clone(),
                 );
                 Task::batch([find_tools(cwd), config])
+            }
+            Message::SettingsPage(page) => {
+                self.settings_page = page;
+                Task::none()
             }
             Message::GitConfigScope(here) => self.load_git_config(here),
             Message::GitConfigLoaded(here, result) => {
@@ -4124,6 +4182,40 @@ impl App {
         )
     }
 
+    /// Loads the details of the commit highlighted in the rebase editor, unless they are
+    /// what the pane shows already.
+    fn rebase_detail(&mut self) -> Task<Message> {
+        let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        let Some(Overlay::Rebase(state)) = &mut self.overlay else {
+            return Task::none();
+        };
+        let Some(sha) = state
+            .steps
+            .get(state.focused)
+            .map(|step| step.commit.sha.clone())
+        else {
+            state.detail = None;
+            return Task::none();
+        };
+        if state
+            .detail
+            .as_ref()
+            .is_some_and(|(shown, _)| *shown == sha)
+        {
+            return Task::none();
+        }
+        state.detail = Some((sha.clone(), None));
+        Task::perform(
+            async move {
+                let result = answer(queries::commit_detail(&repo, &sha).await);
+                (sha, result)
+            },
+            |(sha, result)| Message::RebaseDetailLoaded(sha, result),
+        )
+    }
+
     fn open_lfs_locks(&mut self) -> Task<Message> {
         let Some(path) = self.current().map(|tab| tab.path.clone()) else {
             return Task::none();
@@ -4369,6 +4461,7 @@ impl App {
             error: None,
             autostash: true,
             focused: 0,
+            detail: None,
         })));
         Task::perform(
             async move { answer(queries::rebase_candidates(&repo, base.as_deref()).await) },
@@ -4430,6 +4523,7 @@ impl App {
             error: None,
             autostash: true,
             focused: 0,
+            detail: None,
         };
         state.reset();
         self.overlay = Some(Overlay::Rebase(Box::new(state)));
@@ -5183,6 +5277,7 @@ mod tests {
             error: None,
             autostash: true,
             focused: 0,
+            detail: None,
         };
         state.reset();
         assert!(state.unchanged());
@@ -5223,6 +5318,7 @@ mod tests {
                 error: None,
                 autostash: true,
                 focused: 0,
+                detail: None,
             };
             state.reset();
             let found = state.apply_preset();

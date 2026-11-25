@@ -1834,40 +1834,35 @@ fn ref_title(target: &RefTarget) -> String {
     }
 }
 
-fn local_ref_items(tab: &RepoTab, branch: &LocalBranch) -> Vec<MenuItem> {
+/// `copy_name` adds "Copy branch name"; a right-clicked branch has it in the commit's Copy
+/// submenu instead.
+fn local_ref_items(tab: &RepoTab, branch: &LocalBranch, copy_name: bool) -> Vec<MenuItem> {
     let current = tab.current_branch();
     let shown = current.unwrap_or("HEAD");
     let name = branch.name.clone();
-    let other = !branch.current && current.is_some();
-    let mut items = vec![
-        MenuItem::entry_if(
+    let mut items = Vec::new();
+    // The current branch can't be checked out, merged or rebased onto itself: left out
+    // rather than offered disabled.
+    if !branch.current {
+        items.push(MenuItem::entry(
             trf("Checkout {name}", &[("name", &name)]),
-            !branch.current,
             run(Command::Checkout {
                 reference: name.clone(),
                 kind: "local",
             }),
-        ),
-        MenuItem::entry_if(
-            trf(
-                "Merge {name} into {shown}…",
-                &[("name", &name), ("shown", shown)],
-            ),
-            other,
-            act(Action::Merge(name.clone())),
-        ),
-        MenuItem::entry_if(
-            trf(
-                "Rebase {shown} onto {name}…",
-                &[("name", &name), ("shown", shown)],
-            ),
-            other,
-            act(Action::Rebase {
-                onto: name.clone(),
-                label: name.clone(),
-            }),
-        ),
-    ];
+        ));
+        if current.is_some() {
+            items.extend(merge_rebase_items(&name, shown));
+        }
+        items.push(MenuItem::Separator);
+    }
+    items.push(MenuItem::entry(
+        "Push…",
+        act(Action::Push(Some(name.clone()))),
+    ));
+    if branch.current {
+        items.push(MenuItem::entry("Pull…", act(Action::Pull)));
+    }
     if let Some(upstream) = &branch.upstream {
         items.push(MenuItem::entry_if(
             trf("Fast-forward to {upstream}", &[("upstream", upstream)]),
@@ -1878,39 +1873,65 @@ fn local_ref_items(tab: &RepoTab, branch: &LocalBranch) -> Vec<MenuItem> {
             }),
         ));
     }
-    items.push(MenuItem::Separator);
-    items.push(MenuItem::entry(
-        "Push…",
-        act(Action::Push(Some(name.clone()))),
-    ));
-    if branch.current {
-        items.push(MenuItem::entry("Pull…", act(Action::Pull)));
-    }
     items.extend([
-        MenuItem::entry("Set upstream…", act(Action::SetUpstream(name.clone()))),
         MenuItem::Separator,
         MenuItem::entry("Rename…", act(Action::RenameBranch(name.clone()))),
-        MenuItem::danger_if(
-            "Delete…",
-            !branch.current,
-            act(Action::DeleteBranch(name.clone())),
-        ),
-        MenuItem::Separator,
     ]);
+    if !branch.current {
+        items.push(MenuItem::danger(
+            "Delete…",
+            act(Action::DeleteBranch(name.clone())),
+        ));
+    }
+    let mut more = vec![MenuItem::entry(
+        "Set upstream…",
+        act(Action::SetUpstream(name.clone())),
+    )];
     // A branch checked out somewhere already can't be checked out in another worktree.
     let elsewhere = tab
         .refs
         .worktrees
         .iter()
         .any(|tree| tree.branch.as_deref() == Some(name.as_str()));
-    items.push(MenuItem::entry_if(
-        "Check out in a new worktree…",
-        !elsewhere,
-        act(Action::AddWorktree(Some(name.clone()))),
-    ));
-    items.extend(visibility_items(tab, &format!("refs/heads/{name}")));
-    items.push(MenuItem::entry("Copy branch name", Message::Copy(name)));
+    if !elsewhere {
+        more.push(MenuItem::entry(
+            "Check out in a new worktree…",
+            act(Action::AddWorktree(Some(name.clone()))),
+        ));
+    }
+    more.push(MenuItem::Separator);
+    more.extend(visibility_items(tab, &format!("refs/heads/{name}")));
+    if copy_name {
+        more.extend([
+            MenuItem::Separator,
+            MenuItem::entry("Copy branch name", Message::Copy(name)),
+        ]);
+    }
+    items.push(MenuItem::sub("More", more));
     items
+}
+
+/// "Merge X into the current branch" and "Rebase the current branch onto X".
+fn merge_rebase_items(name: &str, shown: &str) -> [MenuItem; 2] {
+    [
+        MenuItem::entry(
+            trf(
+                "Merge {name} into {shown}…",
+                &[("name", name), ("shown", shown)],
+            ),
+            act(Action::Merge(name.to_owned())),
+        ),
+        MenuItem::entry(
+            trf(
+                "Rebase {shown} onto {name}…",
+                &[("name", name), ("shown", shown)],
+            ),
+            act(Action::Rebase {
+                onto: name.to_owned(),
+                label: name.to_owned(),
+            }),
+        ),
+    ]
 }
 
 /// Hide or solo a branch in the graph of all branches.
@@ -1946,7 +1967,7 @@ fn visibility_items(tab: &RepoTab, full: &str) -> Vec<MenuItem> {
     ]
 }
 
-fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
+fn ref_items(tab: &RepoTab, target: &RefTarget, copy_name: bool) -> Vec<MenuItem> {
     let current = tab.current_branch();
     let shown = current.unwrap_or("HEAD");
     match target {
@@ -1955,7 +1976,7 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
             .local
             .iter()
             .find(|branch| branch.name == *name)
-            .map_or_else(Vec::new, |branch| local_ref_items(tab, branch)),
+            .map_or_else(Vec::new, |branch| local_ref_items(tab, branch, copy_name)),
         RefTarget::Remote(name) => {
             let Some(branch) = tab.refs.remote.iter().find(|branch| branch.name == *name) else {
                 return Vec::new();
@@ -1972,6 +1993,9 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                     kind: "remote",
                 }),
             )];
+            if current.is_some() {
+                items.extend(merge_rebase_items(name, shown));
+            }
             if let Some(local) = local {
                 items.push(MenuItem::entry_if(
                     trf("Fast-forward {branch} to here", &[("branch", &local.name)]),
@@ -1982,38 +2006,21 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                     }),
                 ));
             }
+            let mut more = visibility_items(tab, &format!("refs/remotes/{name}"));
+            if copy_name {
+                more.extend([
+                    MenuItem::Separator,
+                    MenuItem::entry("Copy branch name", Message::Copy(name.clone())),
+                ]);
+            }
             items.extend([
-                MenuItem::entry_if(
-                    trf(
-                        "Merge {name} into {shown}…",
-                        &[("name", name), ("shown", shown)],
-                    ),
-                    current.is_some(),
-                    act(Action::Merge(name.clone())),
-                ),
-                MenuItem::entry_if(
-                    trf(
-                        "Rebase {shown} onto {name}…",
-                        &[("name", name), ("shown", shown)],
-                    ),
-                    current.is_some(),
-                    act(Action::Rebase {
-                        onto: name.clone(),
-                        label: name.clone(),
-                    }),
-                ),
                 MenuItem::Separator,
                 MenuItem::danger(
                     trf("Delete from {remote}…", &[("remote", &branch.remote)]),
                     act(Action::DeleteRemoteBranch(name.clone())),
                 ),
-                MenuItem::Separator,
+                MenuItem::sub("More", more),
             ]);
-            items.extend(visibility_items(tab, &format!("refs/remotes/{name}")));
-            items.push(MenuItem::entry(
-                "Copy branch name",
-                Message::Copy(name.clone()),
-            ));
             items
         }
         RefTarget::Tag(name) => {
@@ -2023,23 +2030,32 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                 .iter()
                 .find(|tag| tag.name == *name)
                 .map_or_else(String::new, |tag| tag.sha.clone());
-            vec![
-                MenuItem::entry("Checkout tag…", act(Action::CheckoutCommit(sha))),
-                MenuItem::entry_if(
+            let mut items = vec![MenuItem::entry(
+                "Checkout tag…",
+                act(Action::CheckoutCommit(sha)),
+            )];
+            if current.is_some() {
+                items.push(MenuItem::entry(
                     trf(
                         "Merge {name} into {shown}…",
                         &[("name", name), ("shown", shown)],
                     ),
-                    current.is_some(),
                     act(Action::Merge(name.clone())),
-                ),
-                MenuItem::entry_if(
+                ));
+            }
+            items.push(MenuItem::Separator);
+            if !tab.refs.remotes.is_empty() {
+                items.push(MenuItem::entry(
                     "Push to remote…",
-                    !tab.refs.remotes.is_empty(),
                     act(Action::PushTag(name.clone())),
-                ),
-                MenuItem::danger("Delete…", act(Action::DeleteTag(name.clone()))),
-                MenuItem::sub(
+                ));
+            }
+            items.push(MenuItem::danger(
+                "Delete…",
+                act(Action::DeleteTag(name.clone())),
+            ));
+            if !tab.refs.remotes.is_empty() {
+                items.push(MenuItem::sub(
                     "Delete from remote",
                     tab.refs
                         .remotes
@@ -2054,9 +2070,15 @@ fn ref_items(tab: &RepoTab, target: &RefTarget) -> Vec<MenuItem> {
                             )
                         })
                         .collect(),
-                ),
-                MenuItem::entry("Copy tag name", Message::Copy(name.clone())),
-            ]
+                ));
+            }
+            if copy_name {
+                items.extend([
+                    MenuItem::Separator,
+                    MenuItem::entry("Copy tag name", Message::Copy(name.clone())),
+                ]);
+            }
+            items
         }
     }
 }
@@ -2070,7 +2092,7 @@ pub fn commit_menu_items(
     let mut items = Vec::new();
     if let Some(focus) = focus {
         items.push(MenuItem::Header(ref_title(focus)));
-        items.extend(ref_items(tab, focus));
+        items.extend(ref_items(tab, focus, false));
         items.push(MenuItem::Separator);
     }
     let others: Vec<RefTarget> = refs_of(tab, commit)
@@ -2078,7 +2100,10 @@ pub fn commit_menu_items(
         .filter(|target| Some(target) != focus)
         .collect();
     for target in &others {
-        items.push(MenuItem::sub(ref_title(target), ref_items(tab, target)));
+        items.push(MenuItem::sub(
+            ref_title(target),
+            ref_items(tab, target, true),
+        ));
     }
     if !others.is_empty() {
         items.push(MenuItem::Separator);
@@ -2087,16 +2112,19 @@ pub fn commit_menu_items(
         "Commit {commit}",
         &[("commit", short_sha(&commit.sha))],
     )));
-    items.extend(commit_items(tab, commit));
+    items.extend(commit_items(tab, commit, focus));
     items
 }
 
-fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
+/// The commit's own actions. Those the right-clicked branch or tag above already offers
+/// (checkout, merge, rebase, a worktree) are left out.
+fn commit_items(tab: &RepoTab, commit: &Commit, focus: Option<&RefTarget>) -> Vec<MenuItem> {
     let current = tab.current_branch().unwrap_or("HEAD");
     let head = tab.refs.head.as_deref();
     let is_head = Some(commit.sha.as_str()) == head;
     let sha = commit.sha.clone();
     let has_parent = !commit.parents.is_empty();
+    let by_ref = focus.is_some();
     let reset = |label: &str, mode: &'static str| {
         let message = act(Action::ResetTo {
             sha: sha.clone(),
@@ -2108,48 +2136,96 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             MenuItem::entry(label, message)
         }
     };
-    let mut items = vec![
-        MenuItem::entry_if(
+    let mut items = Vec::new();
+    if !is_head && !by_ref {
+        items.push(MenuItem::entry(
             "Checkout commit…",
-            !is_head,
             act(Action::CheckoutCommit(sha.clone())),
-        ),
+        ));
+    }
+    let mut create = vec![
         MenuItem::entry(
-            "New branch here…",
+            "Branch…",
             act(Action::NewBranch {
                 start: Some(sha.clone()),
                 label: None,
             }),
         ),
-        MenuItem::entry("New tag here…", act(Action::CreateTag(sha.clone()))),
-        MenuItem::entry(
-            "New worktree here…",
+        MenuItem::entry("Tag…", act(Action::CreateTag(sha.clone()))),
+    ];
+    if !matches!(focus, Some(RefTarget::Local(_))) {
+        create.push(MenuItem::entry(
+            "Worktree…",
             act(Action::AddWorktree(Some(sha.clone()))),
+        ));
+    }
+    items.extend([MenuItem::sub("Create here", create), MenuItem::Separator]);
+    if !is_head {
+        if !by_ref {
+            items.extend([
+                MenuItem::entry(
+                    trf("Merge into {current}…", &[("current", current)]),
+                    act(Action::Merge(sha.clone())),
+                ),
+                MenuItem::entry(
+                    trf("Rebase {current} onto here…", &[("current", current)]),
+                    act(Action::Rebase {
+                        onto: sha.clone(),
+                        label: short_sha(&sha).to_owned(),
+                    }),
+                ),
+            ]);
+        }
+        items.push(MenuItem::entry(
+            trf("Cherry-pick into {current}", &[("current", current)]),
+            act(Action::CherryPick(sha.clone())),
+        ));
+    }
+    items.push(MenuItem::entry(
+        "Revert commit…",
+        act(Action::Revert(sha.clone())),
+    ));
+    let mut edit = vec![
+        MenuItem::entry("Edit message…", act(Action::EditMessage(sha.clone()))),
+        MenuItem::entry_if(
+            "Squash into parent…",
+            has_parent,
+            act(Action::Squash(sha.clone())),
+        ),
+        MenuItem::danger("Drop commit…", act(Action::DropCommit(sha.clone()))),
+        MenuItem::entry_if(
+            "Move up (after its child)",
+            !is_head,
+            act(Action::MoveCommit(sha.clone(), true)),
+        ),
+        MenuItem::entry_if(
+            "Move down (before its parent)",
+            has_parent,
+            act(Action::MoveCommit(sha.clone(), false)),
         ),
         MenuItem::Separator,
         MenuItem::entry_if(
-            trf("Merge into {current}…", &[("current", current)]),
-            !is_head,
-            act(Action::Merge(sha.clone())),
+            "Fixup commit of the staged changes",
+            tab.status
+                .as_ref()
+                .is_some_and(|status| !status.staged.is_empty()),
+            run(Command::FixupCommit { sha: sha.clone() }),
         ),
-        MenuItem::entry_if(
-            trf("Rebase {current} onto here…", &[("current", current)]),
-            !is_head,
-            act(Action::Rebase {
-                onto: sha.clone(),
-                label: short_sha(&sha).to_owned(),
-            }),
-        ),
+        MenuItem::Separator,
         MenuItem::entry(
             "Interactive rebase from here…",
             Message::OpenRebase(Some(sha.clone())),
         ),
-        MenuItem::entry_if(
-            trf("Cherry-pick into {current}", &[("current", current)]),
-            !is_head,
-            act(Action::CherryPick(sha.clone())),
-        ),
-        MenuItem::entry("Revert commit…", act(Action::Revert(sha.clone()))),
+    ];
+    if is_head && has_parent {
+        edit.push(MenuItem::entry(
+            "Undo last commit (keep changes)",
+            act(Action::UndoLast),
+        ));
+    }
+    items.extend([
+        MenuItem::Separator,
+        MenuItem::sub("Edit commit", edit),
         MenuItem::sub(
             trf("Reset {current} to here", &[("current", current)]),
             vec![
@@ -2159,43 +2235,7 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
                 reset("Hard: discard all changes", "hard"),
             ],
         ),
-    ];
-    if is_head && has_parent {
-        items.push(MenuItem::entry(
-            "Undo last commit (keep changes)",
-            act(Action::UndoLast),
-        ));
-    }
-    items.push(MenuItem::sub(
-        "Edit commit",
-        vec![
-            MenuItem::entry("Edit message…", act(Action::EditMessage(sha.clone()))),
-            MenuItem::entry_if(
-                "Squash into parent…",
-                has_parent,
-                act(Action::Squash(sha.clone())),
-            ),
-            MenuItem::danger("Drop commit…", act(Action::DropCommit(sha.clone()))),
-            MenuItem::entry_if(
-                "Move up (after its child)",
-                !is_head,
-                act(Action::MoveCommit(sha.clone(), true)),
-            ),
-            MenuItem::entry_if(
-                "Move down (before its parent)",
-                has_parent,
-                act(Action::MoveCommit(sha.clone(), false)),
-            ),
-            MenuItem::Separator,
-            MenuItem::entry_if(
-                "Fixup commit of the staged changes",
-                tab.status
-                    .as_ref()
-                    .is_some_and(|status| !status.staged.is_empty()),
-                run(Command::FixupCommit { sha: sha.clone() }),
-            ),
-        ],
-    ));
+    ]);
     let bisect = match &tab.bisect {
         None => vec![MenuItem::entry(
             "Start bisect: this commit is bad…",
@@ -2217,47 +2257,62 @@ fn commit_items(tab: &RepoTab, commit: &Commit) -> Vec<MenuItem> {
             ]
         }
     };
-    items.push(MenuItem::sub("Bisect", bisect));
-    items.push(MenuItem::Separator);
+    items.extend([MenuItem::sub("Bisect", bisect), MenuItem::Separator]);
+    let mut compare = Vec::new();
     if let Some(head) = head.filter(|_| !is_head) {
-        items.push(MenuItem::entry(
-            "Compare with HEAD",
+        compare.push(MenuItem::entry(
+            "With HEAD",
             Message::CompareStart(sha.clone(), head.to_owned()),
         ));
     }
-    items.push(MenuItem::entry(
-        "Compare with working directory",
+    compare.push(MenuItem::entry(
+        "With the working directory",
         Message::CompareStart(sha.clone(), gitcraft_core::queries::WORKTREE.to_owned()),
     ));
     if let Some(selected) = tab.selected.as_deref().filter(|selected| *selected != sha) {
-        items.push(MenuItem::entry(
-            trf("Compare with {commit}", &[("commit", short_sha(selected))]),
+        compare.push(MenuItem::entry(
+            trf("With {commit}", &[("commit", short_sha(selected))]),
             Message::CompareStart(sha.clone(), selected.to_owned()),
         ));
     }
-    items.push(MenuItem::entry_if(
+    let mut patch = vec![MenuItem::entry_if(
         "Save as patch…",
         commit.parents.len() <= 1,
         act(Action::SavePatch(sha.clone())),
-    ));
+    )];
     if !is_head {
-        items.push(MenuItem::entry(
+        patch.push(MenuItem::entry(
             "Save commits from here to HEAD as patches…",
             act(Action::SavePatchSeries(sha.clone())),
         ));
     }
-    items.push(MenuItem::sub(
-        "Copy",
-        vec![
-            MenuItem::entry("SHA", Message::Copy(sha.clone())),
-            MenuItem::entry("Short SHA", Message::Copy(short_sha(&sha).to_owned())),
-            MenuItem::entry("Subject", Message::Copy(commit.subject.clone())),
-            MenuItem::entry(
-                "Author",
-                Message::Copy(format!("{} <{}>", commit.author, commit.email)),
-            ),
-        ],
-    ));
+    // The right-clicked branch's or tag's name comes first.
+    let mut copy = match focus {
+        Some(RefTarget::Local(name) | RefTarget::Remote(name)) => {
+            vec![MenuItem::entry("Branch name", Message::Copy(name.clone()))]
+        }
+        Some(RefTarget::Tag(name)) => {
+            vec![MenuItem::entry("Tag name", Message::Copy(name.clone()))]
+        }
+        None => Vec::new(),
+    };
+    if !copy.is_empty() {
+        copy.push(MenuItem::Separator);
+    }
+    copy.extend([
+        MenuItem::entry("SHA", Message::Copy(sha.clone())),
+        MenuItem::entry("Short SHA", Message::Copy(short_sha(&sha).to_owned())),
+        MenuItem::entry("Subject", Message::Copy(commit.subject.clone())),
+        MenuItem::entry(
+            "Author",
+            Message::Copy(format!("{} <{}>", commit.author, commit.email)),
+        ),
+    ]);
+    items.extend([
+        MenuItem::sub("Compare", compare),
+        MenuItem::sub("Patch", patch),
+        MenuItem::sub("Copy", copy),
+    ]);
     items
 }
 

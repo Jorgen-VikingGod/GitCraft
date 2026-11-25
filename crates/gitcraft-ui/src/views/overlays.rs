@@ -10,18 +10,17 @@ use gitcraft_core::model::{
 
 use super::widgets::{
     Kind, accent, area_edit, bar, btn, button_tip, card, check, choice, fill, floating, line_edit,
-    muted, paint_text, placeholder, region, scroll, segmented, split_x, split_y, text, text_width,
-    toggle,
+    muted, paint_text, placeholder, region, scroll, segmented, split_x, split_y, text, toggle,
 };
 use super::{Cx, diff, icon};
 use crate::actions::{Action, MenuRequest};
 use crate::app::{
     BLAME_ROW_HEIGHT, ConflictState, DiffPane, Message, Overlay, PaneKey, REBASE_ROW_HEIGHT,
-    RebaseState,
+    RebaseState, SettingsPage,
 };
 use crate::command::Command;
 use crate::i18n::{tr, trf};
-use crate::logic::{Choice, has_conflict_markers, plural, short_date, short_sha};
+use crate::logic::{Choice, full_date, has_conflict_markers, plural, short_date, short_sha};
 
 const REBASE_ACTIONS: [(&str, &str, &str); 6] = [
     ("pick", "p", "Use the commit"),
@@ -1211,14 +1210,12 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
         None,
         |ui, rect| {
             let problem = state.problem().filter(|_| !state.loading);
-            let legend_height = 3.0 * 20.0 + 18.0;
             let footer = 46.0;
-            let (list, rest) = split_y(
-                rect,
-                (rect.height() - legend_height - footer - 2.0).max(40.0),
-            );
+            // The list gets a bit more than half; the highlighted commit's details the rest.
+            let lists = rect.height() - footer - 2.0;
+            let (list, rest) = split_y(rect, (lists * 0.55).max(120.0).min(lists - 60.0));
             let (line1, rest) = split_y(rest, 1.0);
-            let (legend, rest) = split_y(rest, legend_height);
+            let (details, rest) = split_y(rest, (rest.height() - footer - 1.0).max(0.0));
             let (line2, footer_area) = split_y(rest, 1.0);
             fill(ui, line1, c.border);
             fill(ui, line2, c.border);
@@ -1240,29 +1237,8 @@ fn rebase(ctx: &Context, cx: &Cx, state: &RebaseState) {
                     super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
                 }
             });
-
-            // The keys, in two columns, painted at fixed positions so that nothing is cut off.
-            let column = legend.width() / 2.0;
-            for (index, (action, key, hint)) in REBASE_ACTIONS.into_iter().enumerate() {
-                let at = Pos2::new(
-                    legend.left() + 14.0 + (index / 3) as f32 * column,
-                    legend.top() + 16.0 + (index % 3) as f32 * 20.0,
-                );
-                let width = paint_text(
-                    ui.painter(),
-                    at,
-                    &key.to_uppercase(),
-                    look.mono(size - 1.0),
-                    c.accent,
-                );
-                paint_text(
-                    ui.painter(),
-                    at + vec2(width + 10.0, 0.0),
-                    &format!("{action}: {}", tr(hint)),
-                    look.ui(size - 1.0),
-                    c.text_muted,
-                );
-            }
+            fill(ui, details, c.panel_2);
+            region(ui, details, |ui| rebase_details(ui, cx, state));
 
             region(ui, footer_area, |ui| {
                 bar(ui, footer, Color32::TRANSPARENT, 12.0, |ui| {
@@ -1412,45 +1388,11 @@ fn rebase_row(
         }
     }
 
-    // The actions.
+    // The action, as a dropdown.
     let mut x = rect.left() + 40.0;
-    for (action, key, hint) in REBASE_ACTIONS {
-        let label = key.to_uppercase();
-        let width = text_width(ui, &label, &look.mono(size - 2.0)) + 12.0;
-        let button = Rect::from_min_size(Pos2::new(x, mid - 10.0), vec2(width, 20.0));
-        let on = step.action == action;
-        let response = ui
-            .interact(button, response.id.with(("action", action)), Sense::click())
-            .on_hover_text(format!(
-                "{}: {}\n{}",
-                capitalised(action),
-                tr(hint),
-                trf("Shortcut: {key}", &[("key", key)])
-            ));
-        let fill_color = if on {
-            c.accent
-        } else if response.hovered() {
-            c.hover_strong
-        } else {
-            c.panel
-        };
-        ui.painter().rect_filled(button, 5.0, fill_color);
-        if !on {
-            ui.painter()
-                .rect_stroke(button, 5.0, Stroke::new(1.0, c.border), StrokeKind::Inside);
-        }
-        ui.painter().text(
-            button.center(),
-            Align2::CENTER_CENTER,
-            &label,
-            look.mono(size - 2.0),
-            if on { Color32::WHITE } else { c.text },
-        );
-        if response.clicked() {
-            cx.send(Message::RebaseSetAction(index, action));
-        }
-        x += width + 2.0;
-    }
+    let picker = Rect::from_min_size(Pos2::new(x, mid - 13.0), vec2(ACTION_WIDTH, 26.0));
+    rebase_action_picker(ui, cx, index, step.action, picker, response.id);
+    x += ACTION_WIDTH;
     x += 10.0;
     let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
     paint_text(
@@ -1469,7 +1411,25 @@ fn rebase_row(
     x += 74.0;
 
     let right = rect.right() - 12.0 - 2.0 * 26.0 - 2.0 * 8.0;
-    let author_x = right - 140.0;
+    let date_x = right - DATE_WIDTH;
+    let author_x = date_x - AUTHOR_WIDTH;
+    // Squash and fixup meld into the commit above: an arrow says so.
+    let melds = matches!(step.action, "squash" | "fixup");
+    if melds {
+        icon::paint(
+            ui,
+            "arrow-up",
+            Rect::from_center_size(Pos2::new(x + 7.0, mid), vec2(13.0, 13.0)),
+            c.text_muted,
+        );
+        ui.interact(
+            Rect::from_center_size(Pos2::new(x + 7.0, mid), vec2(16.0, rect.height())),
+            response.id.with("melds"),
+            Sense::hover(),
+        )
+        .on_hover_text(tr("Melds into the commit above"));
+        x += 20.0;
+    }
     let subject_width = (author_x - 8.0 - x).max(40.0);
     let subject_area =
         Rect::from_min_size(Pos2::new(x, rect.top()), vec2(subject_width, rect.height()));
@@ -1478,11 +1438,23 @@ fn rebase_row(
             .on_hover_text(step.commit.subject.as_str());
     }
     ui.interact(
-        Rect::from_min_size(Pos2::new(author_x, rect.top()), vec2(140.0, rect.height())),
+        Rect::from_min_size(
+            Pos2::new(author_x, rect.top()),
+            vec2(AUTHOR_WIDTH, rect.height()),
+        ),
         response.id.with("author"),
         Sense::hover(),
     )
     .on_hover_text(format!("{} <{}>", step.commit.author, step.commit.email));
+    ui.interact(
+        Rect::from_min_size(
+            Pos2::new(date_x, rect.top()),
+            vec2(DATE_WIDTH, rect.height()),
+        ),
+        response.id.with("date"),
+        Sense::hover(),
+    )
+    .on_hover_text(full_date(step.commit.time));
     if step.action == "reword" {
         region(
             ui,
@@ -1502,7 +1474,8 @@ fn rebase_row(
             },
         );
     } else {
-        let color = if step.action == "drop" {
+        let dropped = step.action == "drop";
+        let color = if dropped || melds {
             c.text_muted
         } else {
             c.text
@@ -1514,6 +1487,16 @@ fn rebase_row(
             look.ui(size),
             color,
         );
+        // A dropped commit is crossed out.
+        if dropped {
+            painter.with_clip_rect(subject_area).line_segment(
+                [
+                    Pos2::new(x, mid + 1.0),
+                    Pos2::new(x + width.min(subject_width), mid + 1.0),
+                ],
+                Stroke::new(1.0, c.text_muted),
+            );
+        }
         if let Some(command) = &step.exec {
             paint_text(
                 &painter.with_clip_rect(subject_area),
@@ -1524,15 +1507,30 @@ fn rebase_row(
             );
         }
     }
+    let faded = if step.action == "drop" {
+        c.text_faint
+    } else {
+        c.text_muted
+    };
     paint_text(
         &painter.with_clip_rect(Rect::from_min_size(
             Pos2::new(author_x, rect.top()),
-            vec2(140.0, rect.height()),
+            vec2(AUTHOR_WIDTH - 10.0, rect.height()),
         )),
         Pos2::new(author_x, mid),
         &step.commit.author,
         look.ui(size),
-        c.text,
+        faded,
+    );
+    paint_text(
+        &painter.with_clip_rect(Rect::from_min_size(
+            Pos2::new(date_x, rect.top()),
+            vec2(DATE_WIDTH - 8.0, rect.height()),
+        )),
+        Pos2::new(date_x, mid),
+        &short_date(step.commit.time),
+        look.ui(size),
+        faded,
     );
     let ups = Rect::from_center_size(Pos2::new(right + 21.0, mid), vec2(26.0, 26.0));
     let downs = Rect::from_center_size(Pos2::new(right + 21.0 + 34.0, mid), vec2(26.0, 26.0));
@@ -1562,11 +1560,264 @@ fn rebase_row(
     }
 }
 
-fn capitalised(word: &str) -> String {
-    let mut letters = word.chars();
-    letters.next().map_or_else(String::new, |first| {
-        first.to_uppercase().chain(letters).collect()
-    })
+const ACTION_WIDTH: f32 = 124.0;
+const AUTHOR_WIDTH: f32 = 170.0;
+const DATE_WIDTH: f32 = 130.0;
+
+/// An action's name as shown, and the colour of its dot.
+fn rebase_action_look(cx: &Cx, action: &str) -> (&'static str, Color32) {
+    let c = cx.c();
+    match action {
+        "pick" => ("Pick", c.success),
+        "reword" => ("Reword", c.warning),
+        "edit" => ("Edit", c.accent),
+        "squash" => ("Squash", c.text_muted),
+        "fixup" => ("Fixup", c.text_muted),
+        _ => ("Drop", c.danger),
+    }
+}
+
+/// The dropdown of a row: a dot in the action's colour and its name; the list gives every
+/// action with what it does and its key.
+fn rebase_action_picker(ui: &mut Ui, cx: &Cx, index: usize, action: &str, rect: Rect, row: Id) {
+    let look = cx.look();
+    let c = &look.c;
+    let response = ui.interact(rect, row.with("action"), Sense::click());
+    let fill_color = if response.hovered() {
+        c.hover_strong
+    } else {
+        c.panel
+    };
+    ui.painter().rect_filled(rect, 5.0, fill_color);
+    ui.painter()
+        .rect_stroke(rect, 5.0, Stroke::new(1.0, c.border), StrokeKind::Inside);
+    let (name, dot) = rebase_action_look(cx, action);
+    ui.painter()
+        .circle_filled(Pos2::new(rect.left() + 13.0, rect.center().y), 4.5, dot);
+    paint_text(
+        ui.painter(),
+        Pos2::new(rect.left() + 25.0, rect.center().y),
+        tr(name),
+        look.ui(look.text_size),
+        c.text,
+    );
+    icon::paint(
+        ui,
+        "chevron-down",
+        Rect::from_center_size(
+            Pos2::new(rect.right() - 13.0, rect.center().y),
+            vec2(12.0, 12.0),
+        ),
+        c.text_muted,
+    );
+    if response.clicked() {
+        cx.send(Message::RebaseFocus(index));
+    }
+    egui::Popup::menu(&response)
+        .frame(floating(look, 8).inner_margin(Margin::same(4)))
+        .show(|ui| {
+            ui.spacing_mut().item_spacing.y = crate::theme::DROPDOWN_GAP;
+            for (each, key, hint) in REBASE_ACTIONS {
+                let (label, color) = rebase_action_look(cx, each);
+                let (row, chosen) = ui.allocate_exact_size(vec2(300.0, 30.0), Sense::click());
+                if each == action {
+                    ui.painter().rect_filled(row, 4.0, c.selection);
+                } else if chosen.hovered() {
+                    super::widgets::hover_fill(ui, look, row, 4.0);
+                }
+                let mid = row.center().y;
+                ui.painter()
+                    .circle_filled(Pos2::new(row.left() + 13.0, mid), 4.5, color);
+                let text_color = if each == action {
+                    c.selection_text
+                } else {
+                    c.text
+                };
+                paint_text(
+                    ui.painter(),
+                    Pos2::new(row.left() + 26.0, mid - 7.0),
+                    tr(label),
+                    look.ui(look.text_size),
+                    text_color,
+                );
+                paint_text(
+                    ui.painter(),
+                    Pos2::new(row.left() + 26.0, mid + 7.0),
+                    tr(hint),
+                    look.ui(look.text_size - 2.5),
+                    c.text_muted,
+                );
+                ui.painter().text(
+                    Pos2::new(row.right() - 10.0, mid),
+                    Align2::RIGHT_CENTER,
+                    key,
+                    look.mono(look.text_size - 1.0),
+                    c.text_muted,
+                );
+                if chosen.clicked() {
+                    cx.send(Message::RebaseSetAction(index, each));
+                    ui.close();
+                }
+            }
+        });
+}
+
+/// The highlighted commit of the rebase editor: who wrote and committed it, its message and
+/// the files it changes.
+fn rebase_details(ui: &mut Ui, cx: &Cx, state: &RebaseState) {
+    use egui::{Label, RichText};
+    let look = cx.look();
+    let c = &look.c;
+    let Some((_, detail)) = &state.detail else {
+        placeholder(ui, look, "Select a commit to see its details");
+        return;
+    };
+    let detail = match detail {
+        None => {
+            placeholder(ui, look, "Loading…");
+            return;
+        }
+        Some(Err(error)) => {
+            placeholder(ui, look, error);
+            return;
+        }
+        Some(Ok(detail)) => detail,
+    };
+    let area = ui.max_rect();
+    let (info, files_area) = split_x(area, (area.width() * 0.58).max(280.0));
+    let (line, files_area) = split_x(files_area, 1.0);
+    fill(ui, line, c.border);
+    region(ui, info, |ui| {
+        let scrolled = scroll("rebase_detail_info").show(ui, |ui| {
+            Frame::new()
+                .inner_margin(Margin::symmetric(20, 14))
+                .show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.spacing_mut().item_spacing = vec2(6.0, 8.0);
+                    let person = |ui: &mut Ui, title: &str, name: &str, email: &str, time: i64| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 10.0;
+                            super::details::avatar(ui, cx, name);
+                            ui.vertical(|ui| {
+                                ui.spacing_mut().item_spacing.y = 1.0;
+                                muted(ui, look, tr(title), 11.0);
+                                ui.horizontal(|ui| {
+                                    text(ui, name, 13.0, c.text);
+                                    muted(ui, look, format!("<{email}>"), 12.0);
+                                });
+                                muted(ui, look, full_date(time), 12.0);
+                            });
+                        });
+                    };
+                    ui.horizontal_top(|ui| {
+                        ui.spacing_mut().item_spacing.x = 32.0;
+                        person(ui, "Author", &detail.author, &detail.email, detail.time);
+                        if detail.committer != detail.author || detail.commit_time != detail.time {
+                            person(
+                                ui,
+                                "Committer",
+                                &detail.committer,
+                                &detail.committer_email,
+                                detail.commit_time,
+                            );
+                        }
+                    });
+                    super::details::fact(ui, cx, "SHA", |ui| {
+                        ui.add(
+                            Label::new(
+                                RichText::new(detail.sha.as_str())
+                                    .size(12.0)
+                                    .monospace()
+                                    .color(c.text),
+                            )
+                            .selectable(true),
+                        );
+                    });
+                    super::details::fact(
+                        ui,
+                        cx,
+                        if detail.parents.len() > 1 {
+                            "Parents"
+                        } else {
+                            "Parent"
+                        },
+                        |ui| {
+                            let parents: Vec<&str> = detail
+                                .parents
+                                .iter()
+                                .map(|parent| short_sha(parent))
+                                .collect();
+                            let shown = if parents.is_empty() {
+                                tr("(root commit)").to_owned()
+                            } else {
+                                parents.join("  ")
+                            };
+                            super::widgets::mono(ui, shown, 12.0, c.text);
+                        },
+                    );
+                    ui.add_space(4.0);
+                    ui.add(
+                        Label::new(
+                            RichText::new(detail.message.trim_end())
+                                .size(13.0)
+                                .color(c.text),
+                        )
+                        .selectable(true)
+                        .wrap(),
+                    );
+                });
+        });
+        super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
+    });
+    region(ui, files_area, |ui| {
+        let (head, list) = split_y(files_area, 34.0);
+        paint_text(
+            ui.painter(),
+            Pos2::new(head.left() + 16.0, head.center().y + 2.0),
+            &trf(
+                "{files} changed",
+                &[("files", &plural(detail.files.len(), "file"))],
+            )
+            .to_uppercase(),
+            look.ui(11.0),
+            c.text_muted,
+        );
+        region(ui, list, |ui| {
+            if detail.files.is_empty() {
+                placeholder(ui, look, "This commit has no file changes");
+                return;
+            }
+            let scrolled = scroll("rebase_detail_files").show(ui, |ui| {
+                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                for file in &detail.files {
+                    let (row, hover) =
+                        ui.allocate_exact_size(vec2(ui.available_width(), 24.0), Sense::hover());
+                    let mid = row.center().y;
+                    ui.painter().text(
+                        Pos2::new(row.left() + 20.0, mid),
+                        Align2::CENTER_CENTER,
+                        &file.status,
+                        look.mono(12.0),
+                        super::widgets::status_color(c, &file.status),
+                    );
+                    let painter = ui.painter().with_clip_rect(row.intersect(ui.clip_rect()));
+                    let shown = match &file.orig_path {
+                        Some(old) => format!("{old} → {}", file.path),
+                        None => file.path.clone(),
+                    };
+                    paint_text(
+                        &painter,
+                        Pos2::new(row.left() + 36.0, mid),
+                        &shown,
+                        look.ui(12.5),
+                        c.text,
+                    );
+                    hover.on_hover_text(shown);
+                }
+            });
+            super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
+        });
+    });
 }
 
 const THEMES: [(&str, &str); 3] = [
@@ -1589,351 +1840,412 @@ const SHORTCUTS: [(&str, &str); 10] = [
 ];
 
 /// A titled group of settings.
-fn group(ui: &mut Ui, cx: &Cx, title: &str, add: impl FnOnce(&mut Ui)) {
-    ui.add_space(8.0);
-    ui.label(
-        egui::RichText::new(tr(title))
-            .size(15.0)
-            .strong()
-            .color(cx.c().text),
-    );
-    ui.add_space(2.0);
-    add(ui);
-}
-
-/// Settings: a small window of its own, with egui's native controls in aligned rows.
+/// Settings: its pages listed on the left, the chosen one on the right.
 fn settings(ctx: &Context, cx: &Cx) {
-    use egui::{DragValue, Grid, RichText};
     let look = cx.look();
     let c = &look.c;
-    let values = &cx.app.settings;
     let window = cx.app.window;
+    let page = cx.app.settings_page;
     super::settle(ctx, "settings_frames");
+    let (width, height) = (
+        (window.x - 60.0).clamp(300.0, 920.0),
+        (window.y - 60.0).clamp(240.0, 680.0),
+    );
     let response = egui::Modal::new(Id::unique("settings"))
         .backdrop_color(c.backdrop)
-        .frame(floating(look, 12).inner_margin(Margin::symmetric(24, 20)))
+        .frame(floating(look, 12).inner_margin(Margin::ZERO))
         .show(ctx, |ui| {
-            ui.set_width(460.0);
-            ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(tr("Settings")).size(22.0).color(c.text));
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if accent(ui, look, "Done", true) {
-                        cx.send(Message::OverlayClose);
-                    }
+            let (_, rect) = ui.allocate_space(vec2(width, height));
+            let (head, rest) = split_y(rect, 64.0);
+            region(ui, head, |ui| {
+                bar(ui, 64.0, Color32::TRANSPARENT, 24.0, |ui| {
+                    text(ui, tr("Settings"), 22.0, c.text);
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if accent(ui, look, "Done", true) {
+                            cx.send(Message::OverlayClose);
+                        }
+                    });
                 });
             });
-            ui.add_space(4.0);
-            ui.separator();
-            // Always show the bar, so that it is clear there is more below.
-            let bars = &mut ui.spacing_mut().scroll;
-            bars.dormant_handle_opacity = bars.active_handle_opacity;
-            bars.dormant_background_opacity = bars.active_background_opacity;
-            let body = |ui: &mut Ui| {
-                ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
-                group(ui, cx, "Appearance", |ui| {
-                    Grid::new("appearance")
-                        .num_columns(2)
-                        .spacing([24.0, 8.0])
-                        .show(ui, |ui| {
-                            ui.label(tr("Theme"));
-                            let options: Vec<(String, String)> = THEMES
-                                .iter()
-                                .map(|(value, label)| ((*value).to_owned(), tr(label).to_owned()))
-                                .collect();
-                            if let Some(chosen) =
-                                choice(ui, "theme", &options, &values.appearance.theme, 170.0)
-                            {
-                                cx.send(Message::SetTheme(chosen));
-                            }
-                            ui.end_row();
-                            ui.label(tr("Language"));
-                            let mut languages = vec![(
-                                crate::i18n::AUTO.to_owned(),
-                                tr("System language").to_owned(),
-                            )];
-                            languages.extend(
-                                crate::i18n::languages()
-                                    .into_iter()
-                                    .map(|(code, name)| (code.to_owned(), name.to_owned())),
-                            );
-                            if let Some(chosen) =
-                                choice(ui, "language", &languages, &values.general.language, 170.0)
-                            {
-                                cx.send(Message::SetLanguage(chosen));
-                            }
-                            ui.end_row();
-                        });
-                });
-                group(ui, cx, "Diffs", |ui| {
-                    Grid::new("diffs")
-                        .num_columns(2)
-                        .spacing([24.0, 8.0])
-                        .show(ui, |ui| {
-                            ui.label(tr("Layout"));
-                            if let Some(chosen) = segmented(
-                                ui,
-                                look,
-                                ["Unified", "Side by side"],
-                                usize::from(values.diff.split),
-                            ) {
-                                cx.send(Message::SetSplit(chosen == 1));
-                            }
-                            ui.end_row();
-                            ui.label(tr("Context lines"));
-                            let mut lines = values.diff.context;
-                            ui.add(DragValue::new(&mut lines).range(0..=100));
-                            if lines != values.diff.context {
-                                cx.send(Message::SetContext(lines.to_string()));
-                            }
-                            ui.end_row();
-                        });
-                    if let Some(on) = check(
-                        ui,
-                        values.diff.ignore_whitespace,
-                        "Ignore whitespace changes",
-                        true,
-                    ) {
-                        cx.send(Message::SetIgnoreWhitespace(on));
+            let (line, rest) = split_y(rest, 1.0);
+            fill(ui, line, c.border);
+            let (nav, rest) = split_x(rest, 210.0_f32.min(rest.width() * 0.35));
+            ui.painter().rect_filled(
+                nav,
+                egui::CornerRadius {
+                    sw: 12,
+                    ..Default::default()
+                },
+                c.panel_2,
+            );
+            let (line, content) = split_x(rest, 1.0);
+            fill(ui, line, c.border);
+            region(ui, nav.shrink2(vec2(10.0, 12.0)), |ui| {
+                ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
+                for each in SettingsPage::ALL {
+                    if settings_tab(ui, cx, each.title(), each == page) {
+                        cx.send(Message::SettingsPage(each));
                     }
-                    if let Some(on) = check(
-                        ui,
-                        values.diff.syntax_highlight,
-                        "Syntax highlighting",
-                        true,
-                    ) {
-                        cx.send(Message::SetSyntax(on));
-                    }
-                });
-                group(ui, cx, "External tools", |ui| {
-                    let found = &cx.app.found_tools;
-                    // "None", what git found, and a saved choice git no longer finds.
-                    let options = |list: &[gitcraft_core::model::ExternalTool], chosen: &str| {
-                        let mut options = vec![(String::new(), tr("None").to_owned())];
-                        options.extend(
-                            list.iter()
-                                .map(|tool| (tool.name.clone(), tool.label.clone())),
-                        );
-                        if !chosen.is_empty() && !list.iter().any(|tool| tool.name == chosen) {
-                            options.push((
-                                chosen.to_owned(),
-                                trf("{tool} (not found)", &[("tool", chosen)]),
-                            ));
-                        }
-                        options
-                    };
-                    Grid::new("tools")
-                        .num_columns(2)
-                        .spacing([24.0, 8.0])
-                        .show(ui, |ui| {
-                            ui.label(tr("Diff tool"));
-                            let diff = options(&found.diff, &values.tools.diff);
-                            if let Some(chosen) =
-                                choice(ui, "diff_tool", &diff, &values.tools.diff, 170.0)
-                            {
-                                cx.send(Message::SetDiffTool(chosen));
-                            }
-                            ui.end_row();
-                            ui.label(tr("Merge tool"));
-                            let merge = options(&found.merge, &values.tools.merge);
-                            if let Some(chosen) =
-                                choice(ui, "merge_tool", &merge, &values.tools.merge, 170.0)
-                            {
-                                cx.send(Message::SetMergeTool(chosen));
-                            }
-                            ui.end_row();
-                        });
-                    let hint = if found.diff.is_empty() && found.merge.is_empty() {
-                        "No diff or merge tools were found. Install one, such as KDiff3 or Meld, or set one up in git's config (difftool.<name>.cmd)."
-                    } else {
-                        "Files open in the chosen tools from their right-click menus."
-                    };
-                    ui.add(
-                        egui::Label::new(RichText::new(tr(hint)).size(12.0).color(c.text_muted))
-                            .wrap(),
-                    );
-                });
-                group(ui, cx, "Repository", |ui| {
-                    Grid::new("repository")
-                        .num_columns(2)
-                        .spacing([24.0, 8.0])
-                        .show(ui, |ui| {
-                            ui.label(tr("Commits loaded at a time"));
-                            let mut limit = values.history.log_limit;
-                            ui.add(DragValue::new(&mut limit).range(100..=100_000).speed(50));
-                            if limit != values.history.log_limit {
-                                cx.send(Message::SetLogLimit(limit.to_string()));
-                            }
-                            ui.end_row();
-                            ui.label(tr("Fetch in the background every (minutes, 0 = never)"));
-                            let mut minutes = values.history.auto_fetch_minutes;
-                            ui.add(DragValue::new(&mut minutes).range(0..=1440).speed(1));
-                            if minutes != values.history.auto_fetch_minutes {
-                                cx.send(Message::SetAutoFetch(minutes));
-                            }
-                            ui.end_row();
-                        });
-                    if let Some(on) = check(
-                        ui,
-                        values.history.fetch_on_open,
-                        "Fetch when opening a repository",
-                        true,
-                    ) {
-                        cx.send(Message::SetFetchOnOpen(on));
-                    }
-                    if let Some(on) = check(
-                        ui,
-                        values.history.show_stashes,
-                        "Show stashes in the history",
-                        true,
-                    ) {
-                        cx.send(Message::SetShowStashes(on));
-                    }
-                    if let Some(on) = check(
-                        ui,
-                        values.history.date_order,
-                        "Order the history by date instead of keeping branches together",
-                        true,
-                    ) {
-                        cx.send(Message::SetDateOrder(on));
-                    }
-                    if let Some(on) = check(
-                        ui,
-                        values.history.conflict_check,
-                        "Say beforehand which files a merge or rebase would conflict in",
-                        true,
-                    ) {
-                        cx.send(Message::SetConflictCheck(on));
-                    }
-                    if let Some(on) = check(
-                        ui,
-                        values.history.commit_graph,
-                        "Keep a commit-graph file for faster history",
-                        true,
-                    ) {
-                        cx.send(Message::SetCommitGraph(on));
-                    }
-                });
-                group(ui, cx, "Git", |ui| {
-                    let state = &cx.app.git_config;
-                    let has_repo = cx.app.current().is_some();
-                    ui.horizontal(|ui| {
-                        if let Some(chosen) = segmented(
-                            ui,
-                            look,
-                            ["Everywhere", "This repository"],
-                            usize::from(state.here),
-                        ) && (chosen == 0 || has_repo)
-                        {
-                            cx.send(Message::GitConfigScope(chosen == 1));
-                        }
-                    });
-                    let hint = if state.here {
-                        "Only for this repository; empty fields use the settings for everywhere."
-                    } else {
-                        "Your settings for every repository (git config --global)."
-                    };
-                    ui.add(
-                        egui::Label::new(RichText::new(tr(hint)).size(12.0).color(c.text_muted))
-                            .wrap(),
-                    );
-                    if state.loading {
-                        placeholder(ui, look, "Loading…");
-                        return;
-                    }
-                    ui.horizontal(|ui| {
-                        ui.label(tr("Git program"));
-                        let (response, changed) = line_edit(
-                            ui,
-                            "git-program",
-                            &state.program,
-                            "git on PATH",
-                            230.0,
-                            look.ui(look.text_size),
-                        );
-                        if let Some(text) = changed {
-                            cx.send(Message::GitProgramInput(text));
-                        }
-                        // Checked and taken once typing is done.
-                        if response.lost_focus() && state.program != values.general.git_program {
-                            cx.send(Message::SetGitProgram(state.program.clone()));
-                        }
-                    });
-                    Grid::new("git-config")
-                        .num_columns(2)
-                        .spacing([24.0, 8.0])
-                        .show(ui, |ui| {
-                            for (key, label, kind) in crate::logic::GIT_SETTINGS {
-                                ui.label(tr(label));
-                                let value = state.shown(key);
-                                match kind {
-                                    crate::logic::SettingKind::Text(hint) => {
-                                        let (_, changed) = line_edit(
-                                            ui,
-                                            ("git-config", key),
-                                            value,
-                                            hint,
-                                            230.0,
-                                            look.ui(look.text_size),
-                                        );
-                                        if let Some(text) = changed {
-                                            cx.send(Message::GitConfigEdit(key.to_owned(), text));
-                                        }
-                                    }
-                                    crate::logic::SettingKind::Choice(options) => {
-                                        let options: Vec<(String, String)> = options
-                                            .iter()
-                                            .map(|(value, label)| {
-                                                ((*value).to_owned(), tr(label).to_owned())
-                                            })
-                                            .collect();
-                                        if let Some(chosen) =
-                                            choice(ui, ("git-config", key), &options, value, 230.0)
-                                        {
-                                            cx.send(Message::GitConfigEdit(key.to_owned(), chosen));
-                                        }
-                                    }
+                }
+            });
+            region(ui, content, |ui| {
+                // Always show the bar, so that it is clear when there is more below.
+                let bars = &mut ui.spacing_mut().scroll;
+                bars.dormant_handle_opacity = bars.active_handle_opacity;
+                bars.dormant_background_opacity = bars.active_background_opacity;
+                // Both ways: a page wider than the window (long translated labels, a narrow
+                // window) scrolls sideways rather than being cut off.
+                let shown = scroll(("settings", page))
+                    .hscroll(true)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        Frame::new()
+                            .inner_margin(Margin {
+                                left: 28,
+                                right: 28,
+                                top: 18,
+                                bottom: 24,
+                            })
+                            .show(ui, |ui| {
+                                ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+                                ui.label(
+                                    egui::RichText::new(tr(page.title()))
+                                        .size(18.0)
+                                        .strong()
+                                        .color(c.text),
+                                );
+                                ui.add_space(6.0);
+                                match page {
+                                    SettingsPage::Appearance => settings_appearance(ui, cx),
+                                    SettingsPage::Diffs => settings_diffs(ui, cx),
+                                    SettingsPage::Tools => settings_tools(ui, cx),
+                                    SettingsPage::Repository => settings_repository(ui, cx),
+                                    SettingsPage::Git => settings_git(ui, cx),
+                                    SettingsPage::Shortcuts => settings_shortcuts(ui, cx),
                                 }
-                                ui.end_row();
-                            }
-                        });
-                    if accent(ui, look, "Save git settings", !state.changed().is_empty()) {
-                        cx.send(Message::GitConfigSave);
-                    }
-                });
-                group(ui, cx, "Keyboard shortcuts", |ui| {
-                    Grid::new("shortcuts")
-                        .num_columns(2)
-                        .spacing([24.0, 6.0])
-                        .show(ui, |ui| {
-                            for (keys, what) in SHORTCUTS {
-                                ui.label(RichText::new(keys).monospace().size(12.0));
-                                muted(ui, look, tr(what), look.text_size);
-                                ui.end_row();
-                            }
-                        });
-                });
-            };
-            // The dialog is as tall as its content, and only scrolls past 80% of the window.
-            // The content's height is remembered from the last frame (until then, a guess).
-            let measured = Id::unique("settings_content_height");
-            let content = ui
-                .data(|data| data.get_temp::<f32>(measured))
-                .unwrap_or(760.0);
-            let limit = (window.y * 0.8 - 100.0).max(80.0);
-            let height = if content > limit {
-                let shown = scroll("settings")
-                    .auto_shrink([false, true])
-                    .max_height(limit)
-                    .show(ui, body);
+                            });
+                    });
                 super::widgets::scroll_shadows(ui, cx.look(), &shown);
-                shown.content_size.y
-            } else {
-                ui.scope(body).response.rect.height()
-            };
-            ui.data_mut(|data| data.insert_temp(measured, height));
+            });
         });
     if response.backdrop_response.clicked() {
         cx.send(Message::OverlayClose);
     }
+}
+
+/// One entry of the settings' page list.
+fn settings_tab(ui: &mut Ui, cx: &Cx, title: &str, selected: bool) -> bool {
+    let look = cx.look();
+    let c = &look.c;
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
+    if selected {
+        ui.painter().rect_filled(rect, 6.0, c.selection);
+    } else if response.hovered() {
+        super::widgets::hover_fill(ui, look, rect, 6.0);
+    }
+    paint_text(
+        ui.painter(),
+        Pos2::new(rect.left() + 12.0, rect.center().y),
+        tr(title),
+        look.ui(look.text_size),
+        if selected { c.selection_text } else { c.text },
+    );
+    response.clicked()
+}
+
+fn settings_appearance(ui: &mut Ui, cx: &Cx) {
+    use egui::Grid;
+    let values = &cx.app.settings;
+    Grid::new("appearance")
+        .num_columns(2)
+        .spacing([24.0, 8.0])
+        .show(ui, |ui| {
+            ui.label(tr("Theme"));
+            let options: Vec<(String, String)> = THEMES
+                .iter()
+                .map(|(value, label)| ((*value).to_owned(), tr(label).to_owned()))
+                .collect();
+            if let Some(chosen) = choice(ui, "theme", &options, &values.appearance.theme, 170.0) {
+                cx.send(Message::SetTheme(chosen));
+            }
+            ui.end_row();
+            ui.label(tr("Language"));
+            let mut languages = vec![(
+                crate::i18n::AUTO.to_owned(),
+                tr("System language").to_owned(),
+            )];
+            languages.extend(
+                crate::i18n::languages()
+                    .into_iter()
+                    .map(|(code, name)| (code.to_owned(), name.to_owned())),
+            );
+            if let Some(chosen) =
+                choice(ui, "language", &languages, &values.general.language, 170.0)
+            {
+                cx.send(Message::SetLanguage(chosen));
+            }
+            ui.end_row();
+        });
+}
+
+fn settings_diffs(ui: &mut Ui, cx: &Cx) {
+    use egui::{DragValue, Grid};
+    let look = cx.look();
+    let values = &cx.app.settings;
+    Grid::new("diffs")
+        .num_columns(2)
+        .spacing([24.0, 8.0])
+        .show(ui, |ui| {
+            ui.label(tr("Layout"));
+            if let Some(chosen) = segmented(
+                ui,
+                look,
+                ["Unified", "Side by side"],
+                usize::from(values.diff.split),
+            ) {
+                cx.send(Message::SetSplit(chosen == 1));
+            }
+            ui.end_row();
+            ui.label(tr("Context lines"));
+            let mut lines = values.diff.context;
+            ui.add(DragValue::new(&mut lines).range(0..=100));
+            if lines != values.diff.context {
+                cx.send(Message::SetContext(lines.to_string()));
+            }
+            ui.end_row();
+        });
+    if let Some(on) = check(
+        ui,
+        values.diff.ignore_whitespace,
+        "Ignore whitespace changes",
+        true,
+    ) {
+        cx.send(Message::SetIgnoreWhitespace(on));
+    }
+    if let Some(on) = check(
+        ui,
+        values.diff.syntax_highlight,
+        "Syntax highlighting",
+        true,
+    ) {
+        cx.send(Message::SetSyntax(on));
+    }
+}
+
+fn settings_tools(ui: &mut Ui, cx: &Cx) {
+    use egui::{Grid, RichText};
+    let look = cx.look();
+    let c = &look.c;
+    let values = &cx.app.settings;
+    let found = &cx.app.found_tools;
+    // "None", what git found, and a saved choice git no longer finds.
+    let options = |list: &[gitcraft_core::model::ExternalTool], chosen: &str| {
+        let mut options = vec![(String::new(), tr("None").to_owned())];
+        options.extend(
+            list.iter()
+                .map(|tool| (tool.name.clone(), tool.label.clone())),
+        );
+        if !chosen.is_empty() && !list.iter().any(|tool| tool.name == chosen) {
+            options.push((
+                chosen.to_owned(),
+                trf("{tool} (not found)", &[("tool", chosen)]),
+            ));
+        }
+        options
+    };
+    Grid::new("tools")
+        .num_columns(2)
+        .spacing([24.0, 8.0])
+        .show(ui, |ui| {
+            ui.label(tr("Diff tool"));
+            let diff = options(&found.diff, &values.tools.diff);
+            if let Some(chosen) = choice(ui, "diff_tool", &diff, &values.tools.diff, 170.0) {
+                cx.send(Message::SetDiffTool(chosen));
+            }
+            ui.end_row();
+            ui.label(tr("Merge tool"));
+            let merge = options(&found.merge, &values.tools.merge);
+            if let Some(chosen) = choice(ui, "merge_tool", &merge, &values.tools.merge, 170.0) {
+                cx.send(Message::SetMergeTool(chosen));
+            }
+            ui.end_row();
+        });
+    let hint = if found.diff.is_empty() && found.merge.is_empty() {
+        "No diff or merge tools were found. Install one, such as KDiff3 or Meld, or set one up in git's config (difftool.<name>.cmd)."
+    } else {
+        "Files open in the chosen tools from their right-click menus."
+    };
+    ui.add(egui::Label::new(RichText::new(tr(hint)).size(12.0).color(c.text_muted)).wrap());
+}
+
+fn settings_repository(ui: &mut Ui, cx: &Cx) {
+    use egui::{DragValue, Grid};
+    let values = &cx.app.settings;
+    Grid::new("repository")
+        .num_columns(2)
+        .spacing([24.0, 8.0])
+        .show(ui, |ui| {
+            ui.label(tr("Commits loaded at a time"));
+            let mut limit = values.history.log_limit;
+            ui.add(DragValue::new(&mut limit).range(100..=100_000).speed(50));
+            if limit != values.history.log_limit {
+                cx.send(Message::SetLogLimit(limit.to_string()));
+            }
+            ui.end_row();
+            ui.label(tr("Fetch in the background every (minutes, 0 = never)"));
+            let mut minutes = values.history.auto_fetch_minutes;
+            ui.add(DragValue::new(&mut minutes).range(0..=1440).speed(1));
+            if minutes != values.history.auto_fetch_minutes {
+                cx.send(Message::SetAutoFetch(minutes));
+            }
+            ui.end_row();
+        });
+    if let Some(on) = check(
+        ui,
+        values.history.fetch_on_open,
+        "Fetch when opening a repository",
+        true,
+    ) {
+        cx.send(Message::SetFetchOnOpen(on));
+    }
+    if let Some(on) = check(
+        ui,
+        values.history.show_stashes,
+        "Show stashes in the history",
+        true,
+    ) {
+        cx.send(Message::SetShowStashes(on));
+    }
+    if let Some(on) = check(
+        ui,
+        values.history.date_order,
+        "Order the history by date instead of keeping branches together",
+        true,
+    ) {
+        cx.send(Message::SetDateOrder(on));
+    }
+    if let Some(on) = check(
+        ui,
+        values.history.conflict_check,
+        "Say beforehand which files a merge or rebase would conflict in",
+        true,
+    ) {
+        cx.send(Message::SetConflictCheck(on));
+    }
+    if let Some(on) = check(
+        ui,
+        values.history.commit_graph,
+        "Keep a commit-graph file for faster history",
+        true,
+    ) {
+        cx.send(Message::SetCommitGraph(on));
+    }
+}
+
+fn settings_git(ui: &mut Ui, cx: &Cx) {
+    use egui::{Grid, RichText};
+    let look = cx.look();
+    let c = &look.c;
+    // Wide enough for the longest hint, which would otherwise stretch its field past the
+    // others: every field of the page ends at the same place.
+    const FIELD: f32 = 260.0;
+    // Narrower than this, the page scrolls sideways rather than squeezing its text fields
+    // (which would give way while the dropdowns don't). Other pages have no such fields and
+    // keep their own width.
+    ui.set_min_width(600.0);
+    let values = &cx.app.settings;
+    let state = &cx.app.git_config;
+    let has_repo = cx.app.current().is_some();
+    ui.horizontal(|ui| {
+        if let Some(chosen) = segmented(
+            ui,
+            look,
+            ["Everywhere", "This repository"],
+            usize::from(state.here),
+        ) && (chosen == 0 || has_repo)
+        {
+            cx.send(Message::GitConfigScope(chosen == 1));
+        }
+    });
+    let hint = if state.here {
+        "Only for this repository; empty fields use the settings for everywhere."
+    } else {
+        "Your settings for every repository (git config --global)."
+    };
+    ui.add(egui::Label::new(RichText::new(tr(hint)).size(12.0).color(c.text_muted)).wrap());
+    if state.loading {
+        placeholder(ui, look, "Loading…");
+        return;
+    }
+    Grid::new("git-config")
+        .num_columns(2)
+        .spacing([24.0, 8.0])
+        .show(ui, |ui| {
+            ui.label(tr("Git program"));
+            let (response, changed) = line_edit(
+                ui,
+                "git-program",
+                &state.program,
+                "git on PATH",
+                FIELD,
+                look.ui(look.text_size),
+            );
+            if let Some(text) = changed {
+                cx.send(Message::GitProgramInput(text));
+            }
+            // Checked and taken once typing is done.
+            if response.lost_focus() && state.program != values.general.git_program {
+                cx.send(Message::SetGitProgram(state.program.clone()));
+            }
+            ui.end_row();
+            for (key, label, kind) in crate::logic::GIT_SETTINGS {
+                ui.label(tr(label));
+                let value = state.shown(key);
+                match kind {
+                    crate::logic::SettingKind::Text(hint) => {
+                        let (_, changed) = line_edit(
+                            ui,
+                            ("git-config", key),
+                            value,
+                            hint,
+                            FIELD,
+                            look.ui(look.text_size),
+                        );
+                        if let Some(text) = changed {
+                            cx.send(Message::GitConfigEdit(key.to_owned(), text));
+                        }
+                    }
+                    crate::logic::SettingKind::Choice(options) => {
+                        let options: Vec<(String, String)> = options
+                            .iter()
+                            .map(|(value, label)| ((*value).to_owned(), tr(label).to_owned()))
+                            .collect();
+                        if let Some(chosen) =
+                            choice(ui, ("git-config", key), &options, value, FIELD)
+                        {
+                            cx.send(Message::GitConfigEdit(key.to_owned(), chosen));
+                        }
+                    }
+                }
+                ui.end_row();
+            }
+        });
+    if accent(ui, look, "Save git settings", !state.changed().is_empty()) {
+        cx.send(Message::GitConfigSave);
+    }
+}
+
+fn settings_shortcuts(ui: &mut Ui, cx: &Cx) {
+    use egui::{Grid, RichText};
+    let look = cx.look();
+    Grid::new("shortcuts")
+        .num_columns(2)
+        .spacing([24.0, 6.0])
+        .show(ui, |ui| {
+            for (keys, what) in SHORTCUTS {
+                ui.label(RichText::new(keys).monospace().size(12.0));
+                muted(ui, look, tr(what), look.text_size);
+                ui.end_row();
+            }
+        });
 }

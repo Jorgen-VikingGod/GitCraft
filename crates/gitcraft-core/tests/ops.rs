@@ -2588,6 +2588,10 @@ async fn branches_are_hidden_from_the_graph_or_shown_alone() {
     f.git(&["switch", "-q", "-c", "other", "main"]);
     f.commit("o.txt", "o\n", "other work");
     f.git(&["switch", "-q", "main"]);
+    // A branch inside main's history, and a tag and a branch on the first commit.
+    f.git(&["branch", "inside", "main"]);
+    f.git(&["branch", "old", "main~1"]);
+    f.git(&["tag", "v1", "main~1"]);
     let log = |view: RefView| {
         let repo = f.repo.clone();
         let options = LogOptions {
@@ -2606,12 +2610,72 @@ async fn branches_are_hidden_from_the_graph_or_shown_alone() {
     })
     .await;
     assert_eq!(subjects(&hidden.commits), ["other work", "second", "first"]);
+    let labels = |page: &LogPage, subject: &str| -> Vec<String> {
+        page.commits
+            .iter()
+            .find(|commit| commit.subject == subject)
+            .unwrap()
+            .refs
+            .iter()
+            .flatten()
+            .map(|label| label.name.clone())
+            .collect()
+    };
+    // Hiding a branch whose commits main still reaches takes away its label.
+    let inside_hidden = log(RefView {
+        hidden: vec!["refs/heads/inside".into()],
+        ..RefView::default()
+    })
+    .await;
+    assert_eq!(
+        subjects(&inside_hidden.commits).len(),
+        4,
+        "every commit stays"
+    );
+    assert!(
+        !labels(&inside_hidden, "second").contains(&"inside".to_owned()),
+        "{:?}",
+        labels(&inside_hidden, "second")
+    );
+    assert!(labels(&inside_hidden, "second").contains(&"main".to_owned()));
+
     let solo = log(RefView {
         solo: vec!["refs/heads/topic".into()],
         ..RefView::default()
     })
     .await;
     assert_eq!(subjects(&solo.commits), ["topic work", "first"]);
+    // Only the soloed branch is labelled, and the tags stay.
+    assert_eq!(labels(&solo, "topic work"), ["topic"]);
+    assert_eq!(labels(&solo, "first"), ["v1"]);
+    // Soloing the current branch keeps HEAD's mark on it; others don't get a bare HEAD.
+    let current = log(RefView {
+        solo: vec!["refs/heads/main".into(), "refs/heads/inside".into()],
+        ..RefView::default()
+    })
+    .await;
+    let head = current
+        .commits
+        .iter()
+        .find(|commit| commit.subject == "second")
+        .unwrap();
+    assert!(
+        head.refs
+            .iter()
+            .flatten()
+            .any(|label| label.name == "main" && label.current),
+        "{:?}",
+        head.refs
+    );
+    assert!(
+        !solo
+            .commits
+            .iter()
+            .flat_map(|commit| commit.refs.iter().flatten())
+            .any(|label| label.name == "HEAD"),
+        "{:?}",
+        solo.commits
+    );
 }
 
 #[tokio::test]

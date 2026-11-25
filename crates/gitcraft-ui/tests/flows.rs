@@ -797,7 +797,8 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
     let names = labels(&plain);
     for expected in [
         "Commit",
-        "New branch here…",
+        "Create here",
+        "Branch…",
         "Interactive rebase from here…",
         "Reset main to here",
         "Hard: discard all changes",
@@ -822,11 +823,20 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
         "the clicked ref comes first"
     );
     assert!(
-        find_entry(&focused, "Checkout main")
-            .expect("listed")
-            .is_none(),
-        "the current branch can't be checked out"
+        find_entry(&focused, "Checkout main").is_none(),
+        "the current branch can't be checked out, so it isn't offered"
     );
+    let focused_names = labels(&focused);
+    assert!(
+        matches!(find_entry(&focused, "Branch name"), Some(Some(Message::Copy(name))) if name == "main"),
+        "the branch's name is copied from the Copy submenu: {focused_names:?}"
+    );
+    for repeated in ["Checkout commit…", "Worktree…", "Copy branch name"] {
+        assert!(
+            !focused_names.iter().any(|name| name == repeated),
+            "the branch above already offers {repeated}: {focused_names:?}"
+        );
+    }
 
     // The menu itself draws, and a chosen entry does its work.
     drive(
@@ -837,11 +847,11 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
         }),
     )
     .await;
-    let entry = find_entry(&app.menu.as_ref().unwrap().items, "New tag here…")
+    let entry = find_entry(&app.menu.as_ref().unwrap().items, "Tag…")
         .unwrap()
         .unwrap();
     {
-        assert!(Screen::new().show(&app).has("New tag here…"));
+        assert!(Screen::new().show(&app).has("Create here"));
     }
     drive(&mut app, Message::FromMenu(Box::new(entry))).await;
     assert!(app.menu.is_none(), "choosing closes the menu");
@@ -1705,7 +1715,7 @@ async fn menus_open_submenus_under_the_pointer_and_run_entries() {
     .await;
     let screen = Screen::new();
     let shown = screen.show(&app);
-    assert!(shown.has("New branch here…"), "the menu is drawn");
+    assert!(shown.has("Create here"), "the menu is drawn");
     assert!(
         !shown.has("Hard: discard all changes"),
         "submenus start closed"
@@ -2039,30 +2049,52 @@ async fn a_dialog_is_as_tall_as_its_content_and_scrolls_only_past_80_percent() {
 }
 
 #[tokio::test]
-async fn settings_fit_a_tall_window_and_scroll_in_a_short_one() {
+async fn settings_show_one_page_at_a_time_and_scroll_in_a_short_window() {
+    use gitcraft_ui::app::SettingsPage;
     let f = fixture();
     let mut app = opened(&f, false).await;
     drive(&mut app, Message::OpenSettings).await;
-    let last = "Move through commits or files";
-
-    drive(&mut app, Message::WindowResized(vec2(1280.0, 2600.0))).await;
-    let tall = Screen::sized(vec2(1280.0, 2600.0));
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 900.0))).await;
+    let screen = Screen::sized(vec2(1280.0, 900.0));
     for _ in 0..4 {
-        tall.frame(&app, Vec::new());
+        screen.frame(&app, Vec::new());
     }
+    let shown = screen.frame(&app, Vec::new());
+    assert!(shown.has("Theme"), "the first page is shown");
+    assert!(shown.has("Keyboard shortcuts"), "every page is listed");
+    assert!(!shown.has("Save git settings"), "other pages aren't");
+
+    // Clicking a page in the list picks it.
+    let at = shown.find("Keyboard shortcuts").unwrap().center();
+    let press = |pressed| Event::PointerButton {
+        pos: at,
+        button: PointerButton::Primary,
+        pressed,
+        modifiers: Modifiers::NONE,
+    };
+    screen.frame(&app, vec![Event::PointerMoved(at)]);
+    screen.frame(&app, vec![press(true)]);
+    let messages = screen.frame(&app, vec![press(false)]).messages;
     assert!(
-        tall.frame(&app, Vec::new()).has(last),
-        "everything is there when it fits"
+        messages
+            .iter()
+            .any(|message| matches!(message, Message::SettingsPage(SettingsPage::Shortcuts))),
+        "{messages:?}"
     );
 
-    drive(&mut app, Message::WindowResized(vec2(1280.0, 600.0))).await;
-    let short = Screen::sized(vec2(1280.0, 600.0));
+    // A long page in a short window scrolls: its title is there, its end is not.
+    drive(&mut app, Message::SettingsPage(SettingsPage::Git)).await;
+    drive(&mut app, Message::WindowResized(vec2(1280.0, 320.0))).await;
+    let short = Screen::sized(vec2(1280.0, 320.0));
     for _ in 0..4 {
         short.frame(&app, Vec::new());
     }
     let shown = short.frame(&app, Vec::new());
-    assert!(shown.has("Settings"), "the start is shown");
-    assert!(!shown.has(last), "and the rest is reached by scrolling");
+    assert!(shown.has("Everywhere"), "the start of the page is shown");
+    assert!(
+        !shown.has("Save git settings"),
+        "and the rest is reached by scrolling"
+    );
 }
 
 #[tokio::test]
@@ -3346,10 +3378,7 @@ async fn a_worktree_is_locked_from_its_menu_and_cant_be_removed_then() {
         .unwrap()
         .clone();
     let items = commit_menu_items(app.current().unwrap(), &commit, None);
-    assert!(matches!(
-        find_entry(&items, "New worktree here…"),
-        Some(Some(_))
-    ));
+    assert!(matches!(find_entry(&items, "Worktree…"), Some(Some(_))));
 }
 
 #[tokio::test]
@@ -3402,6 +3431,11 @@ async fn git_settings_are_changed_for_this_repository_in_settings() {
     drive(&mut app, Message::GitConfigScope(true)).await;
     assert!(app.git_config.here);
     assert_eq!(app.git_config.shown("user.name"), "Test User");
+    drive(
+        &mut app,
+        Message::SettingsPage(gitcraft_ui::app::SettingsPage::Git),
+    )
+    .await;
     drive(&mut app, Message::WindowResized(vec2(1280.0, 2600.0))).await;
     let tall = Screen::sized(vec2(1280.0, 2600.0));
     for _ in 0..4 {
@@ -3520,5 +3554,134 @@ async fn lfs_patterns_are_tracked_and_untracked_from_the_menus() {
             .patterns
             .len(),
         1
+    );
+}
+
+#[tokio::test]
+async fn a_branch_row_hides_or_solos_its_branch_from_its_toggles() {
+    use gitcraft_ui::app::RefVisibility;
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let screen = Screen::new();
+    // The sidebar's row for the branch "side" (the history draws the name too, further right).
+    let label = screen
+        .show(&app)
+        .texts
+        .into_iter()
+        .filter(|(text, rect)| text == "side" && rect.left() < 400.0)
+        .map(|(_, rect)| rect)
+        .next()
+        .expect("side is in the sidebar");
+    let y = label.center().y;
+    // Click along the row, right of the name, until a toggle answers.
+    let click = |x: f32| {
+        let at = Pos2::new(x, y);
+        let press = |pressed| Event::PointerButton {
+            pos: at,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        screen.frame(&app, vec![press(true)]);
+        screen.frame(&app, vec![press(false)]).messages
+    };
+    let mut found = Vec::new();
+    let mut x = label.right() + 8.0;
+    while x < 400.0 {
+        let messages = click(x);
+        for message in &messages {
+            if let Message::RefVisibility(change) = message {
+                assert!(
+                    !messages
+                        .iter()
+                        .any(|message| matches!(message, Message::ShowRef(..))),
+                    "a toggle doesn't also pick the row: {messages:?}"
+                );
+                let kind = match change {
+                    RefVisibility::Solo(name) | RefVisibility::Hide(name) => {
+                        assert_eq!(name, "refs/heads/side");
+                        format!("{change:?}")
+                    }
+                    other => panic!("{other:?}"),
+                };
+                if !found.contains(&kind) {
+                    found.push(kind);
+                }
+            }
+        }
+        x += 4.0;
+    }
+    assert!(
+        found.iter().any(|kind| kind.starts_with("Solo"))
+            && found.iter().any(|kind| kind.starts_with("Hide")),
+        "both toggles are on the row: {found:?}"
+    );
+
+    // What the toggles send hides the branch from the graph.
+    drive(
+        &mut app,
+        Message::RefVisibility(RefVisibility::Hide("refs/heads/side".into())),
+    )
+    .await;
+    assert_eq!(app.current().unwrap().ref_view.hidden, ["refs/heads/side"]);
+}
+
+#[tokio::test]
+async fn the_rebase_editor_shows_the_highlighted_commit_and_picks_actions_from_a_list() {
+    let f = empty_fixture();
+    f.commit("base.txt", "base\n", "base");
+    for name in ["one", "two", "three"] {
+        f.commit(&format!("{name}.txt"), "x\n", name);
+    }
+    let mut app = opened(&f, false).await;
+    let base = sha_of(&app, "base");
+    drive(&mut app, Message::OpenRebase(Some(base))).await;
+    let shown_detail = |app: &App| {
+        let Some(Overlay::Rebase(state)) = &app.overlay else {
+            panic!("the editor is open")
+        };
+        match &state.detail {
+            Some((_, Some(Ok(detail)))) => (
+                detail.subject.clone(),
+                detail
+                    .files
+                    .iter()
+                    .map(|file| file.path.clone())
+                    .collect::<Vec<_>>(),
+            ),
+            other => panic!("details are loaded: {other:?}"),
+        }
+    };
+    // The first commit is highlighted, and its details are below the list.
+    assert_eq!(shown_detail(&app), ("one".into(), vec!["one.txt".into()]));
+    drive(&mut app, Message::RebaseFocus(2)).await;
+    assert_eq!(
+        shown_detail(&app),
+        ("three".into(), vec!["three.txt".into()])
+    );
+    let screen = Screen::new();
+    let shown = screen.show(&app);
+    assert!(
+        shown.has("three.txt") && shown.has("Author"),
+        "the pane is drawn"
+    );
+
+    // A row's action is chosen from its dropdown.
+    let messages = screen.click(&app, "Pick", PointerButton::Primary);
+    for message in messages {
+        drive(&mut app, message).await;
+    }
+    assert!(
+        screen.show(&app).has("Remove the commit"),
+        "the list is open"
+    );
+    let messages = screen.click(&app, "Drop", PointerButton::Primary);
+    assert!(
+        messages
+            .iter()
+            .any(|message| matches!(message, Message::RebaseSetAction(0, "drop"))),
+        "{messages:?}"
     );
 }

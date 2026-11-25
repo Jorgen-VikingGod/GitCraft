@@ -243,7 +243,7 @@ impl Shell {
     fn take_shot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
-        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split|settings|rebase|delete|checkout|discards|clone|lfs also opens that, to see how it looks.
+        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split|settings|rebase|delete|checkout|discards|clone|lfs|branch-menu|settings:<page> also opens that, to see how it looks.
         if shot.frames == 20
             && let Some(what) = std::env::var_os("GITCRAFT_SHOT_OPEN")
         {
@@ -252,10 +252,34 @@ impl Shell {
                     self.app.cursor = egui::Pos2::new(420.0, 110.0);
                     Message::OpenMenu(crate::actions::MenuRequest::Repository)
                 }
+                // The menu of the current branch on its commit, as from a right-click on its label.
+                Some("branch-menu") => {
+                    let Some(tab) = self.app.current() else {
+                        return;
+                    };
+                    let (Some(sha), Some(branch)) = (tab.refs.head.clone(), tab.current_branch())
+                    else {
+                        return;
+                    };
+                    let focus = Some(crate::actions::RefTarget::Local(branch.to_owned()));
+                    self.app.cursor = egui::Pos2::new(420.0, 110.0);
+                    Message::OpenMenu(crate::actions::MenuRequest::Commit { sha, focus })
+                }
                 Some("pull") => Message::Action(crate::actions::Action::Pull),
                 Some("changes") => Message::SetView(crate::app::View::Changes),
                 Some("split") => Message::SetSplit(true),
                 Some("settings") => Message::OpenSettings,
+                // settings:git and so on open that page.
+                Some(page) if page.starts_with("settings:") => {
+                    let wanted = &page["settings:".len()..];
+                    if let Some(found) = crate::app::SettingsPage::ALL
+                        .into_iter()
+                        .find(|each| format!("{each:?}").eq_ignore_ascii_case(wanted))
+                    {
+                        self.handle(Message::SettingsPage(found));
+                    }
+                    Message::OpenSettings
+                }
                 Some("discards") => Message::OpenDiscards,
                 Some("lfs") => Message::OpenLfsLocks,
                 Some("clone") => Message::Action(crate::actions::Action::Clone),

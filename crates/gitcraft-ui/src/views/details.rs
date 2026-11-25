@@ -112,7 +112,7 @@ fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color32 {
     Color32::from_rgb(byte(r), byte(g), byte(b))
 }
 
-fn avatar(ui: &mut Ui, cx: &Cx, name: &str) {
+pub(super) fn avatar(ui: &mut Ui, cx: &Cx, name: &str) {
     let color = hsl(name_hue(name) as f32, 0.55, 0.45);
     let (rect, _) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
     ui.painter().circle_filled(rect.center(), 16.0, color);
@@ -132,7 +132,7 @@ fn meta_height(cx: &Cx) -> f32 {
     (pane * 0.55).max(120.0)
 }
 
-fn fact(ui: &mut Ui, cx: &Cx, label: &str, value: impl FnOnce(&mut Ui)) {
+pub(super) fn fact(ui: &mut Ui, cx: &Cx, label: &str, value: impl FnOnce(&mut Ui)) {
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         let (rect, _) = ui.allocate_exact_size(vec2(62.0, 16.0), Sense::hover());
