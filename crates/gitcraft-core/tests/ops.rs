@@ -299,13 +299,17 @@ async fn discarded_files_can_be_put_back() {
     f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\n");
     f.git(&["add", "a.txt"]);
     f.write("a.txt", "one\ntwo\nthree\nfour\nstaged\nnot staged\n");
-    f.write("we*ird name.txt", "new\n");
+    // `[ird]` is a wildcard to git: the name must be taken as it is, and leave alone the file
+    // the wildcard would match. (Windows allows brackets in names, not `*`.)
+    f.write("we[ird] name.txt", "new\n");
+    f.write("wei name.txt", "keep\n");
     std::fs::remove_file(f.path.join("b.txt")).unwrap();
     let staged = f.git(&["diff", "--cached"]);
-    let list: Vec<String> = vec!["a.txt".into(), "we*ird name.txt".into(), "b.txt".into()];
+    let list: Vec<String> = vec!["a.txt".into(), "we[ird] name.txt".into(), "b.txt".into()];
     ops::discard_files(&f.repo, &list).await.unwrap();
     assert_eq!(f.read("a.txt"), "one\ntwo\nthree\nfour\nstaged\n");
-    assert!(!f.exists("we*ird name.txt"));
+    assert!(!f.exists("we[ird] name.txt"));
+    assert_eq!(f.read("wei name.txt"), "keep\n", "only the named file goes");
     assert_eq!(f.read("b.txt"), "bee\n");
 
     let backups = queries::discard_backups(&f.repo).await.unwrap();
@@ -326,7 +330,7 @@ async fn discarded_files_can_be_put_back() {
         f.read("a.txt"),
         "one\ntwo\nthree\nfour\nstaged\nnot staged\n"
     );
-    assert_eq!(f.read("we*ird name.txt"), "new\n");
+    assert_eq!(f.read("we[ird] name.txt"), "new\n");
     assert!(!f.exists("b.txt"));
     assert_eq!(
         f.git(&["diff", "--cached"]),
