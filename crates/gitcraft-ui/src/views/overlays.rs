@@ -1014,7 +1014,7 @@ fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
                         let which = index;
                         index += 1;
                         let before = at.checked_sub(1).and_then(|before| data.chunks.get(before));
-                        conflict_card(ui, cx, data, which, choice, before, ours, theirs);
+                        conflict_card(ui, cx, which, choice, before, ours, theirs);
                     }
                 });
             });
@@ -1087,7 +1087,6 @@ fn conflict(ctx: &Context, cx: &Cx, state: &ConflictState) {
 fn conflict_card(
     ui: &mut Ui,
     cx: &Cx,
-    data: &gitcraft_core::model::ConflictVersions,
     which: usize,
     choice: Option<Choice>,
     before: Option<&ConflictChunk>,
@@ -1123,14 +1122,12 @@ fn conflict_card(
         if let Some(ConflictChunk::Common { lines }) = before {
             let tail: Vec<String> = lines.iter().rev().take(3).rev().cloned().collect();
             if !tail.is_empty() {
-                ui.add(
-                    egui::Label::new(
-                        egui::RichText::new(tail.join("\n"))
-                            .size(12.5)
-                            .monospace()
-                            .color(c.text_muted),
-                    )
-                    .truncate(),
+                super::widgets::code_block(
+                    ui,
+                    look,
+                    ("resolver-context", which),
+                    &tail,
+                    c.text_muted,
                 );
             }
         }
@@ -1140,16 +1137,15 @@ fn conflict_card(
             Some(_) => true,
             None => false,
         };
+        let status = cx.app.current().and_then(|tab| tab.status.as_ref());
+        let (ours_label, theirs_label) = crate::logic::side_labels(
+            status.and_then(|status| status.operation.as_ref()),
+            status.and_then(|status| status.sides.as_ref()),
+        );
         ui.columns(2, |columns| {
             for (column, label, lines, tint, picked) in [
-                (0, &data.ours_label, ours, c.conflict_ours, taken(true)),
-                (
-                    1,
-                    &data.theirs_label,
-                    theirs,
-                    c.conflict_theirs,
-                    taken(false),
-                ),
+                (0, &ours_label, ours, c.conflict_ours, taken(true)),
+                (1, &theirs_label, theirs, c.conflict_theirs, taken(false)),
             ] {
                 let ui = &mut columns[column];
                 Frame::new()
@@ -1161,18 +1157,13 @@ fn conflict_card(
                         ui.set_width(ui.available_width());
                         ui.spacing_mut().item_spacing.y = 3.0;
                         muted(ui, look, label.as_str(), size - 1.0);
-                        let joined = lines.join("\n");
-                        ui.add(
-                            egui::Label::new(
-                                egui::RichText::new(if joined.is_empty() {
-                                    tr("(empty)").to_owned()
-                                } else {
-                                    joined
-                                })
-                                .size(12.5)
-                                .monospace(),
-                            )
-                            .wrap(),
+                        let empty = [tr("(empty)").to_owned()];
+                        super::widgets::code_block(
+                            ui,
+                            look,
+                            ("resolver-side", which, column),
+                            if lines.is_empty() { &empty } else { lines },
+                            c.text,
                         );
                     });
             }

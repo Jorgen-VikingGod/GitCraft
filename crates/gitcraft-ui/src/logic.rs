@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use gitcraft_core::model::{ConflictChunk, Remote, Status};
+use gitcraft_core::model::{ConflictChunk, Operation, OperationSides, Remote, Status};
 
 use crate::i18n::{tr, trf};
 
@@ -462,6 +462,126 @@ pub fn build_result(chunks: &[ConflictChunk], choices: &[Option<Choice>]) -> Str
         }
     }
     lines.join("\n")
+}
+
+/// What the operation banner calls the operation in progress: "Merging feature into main",
+/// "Rebasing feature onto main". Without names (sides unknown) the plain "Merge in progress".
+pub fn operation_title(operation: &Operation, sides: Option<&OperationSides>) -> String {
+    let named = |value: &str| (!value.is_empty()).then(|| value.to_owned());
+    let ours = sides.and_then(|sides| named(&sides.ours));
+    let theirs = sides.and_then(|sides| named(&sides.theirs));
+    match (operation, ours, theirs) {
+        (Operation::Merge { .. }, Some(ours), Some(theirs)) => trf(
+            "Merging {theirs} into {ours}",
+            &[("theirs", &theirs), ("ours", &ours)],
+        ),
+        (Operation::Merge { .. }, ..) => tr("Merge in progress").to_owned(),
+        (Operation::Rebase { branch, .. }, Some(ours), _) => match branch {
+            Some(branch) => trf(
+                "Rebasing {branch} onto {ours}",
+                &[("branch", branch), ("ours", &ours)],
+            ),
+            None => trf("Rebasing onto {ours}", &[("ours", &ours)]),
+        },
+        (Operation::Rebase { .. }, ..) => tr("Rebase in progress").to_owned(),
+        (Operation::CherryPick { .. }, Some(ours), Some(theirs)) => trf(
+            "Cherry-picking {theirs} onto {ours}",
+            &[("theirs", &theirs), ("ours", &ours)],
+        ),
+        (Operation::CherryPick { .. }, ..) => tr("Cherry-pick in progress").to_owned(),
+        (Operation::Revert { .. }, Some(ours), Some(theirs)) => trf(
+            "Reverting {theirs} on {ours}",
+            &[("theirs", &theirs), ("ours", &ours)],
+        ),
+        (Operation::Revert { .. }, ..) => tr("Revert in progress").to_owned(),
+        (Operation::Am, ..) => tr("Applying patches (git am)").to_owned(),
+    }
+}
+
+/// What the two sides of a conflict are called, with what they are in this operation: "main
+/// · this branch" and "feature · being merged". A rebase swaps the roles git gives them: ours
+/// is what the branch goes onto, theirs your own commit.
+pub fn side_labels(
+    operation: Option<&Operation>,
+    sides: Option<&OperationSides>,
+) -> (String, String) {
+    let named = |value: &str| (!value.is_empty()).then(|| value.to_owned());
+    let ours = sides.and_then(|sides| named(&sides.ours));
+    let theirs = sides.and_then(|sides| named(&sides.theirs));
+    let label = |name: Option<String>, role: &str, fallback: &str| match name {
+        Some(name) => trf(role, &[("name", &name)]),
+        None => tr(fallback).to_owned(),
+    };
+    match operation {
+        Some(Operation::Rebase { .. }) => (
+            label(
+                ours,
+                "{name} · being rebased onto",
+                "Upstream (being rebased onto)",
+            ),
+            label(
+                theirs,
+                "{name} · your commit",
+                "Your commit (being replayed)",
+            ),
+        ),
+        Some(Operation::CherryPick { .. }) => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            label(theirs, "{name} · being picked", "Theirs (incoming)"),
+        ),
+        Some(Operation::Revert { .. }) => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            label(theirs, "{name} · being reverted", "Theirs (incoming)"),
+        ),
+        Some(Operation::Merge { .. }) => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            label(theirs, "{name} · being merged", "Theirs (incoming)"),
+        ),
+        _ => (
+            label(ours, "{name} · this branch", "Ours (HEAD)"),
+            tr("Theirs (incoming)").to_owned(),
+        ),
+    }
+}
+
+/// What Continue commits a merge with: the commit box's message, once it has a summary.
+/// Other operations commit what they replay, with its own message.
+pub fn continue_message(operation: &Operation, summary: &str, body: &str) -> Option<String> {
+    (matches!(operation, Operation::Merge { .. }) && !summary.trim().is_empty())
+        .then(|| commit_message(summary, body))
+}
+
+/// Whether the commit box gives way to a note about the operation in progress: a rebase,
+/// cherry-pick, revert or patch commits what it replays when continued. A merge keeps it for
+/// its message, and a rebase stopped at an `edit` step for amending.
+pub fn commit_box_gives_way(operation: Option<&Operation>) -> bool {
+    match operation {
+        None | Some(Operation::Merge { .. }) => false,
+        Some(Operation::Rebase { editing, .. }) => !editing,
+        Some(_) => true,
+    }
+}
+
+/// What each side did to a conflicted file, from its two status letters (`UU`, `AA`, `DU`…:
+/// ours first): "Changed", "Added" or "Deleted"; and in one sentence what that makes.
+pub fn conflict_kind(status: &str) -> (&'static str, &'static str, &'static str) {
+    let side = |letter: Option<char>| match letter {
+        Some('A') => "Added",
+        Some('D') => "Deleted",
+        _ => "Changed",
+    };
+    let mut letters = status.chars();
+    let (ours, theirs) = (letters.next(), letters.next());
+    let summary = match (ours, theirs) {
+        (Some('A'), Some('A')) => {
+            "Both sides added a file with this name, with different contents."
+        }
+        (Some('D'), Some('D')) => "Both sides deleted this file.",
+        (Some('D'), _) | (_, Some('D')) => "One side changed this file, the other deleted it.",
+        (Some('A'), _) | (_, Some('A')) => "One side added this file while the other changed it.",
+        _ => "Both sides changed this file in the same places.",
+    };
+    (side(ours), side(theirs), summary)
 }
 
 pub fn has_conflict_markers(text: &str) -> bool {
@@ -1092,6 +1212,95 @@ mod tests {
         );
         assert!(has_conflict_markers(&open));
         assert!(!has_conflict_markers("top\n<<<<<<<not a marker\nend"));
+    }
+
+    #[test]
+    fn operations_and_their_sides_are_named() {
+        let sides = OperationSides {
+            ours: "main".into(),
+            theirs: "feature/alerts".into(),
+        };
+        let merge = Operation::Merge { head: "abc".into() };
+        assert_eq!(
+            operation_title(&merge, Some(&sides)),
+            "Merging feature/alerts into main"
+        );
+        assert_eq!(operation_title(&merge, None), "Merge in progress");
+        assert_eq!(
+            side_labels(Some(&merge), Some(&sides)),
+            (
+                "main · this branch".to_owned(),
+                "feature/alerts · being merged".to_owned()
+            )
+        );
+        let rebase = Operation::Rebase {
+            branch: Some("feature/alerts".into()),
+            onto: Some("abc".into()),
+            step: Some(1),
+            total: Some(2),
+            stopped_sha: None,
+            editing: false,
+        };
+        let replaying = OperationSides {
+            ours: "main".into(),
+            theirs: "1234abc Warn earlier".into(),
+        };
+        assert_eq!(
+            operation_title(&rebase, Some(&replaying)),
+            "Rebasing feature/alerts onto main"
+        );
+        assert_eq!(
+            side_labels(Some(&rebase), Some(&replaying)),
+            (
+                "main · being rebased onto".to_owned(),
+                "1234abc Warn earlier · your commit".to_owned()
+            )
+        );
+        assert_eq!(
+            side_labels(Some(&rebase), None).1,
+            "Your commit (being replayed)"
+        );
+    }
+
+    #[test]
+    fn a_merge_continues_with_the_commit_box_and_other_operations_without_it() {
+        let merge = Operation::Merge { head: "abc".into() };
+        assert_eq!(
+            continue_message(&merge, "Merge feature", "Why.").as_deref(),
+            Some("Merge feature\n\nWhy.\n")
+        );
+        assert_eq!(continue_message(&merge, "  ", "body only"), None);
+        let rebase = |editing| Operation::Rebase {
+            branch: None,
+            onto: None,
+            step: None,
+            total: None,
+            stopped_sha: None,
+            editing,
+        };
+        assert_eq!(continue_message(&rebase(false), "typed", ""), None);
+        assert!(!commit_box_gives_way(None));
+        assert!(!commit_box_gives_way(Some(&merge)));
+        assert!(commit_box_gives_way(Some(&rebase(false))));
+        assert!(
+            !commit_box_gives_way(Some(&rebase(true))),
+            "an edit stop amends"
+        );
+        assert!(commit_box_gives_way(Some(&Operation::CherryPick {
+            head: "a".into()
+        })));
+    }
+
+    #[test]
+    fn conflicts_say_what_each_side_did() {
+        assert_eq!(conflict_kind("UU").0, "Changed");
+        assert!(conflict_kind("UU").2.starts_with("Both sides changed"));
+        let (ours, theirs, _) = conflict_kind("DU");
+        assert_eq!((ours, theirs), ("Deleted", "Changed"));
+        let (ours, theirs, _) = conflict_kind("UD");
+        assert_eq!((ours, theirs), ("Changed", "Deleted"));
+        assert!(conflict_kind("UD").2.contains("deleted"));
+        assert!(conflict_kind("AA").2.starts_with("Both sides added"));
     }
 
     #[test]

@@ -35,6 +35,7 @@ Add submodule	Submodul hinzufügen	Ajouter un sous-module	Añadir submódulo
 Add submodule…	Submodul hinzufügen…	Ajouter un sous-module…	Añadir submódulo…
 Add worktree	Worktree hinzufügen	Ajouter un arbre de travail	Añadir árbol de trabajo
 Add worktree…	Worktree hinzufügen…	Ajouter un arbre de travail…	Añadir árbol de trabajo…
+Added	Hinzugefügt	Ajouté	Añadido
 Added submodule {path}; commit to keep it	Submodul {path} hinzugefügt; committe, um es zu behalten	Sous-module {path} ajouté ; validez pour le garder	Submódulo {path} añadido; haz commit para conservarlo
 Added worktree {path}	Worktree {path} hinzugefügt	Arbre de travail {path} ajouté	Árbol de trabajo {path} añadido
 Added {patterns} to .gitignore	{patterns} zu .gitignore hinzugefügt	{patterns} ajoutés à .gitignore	{patterns} añadidos a .gitignore
@@ -87,6 +88,9 @@ Bisecting	Bisect läuft	Bisection en cours	Bisección en curso
 Blame	Blame	Annotations (blame)	Blame
 Blame at this commit	Blame bei diesem Commit	Annotations à ce commit	Blame en este commit
 Both ranges hold the same commits	Beide Bereiche enthalten dieselben Commits	Les deux plages contiennent les mêmes commits	Ambos rangos contienen los mismos commits
+Both sides added a file with this name, with different contents.	Beide Seiten haben eine Datei mit diesem Namen hinzugefügt, mit unterschiedlichem Inhalt.	Les deux côtés ont ajouté un fichier de ce nom, avec un contenu différent.	Ambos lados añadieron un archivo con este nombre, con contenido distinto.
+Both sides changed this file in the same places.	Beide Seiten haben diese Datei an denselben Stellen geändert.	Les deux côtés ont modifié ce fichier aux mêmes endroits.	Ambos lados cambiaron este archivo en los mismos sitios.
+Both sides deleted this file.	Beide Seiten haben diese Datei gelöscht.	Les deux côtés ont supprimé ce fichier.	Ambos lados eliminaron este archivo.
 Branch	Branch	Branche	Rama
 Branch name	Branch-Name	Nom de la branche	Nombre de la rama
 Branch overwritten	Branch überschrieben	Branche écrasée	Rama sobrescrita
@@ -99,6 +103,7 @@ by “{author}”	von „{author}“	par « {author} »	de «{author}»
 Cancel	Abbrechen	Annuler	Cancelar
 Cancelled	Abgebrochen	Annulé	Cancelado
 cargo test	cargo test	cargo test	cargo test
+Changed	Geändert	Modifié	Cambiado
 Changed text	Geänderter Text	Texte modifié	Texto cambiado
 Changed text is a regular expression	Geänderter Text ist ein regulärer Ausdruck	Le texte modifié est une expression régulière	El texto cambiado es una expresión regular
 Changes	Änderungen	Modifications	Cambios
@@ -130,6 +135,7 @@ Cherry-pick {count} commits into current	{count} Commits in den aktuellen Branch
 Cherry-picked {commits}	{commits} übernommen	{commits} appliqués	{commits} aplicados
 Cherry-picked {commit}	{commit} per Cherry-Pick übernommen	{commit} picoré (cherry-pick)	{commit} aplicado con cherry-pick
 Cherry-picking	Cherry-Pick läuft	Cherry-pick en cours	Aplicando cherry-pick
+Cherry-picking {theirs} onto {ours}	Cherry-pick von {theirs} auf {ours}	Cherry-pick de {theirs} sur {ours}	Cherry-pick de {theirs} sobre {ours}
 Choose a parent	Wähle ein Elternteil	Choisissez un parent	Elige un padre
 Choose the parent that should be kept (the mainline).	Wähle den Elternteil, der behalten werden soll (die Hauptlinie).	Choisissez le parent à conserver (la ligne principale).	Elige el padre que se conserva (la línea principal).
 Choose the upstream of {name}	Upstream von {name} wählen	Choisir la branche amont de {name}	Elige el upstream de {name}
@@ -164,6 +170,7 @@ Combine both messages	Beide Nachrichten zusammenführen	Combiner les deux messag
 Command	Befehl	Commande	Comando
 Commit	Commit	Commit	Commit
 Commit amended	Commit ergänzt	Commit modifié	Commit enmendado
+Commit merge	Merge committen	Valider la fusion	Hacer commit de la fusión
 Commit message	Commit-Nachricht	Message de commit	Mensaje del commit
 Commit not found	Commit nicht gefunden	Commit introuvable	Commit no encontrado
 Commit reverted	Commit rückgängig gemacht	Commit annulé (revert)	Commit revertido
@@ -247,6 +254,7 @@ Delete {branches}…	{branches} löschen…	Supprimer {branches}…	Eliminar {br
 Delete {branch} from {remote}?	{branch} von {remote} löschen?	Supprimer {branch} de {remote} ?	¿Eliminar {branch} de {remote}?
 Delete {count} item(s)?	{count} Einträge löschen?	Supprimer {count} élément(s) ?	¿Eliminar {count} elemento(s)?
 Delete “{message}”? This cannot be undone.	„{message}“ löschen? Das kann nicht rückgängig gemacht werden.	Supprimer « {message} » ? Cette action est irréversible.	¿Eliminar «{message}»? No se puede deshacer.
+Deleted	Gelöscht	Supprimé	Eliminado
 Deleted {branches}	{branches} gelöscht	{branches} supprimées	{branches} eliminadas
 Deleted {name} from {remote}	{name} von {remote} gelöscht	{name} supprimé de {remote}	{name} eliminada de {remote}
 Delete…	Löschen…	Supprimer…	Eliminar…
@@ -478,6 +486,7 @@ Merge {reference} into {head}	{reference} in {head} mergen	Fusionner {reference}
 Merged	Gemergt	Fusionnée	Fusionada
 Merged {reference}	{reference} gemergt	{reference} fusionnée	{reference} fusionada
 Merging	Merge läuft	Fusion	Fusionando
+Merging {theirs} into {ours}	{theirs} wird in {ours} gemergt	Fusion de {theirs} dans {ours}	Fusionando {theirs} en {ours}
 message	Nachricht	message	mensaje
 Message	Nachricht	Message	Mensaje
 Message (creates an annotated tag)	Nachricht (erstellt ein annotiertes Tag)	Message (crée un tag annoté)	Mensaje (crea una etiqueta anotada)
@@ -536,6 +545,8 @@ Nothing to clean	Nichts zu bereinigen	Rien à nettoyer	No hay nada que limpiar
 Old range	Alter Bereich	Ancienne plage	Rango antiguo
 One per line	Einer pro Zeile	Un par ligne	Uno por línea
 One per line, such as /src/; empty for everything	Einer pro Zeile, etwa /src/; leer für alles	Un par ligne, par exemple /src/ ; vide pour tout	Una por línea, por ejemplo /src/; vacío para todo
+One side added this file while the other changed it.	Eine Seite hat diese Datei hinzugefügt, während die andere sie geändert hat.	Un côté a ajouté ce fichier pendant que l’autre le modifiait.	Un lado añadió este archivo mientras el otro lo cambiaba.
+One side changed this file, the other deleted it.	Eine Seite hat diese Datei geändert, die andere gelöscht.	Un côté a modifié ce fichier, l’autre l’a supprimé.	Un lado cambió este archivo y el otro lo eliminó.
 Only commits of the current branch can be squashed or dropped together; merge commits can't be in between.	Nur Commits des aktuellen Branches lassen sich zusammen squashen oder verwerfen; dazwischen dürfen keine Merge-Commits liegen.	Seuls les commits de la branche actuelle peuvent être fusionnés ou supprimés ensemble ; aucun commit de fusion ne doit se trouver entre eux.	Solo los commits de la rama actual pueden combinarse o eliminarse juntos; no puede haber commits de fusión entre ellos.
 Only commits on the current branch can be edited	Nur Commits auf dem aktuellen Branch können bearbeitet werden	Seuls les commits de la branche actuelle peuvent être modifiés	Solo se pueden editar los commits de la rama actual
 Only commits since	Nur Commits seit	Seulement les commits depuis	Solo los commits desde
@@ -551,7 +562,6 @@ Open a repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir un reposit
 Open as a repository	Als Repository öffnen	Ouvrir comme dépôt	Abrir como repositorio
 Open file	Datei öffnen	Ouvrir le fichier	Abrir archivo
 Open in new tab	In neuem Tab öffnen	Ouvrir dans un nouvel onglet	Abrir en una pestaña nueva
-Open merge tool	Merge-Tool öffnen	Ouvrir l’outil de fusion	Abrir la herramienta de fusión
 Open repository	Repository öffnen	Ouvrir un dépôt	Abrir repositorio
 Open repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir repositorio…
 Open source under the MIT License.	Open Source unter der MIT-Lizenz.	Open source sous licence MIT.	Código abierto bajo la licencia MIT.
@@ -562,6 +572,7 @@ Options	Optionen	Options	Opciones
 Options ({count})	Optionen ({count})	Options ({count})	Opciones ({count})
 Order the history by date instead of keeping branches together	Verlauf nach Datum ordnen, statt Branches zusammenzuhalten	Trier l’historique par date plutôt que de regrouper les branches	Ordenar el historial por fecha en lugar de agrupar las ramas
 Ours	Unsere	Le nôtre	Lo nuestro
+Ours (HEAD)	Unsere Seite (HEAD)	Notre côté (HEAD)	El nuestro (HEAD)
 Ours + theirs	Unsere + ihre	Le nôtre + le leur	Lo nuestro + lo suyo
 Overwrite	Überschreiben	Écraser	Sobrescribir
 Overwrite local branch with the remote branch	Lokalen Branch mit dem Remote-Branch überschreiben	Écraser la branche locale avec la branche distante	Sobrescribir la rama local con la rama remota
@@ -618,6 +629,8 @@ Rebase {current} onto here…	{current} hierauf rebasen…	Rebaser {current} ici
 Rebase {head} onto {label}?	{head} auf {label} rebasen?	Rebaser {head} sur {label} ?	¿Hacer rebase de {head} sobre {label}?
 Rebase {shown} onto {name}…	{shown} auf {name} rebasen…	Rebaser {shown} sur {name}…	Hacer rebase de {shown} sobre {name}…
 Rebasing	Rebase läuft	Rebase	Haciendo rebase
+Rebasing onto {ours}	Rebase auf {ours}	Rebase sur {ours}	Rebase sobre {ours}
+Rebasing {branch} onto {ours}	Rebase von {branch} auf {ours}	Rebase de {branch} sur {ours}	Rebase de {branch} sobre {ours}
 Rebuild	Neu aufbauen	Reconstruire	Reconstruir
 Recent	Zuletzt geöffnet	Récents	Recientes
 Recover discarded changes	Verworfene Änderungen wiederherstellen	Récupérer les modifications supprimées	Recuperar cambios descartados
@@ -669,8 +682,9 @@ Reset {current} to here	{current} hierher zurücksetzen	Réinitialiser {current}
 Reset {head} to {commit} “{subject}” and discard ALL uncommitted changes? This cannot be undone.	{head} auf {commit} „{subject}“ zurücksetzen und ALLE nicht committeten Änderungen verwerfen? Das kann nicht rückgängig gemacht werden.	Réinitialiser {head} à {commit} « {subject} » et supprimer TOUTES les modifications non validées ? Cette action est irréversible.	¿Restablecer {head} a {commit} «{subject}» y descartar TODOS los cambios sin commit? No se puede deshacer.
 Resetting ({mode})	Wird zurückgesetzt ({mode})	Réinitialisation ({mode})	Restableciendo ({mode})
 Resolve conflict	Konflikt lösen	Résoudre le conflit	Resolver conflicto
+Resolve in GitCraft	In GitCraft lösen	Résoudre dans GitCraft	Resolver en GitCraft
 Resolve in merge tool…	Im Merge-Tool lösen…	Résoudre dans l’outil de fusion…	Resolver en la herramienta de fusión…
-Resolve the conflicting sections, then the file is marked as resolved.	Löse die widersprüchlichen Stellen; danach wird die Datei als gelöst markiert.	Résolvez les sections en conflit ; le fichier est ensuite marqué comme résolu.	Resuelve las secciones en conflicto y el archivo se marcará como resuelto.
+Resolve the conflicted files above first; Continue is in the bar at the top.	Löse zuerst die Konflikte in den Dateien oben; „Fortsetzen“ ist in der Leiste ganz oben.	Résolvez d’abord les conflits des fichiers ci-dessus ; « Continuer » est dans la barre en haut.	Resuelve primero los conflictos de los archivos de arriba; «Continuar» está en la barra superior.
 Resolve using ours	Mit unserer Seite lösen	Résoudre avec le nôtre	Resolver con lo nuestro
 Resolve using theirs	Mit ihrer Seite lösen	Résoudre avec le leur	Resolver con lo suyo
 Resolved {path}	{path} gelöst	{path} résolu	{path} resuelto
@@ -690,6 +704,7 @@ Reverted in {path}; the change is uncommitted	In {path} zurückgenommen; die Än
 Reverting	Wird rückgängig gemacht	Annulation (revert)	Revirtiendo
 Reverting lines	Zeilen werden zurückgenommen	Annulation des lignes	Revirtiendo líneas
 Reverting lines is disabled while “Ignore whitespace” is on.	Zeilen zurücknehmen ist deaktiviert, solange „Leerraum ignorieren“ an ist.	L’annulation de lignes est désactivée tant que « Ignorer les espaces » est activé.	Revertir líneas está desactivado mientras «Ignorar espacios» esté activado.
+Reverting {theirs} on {ours}	{theirs} wird auf {ours} rückgängig gemacht	Annulation de {theirs} sur {ours}	Revirtiendo {theirs} en {ours}
 Reword	Umformulieren	Reformuler	Reformular
 Reworded commits need a message.	Umformulierte Commits brauchen eine Nachricht.	Les commits reformulés ont besoin d’un message.	Los commits reformulados necesitan un mensaje.
 Rewrite the history as planned above	Den Verlauf wie oben geplant neu schreiben	Réécrire l’historique comme prévu ci-dessus	Reescribir el historial como se planeó arriba
@@ -848,6 +863,7 @@ the root commit	den Wurzel-Commit	le commit racine	el commit raíz
 The stash moves to the top of the list.	Der Stash rückt an den Anfang der Liste.	La remise passe en tête de liste.	El stash pasa al principio de la lista.
 The title bar changes when GitCraft starts again.	Die Titelleiste ändert sich beim nächsten Start von GitCraft.	La barre de titre change au prochain démarrage de GitCraft.	La barra de título cambia la próxima vez que se inicie GitCraft.
 Theirs	Ihre	Le leur	Lo suyo
+Theirs (incoming)	Ihre Seite (eingehend)	Leur côté (entrant)	El suyo (entrante)
 Theirs + ours	Ihre + unsere	Le leur + le nôtre	Lo suyo + lo nuestro
 Theme	Design	Thème	Tema
 then runs: {command}	danach: {command}	puis exécute : {command}	luego ejecuta: {command}
@@ -903,6 +919,7 @@ Updating .gitignore	.gitignore wird aktualisiert	Mise à jour de .gitignore	Actu
 Updating submodules	Submodule werden aktualisiert	Mise à jour des sous-modules	Actualizando submódulos
 Updating {path}	{path} wird aktualisiert	Mise à jour de {path}	Actualizando {path}
 Upstream	Upstream	Branche amont	Upstream
+Upstream (being rebased onto)	Basis (Ziel des Rebase)	Base (cible du rebase)	Base (destino del rebase)
 Use our file	Unsere Datei verwenden	Utiliser notre fichier	Usar nuestro archivo
 Use ours	Unsere verwenden	Utiliser le nôtre	Usar lo nuestro
 Use system title bar	Titelleiste des Systems verwenden	Utiliser la barre de titre du système	Usar la barra de título del sistema
@@ -910,8 +927,14 @@ Use the commit	Den Commit verwenden	Utiliser le commit	Usar el commit
 Use the commit, edit its message	Den Commit verwenden, seine Nachricht bearbeiten	Utiliser le commit, modifier son message	Usar el commit y editar su mensaje
 Use their file	Ihre Datei verwenden	Utiliser leur fichier	Usar su archivo
 Use theirs	Ihre verwenden	Utiliser le leur	Usar lo suyo
+Use this side	Diese Seite übernehmen	Garder ce côté	Usar este lado
 Using git {version}	git {version} wird verwendet	git {version} est utilisé	Se usa git {version}
 View	Ansicht	Affichage	Ver
+When you continue, the change is committed with its own message.	Beim Fortsetzen wird die Änderung mit ihrer eigenen Nachricht committet.	En continuant, la modification est validée avec son propre message.	Al continuar, el cambio se confirma con su propio mensaje.
+When you continue, the rebase goes on with the next commit.	Beim Fortsetzen geht der Rebase mit dem nächsten Commit weiter.	En continuant, le rebase passe au commit suivant.	Al continuar, el rebase sigue con el siguiente commit.
+When you continue, the revert of {commit} is committed.	Beim Fortsetzen wird das Rückgängigmachen von {commit} committet.	En continuant, l’annulation de {commit} est validée.	Al continuar, se confirma la reversión de {commit}.
+When you continue, {commit} is committed again with its own message, and the rebase goes on with the next commit.	Beim Fortsetzen wird {commit} mit seiner eigenen Nachricht erneut committet, und der Rebase geht mit dem nächsten Commit weiter.	En continuant, {commit} est de nouveau validé avec son propre message, et le rebase passe au commit suivant.	Al continuar, {commit} se vuelve a confirmar con su propio mensaje y el rebase sigue con el siguiente commit.
+When you continue, {commit} is committed with its own message.	Beim Fortsetzen wird {commit} mit seiner eigenen Nachricht committet.	En continuant, {commit} est validé avec son propre message.	Al continuar, {commit} se confirma con su propio mensaje.
 Window	Fenster	Fenêtre	Ventana
 With HEAD	Mit HEAD	Avec HEAD	Con HEAD
 With the working directory	Mit dem Arbeitsverzeichnis	Avec le répertoire de travail	Con el directorio de trabajo
@@ -929,6 +952,7 @@ X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)	X.509 (S/MIME)
 Yes	Ja	Oui	Sí
 yesterday	gestern	hier	ayer
 you@example.com	du@example.com	vous@example.com	tu@example.com
+Your commit (being replayed)	Dein Commit (wird neu angewendet)	Votre commit (rejoué)	Tu commit (se vuelve a aplicar)
 Your name, as commits show it	Dein Name, wie Commits ihn zeigen	Votre nom, tel que les commits l’affichent	Tu nombre, como lo muestran los commits
 Your settings for every repository (git config --global).	Deine Einstellungen für alle Repositorys (git config --global).	Vos réglages pour tous les dépôts (git config --global).	Tus ajustes para todos los repositorios (git config --global).
 Zoom	Zoom	Zoom	Zoom
@@ -956,6 +980,12 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {files} conflicted. Resolve them in Local Changes, then continue.	{files} mit Konflikten. Löse sie unter Lokale Änderungen und setze dann fort.	{files} en conflit. Résolvez-les dans Modifications locales, puis continuez.	{files} con conflictos. Resuélvelos en Cambios locales y luego continúa.
 {label} failed	{label} fehlgeschlagen	Échec : {label}	Error: {label}
 {lines} selected	{lines} ausgewählt	{lines} sélectionnées	{lines} seleccionadas
+{name} · being merged	{name} · wird gemergt	{name} · en cours de fusion	{name} · se está fusionando
+{name} · being picked	{name} · wird übernommen	{name} · en cours de cherry-pick	{name} · se está aplicando
+{name} · being rebased onto	{name} · Ziel des Rebase	{name} · cible du rebase	{name} · destino del rebase
+{name} · being reverted	{name} · wird rückgängig gemacht	{name} · en cours d’annulation	{name} · se está revirtiendo
+{name} · this branch	{name} · dieser Branch	{name} · cette branche	{name} · esta rama
+{name} · your commit	{name} · dein Commit	{name} · votre commit	{name} · tu commit
 {owner} (you)	{owner} (du)	{owner} (vous)	{owner} (tú)
 {path} and {more}	{path} und {more}	{path} et {more}	{path} y {more}
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos

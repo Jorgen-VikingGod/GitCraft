@@ -569,9 +569,19 @@ async fn resolving_a_merge_conflict_in_the_ui() {
     assert_eq!(toast_kinds(&app), [ToastKind::Warning]);
     {
         let screen = Screen::new().show(&app);
-        assert!(screen.has("Merge in progress"), "the banner shows");
-        assert!(screen.has("Open merge tool"));
+        assert!(
+            screen.has("Merging other into main"),
+            "the banner names both sides"
+        );
+        assert!(screen.has("Resolve in GitCraft"));
+        assert!(screen.has("main · this branch") && screen.has("Changed"));
+        assert!(screen.has("Conflict 1"), "the conflicting part is shown");
     }
+    assert_eq!(
+        app.current().unwrap().summary,
+        "Merge branch 'other'",
+        "git's prepared message is in the commit box"
+    );
 
     drive(&mut app, Message::OpenConflict("c.txt".into())).await;
     let Some(Overlay::Conflict(state)) = &app.overlay else {
@@ -579,6 +589,10 @@ async fn resolving_a_merge_conflict_in_the_ui() {
     };
     assert_eq!(state.conflict_count(), 1);
     assert!(state.result.contains("<<<<<<<"));
+    {
+        let screen = Screen::new().show(&app);
+        assert!(screen.has("main · this branch") && screen.has("other · being merged"));
+    }
 
     // Saving with markers left asks first.
     drive(&mut app, Message::ConflictSave).await;
@@ -596,7 +610,27 @@ async fn resolving_a_merge_conflict_in_the_ui() {
 
     let tab = app.current().unwrap();
     assert!(tab.status.as_ref().unwrap().conflicts.is_empty());
-    drive(&mut app, Message::Run(Command::Continue)).await;
+    // The merge is committed with what the commit box says, as the banner's Continue does.
+    drive(
+        &mut app,
+        Message::SummaryInput("Merge other: both lines".into()),
+    )
+    .await;
+    let tab = app.current().unwrap();
+    let message = gitcraft_ui::logic::continue_message(
+        tab.status.as_ref().unwrap().operation.as_ref().unwrap(),
+        &tab.summary,
+        &tab.body,
+    );
+    drive(&mut app, Message::Run(Command::Continue { message })).await;
+    assert_eq!(
+        f.git(&["log", "-1", "--format=%s"]).trim(),
+        "Merge other: both lines"
+    );
+    assert!(
+        app.current().unwrap().summary.is_empty(),
+        "the box is emptied"
+    );
     assert_eq!(
         f.git(&["log", "-1", "--format=%P"])
             .split_whitespace()
@@ -3810,4 +3844,33 @@ async fn typing_while_git_settings_save_is_kept() {
         app.git_config.changed(),
         [("user.email".to_owned(), "typed@example.com".to_owned())]
     );
+}
+
+#[tokio::test]
+async fn a_rebase_conflict_says_what_continuing_commits_instead_of_the_commit_box() {
+    let f = empty_fixture();
+    conflicting(&f);
+    f.git(&["switch", "-q", "other"]);
+    let mut app = opened(&f, false).await;
+    drive(
+        &mut app,
+        Message::Run(Command::Rebase {
+            onto: "main".into(),
+            autostash: false,
+        }),
+    )
+    .await;
+    let tab = app.current().unwrap();
+    assert_eq!(tab.view, View::Changes);
+    let replayed = f.git(&["log", "-1", "--format=%h their change", "other"]);
+    let shown = Screen::new().show(&app);
+    assert!(
+        shown.has("Rebasing other onto main"),
+        "the banner names both sides"
+    );
+    assert!(
+        shown.has(&format!("When you continue, {}", replayed.trim())),
+        "the note says what is committed"
+    );
+    assert!(!shown.has("Commit summary"), "no commit box to fill in");
 }

@@ -284,6 +284,12 @@ pub struct RepoTab {
     /// Commits picked with Ctrl/Shift+click, newest first as listed; empty when only
     /// `selected` is.
     pub picked_commits: Vec<String>,
+    /// The conflicted file picked in Local Changes and its versions, for the page about it
+    /// (`None` while loading).
+    pub conflict_preview: Option<(String, Option<Answer<ConflictVersions>>)>,
+    /// The merge (its MERGE_HEAD) whose prepared message was put in the commit box, so it is
+    /// put there once.
+    pub merge_filled: Option<String>,
     /// Co-authors for the next commits, one `Name <mail>` per line.
     pub co_authors: String,
     /// What Edit › Undo and Redo would do.
@@ -355,6 +361,8 @@ impl RepoTab {
             stats: std::collections::HashMap::new(),
             last_fetch: Instant::now(),
             fetching: false,
+            merge_filled: None,
+            conflict_preview: None,
             co_authors: String::new(),
             picked_commits: Vec::new(),
         }
@@ -921,6 +929,10 @@ pub enum Message {
     Refresh,
     SetView(View),
     StatusLoaded(String, Answer<Status>),
+    /// The versions of a conflicted file: (repository, path, them).
+    ConflictPreviewLoaded(String, String, Answer<ConflictVersions>),
+    /// git's prepared message for the merge in progress in (repository).
+    MergeMessageLoaded(String, Option<String>),
     RefsLoaded(String, Answer<Refs>),
     UndoLoaded(String, Answer<UndoLabels>),
     BisectLoaded(String, Answer<Option<Bisect>>),
@@ -1475,6 +1487,26 @@ impl App {
                 }
             }
             Message::StatusLoaded(path, result) => self.status_loaded(&path, result),
+            Message::ConflictPreviewLoaded(repo, path, versions) => {
+                if let Some(tab) = self.tab_mut(&repo)
+                    && let Some((shown, data)) = &mut tab.conflict_preview
+                    && *shown == path
+                {
+                    *data = Some(versions);
+                }
+                Task::none()
+            }
+            Message::MergeMessageLoaded(path, message) => {
+                if let (Some(tab), Some(message)) = (self.tab_mut(&path), message)
+                    && tab.summary.trim().is_empty()
+                    && tab.body.trim().is_empty()
+                {
+                    let (summary, body) = logic::split_message(&message);
+                    tab.summary = summary;
+                    tab.body = body;
+                }
+                Task::none()
+            }
             Message::BisectLoaded(path, result) => {
                 if let (Some(tab), Ok(bisect)) = (self.tab_mut(&path), result) {
                     tab.bisect = bisect;
@@ -3261,11 +3293,33 @@ impl App {
                 let Some(tab) = self.tab_mut(path) else {
                     return Task::none();
                 };
+                // A merge's prepared message goes into the commit box, once, unless something
+                // has been typed there already.
+                let fill = match &status.operation {
+                    Some(Operation::Merge { head }) if tab.merge_filled.as_ref() != Some(head) => {
+                        tab.merge_filled = Some(head.clone());
+                        tab.summary.trim().is_empty() && tab.body.trim().is_empty()
+                    }
+                    _ => false,
+                };
                 tab.status = Some(status);
                 ensure_focus(tab);
+                let fill = if fill {
+                    let repo = path.to_owned();
+                    Task::perform(
+                        async move {
+                            let message = queries::merge_message(&repo).await.ok().flatten();
+                            (repo, message)
+                        },
+                        |(repo, message)| Message::MergeMessageLoaded(repo, message),
+                    )
+                } else {
+                    Task::none()
+                };
                 if tab.view == View::Changes && self.current().is_some_and(|tab| tab.path == path) {
-                    return self.reload_changes();
+                    return Task::batch([fill, self.reload_changes()]);
                 }
+                return fill;
             }
             Err(error) => self.toast(ToastKind::Error, error, None),
         }
@@ -3549,6 +3603,23 @@ impl App {
         let Some(tab) = self.current() else {
             return Task::none();
         };
+        if let Some((Area::Conflicts, path)) = &tab.focus {
+            let (repo, path) = (tab.path.clone(), path.clone());
+            if let Some(tab) = self.current_mut() {
+                // A refresh of the same file keeps showing it until the new versions are in.
+                if tab.conflict_preview.as_ref().map(|(shown, _)| shown) != Some(&path) {
+                    tab.conflict_preview = Some((path.clone(), None));
+                }
+                tab.changes_pane.clear();
+            }
+            return Task::perform(
+                async move {
+                    let versions = answer(ops::conflict_versions(&repo, &path).await);
+                    (repo, path, versions)
+                },
+                |(repo, path, versions)| Message::ConflictPreviewLoaded(repo, path, versions),
+            );
+        }
         let request = match &tab.focus {
             Some((Area::Conflicts, _)) | None => None,
             Some((area, path)) => {
@@ -4115,6 +4186,13 @@ impl App {
                             push = Some(push_after_commit(tab));
                         }
                     }
+                }
+            }
+            // A merge committed with the commit box's message empties it, as a commit does.
+            Command::Continue { message: Some(_) } if succeeded => {
+                if let Some(tab) = self.tab_mut(&repo) {
+                    tab.summary.clear();
+                    tab.body.clear();
                 }
             }
             Command::Resolve { .. } | Command::InteractiveRebase { .. } => {

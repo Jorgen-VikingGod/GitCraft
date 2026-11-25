@@ -773,13 +773,7 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
         return;
     };
     let conflicts = status.conflicts.len();
-    let mut title = match operation {
-        Operation::Merge { .. } => tr("Merge in progress").to_owned(),
-        Operation::Rebase { .. } => tr("Rebase in progress").to_owned(),
-        Operation::CherryPick { .. } => tr("Cherry-pick in progress").to_owned(),
-        Operation::Revert { .. } => tr("Revert in progress").to_owned(),
-        Operation::Am => tr("Applying patches (git am)").to_owned(),
-    };
+    let mut title = crate::logic::operation_title(operation, status.sides.as_ref());
     if let Operation::Rebase {
         step: Some(step),
         total: Some(total),
@@ -791,13 +785,6 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
             "step {step} of {total}",
             &[("step", &step.to_string()), ("total", &total.to_string())],
         ));
-    }
-    if let Operation::Rebase {
-        branch: Some(branch),
-        ..
-    } = operation
-    {
-        title.push_str(&format!(" · {branch}"));
     }
     let hint = if conflicts > 0 {
         trf(
@@ -835,7 +822,9 @@ pub fn operation_banner(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if accent(ui, look, "Continue", conflicts == 0) {
-                        cx.send(Message::Run(Command::Continue));
+                        let message =
+                            crate::logic::continue_message(operation, &tab.summary, &tab.body);
+                        cx.send(Message::Run(Command::Continue { message }));
                     }
                     if danger(ui, look, "Abort", true) {
                         cx.send(Message::Action(Action::Abort));

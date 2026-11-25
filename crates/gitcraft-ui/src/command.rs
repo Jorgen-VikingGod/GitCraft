@@ -156,7 +156,10 @@ pub enum Command {
         sha: String,
         mainline: Option<i64>,
     },
-    Continue,
+    /// Goes on with the operation in progress; a merge is committed with `message` when given.
+    Continue {
+        message: Option<String>,
+    },
     Abort,
     Skip,
     CreateTag {
@@ -412,7 +415,7 @@ impl Command {
             | Self::CherryPickMany { .. }
             | Self::CherryPickMerge { .. } => "Cherry-picking".into(),
             Self::Revert { .. } => "Reverting".into(),
-            Self::Continue => "Continuing".into(),
+            Self::Continue { .. } => "Continuing".into(),
             Self::Abort => "Aborting".into(),
             Self::Skip => "Skipping".into(),
             Self::CreateTag { .. } => "Creating tag".into(),
@@ -876,7 +879,7 @@ impl Command {
             }
             Self::CherryPickMany { shas } => ops::cherry_pick(repo, &shas).await,
             Self::Revert { sha, mainline } => ops::revert(repo, &sha, mainline).await,
-            Self::Continue => ops::continue_operation(repo).await,
+            Self::Continue { message } => ops::continue_operation(repo, message.as_deref()).await,
             Self::Abort => ops::abort_operation(repo).await,
             Self::Skip => ops::skip_operation(repo).await,
             Self::CreateTag {
