@@ -825,15 +825,26 @@ pub async fn refs(repo: &str) -> Result<Refs> {
 }
 
 /// Git LFS in this repository: whether it is set up here and the patterns it tracks; `None`
-/// when git-lfs isn't installed.
+/// when git-lfs isn't installed. Only reads: `git lfs track` would install LFS's hooks.
 pub async fn lfs(repo: &str) -> Result<Option<Lfs>> {
-    let (track, filter, hook) = tokio::join!(
-        git_unchecked(repo, &["lfs", "track", "--json"]),
+    let (version, filter, hook, files) = tokio::join!(
+        git_unchecked(repo, &["lfs", "version"]),
         git_unchecked(repo, &["config", "--get", "filter.lfs.process"]),
         git_unchecked(repo, &["rev-parse", "--git-path", "hooks/pre-push"]),
+        git_unchecked(
+            repo,
+            &[
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                ":(glob)**/.gitattributes",
+            ],
+        ),
     );
-    let track = track?;
-    if track.code != 0 {
+    if version?.code != 0 {
         return Ok(None);
     }
     // The pre-push hook is what sends the files to the LFS server; without it a push leaves
@@ -846,9 +857,26 @@ pub async fn lfs(repo: &str) -> Result<Option<Lfs>> {
         &hook_path
     })
     .is_ok_and(|text| text.contains("git lfs") || text.contains("git-lfs"));
+    let top = toplevel(repo).await?;
+    let mut sources: Vec<String> = files?
+        .out()
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(str::to_owned)
+        .collect();
+    sources.sort();
+    sources.dedup();
+    // The repository's own file first, then the folders' ones.
+    sources.sort_by_key(|path| path.contains('/'));
+    let mut patterns = Vec::new();
+    for source in sources {
+        if let Ok(text) = std::fs::read_to_string(Path::new(&top).join(&source)) {
+            patterns.extend(parsers::parse_lfs_attributes(&source, &text));
+        }
+    }
     Ok(Some(Lfs {
         installed: hooked && !filter?.out().trim().is_empty(),
-        patterns: parsers::parse_lfs_patterns(&track.out()),
+        patterns,
     }))
 }
 

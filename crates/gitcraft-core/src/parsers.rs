@@ -1059,23 +1059,25 @@ fn runs_in_terminal(name: &str) -> bool {
     name == "emerge" || name.starts_with("vimdiff") || name.starts_with("nvimdiff")
 }
 
-/// The patterns `git lfs track --json` lists as tracked (excluded ones are left out).
-pub fn parse_lfs_patterns(out: &str) -> Vec<LfsPattern> {
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(out) else {
-        return Vec::new();
-    };
-    let text = |item: &serde_json::Value, key: &str| item[key].as_str().unwrap_or("").to_owned();
-    value["patterns"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|item| item["tracked"].as_bool().unwrap_or(true))
-        .map(|item| LfsPattern {
-            pattern: text(item, "pattern"),
-            source: text(item, "source"),
-            lockable: item["lockable"].as_bool().unwrap_or(false),
+/// The patterns one attributes file hands to LFS (`filter=lfs`), in its order. `source` is
+/// the file's path in the repository, such as `.gitattributes` or `assets/.gitattributes`.
+/// Lines that take a pattern out of LFS (`!filter`, `-filter`) are left out.
+pub fn parse_lfs_attributes(source: &str, text: &str) -> Vec<LfsPattern> {
+    lines(text)
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let mut parts = line.split_whitespace();
+            let pattern = parts.next()?;
+            let attributes: Vec<&str> = parts.collect();
+            attributes.contains(&"filter=lfs").then(|| LfsPattern {
+                pattern: pattern.to_owned(),
+                source: source.to_owned(),
+                lockable: attributes.contains(&"lockable"),
+            })
         })
-        .filter(|pattern| !pattern.pattern.is_empty())
         .collect()
 }
 
@@ -1133,17 +1135,16 @@ pub fn attributes_use_lfs(text: &str) -> bool {
 mod tests {
 
     #[test]
-    fn lfs_patterns_and_locks_are_read_from_json() {
-        let track = r#"{"patterns":[
-            {"pattern":"*.psd","source":".gitattributes","lockable":false,"tracked":true},
-            {"pattern":"*.bin","source":"assets/.gitattributes","lockable":true,"tracked":true},
-            {"pattern":"keep.psd","source":".gitattributes","lockable":false,"tracked":false}]}"#;
-        let patterns = parse_lfs_patterns(track);
+    fn lfs_patterns_and_locks_are_read() {
+        let attributes = "# art\n*.psd filter=lfs diff=lfs merge=lfs -text\n\
+            *.bin filter=lfs diff=lfs merge=lfs -text lockable\n\
+            keep.psd !filter !diff !merge\n*.txt text eol=lf\n";
+        let patterns = parse_lfs_attributes("assets/.gitattributes", attributes);
         assert_eq!(patterns.len(), 2);
         assert_eq!(patterns[1].pattern, "*.bin");
         assert_eq!(patterns[1].source, "assets/.gitattributes");
         assert!(patterns[1].lockable && !patterns[0].lockable);
-        assert!(parse_lfs_patterns("not json").is_empty());
+        assert!(parse_lfs_attributes(".gitattributes", "").is_empty());
 
         let verified = r#"{"ours":[{"id":"7","path":"b.psd","owner":{"name":"Me"},"locked_at":"2026-01-02T03:04:05Z"}],
             "theirs":[{"id":"8","path":"a.psd","owner":{"name":"Them"},"locked_at":"2026-01-01T00:00:00Z"}]}"#;

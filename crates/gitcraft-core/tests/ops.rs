@@ -3336,6 +3336,10 @@ async fn lfs_is_set_up_tracks_and_untracks_patterns() {
         return;
     };
     assert!(lfs.patterns.is_empty());
+    // Looking doesn't set LFS up: no hook, no config.
+    assert!(!lfs.installed);
+    assert!(!f.path.join(".git/hooks/pre-push").exists());
+    assert!(!f.git(&["config", "--local", "--list"]).contains("lfs"));
     ops::lfs_install(&f.repo).await.unwrap();
     assert!(queries::lfs(&f.repo).await.unwrap().unwrap().installed);
 
@@ -3377,4 +3381,22 @@ async fn lfs_is_set_up_tracks_and_untracks_patterns() {
     let patterns = queries::lfs(&f.repo).await.unwrap().unwrap().patterns;
     assert_eq!(patterns.len(), 1);
     assert_eq!(patterns[0].pattern, "*.bin");
+
+    // A folder's own attributes count too, before they are committed.
+    f.write(
+        "assets/.gitattributes",
+        "*.wav filter=lfs diff=lfs merge=lfs -text\n",
+    );
+    let patterns = queries::lfs(&f.repo).await.unwrap().unwrap().patterns;
+    let sources: Vec<(&str, &str)> = patterns
+        .iter()
+        .map(|pattern| (pattern.pattern.as_str(), pattern.source.as_str()))
+        .collect();
+    assert_eq!(
+        sources,
+        [
+            ("*.bin", ".gitattributes"),
+            ("*.wav", "assets/.gitattributes")
+        ]
+    );
 }

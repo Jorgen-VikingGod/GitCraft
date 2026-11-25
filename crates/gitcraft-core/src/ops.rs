@@ -783,7 +783,6 @@ async fn catch_up(repo: &str, local: &str, remote: &str) -> Result<()> {
 }
 
 async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> {
-    check_lfs_for(repo, reference).await?;
     let result = match kind {
         "remote" => {
             let local = reference
@@ -795,15 +794,25 @@ async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> 
                 .code
                 == 0
             {
+                // The local branch is checked out, and may then be fast-forwarded to the
+                // remote one: both must be fine without LFS.
+                check_lfs_for(repo, &[local, reference]).await?;
                 let switched = git(repo, &["switch", local]).await?;
                 catch_up(repo, local, reference).await?;
                 switched
             } else {
+                check_lfs_for(repo, &[reference]).await?;
                 git(repo, &["switch", "--track", "-c", local, reference]).await?
             }
         }
-        "commit" => git(repo, &["switch", "--detach", reference]).await?,
-        _ => git(repo, &["switch", reference]).await?,
+        _ => {
+            check_lfs_for(repo, &[reference]).await?;
+            if kind == "commit" {
+                git(repo, &["switch", "--detach", reference]).await?
+            } else {
+                git(repo, &["switch", reference]).await?
+            }
+        }
     };
     Ok(ok(&result))
 }
@@ -2524,20 +2533,35 @@ pub async fn lfs_unlock(repo: &str, path: &str, id: Option<&str>, force: bool) -
     Ok(ok(&git(repo, &args).await?))
 }
 
-/// Refuses a checkout of `reference` that would leave LFS pointer files where the real
-/// files belong: the target stores files in LFS, and git-lfs isn't installed.
-async fn check_lfs_for(repo: &str, reference: &str) -> Result<()> {
-    let spec = format!("{reference}:.gitattributes");
-    let attributes = git_unchecked(repo, &["show", &spec]).await?;
-    if attributes.code != 0 || !parsers::attributes_use_lfs(&attributes.out()) {
-        return Ok(());
-    }
+/// Refuses a checkout of `targets` that would leave LFS pointer files where the real files
+/// belong: one of them stores files in LFS (by any `.gitattributes` in its tree, nested ones
+/// too), and git-lfs isn't installed.
+async fn check_lfs_for(repo: &str, targets: &[&str]) -> Result<()> {
     if git_unchecked(repo, &["lfs", "version"]).await?.code == 0 {
         return Ok(());
     }
-    invalid(format!(
-        "{reference} stores files in Git LFS, which isn't installed. Install git-lfs first, or the checkout would hold placeholder files instead of them."
-    ))
+    for target in targets {
+        let found = git_unchecked(
+            repo,
+            &[
+                "grep",
+                "-h",
+                "-I",
+                "-e",
+                "filter=lfs",
+                check_ref(target)?,
+                "--",
+                ":(glob)**/.gitattributes",
+            ],
+        )
+        .await?;
+        if found.code == 0 && parsers::attributes_use_lfs(&found.out()) {
+            return invalid(format!(
+                "{target} stores files in Git LFS, which isn't installed. Install git-lfs first, or the checkout would hold placeholder files instead of them."
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub async fn update_submodules(repo: &str, progress: Option<&Progress>) -> Result<OpResult> {
