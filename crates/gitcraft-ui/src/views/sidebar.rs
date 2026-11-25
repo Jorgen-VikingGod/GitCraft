@@ -684,6 +684,51 @@ fn tags_and_more(
         }
     });
 
+    // Git LFS, once the repository uses it or is set up for it.
+    if let Some(lfs) = tab
+        .refs
+        .lfs
+        .as_ref()
+        .filter(|lfs| lfs.installed || !lfs.patterns.is_empty())
+    {
+        card(ui, cx, |ui| {
+            section(
+                ui,
+                cx,
+                "s:lfs",
+                "Git LFS",
+                Some(lfs.patterns.len()),
+                Some(Message::Action(Action::LfsTrack(String::new()))),
+            );
+            if collapsed("s:lfs") {
+                return;
+            }
+            if lfs.patterns.is_empty() {
+                none(ui, cx, "No files are stored in LFS");
+            }
+            for pattern in &lfs.patterns {
+                let badges = if pattern.lockable {
+                    vec![(tr("lockable").to_owned(), c.text_muted)]
+                } else {
+                    Vec::new()
+                };
+                let item = simple(pattern.pattern.clone(), "file", (false, false), badges);
+                let response = leaf(ui, cx, &item).on_hover_text(&pattern.source);
+                if response.secondary_clicked() {
+                    cx.send(Message::OpenMenu(MenuRequest::LfsPattern(
+                        pattern.pattern.clone(),
+                    )));
+                }
+            }
+            if !tab.refs.remotes.is_empty() {
+                let item = simple(tr("Locks…").to_owned(), "lock", (false, false), Vec::new());
+                if leaf(ui, cx, &item).clicked() {
+                    cx.send(Message::OpenLfsLocks);
+                }
+            }
+        });
+    }
+
     // Submodules
     if tab.refs.submodules.is_empty() {
         return;

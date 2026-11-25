@@ -5,7 +5,7 @@ use egui::{
     StrokeKind, Ui, vec2,
 };
 use gitcraft_core::model::{
-    BlameLine, CleanupCandidate, Commit, ConflictChunk, DiscardBackup, ReflogEntry,
+    BlameLine, CleanupCandidate, Commit, ConflictChunk, DiscardBackup, LfsLock, ReflogEntry,
 };
 
 use super::widgets::{
@@ -102,6 +102,11 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
             loading,
             error,
         } => discards(ctx, cx, entries, *loading, error.as_deref()),
+        Overlay::LfsLocks {
+            locks,
+            loading,
+            error,
+        } => lfs_locks(ctx, cx, locks, *loading, error.as_deref()),
         Overlay::Blame {
             path,
             rev,
@@ -391,6 +396,115 @@ fn discards(ctx: &Context, cx: &Cx, entries: &[DiscardBackup], loading: bool, er
             }
         },
     );
+}
+
+fn lfs_locks(ctx: &Context, cx: &Cx, locks: &[LfsLock], loading: bool, error: Option<&str>) {
+    let look = cx.look();
+    let reload = |ui: &mut Ui| {
+        if btn(ui, look, "Refresh", !loading) {
+            cx.send(Message::OpenLfsLocks);
+        }
+    };
+    dialog(
+        ctx,
+        cx,
+        "LFS locks",
+        tr(
+            "Files locked on the LFS server. Only whoever holds a lock can push changes to that file.",
+        ),
+        Some(&reload),
+        |ui, _| {
+            if let Some(error) = error {
+                placeholder(ui, look, error);
+            } else if locks.is_empty() {
+                placeholder(
+                    ui,
+                    look,
+                    if loading {
+                        "Loading…"
+                    } else {
+                        "No files are locked"
+                    },
+                );
+            } else {
+                let scrolled = scroll("lfs-locks").show(ui, |ui| {
+                    ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                    for lock in locks {
+                        lfs_lock_row(ui, cx, lock);
+                    }
+                });
+                super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
+            }
+        },
+    );
+}
+
+fn lfs_lock_row(ui: &mut Ui, cx: &Cx, lock: &LfsLock) {
+    let look = cx.look();
+    let c = &look.c;
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::hover());
+    if response.hovered() {
+        fill(ui, rect, c.hover);
+    }
+    let mid = rect.center().y;
+    let size = look.text_size;
+    let buttons = 150.0;
+    let owner_w = 220.0;
+    let x = rect.left() + 12.0;
+    let path_w = (rect.right() - buttons - owner_w - 24.0 - x).max(80.0);
+    let painter = ui.painter().with_clip_rect(Rect::from_min_size(
+        Pos2::new(x, rect.top()),
+        vec2(path_w, rect.height()),
+    ));
+    paint_text(
+        &painter,
+        Pos2::new(x, mid),
+        &lock.path,
+        look.mono(size),
+        c.text,
+    );
+    let owner = if lock.ours {
+        trf("{owner} (you)", &[("owner", &lock.owner)])
+    } else {
+        lock.owner.clone()
+    };
+    // The server's time, such as 2026-01-02T03:04:05Z: the day is enough here.
+    let day = lock.locked_at.get(..10).unwrap_or(&lock.locked_at);
+    let owner_x = x + path_w + 12.0;
+    let painter = ui.painter().with_clip_rect(Rect::from_min_size(
+        Pos2::new(owner_x, rect.top()),
+        vec2(owner_w, rect.height()),
+    ));
+    paint_text(
+        &painter,
+        Pos2::new(owner_x, mid),
+        &format!("{owner}  {day}"),
+        look.ui(size),
+        c.text_muted,
+    );
+    let slot = Rect::from_min_max(
+        Pos2::new(rect.right() - buttons - 8.0, rect.top()),
+        Pos2::new(rect.right() - 8.0, rect.bottom()),
+    );
+    region(ui, slot, |ui| {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if lock.ours {
+                if btn(ui, look, "Unlock", true) {
+                    cx.send(Message::Run(Command::LfsUnlock {
+                        path: lock.path.clone(),
+                        id: Some(lock.id.clone()),
+                        force: false,
+                    }));
+                }
+            } else if btn(ui, look, "Force unlock…", true) {
+                cx.send(Message::Action(Action::LfsForceUnlock {
+                    path: lock.path.clone(),
+                    id: lock.id.clone(),
+                    owner: lock.owner.clone(),
+                }));
+            }
+        });
+    });
 }
 
 fn discard_row(ui: &mut Ui, cx: &Cx, entry: &DiscardBackup) {

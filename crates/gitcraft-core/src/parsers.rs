@@ -1059,8 +1059,116 @@ fn runs_in_terminal(name: &str) -> bool {
     name == "emerge" || name.starts_with("vimdiff") || name.starts_with("nvimdiff")
 }
 
+/// The patterns `git lfs track --json` lists as tracked (excluded ones are left out).
+pub fn parse_lfs_patterns(out: &str) -> Vec<LfsPattern> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(out) else {
+        return Vec::new();
+    };
+    let text = |item: &serde_json::Value, key: &str| item[key].as_str().unwrap_or("").to_owned();
+    value["patterns"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|item| item["tracked"].as_bool().unwrap_or(true))
+        .map(|item| LfsPattern {
+            pattern: text(item, "pattern"),
+            source: text(item, "source"),
+            lockable: item["lockable"].as_bool().unwrap_or(false),
+        })
+        .filter(|pattern| !pattern.pattern.is_empty())
+        .collect()
+}
+
+/// Locks from `git lfs locks --json`: a list, or with `--verify` an object of `ours` and
+/// `theirs` lists.
+pub fn parse_lfs_locks(out: &str) -> Vec<LfsLock> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(out) else {
+        return Vec::new();
+    };
+    let read = |list: &serde_json::Value, ours: bool| -> Vec<LfsLock> {
+        list.as_array()
+            .into_iter()
+            .flatten()
+            .map(|item| {
+                let text = |value: &serde_json::Value| match value {
+                    serde_json::Value::String(text) => text.clone(),
+                    serde_json::Value::Number(number) => number.to_string(),
+                    _ => String::new(),
+                };
+                LfsLock {
+                    id: text(&item["id"]),
+                    path: text(&item["path"]),
+                    owner: text(&item["owner"]["name"]),
+                    locked_at: text(&item["locked_at"]),
+                    ours,
+                }
+            })
+            .filter(|lock| !lock.path.is_empty())
+            .collect()
+    };
+    let mut locks = if value.is_array() {
+        read(&value, false)
+    } else {
+        let mut locks = read(&value["ours"], true);
+        locks.extend(read(&value["theirs"], false));
+        locks
+    };
+    locks.sort_by(|a, b| a.path.cmp(&b.path));
+    locks
+}
+
+/// Whether an attributes file hands any files to LFS (`filter=lfs`).
+pub fn attributes_use_lfs(text: &str) -> bool {
+    lines(text).any(|line| {
+        let line = line.trim();
+        !line.starts_with('#')
+            && line
+                .split_whitespace()
+                .skip(1)
+                .any(|attr| attr == "filter=lfs")
+    })
+}
+
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn lfs_patterns_and_locks_are_read_from_json() {
+        let track = r#"{"patterns":[
+            {"pattern":"*.psd","source":".gitattributes","lockable":false,"tracked":true},
+            {"pattern":"*.bin","source":"assets/.gitattributes","lockable":true,"tracked":true},
+            {"pattern":"keep.psd","source":".gitattributes","lockable":false,"tracked":false}]}"#;
+        let patterns = parse_lfs_patterns(track);
+        assert_eq!(patterns.len(), 2);
+        assert_eq!(patterns[1].pattern, "*.bin");
+        assert_eq!(patterns[1].source, "assets/.gitattributes");
+        assert!(patterns[1].lockable && !patterns[0].lockable);
+        assert!(parse_lfs_patterns("not json").is_empty());
+
+        let verified = r#"{"ours":[{"id":"7","path":"b.psd","owner":{"name":"Me"},"locked_at":"2026-01-02T03:04:05Z"}],
+            "theirs":[{"id":"8","path":"a.psd","owner":{"name":"Them"},"locked_at":"2026-01-01T00:00:00Z"}]}"#;
+        let locks = parse_lfs_locks(verified);
+        assert_eq!(locks.len(), 2);
+        assert_eq!((locks[0].path.as_str(), locks[0].ours), ("a.psd", false));
+        assert_eq!(
+            (locks[1].owner.as_str(), locks[1].ours, locks[1].id.as_str()),
+            ("Me", true, "7")
+        );
+        let plain = r#"[{"id":12,"path":"c.bin","owner":{"name":"X"},"locked_at":""}]"#;
+        assert_eq!(parse_lfs_locks(plain)[0].id, "12");
+        assert!(parse_lfs_locks("[]").is_empty());
+    }
+
+    #[test]
+    fn attributes_that_use_lfs_are_recognised() {
+        assert!(attributes_use_lfs(
+            "*.psd filter=lfs diff=lfs merge=lfs -text\n"
+        ));
+        assert!(!attributes_use_lfs(
+            "# *.psd filter=lfs\n*.txt text eol=lf\n"
+        ));
+        assert!(!attributes_use_lfs(""));
+    }
 
     #[test]
     fn tool_help_of_older_git_lists_names_only() {

@@ -7,7 +7,7 @@ use crate::model::*;
 use crate::parsers::{
     self, DETAIL_FORMAT, LOG_FORMAT, REF_FORMAT, REFLOG_FORMAT, RS, STASH_FORMAT,
 };
-use crate::runner::{Options, git, git_unchecked, run};
+use crate::runner::{Options, git, git_unchecked, run, run_unchecked};
 use crate::{Error, Result, check_ref, paths};
 
 pub async fn toplevel(path: &str) -> Result<String> {
@@ -795,7 +795,76 @@ pub async fn refs(repo: &str) -> Result<Refs> {
     data.shallow = shallow?.out().trim() == "true";
     data.partial =
         partial?.code == 0 || promisor?.out().lines().any(|line| line.ends_with(" true"));
+    data.lfs = lfs(repo).await?;
     Ok(data)
+}
+
+/// Git LFS in this repository: whether it is set up here and the patterns it tracks; `None`
+/// when git-lfs isn't installed.
+pub async fn lfs(repo: &str) -> Result<Option<Lfs>> {
+    let (track, filter, hook) = tokio::join!(
+        git_unchecked(repo, &["lfs", "track", "--json"]),
+        git_unchecked(repo, &["config", "--get", "filter.lfs.process"]),
+        git_unchecked(repo, &["rev-parse", "--git-path", "hooks/pre-push"]),
+    );
+    let track = track?;
+    if track.code != 0 {
+        return Ok(None);
+    }
+    // The pre-push hook is what sends the files to the LFS server; without it a push leaves
+    // them behind.
+    let hook = hook?.out().trim().to_owned();
+    let hook_path = Path::new(repo).join(&hook);
+    let hooked = std::fs::read_to_string(if Path::new(&hook).is_absolute() {
+        Path::new(&hook)
+    } else {
+        &hook_path
+    })
+    .is_ok_and(|text| text.contains("git lfs") || text.contains("git-lfs"));
+    Ok(Some(Lfs {
+        installed: hooked && !filter?.out().trim().is_empty(),
+        patterns: parsers::parse_lfs_patterns(&track.out()),
+    }))
+}
+
+/// The files locked on the repository's LFS server, yours marked. Asks the server, so it is
+/// stopped after 30 seconds.
+pub async fn lfs_locks(repo: &str) -> Result<Vec<LfsLock>> {
+    let options = || Options {
+        env: vec![
+            ("GCM_INTERACTIVE", "never".to_owned()),
+            ("SSH_ASKPASS_REQUIRE", "never".to_owned()),
+        ],
+        ..Options::default()
+    };
+    let ask = async |args: &[&str]| match tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        run_unchecked(repo, args, options()),
+    )
+    .await
+    {
+        Ok(result) => Ok(result?),
+        Err(_) => Err(Error::Invalid(
+            "The LFS server took too long to answer".to_owned(),
+        )),
+    };
+    let verified = ask(&["lfs", "locks", "--verify", "--json"]).await?;
+    let locks = parsers::parse_lfs_locks(&verified.out());
+    if verified.code == 0 && !locks.is_empty() {
+        return Ok(locks);
+    }
+    // Some servers can't say whose a lock is; they still list them.
+    let listed = parsers::parse_lfs_locks(&ask(&["lfs", "locks", "--json"]).await?.out());
+    if !listed.is_empty() {
+        return Ok(listed);
+    }
+    // With --json, git-lfs reports a server it couldn't reach as an empty list; the plain
+    // listing fails as it should.
+    let check = ask(&["lfs", "locks"]).await?;
+    if check.code != 0 {
+        return Err(Error::Invalid(check.output().trim().to_owned()));
+    }
+    Ok(Vec::new())
 }
 
 pub async fn stash_files(repo: &str, name: &str) -> Result<Vec<FileChange>> {

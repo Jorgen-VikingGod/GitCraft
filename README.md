@@ -37,6 +37,11 @@ installed `git`, so it behaves the same as git on the command line and uses your
   squash or drop them (the interactive rebase editor opens with the plan), or replay them onto HEAD
   in the editor (interactive cherry-pick).
 - **Maintenance** (*Repository › Maintenance…*): gc, the commit-graph, and fetch with prune.
+- **Git LFS** (*Repository › Git LFS*, when git-lfs is installed): set it up for the repository, store
+  files in LFS by pattern (also *Store "*.ext" files in LFS* from a file's menu), optionally lockable,
+  stop storing them, download the LFS files, and lock or unlock files, with a list of every lock on the
+  server. The sidebar lists the tracked patterns. A checkout that needs LFS is refused while git-lfs is
+  missing, instead of leaving placeholder files.
 - **Sparse checkout** (*Repository › Sparse checkout…*): check out only some folders or patterns, change
   them, or check out everything again.
 - **Clean up branches** (*Repository › Clean up branches…*): merged, squash- or rebase-merged, and

@@ -54,6 +54,15 @@ pub enum Action {
     Maintenance,
     LockWorktree(String),
     RemoveSubmodule(String),
+    /// Asks for patterns for LFS to store, with this one filled in.
+    LfsTrack(String),
+    LfsUntrack(String),
+    /// Asks before removing someone else's lock.
+    LfsForceUnlock {
+        path: String,
+        id: String,
+        owner: String,
+    },
     /// Asks for two ranges of commits to compare.
     RangeDiff,
     /// Asks for a commit that still worked, then bisects up to this broken one.
@@ -139,6 +148,8 @@ pub enum MenuRequest {
         focus: Option<RefTarget>,
     },
     Submodule(String),
+    /// A pattern LFS tracks.
+    LfsPattern(String),
     /// Several commits picked in the history, newest first.
     Commits(Vec<String>),
     Stash(String),
@@ -638,6 +649,37 @@ impl App {
                 .field(Field::text("url", "URL", "").required().hint("https://… or git@…"))
                 .field(Field::text("path", "Folder", "").hint("Derived from the URL")),
             ),
+            Action::LfsTrack(pattern) => self.ask(
+                Form::new("Store files in LFS", "Track", |values: &Values| {
+                    run(Command::LfsTrack {
+                        patterns: values.text("patterns").split_whitespace().map(str::to_owned).collect(),
+                        lockable: values.check("lockable"),
+                    })
+                })
+                .message("New versions of matching files go to the LFS server; the repository keeps a small pointer to each. Files already committed stay as they are.")
+                .field(Field::text("patterns", "Patterns, separated by spaces", &pattern).required().hint("*.psd *.zip"))
+                .field(Field::check("lockable", "Lockable (read-only until locked)", false)),
+            ),
+            Action::LfsUntrack(pattern) => self.ask(Form::confirm(
+                "Stop storing in LFS",
+                &trf(
+                    "Stop storing new versions of {pattern} files in LFS? Versions already stored there stay there.",
+                    &[("pattern", &pattern)],
+                ),
+                "Untrack",
+                false,
+                run(Command::LfsUntrack { pattern }),
+            )),
+            Action::LfsForceUnlock { path, id, owner } => self.ask(Form::confirm(
+                "Force unlock",
+                &trf(
+                    "Remove {owner}'s lock on {path}? Changes they haven't pushed yet may then conflict with someone else's.",
+                    &[("owner", &owner), ("path", &path)],
+                ),
+                "Force unlock",
+                true,
+                run(Command::LfsUnlock { path, id: Some(id), force: true }),
+            )),
             Action::RemoveSubmodule(path) => self.ask(Form::confirm(
                 "Remove submodule",
                 &trf(
@@ -1288,6 +1330,17 @@ impl App {
                     MenuItem::entry(reveal_label(), Message::Reveal(full)),
                     MenuItem::Separator,
                     MenuItem::danger("Remove…", act(Action::RemoveSubmodule(path))),
+                ]);
+                Task::none()
+            }
+            MenuRequest::LfsPattern(pattern) => {
+                self.menu_at_cursor(vec![
+                    MenuItem::entry("Copy pattern", Message::Copy(pattern.clone())),
+                    MenuItem::Separator,
+                    MenuItem::entry(
+                        "Stop storing in LFS…",
+                        act(Action::LfsUntrack(pattern.clone())),
+                    ),
                 ]);
                 Task::none()
             }
@@ -2309,6 +2362,29 @@ fn repository_items(tab: &RepoTab) -> Vec<MenuItem> {
             run(Command::UpdateSubmodules),
         ));
     }
+    if let Some(lfs) = &tab.refs.lfs {
+        let mut lfs_items = Vec::new();
+        if !lfs.installed {
+            lfs_items.push(MenuItem::entry(
+                "Set up LFS for this repository",
+                run(Command::LfsInstall),
+            ));
+        }
+        lfs_items.extend([
+            MenuItem::entry("Store files in LFS…", act(Action::LfsTrack(String::new()))),
+            MenuItem::entry_if(
+                "Download LFS files",
+                !tab.refs.remotes.is_empty(),
+                run(Command::LfsPull),
+            ),
+            MenuItem::entry_if(
+                "Locks…",
+                !tab.refs.remotes.is_empty(),
+                Message::OpenLfsLocks,
+            ),
+        ]);
+        items.push(MenuItem::sub("Git LFS", lfs_items));
+    }
     items.extend([
         MenuItem::Separator,
         MenuItem::entry("Refresh", Message::Refresh),
@@ -2575,6 +2651,39 @@ fn file_menu_items(
                     path: path.to_owned(),
                 }),
             ));
+        }
+    }
+    // LFS, for a file of the working tree.
+    if let (Some(lfs), None) = (&tab.refs.lfs, rev) {
+        let mut lfs_items = Vec::new();
+        if let Some(pattern) = logic::lfs_track_suggestion(path, &lfs.patterns) {
+            lfs_items.push(MenuItem::entry(
+                trf("Store “{pattern}” files in LFS…", &[("pattern", &pattern)]),
+                act(Action::LfsTrack(pattern)),
+            ));
+        }
+        let new = file_in(Area::Unstaged).is_some_and(|file| file.status == "?");
+        if !new && lfs.patterns.iter().any(|pattern| pattern.lockable) {
+            lfs_items.extend([
+                MenuItem::entry(
+                    "Lock (LFS)",
+                    run(Command::LfsLock {
+                        path: path.to_owned(),
+                    }),
+                ),
+                MenuItem::entry(
+                    "Unlock (LFS)",
+                    run(Command::LfsUnlock {
+                        path: path.to_owned(),
+                        id: None,
+                        force: false,
+                    }),
+                ),
+            ]);
+        }
+        if !lfs_items.is_empty() {
+            items.push(MenuItem::Separator);
+            items.extend(lfs_items);
         }
     }
     items.extend([

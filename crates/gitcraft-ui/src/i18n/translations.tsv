@@ -101,6 +101,7 @@ Changed text is a regular expression	Geänderter Text ist ein regulärer Ausdruc
 Changes	Änderungen	Modifications	Cambios
 Changes stashed	Änderungen im Stash abgelegt	Modifications remisées	Cambios guardados en el stash
 Changing the sparse checkout	Sparse-Checkout wird geändert	Modification de l’extraction partielle	Cambiando el checkout parcial
+Changing what LFS stores	LFS-Speicherung wird geändert	Modification de ce que LFS stocke	Cambiando lo que guarda LFS
 changing “{text}”	ändert „{text}“	modifiant « {text} »	que cambia «{text}»
 Check out a branch before pushing	Vor dem Pushen einen Branch auschecken	Extrayez une branche avant de pousser	Cambia a una rama antes de enviar
 Check out after creating	Nach dem Erstellen auschecken	Extraire après la création	Cambiar a ella después de crearla
@@ -194,6 +195,7 @@ Copy branch name	Branch-Namen kopieren	Copier le nom de la branche	Copiar el nom
 Copy file contents	Dateiinhalt kopieren	Copier le contenu du fichier	Copiar el contenido del archivo
 Copy full path	Vollständigen Pfad kopieren	Copier le chemin complet	Copiar la ruta completa
 Copy path	Pfad kopieren	Copier le chemin	Copiar la ruta
+Copy pattern	Muster kopieren	Copier le motif	Copiar el patrón
 Copy repository path	Repository-Pfad kopieren	Copier le chemin du dépôt	Copiar la ruta del repositorio
 Copy SHAs	SHAs kopieren	Copier les SHA	Copiar SHA
 Copy tag name	Tag-Namen kopieren	Copier le nom du tag	Copiar el nombre de la etiqueta
@@ -274,6 +276,8 @@ Discarding	Wird verworfen	Suppression	Descartando
 Done	Fertig	Terminé	Listo
 Download everything the partial clone left out	Alles herunterladen, was der Teilklon ausgelassen hat	Télécharger tout ce que le clone partiel a laissé de côté	Descargar todo lo que el clon parcial omitió
 Download files' contents only when needed (blobless)	Dateiinhalte erst bei Bedarf herunterladen (blobless)	Télécharger le contenu des fichiers seulement si nécessaire (blobless)	Descargar el contenido de los archivos solo cuando haga falta (blobless)
+Download LFS files	LFS-Dateien herunterladen	Télécharger les fichiers LFS	Descargar los archivos LFS
+Downloading LFS files	LFS-Dateien werden heruntergeladen	Téléchargement des fichiers LFS	Descargando los archivos LFS
 Drag up or down to move this commit (or Alt + ↑ / ↓)	Nach oben oder unten ziehen, um diesen Commit zu verschieben (oder Alt + ↑ / ↓)	Faites glisser vers le haut ou le bas pour déplacer ce commit (ou Alt + ↑ / ↓)	Arrastra arriba o abajo para mover este commit (o Alt + ↑ / ↓)
 Drop	Verwerfen	Supprimer	Descartar
 Drop commit	Commit verwerfen	Supprimer le commit	Descartar commit
@@ -323,6 +327,7 @@ Fetching {remote}	{remote} wird abgerufen	Récupération de {remote}	Recuperando
 File	Datei	Fichier	Archivo
 File history	Dateiverlauf	Historique du fichier	Historial del archivo
 File or folder	Datei oder Ordner	Fichier ou dossier	Archivo o carpeta
+Files locked on the LFS server. Only whoever holds a lock can push changes to that file.	Auf dem LFS-Server gesperrte Dateien. Nur wer eine Sperre hält, kann Änderungen an dieser Datei pushen.	Fichiers verrouillés sur le serveur LFS. Seul le détenteur d’un verrou peut pousser des modifications de ce fichier.	Archivos bloqueados en el servidor LFS. Solo quien tiene el bloqueo puede enviar cambios de ese archivo.
 Files stashed	Dateien im Stash abgelegt	Fichiers remisés	Archivos guardados en el stash
 Filter	Filtern	Filtrer	Filtrar
 Filter branches & tags	Branches & Tags filtern	Filtrer branches et tags	Filtrar ramas y etiquetas
@@ -343,11 +348,15 @@ Force delete, even if it is not merged	Erzwingen, auch wenn nicht gemergt	Forcer
 Force push	Force-Push	Push forcé	Push forzado
 Force push (with lease)	Push erzwingen (with lease)	Pousser en forçant (with lease)	Forzar el envío (with lease)
 Force pushing	Force-Push läuft	Push forcé en cours	Push forzado en curso
+Force unlock	Entsperren erzwingen	Forcer le déverrouillage	Forzar el desbloqueo
+Force unlock…	Entsperren erzwingen…	Forcer le déverrouillage…	Forzar el desbloqueo…
 Forget	Vergessen	Oublier	Olvidar
 Forget saved passwords	Gespeicherte Passwörter vergessen	Oublier les mots de passe enregistrés	Olvidar las contraseñas guardadas
 Forget saved passwords for the remotes…	Gespeicherte Passwörter der Remotes vergessen…	Oublier les mots de passe enregistrés des dépôts distants…	Olvidar las contraseñas guardadas de los remotos…
 Forgetting saved passwords	Gespeicherte Passwörter werden vergessen	Oubli des mots de passe enregistrés	Olvidando las contraseñas guardadas
 Git	Git	Git	Git
+Git LFS	Git LFS	Git LFS	Git LFS
+Git LFS is set up for this repository	Git LFS ist für dieses Repository eingerichtet	Git LFS est configuré pour ce dépôt	Git LFS está configurado para este repositorio
 git on PATH	git aus PATH	git du PATH	git del PATH
 Git program	Git-Programm	Programme git	Programa git
 Git settings saved	Git-Einstellungen gespeichert	Réglages git enregistrés	Ajustes de git guardados
@@ -414,6 +423,10 @@ Leave empty to check out detached	Leer lassen, um losgelöst auszuchecken	Laisse
 Leave empty to check out {branch}	Leer lassen, um {branch} auszuchecken	Laisser vide pour extraire {branch}	Déjalo vacío para extraer {branch}
 Leave them as they are	So lassen, wie sie sind	Les laisser tels quels	Dejarlos como están
 LF in commits, as written in the working tree	LF in Commits, im Arbeitsverzeichnis wie geschrieben	LF dans les commits, tel qu’écrit dans le répertoire de travail	LF en los commits, tal como se escribe en el directorio de trabajo
+LFS files downloaded	LFS-Dateien heruntergeladen	Fichiers LFS téléchargés	Archivos LFS descargados
+LFS locks	LFS-Sperren	Verrous LFS	Bloqueos LFS
+LFS no longer stores new {pattern} files; commit .gitattributes to keep it	LFS speichert keine neuen {pattern}-Dateien mehr; committe .gitattributes, damit es so bleibt	LFS ne stocke plus les nouveaux fichiers {pattern} ; validez .gitattributes pour le garder	LFS ya no guarda los nuevos archivos {pattern}; haz commit de .gitattributes para mantenerlo
+LFS stores {pattern} from now on; commit .gitattributes to keep it	LFS speichert ab jetzt {pattern}; committe .gitattributes, damit es so bleibt	LFS stocke désormais {pattern} ; validez .gitattributes pour le garder	LFS guarda {pattern} a partir de ahora; haz commit de .gitattributes para mantenerlo
 Light	Hell	Clair	Claro
 Line endings	Zeilenenden	Fins de ligne	Finales de línea
 Line staging is disabled while “Ignore whitespace” is on.	Zeilenweises Vormerken ist aus, solange „Leerraum ignorieren“ an ist.	L’indexation par ligne est désactivée tant que « Ignorer les espaces » est activé.	Preparar líneas está desactivado mientras «Ignorar espacios» esté activado.
@@ -428,9 +441,14 @@ Local branches that look done with. Merged ones are ticked; look at the others f
 Local changes	Lokale Änderungen	Modifications locales	Cambios locales
 Local Changes	Lokale Änderungen	Modifications locales	Cambios locales
 Lock	Sperren	Verrouiller	Bloquear
+Lock (LFS)	Sperren (LFS)	Verrouiller (LFS)	Bloquear (LFS)
 Lock worktree	Worktree sperren	Verrouiller l’arbre de travail	Bloquear árbol de trabajo
+lockable	sperrbar	verrouillable	bloqueable
+Lockable (read-only until locked)	Sperrbar (schreibgeschützt, bis gesperrt)	Verrouillable (en lecture seule jusqu’au verrouillage)	Bloqueable (solo lectura hasta bloquearlo)
 locked	gesperrt	verrouillé	bloqueado
 Locking worktree	Worktree wird gesperrt	Verrouillage de l’arbre de travail	Bloqueando el árbol de trabajo
+Locking {path}	{path} wird gesperrt	Verrouillage de {path}	Bloqueando {path}
+Locks…	Sperren…	Verrous…	Bloqueos…
 Lock…	Sperren…	Verrouiller…	Bloquear…
 main	main	main	main
 main..topic	main..topic	main..topic	main..topic
@@ -484,6 +502,7 @@ New repository	Neues Repository	Nouveau dépôt	Repositorio nuevo
 New repository…	Neues Repository…	Nouveau dépôt…	Repositorio nuevo…
 New tag	Neues Tag	Nouveau tag	Etiqueta nueva
 New tag here…	Neues Tag hier…	Nouveau tag ici…	Etiqueta nueva aquí…
+New versions of matching files go to the LFS server; the repository keeps a small pointer to each. Files already committed stay as they are.	Neue Versionen passender Dateien gehen auf den LFS-Server; das Repository behält für jede einen kleinen Verweis. Bereits committete Dateien bleiben, wie sie sind.	Les nouvelles versions des fichiers correspondants vont sur le serveur LFS ; le dépôt garde un petit pointeur vers chacune. Les fichiers déjà validés restent tels quels.	Las nuevas versiones de los archivos que coinciden van al servidor LFS; el repositorio guarda un pequeño puntero a cada una. Los archivos ya confirmados quedan como están.
 New worktree here…	Neuer Worktree hier…	Nouvel arbre de travail ici…	Nuevo árbol de trabajo aquí…
 New…	Neu…	Nouveau…	Nuevo…
 No	Nein	Non	No
@@ -497,6 +516,8 @@ No content changes (mode or rename only)	Keine inhaltlichen Änderungen (nur Mod
 No differences	Keine Unterschiede	Aucune différence	Sin diferencias
 No discarded changes are kept	Keine verworfenen Änderungen gesichert	Aucune modification supprimée n’est conservée	No hay cambios descartados guardados
 No files	Keine Dateien	Aucun fichier	No hay archivos
+No files are locked	Keine Dateien gesperrt	Aucun fichier n’est verrouillé	No hay archivos bloqueados
+No files are stored in LFS	Keine Dateien in LFS gespeichert	Aucun fichier n’est stocké dans LFS	No hay archivos guardados en LFS
 No matching commits	Keine passenden Commits	Aucun commit correspondant	No hay commits que coincidan
 No remote	Kein Remote	Aucun dépôt distant	Sin remoto
 No remotes	Keine Remotes	Aucun dépôt distant	No hay remotos
@@ -551,6 +572,7 @@ Parents	Eltern	Parents	Padres
 Part of a name or address	Teil eines Namens oder einer Adresse	Partie d’un nom ou d’une adresse	Parte de un nombre o una dirección
 Patch applied	Patch angewendet	Patch appliqué	Parche aplicado
 Patches	Patches	Patchs	Parches
+Patterns, separated by spaces	Muster, durch Leerzeichen getrennt	Motifs, séparés par des espaces	Patrones, separados por espacios
 Pop	Pop	Appliquer et supprimer	Pop
 Pop (apply and drop)	Pop (anwenden und verwerfen)	Pop (appliquer puis supprimer)	Pop (aplicar y descartar)
 Popping stash	Stash wird angewendet und verworfen	Application et suppression de la remise	Aplicando y descartando el stash
@@ -616,6 +638,7 @@ Remove the commit	Den Commit entfernen	Retirer le commit	Quitar el commit
 Remove the last commit from the branch and keep its changes staged?	Den letzten Commit aus dem Branch entfernen und seine Änderungen vorgemerkt lassen?	Retirer le dernier commit de la branche et garder ses modifications indexées ?	¿Quitar el último commit de la rama y dejar sus cambios preparados?
 Remove the submodule {path}: its files and its entry in .gitmodules? The change is staged for you to commit.	Das Submodul {path} entfernen, also seine Dateien und seinen Eintrag in .gitmodules? Die Änderung wird zum Committen vorgemerkt.	Supprimer le sous-module {path}, ses fichiers et son entrée dans .gitmodules ? La modification est indexée pour que vous la validiez.	¿Quitar el submódulo {path}, sus archivos y su entrada en .gitmodules? El cambio queda preparado para que hagas commit.
 Remove worktree	Worktree entfernen	Retirer l’arbre de travail	Quitar árbol de trabajo
+Remove {owner}'s lock on {path}? Changes they haven't pushed yet may then conflict with someone else's.	Die Sperre von {owner} auf {path} entfernen? Noch nicht gepushte Änderungen könnten dann mit denen anderer kollidieren.	Retirer le verrou de {owner} sur {path} ? Ses modifications pas encore poussées pourraient alors entrer en conflit avec celles d’un autre.	¿Quitar el bloqueo de {owner} en {path}? Sus cambios aún no enviados podrían entrar en conflicto con los de otra persona.
 Remove “{subject}” from the branch history?	„{subject}“ aus dem Verlauf des Branches entfernen?	Retirer « {subject} » de l’historique de la branche ?	¿Quitar «{subject}» del historial de la rama?
 Removed submodule {path}; commit to keep it that way	Submodul {path} entfernt; committe, damit es so bleibt	Sous-module {path} supprimé ; validez pour que cela reste ainsi	Submódulo {path} quitado; haz commit para que siga así
 Remove…	Entfernen…	Retirer…	Quitar…
@@ -695,7 +718,9 @@ Select a commit to see its details	Wähle einen Commit, um seine Details zu sehe
 Select a file to see its changes	Wähle eine Datei, um ihre Änderungen zu sehen	Sélectionnez un fichier pour voir ses modifications	Selecciona un archivo para ver sus cambios
 Selected changes in {path}	Ausgewählte Änderungen in {path}	Modifications sélectionnées dans {path}	Cambios seleccionados en {path}
 Selected changes stashed	Ausgewählte Änderungen gestasht	Modifications sélectionnées remisées	Cambios seleccionados guardados en stash
+Set up LFS for this repository	LFS für dieses Repository einrichten	Configurer LFS pour ce dépôt	Configurar LFS para este repositorio
 Set upstream…	Upstream setzen…	Définir la branche amont…	Establecer upstream…
+Setting up Git LFS	Git LFS wird eingerichtet	Configuration de Git LFS	Configurando Git LFS
 Setting upstream	Upstream wird gesetzt	Définition de la branche amont	Estableciendo upstream
 Settings	Einstellungen	Paramètres	Ajustes
 Settings…	Einstellungen…	Paramètres…	Ajustes…
@@ -773,9 +798,15 @@ Stashing	Wird in den Stash gelegt	Remisage	Guardando en el stash
 Stash…	Stash…	Remiser…	Stash…
 step {step} of {total}	Schritt {step} von {total}	étape {step} sur {total}	paso {step} de {total}
 Stop soloing	Nicht mehr allein zeigen	Ne plus afficher seule	Dejar de mostrar sola
+Stop storing in LFS	Nicht mehr in LFS speichern	Ne plus stocker dans LFS	Dejar de guardar en LFS
+Stop storing in LFS…	Nicht mehr in LFS speichern…	Ne plus stocker dans LFS…	Dejar de guardar en LFS…
+Stop storing new versions of {pattern} files in LFS? Versions already stored there stay there.	Neue Versionen von {pattern}-Dateien nicht mehr in LFS speichern? Bereits dort gespeicherte Versionen bleiben dort.	Ne plus stocker les nouvelles versions des fichiers {pattern} dans LFS ? Les versions déjà stockées y restent.	¿Dejar de guardar en LFS las nuevas versiones de los archivos {pattern}? Las versiones ya guardadas allí se quedan.
 Stop to amend the commit	Anhalten, um den Commit zu ergänzen	S’arrêter pour modifier le commit	Detenerse para enmendar el commit
 Stopped at {commit}. Amend or make changes, then continue.	Bei {commit} angehalten. Ergänze oder ändere etwas und setze dann fort.	Arrêté à {commit}. Modifiez le commit ou faites des changements, puis continuez.	Detenido en {commit}. Enmienda o haz cambios y luego continúa.
 Stopped because of conflicts. Resolve them in Local Changes.	Wegen Konflikten angehalten. Löse sie unter Lokale Änderungen.	Arrêté à cause de conflits. Résolvez-les dans Modifications locales.	Detenido por conflictos. Resuélvelos en Cambios locales.
+Store files in LFS	Dateien in LFS speichern	Stocker des fichiers dans LFS	Guardar archivos en LFS
+Store files in LFS…	Dateien in LFS speichern…	Stocker des fichiers dans LFS…	Guardar archivos en LFS…
+Store “{pattern}” files in LFS…	„{pattern}“-Dateien in LFS speichern…	Stocker les fichiers « {pattern} » dans LFS…	Guardar los archivos «{pattern}» en LFS…
 Strategy	Strategie	Stratégie	Estrategia
 Subject	Betreff	Sujet	Asunto
 Submodules	Submodule	Sous-modules	Submódulos
@@ -828,6 +859,7 @@ This repository has no remotes. Add one from the sidebar first.	Dieses Repositor
 Tidying up the repository	Repository wird aufgeräumt	Nettoyage du dépôt	Ordenando el repositorio
 To check SSH signatures	Zum Prüfen von SSH-Signaturen	Pour vérifier les signatures SSH	Para comprobar firmas SSH
 tomorrow	morgen	demain	mañana
+Track	Verfolgen	Suivre	Seguir
 Track remote branch (set upstream)	Remote-Branch verfolgen (Upstream setzen)	Suivre la branche distante (définir l’amont)	Seguir la rama remota (establecer upstream)
 Tracking branch	Verfolgter Branch	Branche suivie	Rama de seguimiento
 Uncommitted changes	Nicht committete Änderungen	Modifications non validées	Cambios sin commit
@@ -843,7 +875,9 @@ Undoing commit	Commit wird rückgängig gemacht	Annulation du commit	Deshaciendo
 Undone: {action}	Rückgängig gemacht: {action}	Annulé : {action}	Deshecho: {action}
 Unified	Einheitlich	Unifié	Unificado
 Unlock	Entsperren	Déverrouiller	Desbloquear
+Unlock (LFS)	Entsperren (LFS)	Déverrouiller (LFS)	Desbloquear (LFS)
 Unlocking worktree	Worktree wird entsperrt	Déverrouillage de l’arbre de travail	Desbloqueando el árbol de trabajo
+Unlocking {path}	{path} wird entsperrt	Déverrouillage de {path}	Desbloqueando {path}
 Unstage	Vormerkung aufheben	Désindexer	Quitar de preparados
 Unstage all	Alle Vormerkungen aufheben	Tout désindexer	Quitar todo de preparados
 Unstage file	Vormerkung der Datei aufheben	Désindexer le fichier	Quitar archivo de preparados
@@ -853,6 +887,7 @@ Unstage {lines}	Vormerkung von {lines} aufheben	Désindexer {lines}	Quitar {line
 Unstaged ({count})	Nicht vorgemerkt ({count})	Non indexé ({count})	Sin preparar ({count})
 Unstaging	Vormerkung wird aufgehoben	Désindexation	Quitando de preparados
 Unstaging all	Alle Vormerkungen werden aufgehoben	Désindexation de tout	Quitando todo de preparados
+Untrack	Nicht mehr verfolgen	Ne plus suivre	Dejar de seguir
 Untracked file: stage the whole file to include it.	Nicht verfolgte Datei: Merke die ganze Datei vor, um sie aufzunehmen.	Fichier non suivi : indexez le fichier entier pour l’inclure.	Archivo sin seguimiento: prepara el archivo completo para incluirlo.
 Untracked files stashed	Nicht verfolgte Dateien gestasht	Fichiers non suivis remisés	Archivos sin seguimiento guardados en stash
 Update (check out its recorded commit)	Aktualisieren (seinen festgehaltenen Commit auschecken)	Mettre à jour (extraire son commit enregistré)	Actualizar (extraer su commit registrado)
@@ -910,8 +945,11 @@ Zoom out	Verkleinern	Zoom arrière	Alejar
 {files} conflicted. Resolve them in Local Changes, then continue.	{files} mit Konflikten. Löse sie unter Lokale Änderungen und setze dann fort.	{files} en conflit. Résolvez-les dans Modifications locales, puis continuez.	{files} con conflictos. Resuélvelos en Cambios locales y luego continúa.
 {label} failed	{label} fehlgeschlagen	Échec : {label}	Error: {label}
 {lines} selected	{lines} ausgewählt	{lines} sélectionnées	{lines} seleccionadas
+{owner} (you)	{owner} (du)	{owner} (vous)	{owner} (tú)
 {path} and {more}	{path} und {more}	{path} et {more}	{path} y {more}
 {path} has conflicts	{path} hat Konflikte	{path} contient des conflits	{path} tiene conflictos
+{path} is locked for you	{path} ist für dich gesperrt	{path} est verrouillé pour vous	{path} está bloqueado para ti
+{path} is unlocked	{path} ist entsperrt	{path} est déverrouillé	{path} está desbloqueado
 {path} restored from {commit}	{path} aus {commit} wiederhergestellt	{path} restauré depuis {commit}	{path} restaurado desde {commit}
 {path} taken from the stash	{path} aus dem Stash geholt	{path} récupéré de la remise	{path} tomado del stash
 {path} updated	{path} aktualisiert	{path} mis à jour	{path} actualizado

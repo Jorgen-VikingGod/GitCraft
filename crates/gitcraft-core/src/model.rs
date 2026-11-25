@@ -239,6 +239,39 @@ pub struct Refs {
     /// A partial clone: some files' contents are downloaded only when needed.
     #[serde(default)]
     pub partial: bool,
+    /// Git LFS as this repository sees it; `None` when git-lfs isn't installed.
+    #[serde(default)]
+    pub lfs: Option<Lfs>,
+}
+
+/// Git LFS in one repository.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Lfs {
+    /// Its filters are set up and its hooks are in this repository, so files are stored in LFS
+    /// and pushed with it.
+    pub installed: bool,
+    /// The patterns `.gitattributes` hands to LFS.
+    pub patterns: Vec<LfsPattern>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LfsPattern {
+    pub pattern: String,
+    /// The attributes file that says so, such as `.gitattributes` or `docs/.gitattributes`.
+    pub source: String,
+    /// Matching files are checked out read-only until someone locks them.
+    pub lockable: bool,
+}
+
+/// A file locked on the LFS server.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LfsLock {
+    pub id: String,
+    pub path: String,
+    pub owner: String,
+    pub locked_at: String,
+    /// Locked by you; `false` also when the server couldn't say.
+    pub ours: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

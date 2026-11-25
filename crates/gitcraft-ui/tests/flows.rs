@@ -3448,3 +3448,77 @@ async fn a_git_program_that_cant_run_is_refused() {
     assert_eq!(app.settings.general.git_program, "", "kept as it was");
     assert!(toast_kinds(&app).contains(&ToastKind::Error));
 }
+
+#[tokio::test]
+async fn lfs_patterns_are_tracked_and_untracked_from_the_menus() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    if app.current().unwrap().refs.lfs.is_none() {
+        eprintln!("git-lfs isn't installed; skipping");
+        return;
+    }
+    // Repository › Git LFS › Store files in LFS…
+    drive(&mut app, Message::OpenMenu(MenuRequest::Repository)).await;
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(track)) = find_entry(&items, "Store files in LFS…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, track).await;
+    drive(&mut app, Message::FormText(0, "*.psd".into())).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let attributes = std::fs::read_to_string(f.path.join(".gitattributes")).unwrap();
+    assert!(attributes.contains("*.psd filter=lfs"), "{attributes}");
+
+    // A file's menu offers its extension, here as a lockable pattern.
+    f.write("cover.bin", "data\n");
+    drive(&mut app, Message::Refresh).await;
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::File {
+            area: Some(Area::Unstaged),
+            path: "cover.bin".into(),
+            rev: None,
+        }),
+    )
+    .await;
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(track)) = find_entry(&items, "Store “*.bin” files in LFS…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, track).await;
+    drive(&mut app, Message::FormCheck(1, true)).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let lfs = app.current().unwrap().refs.lfs.clone().unwrap();
+    let listed: Vec<(&str, bool)> = lfs
+        .patterns
+        .iter()
+        .map(|pattern| (pattern.pattern.as_str(), pattern.lockable))
+        .collect();
+    assert_eq!(listed, [("*.psd", false), ("*.bin", true)]);
+
+    // The sidebar's menu for a pattern stops tracking it.
+    drive(
+        &mut app,
+        Message::OpenMenu(MenuRequest::LfsPattern("*.psd".into())),
+    )
+    .await;
+    let items = app.menu.take().unwrap().items;
+    let Some(Some(untrack)) = find_entry(&items, "Stop storing in LFS…") else {
+        panic!("{:?}", labels(&items))
+    };
+    drive(&mut app, untrack).await;
+    drive(&mut app, Message::FormSubmit).await;
+    let attributes = std::fs::read_to_string(f.path.join(".gitattributes")).unwrap();
+    assert!(!attributes.contains("*.psd"), "{attributes}");
+    assert_eq!(
+        app.current()
+            .unwrap()
+            .refs
+            .lfs
+            .as_ref()
+            .unwrap()
+            .patterns
+            .len(),
+        1
+    );
+}

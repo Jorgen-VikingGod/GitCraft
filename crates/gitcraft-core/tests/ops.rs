@@ -3259,3 +3259,54 @@ async fn saved_passwords_for_the_remotes_are_forgotten() {
             .contains("example.com")
     );
 }
+
+#[tokio::test]
+async fn lfs_is_set_up_tracks_and_untracks_patterns() {
+    let f = Fixture::with_history();
+    let Some(lfs) = queries::lfs(&f.repo).await.unwrap() else {
+        eprintln!("git-lfs isn't installed; skipping");
+        return;
+    };
+    assert!(lfs.patterns.is_empty());
+    ops::lfs_install(&f.repo).await.unwrap();
+    assert!(queries::lfs(&f.repo).await.unwrap().unwrap().installed);
+
+    ops::lfs_track(&f.repo, &["*.psd".into()], false)
+        .await
+        .unwrap();
+    ops::lfs_track(&f.repo, &["*.bin".into()], true)
+        .await
+        .unwrap();
+    assert!(matches!(
+        ops::lfs_track(&f.repo, &["  ".into()], false).await,
+        Err(Error::Validation(_))
+    ));
+    assert!(matches!(
+        ops::lfs_track(&f.repo, &["--help".into()], false).await,
+        Err(Error::Invalid(_))
+    ));
+    let patterns = queries::lfs(&f.repo).await.unwrap().unwrap().patterns;
+    let listed: Vec<(&str, bool)> = patterns
+        .iter()
+        .map(|pattern| (pattern.pattern.as_str(), pattern.lockable))
+        .collect();
+    assert_eq!(listed, [("*.psd", false), ("*.bin", true)]);
+
+    // A tracked file is committed as a pointer to its LFS copy.
+    f.write("art.psd", "layers\n");
+    f.git(&["add", ".gitattributes", "art.psd"]);
+    f.git(&["commit", "-q", "-m", "art"]);
+    assert!(
+        f.git(&["show", "HEAD:art.psd"])
+            .starts_with("version https://git-lfs")
+    );
+    // Its branch can still be checked out with git-lfs installed.
+    f.git(&["switch", "-q", "-c", "art"]);
+    ops::checkout(&f.repo, "main", "local").await.unwrap();
+    assert_eq!(f.read("art.psd"), "layers\n");
+
+    ops::lfs_untrack(&f.repo, "*.psd").await.unwrap();
+    let patterns = queries::lfs(&f.repo).await.unwrap().unwrap().patterns;
+    assert_eq!(patterns.len(), 1);
+    assert_eq!(patterns[0].pattern, "*.bin");
+}

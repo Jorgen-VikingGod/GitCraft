@@ -156,7 +156,7 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 - The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
 - `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`,
-  `discards`, `clone`) opens that
+  `discards`, `clone`, `lfs`) opens that
   before the picture is taken. Set `language = "de"` under `[general]` in the test folder's `config.toml`
   to look at a translated window.
 - Tests run side by side in one process, and the interface language is global: don't switch it to another

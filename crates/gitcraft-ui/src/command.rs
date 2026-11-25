@@ -231,6 +231,24 @@ pub enum Command {
     SubmoduleRemove {
         path: String,
     },
+    LfsInstall,
+    LfsTrack {
+        patterns: Vec<String>,
+        lockable: bool,
+    },
+    LfsUntrack {
+        pattern: String,
+    },
+    LfsPull,
+    LfsLock {
+        path: String,
+    },
+    /// Gives up a lock by its path, or by its id when one is given.
+    LfsUnlock {
+        path: String,
+        id: Option<String>,
+        force: bool,
+    },
     Stage {
         paths: Vec<String>,
     },
@@ -416,6 +434,11 @@ impl Command {
             Self::SubmoduleAdd { .. } => "Adding submodule".into(),
             Self::SubmoduleUpdate { path } => trf("Updating {path}", &[("path", path)]),
             Self::SubmoduleRemove { .. } => "Removing submodule".into(),
+            Self::LfsInstall => "Setting up Git LFS".into(),
+            Self::LfsTrack { .. } | Self::LfsUntrack { .. } => "Changing what LFS stores".into(),
+            Self::LfsPull => "Downloading LFS files".into(),
+            Self::LfsLock { path } => trf("Locking {path}", &[("path", path)]),
+            Self::LfsUnlock { path, .. } => trf("Unlocking {path}", &[("path", path)]),
             Self::Stage { .. } => "Staging".into(),
             Self::StageAll => "Staging all".into(),
             Self::Unstage { .. } => "Unstaging".into(),
@@ -528,6 +551,18 @@ impl Command {
             }
             Self::SparseSet { .. } => "Sparse checkout updated".into(),
             Self::SparseOff => "Every file is checked out again".into(),
+            Self::LfsInstall => "Git LFS is set up for this repository".into(),
+            Self::LfsTrack { patterns, .. } => trf(
+                "LFS stores {pattern} from now on; commit .gitattributes to keep it",
+                &[("pattern", &patterns.join(" "))],
+            ),
+            Self::LfsUntrack { pattern } => trf(
+                "LFS no longer stores new {pattern} files; commit .gitattributes to keep it",
+                &[("pattern", pattern)],
+            ),
+            Self::LfsPull => "LFS files downloaded".into(),
+            Self::LfsLock { path } => trf("{path} is locked for you", &[("path", path)]),
+            Self::LfsUnlock { path, .. } => trf("{path} is unlocked", &[("path", path)]),
             Self::ForcePushOver { .. } => "Push complete".into(),
             Self::FixupCommit { sha } => trf(
                 "Fixup commit for {commit} created; an interactive rebase with autosquash folds it in",
@@ -615,6 +650,7 @@ impl Command {
                 | Self::SubmoduleUpdate { .. }
                 | Self::FetchMore { .. }
                 | Self::ForcePushOver { .. }
+                | Self::LfsPull
         )
     }
 
@@ -903,6 +939,16 @@ impl Command {
             Self::SubmoduleAdd { url, path } => ops::submodule_add(repo, &url, &path, report).await,
             Self::SubmoduleUpdate { path } => ops::submodule_update(repo, &path, report).await,
             Self::SubmoduleRemove { path } => ops::submodule_remove(repo, &path).await,
+            Self::LfsInstall => ops::lfs_install(repo).await,
+            Self::LfsTrack { patterns, lockable } => {
+                ops::lfs_track(repo, &patterns, lockable).await
+            }
+            Self::LfsUntrack { pattern } => ops::lfs_untrack(repo, &pattern).await,
+            Self::LfsPull => ops::lfs_pull(repo, report).await,
+            Self::LfsLock { path } => ops::lfs_lock(repo, &path).await,
+            Self::LfsUnlock { path, id, force } => {
+                ops::lfs_unlock(repo, &path, id.as_deref(), force).await
+            }
             Self::Stage { paths } => ops::stage_files(repo, &paths).await.map(|()| done()),
             Self::StageAll => ops::stage_all(repo).await.map(|()| done()),
             Self::Unstage { paths } => ops::unstage_files(repo, &paths).await.map(|()| done()),

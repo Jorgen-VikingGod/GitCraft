@@ -783,6 +783,7 @@ async fn catch_up(repo: &str, local: &str, remote: &str) -> Result<()> {
 }
 
 async fn switch_to(repo: &str, reference: &str, kind: &str) -> Result<OpResult> {
+    check_lfs_for(repo, reference).await?;
     let result = match kind {
         "remote" => {
             let local = reference
@@ -2440,6 +2441,103 @@ pub async fn submodule_remove(repo: &str, path: &str) -> Result<OpResult> {
     }
     git(repo, &["submodule", "deinit", "-f", "--", path]).await?;
     Ok(ok(&git(repo, &["rm", "-q", "-f", "--", path]).await?))
+}
+
+/// Sets Git LFS up for this repository only: its filters and its hooks.
+pub async fn lfs_install(repo: &str) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["lfs", "install", "--local"]).await?))
+}
+
+/// Stores files matching these patterns in LFS from now on (written to `.gitattributes`).
+/// `lockable` files are checked out read-only until someone locks them.
+pub async fn lfs_track(repo: &str, patterns: &[String], lockable: bool) -> Result<OpResult> {
+    let patterns: Vec<&str> = patterns
+        .iter()
+        .map(|pattern| pattern.trim())
+        .filter(|pattern| !pattern.is_empty())
+        .collect();
+    if patterns.is_empty() {
+        return Err(Error::Validation("Enter a pattern, such as *.psd".into()));
+    }
+    for pattern in &patterns {
+        check_ref(pattern)?;
+    }
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let mut args = vec!["lfs", "track"];
+    if lockable {
+        args.push("--lockable");
+    }
+    args.extend(patterns);
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Stops storing new versions of files matching `pattern` in LFS. Files already stored there
+/// stay there.
+pub async fn lfs_untrack(repo: &str, pattern: &str) -> Result<OpResult> {
+    let pattern = check_ref(pattern.trim())?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["lfs", "untrack", pattern]).await?))
+}
+
+/// Downloads the LFS files of the current commit and puts them in the working tree.
+pub async fn lfs_pull(repo: &str, progress: Option<&Progress>) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(
+        &run(repo, &["lfs", "pull"], with_progress(progress)).await?
+    ))
+}
+
+/// Locks a file on the LFS server, so nobody else pushes changes to it.
+pub async fn lfs_lock(repo: &str, path: &str) -> Result<OpResult> {
+    safe_path(repo, path)?;
+    let path = check_ref(path)?;
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    Ok(ok(&git(repo, &["lfs", "lock", path]).await?))
+}
+
+/// Gives up a lock, by its path or (for a file not checked out here) its id. `force` also
+/// removes someone else's lock, where the server allows it.
+pub async fn lfs_unlock(repo: &str, path: &str, id: Option<&str>, force: bool) -> Result<OpResult> {
+    let lock = repo_lock(repo);
+    let _guard = lock.lock().await;
+    let id_arg;
+    let mut args = vec!["lfs", "unlock"];
+    if force {
+        args.push("--force");
+    }
+    match id.filter(|id| !id.is_empty()) {
+        Some(id) => {
+            id_arg = format!("--id={}", check_ref(id)?);
+            args.push(&id_arg);
+        }
+        None => {
+            safe_path(repo, path)?;
+            args.push(check_ref(path)?);
+        }
+    }
+    Ok(ok(&git(repo, &args).await?))
+}
+
+/// Refuses a checkout of `reference` that would leave LFS pointer files where the real
+/// files belong: the target stores files in LFS, and git-lfs isn't installed.
+async fn check_lfs_for(repo: &str, reference: &str) -> Result<()> {
+    let spec = format!("{reference}:.gitattributes");
+    let attributes = git_unchecked(repo, &["show", &spec]).await?;
+    if attributes.code != 0 || !parsers::attributes_use_lfs(&attributes.out()) {
+        return Ok(());
+    }
+    if git_unchecked(repo, &["lfs", "version"]).await?.code == 0 {
+        return Ok(());
+    }
+    invalid(format!(
+        "{reference} stores files in Git LFS, which isn't installed. Install git-lfs first, or the checkout would hold placeholder files instead of them."
+    ))
 }
 
 pub async fn update_submodules(repo: &str, progress: Option<&Progress>) -> Result<OpResult> {

@@ -628,6 +628,21 @@ pub fn ignore_patterns(path: &str) -> Vec<(String, String)> {
     options
 }
 
+/// The pattern that would store files like this one in LFS ("*.psd"), unless LFS already
+/// tracks exactly that. Files without an extension get none: their own path is rarely what
+/// someone wants tracked.
+pub fn lfs_track_suggestion(
+    path: &str,
+    tracked: &[gitcraft_core::model::LfsPattern],
+) -> Option<String> {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let at = name
+        .rfind('.')
+        .filter(|at| *at > 0 && *at + 1 < name.len())?;
+    let pattern = format!("*{}", &name[at..]);
+    (!tracked.iter().any(|known| known.pattern == pattern)).then_some(pattern)
+}
+
 /// "3 hours ago", "in 1 minute": whole phrases in the table, as other languages change the
 /// word with the phrase around it ("vor 3 Stunden").
 fn relative(amount: i64, unit: &str, past: bool) -> String {
@@ -720,6 +735,30 @@ pub fn changes_in_the_way(status: &Status) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lfs_suggests_the_extension_unless_it_is_tracked() {
+        let tracked = |pattern: &str| gitcraft_core::model::LfsPattern {
+            pattern: pattern.to_owned(),
+            source: ".gitattributes".to_owned(),
+            lockable: false,
+        };
+        assert_eq!(
+            lfs_track_suggestion("art/cover.psd", &[]).as_deref(),
+            Some("*.psd")
+        );
+        assert_eq!(
+            lfs_track_suggestion("cover.PSD", &[tracked("*.psd")]).as_deref(),
+            Some("*.PSD")
+        );
+        assert_eq!(
+            lfs_track_suggestion("art/cover.psd", &[tracked("*.psd")]),
+            None
+        );
+        assert_eq!(lfs_track_suggestion("Makefile", &[]), None);
+        assert_eq!(lfs_track_suggestion(".env", &[]), None);
+        assert_eq!(lfs_track_suggestion("notes.", &[]), None);
+    }
 
     #[test]
     fn every_git_setting_shown_is_one_the_core_changes() {

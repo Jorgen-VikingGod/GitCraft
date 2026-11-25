@@ -655,6 +655,12 @@ pub enum Overlay {
         loading: bool,
         error: Option<String>,
     },
+    /// The files locked on the LFS server.
+    LfsLocks {
+        locks: Vec<LfsLock>,
+        loading: bool,
+        error: Option<String>,
+    },
     Blame {
         path: String,
         rev: Option<String>,
@@ -979,6 +985,8 @@ pub enum Message {
     ReflogAll(bool),
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenDiscards,
+    OpenLfsLocks,
+    LfsLocksLoaded(Answer<Vec<LfsLock>>),
     OpenCleanup,
     OpenSparse,
     SparseLoaded(Answer<Option<Vec<String>>>),
@@ -2118,6 +2126,22 @@ impl App {
                 Task::none()
             }
             Message::OpenDiscards => self.open_discards(),
+            Message::OpenLfsLocks => self.open_lfs_locks(),
+            Message::LfsLocksLoaded(result) => {
+                if let Some(Overlay::LfsLocks {
+                    locks,
+                    loading,
+                    error,
+                }) = &mut self.overlay
+                {
+                    *loading = false;
+                    match result {
+                        Ok(list) => *locks = list,
+                        Err(message) => *error = Some(message),
+                    }
+                }
+                Task::none()
+            }
             Message::OpenSparse => {
                 let Some(repo) = self.current().map(|tab| tab.path.clone()) else {
                     return Task::none();
@@ -3972,6 +3996,7 @@ impl App {
         let mut then = None;
         let mut push: Option<Task<Message>> = None;
         let mut refresh_list = false;
+        let mut refresh_locks = false;
         match &command {
             Command::Commit { .. } => {
                 let push_after = self.settings.commit.push_after;
@@ -4026,6 +4051,11 @@ impl App {
             {
                 refresh_list = true;
             }
+            Command::LfsLock { .. } | Command::LfsUnlock { .. }
+                if matches!(self.overlay, Some(Overlay::LfsLocks { .. })) =>
+            {
+                refresh_locks = true;
+            }
             _ => {}
         }
         let found = self
@@ -4046,6 +4076,8 @@ impl App {
         };
         let list = if refresh_list {
             self.open_discards()
+        } else if refresh_locks {
+            self.open_lfs_locks()
         } else {
             Task::none()
         };
@@ -4089,6 +4121,29 @@ impl App {
         Task::perform(
             async move { answer(queries::discard_backups(&path).await) },
             Message::DiscardsLoaded,
+        )
+    }
+
+    fn open_lfs_locks(&mut self) -> Task<Message> {
+        let Some(path) = self.current().map(|tab| tab.path.clone()) else {
+            return Task::none();
+        };
+        // A reload keeps showing the list it has until the new one arrives.
+        let kept = match self.overlay.take() {
+            Some(Overlay::LfsLocks { locks, .. }) => locks,
+            other => {
+                self.overlay = other;
+                Vec::new()
+            }
+        };
+        self.overlay = Some(Overlay::LfsLocks {
+            locks: kept,
+            loading: true,
+            error: None,
+        });
+        Task::perform(
+            async move { answer(queries::lfs_locks(&path).await) },
+            Message::LfsLocksLoaded,
         )
     }
 
