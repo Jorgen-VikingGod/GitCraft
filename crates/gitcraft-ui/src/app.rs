@@ -681,6 +681,10 @@ impl SettingsPage {
 
 pub enum Overlay {
     Settings,
+    /// The program's name, version and author; `git` is what `git --version` said, once known.
+    About {
+        git: Option<Result<String, String>>,
+    },
     Reflog {
         /// Every branch's reflog rather than only HEAD's.
         all: bool,
@@ -1026,6 +1030,8 @@ pub enum Message {
     ReflogLoaded(Answer<Vec<ReflogEntry>>),
     OpenDiscards,
     OpenLfsLocks,
+    OpenAbout,
+    AboutGit(Answer<String>),
     /// Shows this page of the settings.
     SettingsPage(SettingsPage),
     LfsLocksLoaded(Answer<Vec<LfsLock>>),
@@ -2172,6 +2178,16 @@ impl App {
             }
             Message::OpenDiscards => self.open_discards(),
             Message::OpenLfsLocks => self.open_lfs_locks(),
+            Message::OpenAbout => {
+                self.overlay = Some(Overlay::About { git: None });
+                Task::perform(gitcraft_core::runner::git_version_text(), Message::AboutGit)
+            }
+            Message::AboutGit(result) => {
+                if let Some(Overlay::About { git }) = &mut self.overlay {
+                    *git = Some(result);
+                }
+                Task::none()
+            }
             Message::LfsLocksLoaded(result) => {
                 if let Some(Overlay::LfsLocks {
                     locks,

@@ -60,6 +60,10 @@ fn bar_node(item: &MenuItem, path: &str) -> Option<craft_menu::Node> {
             if matches!(message, Some(crate::app::Message::Quit)) {
                 entry = entry.role(craft_menu::ItemRole::Quit);
             }
+            // On a Mac it moves to the app's own menu.
+            if matches!(message, Some(crate::app::Message::OpenAbout)) {
+                entry = entry.role(craft_menu::ItemRole::About);
+            }
             Some(entry.into())
         }
         MenuItem::Sub { label, children } => {
@@ -95,8 +99,11 @@ fn bar_message(menus: &[(&str, Vec<MenuItem>)], path: &str) -> Option<crate::app
 fn menus(ui: &mut Ui, cx: &Cx) {
     use craft_menu::{LayoutOptions, Menu, MenuBar, MenuBarUi, MenuRole, Target};
     let menus = cx.app.bar_menus();
+    // One for each of File, Edit, Repository, View and Help, in that order: About goes last in
+    // the menu with the Help role.
     let roles = [
         Some(MenuRole::File),
+        None,
         None,
         Some(MenuRole::View),
         Some(MenuRole::Help),

@@ -72,7 +72,7 @@ fn dialog(
                         }
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if btn(ui, look, "Close", true) {
+                        if accent(ui, look, "Close", true) {
                             cx.send(Message::OverlayClose);
                         }
                         if let Some(extra) = extra {
@@ -90,6 +90,7 @@ fn dialog(
 pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
     match overlay {
         Overlay::Settings => settings(ctx, cx),
+        Overlay::About { git } => about(ctx, cx, git.as_ref()),
         Overlay::Reflog {
             all,
             entries,
@@ -1840,6 +1841,83 @@ const SHORTCUTS: [(&str, &str); 10] = [
 ];
 
 /// A titled group of settings.
+/// About GitCraft: its name and version, what it is and who made it, and where it keeps its
+/// settings and which git it runs.
+fn about(ctx: &Context, cx: &Cx, git: Option<&Result<String, String>>) {
+    use egui::RichText;
+    let look = cx.look();
+    let c = &look.c;
+    let response = egui::Modal::new(Id::unique("about"))
+        .backdrop_color(c.backdrop)
+        .frame(floating(look, 12).inner_margin(Margin::symmetric(24, 20)))
+        .show(ctx, |ui| {
+            ui.set_width(400.0_f32.min(cx.app.window.x - 80.0));
+            ui.spacing_mut().item_spacing = vec2(8.0, 6.0);
+            ui.horizontal(|ui| {
+                icon::icon(ui, "merge", 22.0, c.accent);
+                text(ui, tr("About GitCraft"), 18.0, c.text);
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if accent(ui, look, "Close", true) {
+                        cx.send(Message::OverlayClose);
+                    }
+                });
+            });
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(format!("GitCraft {}", env!("CARGO_PKG_VERSION")))
+                    .size(15.0)
+                    .strong()
+                    .color(c.text),
+            );
+            ui.label(tr(
+                "A graphical Git client for Windows, macOS and Linux, built on the git you have installed.",
+            ));
+            ui.label(
+                RichText::new(tr("Author: Jürgen Könnemann"))
+                    .strong()
+                    .color(c.text),
+            );
+            muted(ui, look, tr("Open source under the MIT License."), look.text_size);
+            ui.add_space(8.0);
+            let detail = |ui: &mut Ui, line: String| {
+                ui.add(
+                    egui::Label::new(RichText::new(line).size(12.0).color(c.text_muted))
+                        .selectable(true)
+                        .wrap(),
+                );
+            };
+            let program = match cx.app.settings.general.git_program.trim() {
+                "" => tr("git on PATH").to_owned(),
+                chosen => chosen.to_owned(),
+            };
+            let version = match git {
+                None => tr("Loading…").to_owned(),
+                Some(Ok(text)) => text.clone(),
+                Some(Err(error)) => error.clone(),
+            };
+            detail(
+                ui,
+                trf(
+                    "Git: {version} ({program})",
+                    &[("version", &version), ("program", &program)],
+                ),
+            );
+            detail(
+                ui,
+                trf(
+                    "Settings folder: {path}",
+                    &[(
+                        "path",
+                        &gitcraft_core::store::config_dir().display().to_string(),
+                    )],
+                ),
+            );
+        });
+    if response.backdrop_response.clicked() {
+        cx.send(Message::OverlayClose);
+    }
+}
+
 /// Settings: its pages listed on the left, the chosen one on the right.
 fn settings(ctx: &Context, cx: &Cx) {
     let look = cx.look();

@@ -150,13 +150,15 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 - `gitcraft_core::editor::run_if_requested()` must stay the first call in `main`. Keep it working when
   touching `runner::editor_command()` or `editor.rs`. The core's tests use `gitcraft-editor-stub` in its place.
 - Set `GITCRAFT_SHOT=<file.png>` to have the app save a picture of its window once the first repository has
-  loaded, then quit (handy for looking at the UI without a screenshot tool).
+  loaded, then quit (handy for looking at the UI without a screenshot tool). The mouse is ignored meanwhile,
+  so nothing is hovered in the picture. The README's screenshots are of the made-up repository
+  `docs/screenshots/make-demo-repo.py` builds (`target/screenshots/aurora`), never of a real one.
 - craft-window decides before the window opens who draws the title bar (`window::decide`); the app draws
   it in `views/frame.rs`. `GITCRAFT_TITLEBAR=app|system` (or `CRAFT_TITLEBAR`) overrides the setting, and
   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 - The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
 - `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`,
-  `discards`, `clone`, `lfs`, `branch-menu`, or `settings:git` and the other settings pages) opens that
+  `discards`, `clone`, `lfs`, `about`, `branch-menu`, or `settings:git` and the other settings pages) opens that
   before the picture is taken. Set `language = "de"` under `[general]` in the test folder's `config.toml`
   to look at a translated window.
 - Tests run side by side in one process, and the interface language is global: don't switch it to another

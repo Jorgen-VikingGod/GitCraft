@@ -3685,3 +3685,23 @@ async fn the_rebase_editor_shows_the_highlighted_commit_and_picks_actions_from_a
         "{messages:?}"
     );
 }
+
+#[tokio::test]
+async fn help_opens_the_about_window_with_the_version_and_git_in_use() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    let menus = app.bar_menus();
+    let (_, help) = menus.iter().find(|(title, _)| *title == "Help").unwrap();
+    let Some(Some(about)) = find_entry(help, "About GitCraft") else {
+        panic!("{:?}", labels(help))
+    };
+    drive(&mut app, about).await;
+    let Some(Overlay::About { git: Some(Ok(git)) }) = &app.overlay else {
+        panic!("the About window is open and knows git's version")
+    };
+    assert!(git.starts_with("git version"), "{git}");
+    let shown = Screen::new().show(&app);
+    assert!(shown.has(&format!("GitCraft {}", env!("CARGO_PKG_VERSION"))));
+    assert!(shown.has("Jürgen Könnemann"));
+    assert!(shown.has("git version"));
+}

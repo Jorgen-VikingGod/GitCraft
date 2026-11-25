@@ -1737,10 +1737,11 @@ impl App {
         let folder = gitcraft_core::store::config_dir()
             .to_string_lossy()
             .into_owned();
-        let help = vec![MenuItem::entry(
-            "Show data folder",
-            Message::OpenFile(folder),
-        )];
+        let help = vec![
+            MenuItem::entry("Show data folder", Message::OpenFile(folder)),
+            MenuItem::Separator,
+            MenuItem::entry("About GitCraft", Message::OpenAbout),
+        ];
 
         vec![
             ("File", file),

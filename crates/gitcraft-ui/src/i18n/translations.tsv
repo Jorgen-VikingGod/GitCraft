@@ -15,6 +15,7 @@
 1 pattern	1 Muster	1 motif	1 patrón
 A date, such as 2024-01-01	Ein Datum, etwa 2024-01-01	Une date, par exemple 2024-01-01	Una fecha, por ejemplo 2024-01-01
 A GPG key id, or an SSH key file	Eine GPG-Schlüssel-ID oder eine SSH-Schlüsseldatei	Un identifiant de clé GPG, ou un fichier de clé SSH	Un id de clave GPG o un archivo de clave SSH
+A graphical Git client for Windows, macOS and Linux, built on the git you have installed.	Ein grafischer Git-Client für Windows, macOS und Linux, der auf dem installierten git aufbaut.	Un client Git graphique pour Windows, macOS et Linux, qui s’appuie sur le git installé.	Un cliente gráfico de Git para Windows, macOS y Linux, basado en el git que tienes instalado.
 A locked worktree isn't pruned or removed, even when its folder is gone for a while (on a drive that isn't plugged in, say): {path}	Ein gesperrter Worktree wird weder bereinigt noch entfernt, auch wenn sein Ordner eine Weile fehlt (etwa auf einem nicht angeschlossenen Laufwerk): {path}	Un arbre de travail verrouillé n’est ni nettoyé ni supprimé, même si son dossier disparaît un moment (sur un disque débranché, par exemple) : {path}	Un árbol de trabajo bloqueado no se poda ni se elimina, aunque su carpeta falte un tiempo (en una unidad desconectada, por ejemplo): {path}
 A merge commit is taken as its changes against one parent: choose the mainline it was merged into.	Ein Merge-Commit wird als seine Änderungen gegenüber einem Elternteil übernommen: Wähle die Hauptlinie, in die er gemergt wurde.	Un commit de fusion est appliqué comme ses modifications par rapport à un parent : choisissez la ligne principale dans laquelle il a été fusionné.	Un commit de fusión se aplica como sus cambios respecto a un padre: elige la línea principal en la que se fusionó.
 A new or existing folder	Ein neuer oder vorhandener Ordner	Un dossier nouveau ou existant	Una carpeta nueva o existente
@@ -23,6 +24,7 @@ Abort	Abbrechen	Annuler	Abortar
 Abort the {kind} and restore the previous state?	{kind} abbrechen und den vorherigen Zustand wiederherstellen?	Annuler l’opération ({kind}) et rétablir l’état précédent ?	¿Abortar {kind} y restaurar el estado anterior?
 Abort {kind}	{kind} abbrechen	Annuler : {kind}	Abortar {kind}
 Aborting	Wird abgebrochen	Annulation	Abortando
+About GitCraft	Über GitCraft	À propos de GitCraft	Acerca de GitCraft
 About {app}	Über {app}	À propos de {app}	Acerca de {app}
 Actual size	Originalgröße	Taille réelle	Tamaño real
 Add	Hinzufügen	Ajouter	Añadir
@@ -73,6 +75,7 @@ Applying patches (git am)	Patches werden angewendet (git am)	Application des pat
 Applying stash	Stash wird angewendet	Application de la remise	Aplicando stash
 author	Autor	auteur	autor
 Author	Autor	Auteur	Autor
+Author: Jürgen Könnemann	Autor: Jürgen Könnemann	Auteur : Jürgen Könnemann	Autor: Jürgen Könnemann
 Autosquash	Autosquash	Autosquash	Autosquash
 Backup deleted	Sicherung gelöscht	Sauvegarde supprimée	Copia de seguridad eliminada
 Bad	Fehlerhaft	Mauvais	Malo
@@ -360,6 +363,7 @@ git on PATH	git aus PATH	git du PATH	git del PATH
 Git program	Git-Programm	Programme git	Programa git
 Git settings saved	Git-Einstellungen gespeichert	Réglages git enregistrés	Ajustes de git guardados
 Git's default, such as main	Standard von git, etwa main	Celle par défaut de git, par exemple main	La predeterminada de git, como main
+Git: {version} ({program})	Git: {version} ({program})	Git : {version} ({program})	Git: {version} ({program})
 Give at least one folder or pattern, or turn sparse checkout off	Gib mindestens einen Ordner oder ein Muster an oder schalte Sparse-Checkout aus	Indiquez au moins un dossier ou un motif, ou désactivez l’extraction partielle	Indica al menos una carpeta o un patrón, o desactiva el checkout parcial
 Give both ranges, such as main..topic	Gib beide Bereiche an, etwa main..topic	Indiquez les deux plages, par exemple main..topic	Indica ambos rangos, por ejemplo main..topic
 Good	Gut	Bon	Bueno
@@ -550,6 +554,7 @@ Open in new tab	In neuem Tab öffnen	Ouvrir dans un nouvel onglet	Abrir en una p
 Open merge tool	Merge-Tool öffnen	Ouvrir l’outil de fusion	Abrir la herramienta de fusión
 Open repository	Repository öffnen	Ouvrir un dépôt	Abrir repositorio
 Open repository…	Repository öffnen…	Ouvrir un dépôt…	Abrir repositorio…
+Open source under the MIT License.	Open Source unter der MIT-Lizenz.	Open source sous licence MIT.	Código abierto bajo la licencia MIT.
 Operation paused	Vorgang angehalten	Opération en pause	Operación en pausa
 Optional	Optional	Facultatif	Opcional
 Optional description	Optionale Beschreibung	Description facultative	Descripción opcional
@@ -723,6 +728,7 @@ Set upstream…	Upstream setzen…	Définir la branche amont…	Establecer upstr
 Setting up Git LFS	Git LFS wird eingerichtet	Configuration de Git LFS	Configurando Git LFS
 Setting upstream	Upstream wird gesetzt	Définition de la branche amont	Estableciendo upstream
 Settings	Einstellungen	Paramètres	Ajustes
+Settings folder: {path}	Einstellungsordner: {path}	Dossier des réglages : {path}	Carpeta de ajustes: {path}
 Settings…	Einstellungen…	Paramètres…	Ajustes…
 sha	SHA	SHA	SHA
 Short SHA	Kurzer SHA	SHA court	SHA corto

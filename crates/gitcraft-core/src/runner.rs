@@ -329,6 +329,18 @@ pub fn repo_lock(repo: &str) -> Arc<Mutex<()>> {
     locks.entry(repo.to_owned()).or_default().clone()
 }
 
+/// What the git program GitCraft runs says about itself, such as "git version 2.55.0", for
+/// the About window.
+pub async fn git_version_text() -> Result<String, String> {
+    let program = git_program();
+    let output = tokio::process::Command::new(&program)
+        .arg("--version")
+        .output()
+        .await
+        .map_err(|_| format!("{} can't be started", program.display()))?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
 /// The installed git's version, or an explanation for the user.
 pub fn check_git() -> Result<(u32, u32), String> {
     check_git_at(&git_program())

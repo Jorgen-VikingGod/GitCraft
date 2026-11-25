@@ -243,7 +243,7 @@ impl Shell {
     fn take_shot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
-        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split|settings|rebase|delete|checkout|discards|clone|lfs|branch-menu|settings:<page> also opens that, to see how it looks.
+        // GITCRAFT_SHOT_OPEN=menu|pull|changes|split|settings|rebase|delete|checkout|discards|clone|lfs|about|branch-menu|settings:<page> also opens that, to see how it looks.
         if shot.frames == 20
             && let Some(what) = std::env::var_os("GITCRAFT_SHOT_OPEN")
         {
@@ -282,6 +282,7 @@ impl Shell {
                 }
                 Some("discards") => Message::OpenDiscards,
                 Some("lfs") => Message::OpenLfsLocks,
+                Some("about") => Message::OpenAbout,
                 Some("clone") => Message::Action(crate::actions::Action::Clone),
                 Some("rebase") => Message::OpenRebase(None),
                 Some("delete") => Message::Action(crate::actions::Action::DeleteBranch(
@@ -354,6 +355,22 @@ impl eframe::App for Shell {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         window::save();
+    }
+
+    /// While taking a picture (`GITCRAFT_SHOT`), the mouse is left out: wherever it happens to
+    /// rest, it would otherwise light up a row or open a submenu in the picture.
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        if self.shot.is_some() {
+            raw_input.events.retain(|event| {
+                !matches!(
+                    event,
+                    egui::Event::PointerMoved(_)
+                        | egui::Event::PointerButton { .. }
+                        | egui::Event::MouseWheel { .. }
+                )
+            });
+            raw_input.events.push(egui::Event::PointerGone);
+        }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
