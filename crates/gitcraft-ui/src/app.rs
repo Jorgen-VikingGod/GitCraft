@@ -702,6 +702,10 @@ pub enum Overlay {
         locks: Vec<LfsLock>,
         loading: bool,
         error: Option<String>,
+        /// The repository asked, and which request the list waits for: a reply to an older
+        /// one, or about another repository, is let go.
+        repo: String,
+        request: u64,
     },
     Blame {
         path: String,
@@ -1034,7 +1038,8 @@ pub enum Message {
     AboutGit(Answer<String>),
     /// Shows this page of the settings.
     SettingsPage(SettingsPage),
-    LfsLocksLoaded(Answer<Vec<LfsLock>>),
+    /// The locks of (repository, request).
+    LfsLocksLoaded(String, u64, Answer<Vec<LfsLock>>),
     OpenCleanup,
     OpenSparse,
     SparseLoaded(Answer<Option<Vec<String>>>),
@@ -1113,7 +1118,8 @@ pub enum Message {
     GitConfigLoaded(bool, Answer<std::collections::BTreeMap<String, String>>),
     GitConfigEdit(String, String),
     GitConfigSave,
-    GitConfigSaved(Answer<()>),
+    /// The git settings that were saved (key, value), and how it went.
+    GitConfigSaved(Vec<(String, String)>, Answer<()>),
     SetDateOrder(bool),
     SetAutoFetch(u32),
     /// Sent now and then by the window: fetches the repositories that are due.
@@ -2188,12 +2194,16 @@ impl App {
                 }
                 Task::none()
             }
-            Message::LfsLocksLoaded(result) => {
+            Message::LfsLocksLoaded(from, answered, result) => {
                 if let Some(Overlay::LfsLocks {
                     locks,
                     loading,
                     error,
+                    repo,
+                    request,
                 }) = &mut self.overlay
+                    && *repo == from
+                    && *request == answered
                 {
                     *loading = false;
                     match result {
@@ -2621,6 +2631,7 @@ impl App {
                     .current()
                     .map(|tab| tab.path.clone())
                     .filter(|_| self.git_config.here);
+                let submitted = changed.clone();
                 Task::perform(
                     async move {
                         for (key, value) in changed {
@@ -2628,10 +2639,13 @@ impl App {
                         }
                         Ok(())
                     },
-                    |result: Result<(), Error>| Message::GitConfigSaved(answer(result)),
+                    move |result: Result<(), Error>| {
+                        Message::GitConfigSaved(submitted.clone(), answer(result))
+                    },
                 )
             }
-            Message::GitConfigSaved(result) => {
+            Message::GitConfigSaved(submitted, result) => {
+                let saved = result.is_ok();
                 match result {
                     Ok(()) => self.toast(ToastKind::Success, "Git settings saved", None),
                     Err(error) => self.toast(
@@ -2640,8 +2654,23 @@ impl App {
                         Some(error),
                     ),
                 }
+                // What was typed while saving stays: only the saved values are taken from
+                // git again. After a failed save, everything typed stays to try again.
+                let kept: std::collections::BTreeMap<String, String> = self
+                    .git_config
+                    .edits
+                    .iter()
+                    .filter(|(key, value)| {
+                        !saved || !submitted.iter().any(|(k, v)| k == *key && v == *value)
+                    })
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect();
+                let program = self.git_config.program.clone();
                 let here = self.git_config.here;
-                self.load_git_config(here)
+                let reload = self.load_git_config(here);
+                self.git_config.edits = kept;
+                self.git_config.program = program;
+                reload
             }
             Message::ToolsFound(found) => {
                 self.found_tools = found;
@@ -4236,22 +4265,27 @@ impl App {
         let Some(path) = self.current().map(|tab| tab.path.clone()) else {
             return Task::none();
         };
-        // A reload keeps showing the list it has until the new one arrives.
+        let request = self.next_id;
+        self.next_id += 1;
+        // A reload of the same repository keeps showing the list it has until the new one
+        // arrives.
         let kept = match self.overlay.take() {
-            Some(Overlay::LfsLocks { locks, .. }) => locks,
-            other => {
-                self.overlay = other;
-                Vec::new()
-            }
+            Some(Overlay::LfsLocks { locks, repo, .. }) if repo == path => locks,
+            _ => Vec::new(),
         };
         self.overlay = Some(Overlay::LfsLocks {
             locks: kept,
             loading: true,
             error: None,
+            repo: path.clone(),
+            request,
         });
         Task::perform(
-            async move { answer(queries::lfs_locks(&path).await) },
-            Message::LfsLocksLoaded,
+            async move {
+                let result = answer(queries::lfs_locks(&path).await);
+                (path, result)
+            },
+            move |(path, result)| Message::LfsLocksLoaded(path, request, result),
         )
     }
 

@@ -2125,7 +2125,9 @@ fn commit_items(tab: &RepoTab, commit: &Commit, focus: Option<&RefTarget>) -> Ve
     let is_head = Some(commit.sha.as_str()) == head;
     let sha = commit.sha.clone();
     let has_parent = !commit.parents.is_empty();
+    // A focused branch offers checkout, merge and rebase itself; a tag checkout and merge.
     let by_ref = focus.is_some();
+    let by_branch = matches!(focus, Some(RefTarget::Local(_) | RefTarget::Remote(_)));
     let reset = |label: &str, mode: &'static str| {
         let message = act(Action::ResetTo {
             sha: sha.clone(),
@@ -2163,19 +2165,19 @@ fn commit_items(tab: &RepoTab, commit: &Commit, focus: Option<&RefTarget>) -> Ve
     items.extend([MenuItem::sub("Create here", create), MenuItem::Separator]);
     if !is_head {
         if !by_ref {
-            items.extend([
-                MenuItem::entry(
-                    trf("Merge into {current}…", &[("current", current)]),
-                    act(Action::Merge(sha.clone())),
-                ),
-                MenuItem::entry(
-                    trf("Rebase {current} onto here…", &[("current", current)]),
-                    act(Action::Rebase {
-                        onto: sha.clone(),
-                        label: short_sha(&sha).to_owned(),
-                    }),
-                ),
-            ]);
+            items.push(MenuItem::entry(
+                trf("Merge into {current}…", &[("current", current)]),
+                act(Action::Merge(sha.clone())),
+            ));
+        }
+        if !by_branch {
+            items.push(MenuItem::entry(
+                trf("Rebase {current} onto here…", &[("current", current)]),
+                act(Action::Rebase {
+                    onto: sha.clone(),
+                    label: short_sha(&sha).to_owned(),
+                }),
+            ));
         }
         items.push(MenuItem::entry(
             trf("Cherry-pick into {current}", &[("current", current)]),

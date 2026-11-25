@@ -862,6 +862,29 @@ async fn commit_menu_offers_ref_and_commit_actions_and_they_run() {
 }
 
 #[tokio::test]
+async fn a_tag_on_an_older_commit_still_offers_the_commits_rebase() {
+    let f = fixture();
+    f.git(&["tag", "older", "HEAD~1"]);
+    let app = opened(&f, false).await;
+    let tab = app.current().unwrap();
+    let sha = f.git(&["rev-parse", "HEAD~1"]).trim().to_owned();
+    let commit = tab.commits.iter().find(|commit| commit.sha == sha).unwrap();
+    let names = labels(&commit_menu_items(
+        tab,
+        commit,
+        Some(&RefTarget::Tag("older".into())),
+    ));
+    assert!(
+        names.iter().any(|name| name == "Rebase main onto here…"),
+        "a tag has no rebase of its own: {names:?}"
+    );
+    assert!(
+        !names.iter().any(|name| name == "Merge into main…"),
+        "the tag's own merge is enough: {names:?}"
+    );
+}
+
+#[tokio::test]
 async fn squash_and_message_editing_from_the_commit_menu() {
     let f = empty_fixture();
     f.commit("a.txt", "1\n", "first");
@@ -3704,4 +3727,87 @@ async fn help_opens_the_about_window_with_the_version_and_git_in_use() {
     assert!(shown.has(&format!("GitCraft {}", env!("CARGO_PKG_VERSION"))));
     assert!(shown.has("Jürgen Könnemann"));
     assert!(shown.has("git version"));
+}
+
+#[tokio::test]
+async fn an_old_answer_about_lfs_locks_is_let_go() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenLfsLocks).await;
+    let Some(Overlay::LfsLocks { repo, request, .. }) = &app.overlay else {
+        panic!("the locks are open")
+    };
+    let (repo, request) = (repo.clone(), *request);
+    let lock = gitcraft_core::model::LfsLock {
+        id: "1".into(),
+        path: "art.psd".into(),
+        owner: "Someone".into(),
+        locked_at: String::new(),
+        ours: false,
+    };
+    for (from, answered) in [
+        ("/elsewhere".to_owned(), request),
+        (repo.clone(), request - 1),
+    ] {
+        drive(
+            &mut app,
+            Message::LfsLocksLoaded(from, answered, Ok(vec![lock.clone()])),
+        )
+        .await;
+        let Some(Overlay::LfsLocks { locks, .. }) = &app.overlay else {
+            panic!("still open")
+        };
+        assert!(
+            locks.is_empty(),
+            "a reply to another request changes nothing"
+        );
+    }
+    drive(
+        &mut app,
+        Message::LfsLocksLoaded(repo, request, Ok(vec![lock])),
+    )
+    .await;
+    let Some(Overlay::LfsLocks { locks, loading, .. }) = &app.overlay else {
+        panic!("still open")
+    };
+    assert_eq!((locks.len(), *loading), (1, false));
+}
+
+#[tokio::test]
+async fn typing_while_git_settings_save_is_kept() {
+    let f = fixture();
+    let mut app = opened(&f, false).await;
+    drive(&mut app, Message::OpenSettings).await;
+    // Only ever this repository's settings here, never the user's own.
+    drive(&mut app, Message::GitConfigScope(true)).await;
+    drive(
+        &mut app,
+        Message::GitConfigEdit("user.name".into(), "Saved Name".into()),
+    )
+    .await;
+    // The save starts; before it is done, another setting is typed.
+    let saving = app.update(Message::GitConfigSave);
+    app.update(Message::GitConfigEdit(
+        "user.email".into(),
+        "typed@example.com".into(),
+    ));
+    if let Some(mut stream) = saving.into_stream() {
+        while let Some(message) = stream.next().await {
+            drive(&mut app, message).await;
+        }
+    }
+    assert_eq!(
+        f.git(&["config", "--local", "user.name"]).trim(),
+        "Saved Name"
+    );
+    assert_eq!(app.git_config.shown("user.name"), "Saved Name");
+    assert_eq!(
+        app.git_config.shown("user.email"),
+        "typed@example.com",
+        "typed during the save, so not lost"
+    );
+    assert_eq!(
+        app.git_config.changed(),
+        [("user.email".to_owned(), "typed@example.com".to_owned())]
+    );
 }

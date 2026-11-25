@@ -106,6 +106,7 @@ pub fn show(ctx: &Context, cx: &Cx, overlay: &Overlay) {
             locks,
             loading,
             error,
+            ..
         } => lfs_locks(ctx, cx, locks, *loading, error.as_deref()),
         Overlay::Blame {
             path,
@@ -1959,12 +1960,15 @@ fn settings(ctx: &Context, cx: &Cx) {
             let (line, content) = split_x(rest, 1.0);
             fill(ui, line, c.border);
             region(ui, nav.shrink2(vec2(10.0, 12.0)), |ui| {
-                ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
-                for each in SettingsPage::ALL {
-                    if settings_tab(ui, cx, each.title(), each == page) {
-                        cx.send(Message::SettingsPage(each));
+                // In a short window the list scrolls, so every page stays reachable.
+                scroll("settings_pages").show(ui, |ui| {
+                    ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
+                    for each in SettingsPage::ALL {
+                        if settings_tab(ui, cx, each.title(), each == page) {
+                            cx.send(Message::SettingsPage(each));
+                        }
                     }
-                }
+                });
             });
             region(ui, content, |ui| {
                 // Always show the bar, so that it is clear when there is more below.
@@ -2268,12 +2272,13 @@ fn settings_git(ui: &mut Ui, cx: &Cx) {
                 FIELD,
                 look.ui(look.text_size),
             );
+            // Checked and taken once typing is done, with what was typed in this very frame.
+            let typed = changed.clone().unwrap_or_else(|| state.program.clone());
             if let Some(text) = changed {
                 cx.send(Message::GitProgramInput(text));
             }
-            // Checked and taken once typing is done.
-            if response.lost_focus() && state.program != values.general.git_program {
-                cx.send(Message::SetGitProgram(state.program.clone()));
+            if response.lost_focus() && typed != values.general.git_program {
+                cx.send(Message::SetGitProgram(typed));
             }
             ui.end_row();
             for (key, label, kind) in crate::logic::GIT_SETTINGS {

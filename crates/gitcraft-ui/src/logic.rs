@@ -629,8 +629,9 @@ pub fn ignore_patterns(path: &str) -> Vec<(String, String)> {
 }
 
 /// The pattern that would store files like this one in LFS ("*.psd"), unless LFS already
-/// tracks exactly that. Files without an extension get none: their own path is rarely what
-/// someone wants tracked.
+/// tracks exactly that for this file: a pattern counts only when its attributes file's folder
+/// holds the file (a root `.gitattributes` holds everything). Files without an extension get
+/// none: their own path is rarely what someone wants tracked.
 pub fn lfs_track_suggestion(
     path: &str,
     tracked: &[gitcraft_core::model::LfsPattern],
@@ -640,7 +641,17 @@ pub fn lfs_track_suggestion(
         .rfind('.')
         .filter(|at| *at > 0 && *at + 1 < name.len())?;
     let pattern = format!("*{}", &name[at..]);
-    (!tracked.iter().any(|known| known.pattern == pattern)).then_some(pattern)
+    let covers = |source: &str| {
+        let folder = source
+            .strip_suffix(".gitattributes")
+            .unwrap_or(source)
+            .trim_end_matches('/');
+        folder.is_empty() || path.starts_with(&format!("{folder}/"))
+    };
+    (!tracked
+        .iter()
+        .any(|known| known.pattern == pattern && covers(&known.source)))
+    .then_some(pattern)
 }
 
 /// "3 hours ago", "in 1 minute": whole phrases in the table, as other languages change the
@@ -758,6 +769,24 @@ mod tests {
         assert_eq!(lfs_track_suggestion("Makefile", &[]), None);
         assert_eq!(lfs_track_suggestion(".env", &[]), None);
         assert_eq!(lfs_track_suggestion("notes.", &[]), None);
+        // A folder's attributes cover only that folder.
+        let in_assets = gitcraft_core::model::LfsPattern {
+            source: "assets/.gitattributes".to_owned(),
+            ..tracked("*.wav")
+        };
+        assert_eq!(
+            lfs_track_suggestion("assets/drums/kick.wav", std::slice::from_ref(&in_assets)),
+            None
+        );
+        assert_eq!(
+            lfs_track_suggestion("sounds/kick.wav", std::slice::from_ref(&in_assets)).as_deref(),
+            Some("*.wav")
+        );
+        assert_eq!(
+            lfs_track_suggestion("assetsplus/kick.wav", &[in_assets]).as_deref(),
+            Some("*.wav"),
+            "a folder with a longer name isn't inside it"
+        );
     }
 
     #[test]
