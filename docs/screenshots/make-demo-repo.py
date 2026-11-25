@@ -9,7 +9,9 @@ Nothing in it is real.
 
     python3 docs/screenshots/make-demo-repo.py target/screenshots/aurora
 
-The folder is deleted first if it exists. The history is the same on every run.
+The folder (and the remote next to it, `<folder>-origin.git`) is replaced on every run, but
+only if this script made it: it marks what it creates, and refuses to delete anything else.
+The history is the same on every run.
 """
 
 import os
@@ -228,13 +230,21 @@ def merge(branch, author):
 
 repo = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "target/screenshots/aurora")
 remote = repo + "-origin.git"
-for path in (repo, remote):
-    shutil.rmtree(path, ignore_errors=True)
+# What this script creates carries this file (in the repository's .git folder, and in the
+# bare remote): only such folders are ever deleted.
+MARK = "gitcraft-demo-repo"
+for path, mark in ((repo, os.path.join(repo, ".git", MARK)), (remote, os.path.join(remote, MARK))):
+    if os.path.lexists(path):
+        if not os.path.isfile(mark):
+            sys.exit(f"{path} exists and wasn't made by this script; not touching it")
+        shutil.rmtree(path)
 os.makedirs(repo)
 git("init", "-q", "-b", "main")
 git("config", "user.name", AUTHORS[0][0])
 git("config", "user.email", AUTHORS[0][1])
 git("config", "commit.gpgsign", "false")
+git("config", "tag.gpgsign", "false")
+open(os.path.join(repo, ".git", MARK), "w").close()
 git("config", "core.autocrlf", "false")
 
 commit("Start Aurora, a home weather station", 0, ["README.md", "pyproject.toml"], every=True)
@@ -297,6 +307,7 @@ git("tag", "v1.0.0")
 
 # A remote with main and the tags, and a branch only it has.
 subprocess.run(["git", "init", "-q", "--bare", remote], check=True)
+open(os.path.join(remote, MARK), "w").close()
 git("remote", "add", "origin", remote)
 git("push", "-q", "origin", "main", "--tags")
 git("branch", "-q", "--set-upstream-to=origin/main", "main")
