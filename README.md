@@ -307,7 +307,8 @@ The screenshots above are of Aurora, a made-up repository that
 [`docs/screenshots/make-demo-repo.py`](docs/screenshots/make-demo-repo.py) builds: about 160 commits by
 invented authors, with merges, release tags, open branches and a remote. GitCraft saves a picture of its
 window when started with `GITCRAFT_SHOT=<file.png>` (and `GITCRAFT_SHOT_OPEN=` for a dialog, see
-AGENTS.md).
+AGENTS.md); [`docs/screenshots/take-screenshots.py`](docs/screenshots/take-screenshots.py) takes all of
+the pictures above that way.
 
 <details>
 <summary><b>Architecture</b></summary>

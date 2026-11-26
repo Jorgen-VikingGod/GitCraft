@@ -39,6 +39,26 @@ struct Shot {
     file: std::path::PathBuf,
     frames: u32,
     asked: bool,
+    /// `GITCRAFT_SHOT_REBASE_ACTIONS`: the action of each step, set once the rebase editor has
+    /// loaded its commits.
+    rebase_plan: Option<Vec<&'static str>>,
+}
+
+/// `GITCRAFT_SHOT_REBASE_ACTIONS=pick,reword,squash,…`: unknown names are left as pick.
+fn shot_rebase_plan() -> Option<Vec<&'static str>> {
+    let list = std::env::var("GITCRAFT_SHOT_REBASE_ACTIONS").ok()?;
+    let actions = ["pick", "reword", "edit", "squash", "fixup", "drop"];
+    Some(
+        list.split(',')
+            .map(|name| {
+                let name = name.trim();
+                actions
+                    .into_iter()
+                    .find(|each| *each == name)
+                    .unwrap_or("pick")
+            })
+            .collect(),
+    )
 }
 
 #[derive(Default, PartialEq)]
@@ -91,6 +111,7 @@ impl Shell {
                 file: file.into(),
                 frames: 0,
                 asked: false,
+                rebase_plan: shot_rebase_plan(),
             }),
         };
         shell.dispatch(task);
@@ -290,7 +311,12 @@ impl Shell {
                 Some("lfs") => Message::OpenLfsLocks,
                 Some("about") => Message::OpenAbout,
                 Some("clone") => Message::Action(crate::actions::Action::Clone),
-                Some("rebase") => Message::OpenRebase(None),
+                // GITCRAFT_SHOT_REBASE_BASE=<sha> rebases onto that commit instead of the root.
+                Some("rebase") => Message::OpenRebase(
+                    std::env::var("GITCRAFT_SHOT_REBASE_BASE")
+                        .ok()
+                        .filter(|sha| !sha.is_empty()),
+                ),
                 Some("delete") => Message::Action(crate::actions::Action::DeleteBranch(
                     "rust-migration".to_owned(),
                 )),
@@ -304,8 +330,29 @@ impl Shell {
             self.handle(message);
             return;
         }
+        // Once the rebase editor has its commits, give them the planned actions and highlight
+        // the first one again.
+        if shot.rebase_plan.is_some()
+            && let Some(crate::app::Overlay::Rebase(state)) = &self.app.overlay
+            && !state.loading
+            && !state.steps.is_empty()
+        {
+            let plan = shot.rebase_plan.take().unwrap_or_default();
+            for (index, action) in plan.into_iter().enumerate() {
+                self.handle(Message::RebaseSetAction(index, action));
+            }
+            self.handle(Message::RebaseFocus(0));
+            ctx.request_repaint();
+            return;
+        }
         ctx.request_repaint_after(Duration::from_millis(100));
-        if shot.frames > 60 && !shot.asked && self.app.current().is_some_and(|tab| !tab.loading) {
+        let planned = shot.rebase_plan.is_none()
+            || std::env::var("GITCRAFT_SHOT_OPEN").as_deref() != Ok("rebase");
+        if shot.frames > 60
+            && planned
+            && !shot.asked
+            && self.app.current().is_some_and(|tab| !tab.loading)
+        {
             shot.asked = true;
             let (file, close) = (shot.file.clone(), ctx.clone());
             ctx.request_screenshot(move |image| {

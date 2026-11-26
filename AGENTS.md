@@ -156,13 +156,19 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   loaded, then quit (handy for looking at the UI without a screenshot tool). The mouse is ignored meanwhile,
   so nothing is hovered in the picture. The README's screenshots are of the made-up repository
   `docs/screenshots/make-demo-repo.py` builds (`target/screenshots/aurora`), never of a real one.
+- Take the README's screenshots with `python3 docs/screenshots/take-screenshots.py` (on a screen scaled to
+  150 %, so they come out 1920 x 1200): it rebuilds Aurora for each picture and starts the app with the
+  settings, theme and `GITCRAFT_SHOT_OPEN` the picture needs. Rerun it when the UI changes before a
+  release. A new README picture, or a change to what one shows, goes into its `SHOTS` list, so the next
+  run takes it the same way.
 - craft-window decides before the window opens who draws the title bar (`window::decide`); the app draws
   it in `views/frame.rs`. `GITCRAFT_TITLEBAR=app|system` (or `CRAFT_TITLEBAR`) overrides the setting, and
   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 - The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
 - `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`,
   `discards`, `clone`, `lfs`, `about`, `branch-menu`, or `settings:git` and the other settings pages) opens that
-  before the picture is taken. Set `language = "de"` under `[general]` in the test folder's `config.toml`
+  before the picture is taken. With `rebase`, `GITCRAFT_SHOT_REBASE_BASE=<sha>` rebases onto that commit and
+  `GITCRAFT_SHOT_REBASE_ACTIONS=pick,reword,squash,…` sets each step's action. Set `language = "de"` under `[general]` in the test folder's `config.toml`
   to look at a translated window.
 - Tests run side by side in one process, and the interface language is global: don't switch it to another
   language in a test (look up with `I18N.t(lang, …)` instead, as `i18n.rs` does).
