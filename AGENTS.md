@@ -43,7 +43,7 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-ui/tests/flows.rs` | Drives the real UI against real repositories |
 | `crates/gitcraft-core/tests/goldens/` | Recorded commit logs, read by the unit test in `graph.rs` |
 | `crates/gitcraft-ui/assets/icon.png` | App icon used for the installers |
-| `.github/workflows/rust.yml` | Lint and tests on Linux, macOS and Windows |
+| `.github/workflows/rust.yml` | Lint and tests on Linux, macOS and Windows, for pull requests (not for pushes to `main`) |
 | `.github/workflows/release.yml` | Installers (msi, dmg for both Mac chips, deb, AppImage), attached to a published release |
 | `.github/workflows/apt-repo.yml`, `packaging/apt/` | Signed apt repository on GitHub Pages, updated after each release |
 | `.github/dependabot.yml` | Keeps the pinned actions current |
