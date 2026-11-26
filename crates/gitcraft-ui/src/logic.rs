@@ -741,6 +741,21 @@ pub struct TreeRow {
     pub item: Option<usize>,
 }
 
+/// Whether `name` contains `filter` (already in lower case), whatever the case. The sidebar asks
+/// this of every ref in every frame, so plain ASCII is compared without a lower-case copy.
+pub fn contains_folded(name: &str, filter: &str) -> bool {
+    if filter.is_empty() {
+        return true;
+    }
+    if name.is_ascii() && filter.is_ascii() {
+        return name
+            .as_bytes()
+            .windows(filter.len())
+            .any(|window| window.eq_ignore_ascii_case(filter.as_bytes()));
+    }
+    name.to_lowercase().contains(filter)
+}
+
 /// Folder rows for `/`-separated names, hiding what's inside collapsed folders.
 /// Names must be sorted, which is how git lists refs.
 pub fn build_tree(
@@ -912,8 +927,25 @@ pub fn short_date_at(time: i64, now: i64) -> String {
     } else if distance < 7 * 86_400 {
         relative(rounded(86_400), "day", past)
     } else {
-        local_format(time, "%b %-d, %Y")
+        calendar_date(time)
     }
+}
+
+/// The history shows dates in every frame; turning a time into local time asks the system for
+/// the time zone each time (slow on Windows), so dates are kept once made.
+fn calendar_date(time: i64) -> String {
+    thread_local! {
+        static MADE: std::cell::RefCell<std::collections::HashMap<i64, String>> =
+            std::cell::RefCell::default();
+    }
+    MADE.with_borrow_mut(|made| {
+        if made.len() > 4096 {
+            made.clear();
+        }
+        made.entry(time)
+            .or_insert_with(|| local_format(time, "%b %-d, %Y"))
+            .clone()
+    })
 }
 
 pub fn short_date(time: i64) -> String {
@@ -973,9 +1005,144 @@ pub fn changes_in_the_way(status: &Status) -> bool {
         && (!status.staged.is_empty() || status.unstaged.iter().any(|file| file.status != "?"))
 }
 
+/// How much of a repository a refresh reads again: the status alone, or also the refs (and
+/// the history, when they changed).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Scope {
+    Status,
+    Full,
+}
+
+/// One refresh at a time per repository: asked for while one runs, a refresh waits, and all
+/// asked for meanwhile become one, as wide as the widest of them.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Refreshes {
+    running: Option<(Scope, std::time::Instant)>,
+    waiting: Option<Scope>,
+}
+
+impl Refreshes {
+    /// Reading a repository takes seconds at worst; a refresh running longer than this never
+    /// reported back, and no longer holds the next ones up.
+    const LOST: std::time::Duration = std::time::Duration::from_secs(60);
+
+    /// A refresh is wanted: the scope to start right away, or `None` when it waits.
+    pub fn request(&mut self, scope: Scope) -> Option<Scope> {
+        if self
+            .running
+            .is_some_and(|(_, since)| since.elapsed() < Self::LOST)
+        {
+            self.waiting = self.waiting.max(Some(scope));
+            None
+        } else {
+            self.running = Some((scope, std::time::Instant::now()));
+            Some(scope)
+        }
+    }
+
+    /// The running refresh is done: the one that waited, to start now.
+    pub fn finished(&mut self) -> Option<Scope> {
+        let next = self.waiting.take();
+        self.running = next.map(|scope| (scope, std::time::Instant::now()));
+        next
+    }
+}
+
+/// What the history shows depends on: where HEAD and every branch, tag and stash point. The
+/// history is read again only when this changes (or what is asked of it does).
+pub fn history_fingerprint(refs: &gitcraft_core::model::Refs) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    refs.head.hash(&mut hasher);
+    for branch in &refs.local {
+        (&branch.name, &branch.sha, branch.current).hash(&mut hasher);
+    }
+    for branch in &refs.remote {
+        (&branch.name, &branch.sha).hash(&mut hasher);
+    }
+    for tag in &refs.tags {
+        (&tag.name, &tag.sha).hash(&mut hasher);
+    }
+    for stash in &refs.stashes {
+        stash.sha.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_ref_filter_ignores_case() {
+        assert!(contains_folded("feature/Login", ""));
+        assert!(contains_folded("feature/Login", "login"));
+        assert!(contains_folded("FEATURE/login", "feature/l"));
+        assert!(!contains_folded("main", "mainline"));
+        assert!(!contains_folded("release", "login"));
+        assert!(contains_folded("Übersetzung", "über"));
+        assert!(!contains_folded("Übersetzung", "uber"));
+    }
+
+    #[test]
+    fn refreshes_asked_for_meanwhile_become_one() {
+        let mut refreshes = Refreshes::default();
+        assert_eq!(refreshes.request(Scope::Status), Some(Scope::Status));
+        assert_eq!(refreshes.request(Scope::Status), None);
+        assert_eq!(refreshes.request(Scope::Full), None);
+        assert_eq!(refreshes.request(Scope::Status), None);
+        assert_eq!(
+            refreshes.finished(),
+            Some(Scope::Full),
+            "the widest one waited"
+        );
+        assert_eq!(refreshes.finished(), None);
+        assert_eq!(refreshes.request(Scope::Full), Some(Scope::Full));
+        assert_eq!(refreshes.finished(), None);
+    }
+
+    #[test]
+    fn the_history_fingerprint_follows_the_refs() {
+        use gitcraft_core::model::{LocalBranch, Refs};
+        let branch = |sha: &str, current| LocalBranch {
+            name: "main".into(),
+            sha: sha.into(),
+            upstream: None,
+            ahead: 0,
+            behind: 0,
+            upstream_gone: false,
+            current,
+        };
+        let refs = |sha: &str, current| Refs {
+            local: vec![branch(sha, current)],
+            head: Some(sha.into()),
+            ..Refs::default()
+        };
+        let before = history_fingerprint(&refs("a", true));
+        assert_eq!(before, history_fingerprint(&refs("a", true)));
+        assert_ne!(
+            before,
+            history_fingerprint(&refs("b", true)),
+            "a new commit"
+        );
+        assert_ne!(
+            before,
+            history_fingerprint(&refs("a", false)),
+            "another branch"
+        );
+        let ahead = Refs {
+            local: vec![LocalBranch {
+                ahead: 3,
+                ..branch("a", true)
+            }],
+            ..refs("a", true)
+        };
+        assert_eq!(
+            before,
+            history_fingerprint(&ahead),
+            "counts don't change the history"
+        );
+    }
 
     #[test]
     fn lfs_suggests_the_extension_unless_it_is_tracked() {

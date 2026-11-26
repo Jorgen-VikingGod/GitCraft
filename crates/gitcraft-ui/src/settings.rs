@@ -5,7 +5,8 @@
 //! The window's size and place are not here: craft-window keeps them in `window.json`
 //! (see `window.rs`).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Condvar, Mutex};
 
 use craft_settings::{LegacyFile, Location, OpenOptions, SettingsStore};
 use serde::{Deserialize, Serialize};
@@ -503,9 +504,132 @@ impl Settings {
     }
 }
 
+/// Saves settings on a thread of its own: a save takes a frame or more on Windows (an atomic
+/// write and a backup, each looked at by the virus scanner), and a click shouldn't wait for it.
+/// A newer copy replaces one not written yet.
+pub struct Saver {
+    shared: Arc<(Mutex<SaverState>, Condvar)>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+#[derive(Default)]
+struct SaverState {
+    next: Option<(PathBuf, Settings)>,
+    writing: bool,
+    closed: bool,
+    error: Option<String>,
+}
+
+impl Default for Saver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Saver {
+    pub fn new() -> Self {
+        let shared = Arc::new((Mutex::new(SaverState::default()), Condvar::new()));
+        let worker = shared.clone();
+        let thread = std::thread::spawn(move || {
+            let (state, changed) = &*worker;
+            let mut guard = state
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            loop {
+                if let Some((dir, settings)) = guard.next.take() {
+                    guard.writing = true;
+                    drop(guard);
+                    let result = settings.save(&dir);
+                    guard = state
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    guard.writing = false;
+                    if let Err(error) = result {
+                        guard.error = Some(error);
+                    }
+                    changed.notify_all();
+                } else if guard.closed {
+                    return;
+                } else {
+                    guard = changed
+                        .wait(guard)
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                }
+            }
+        });
+        Self {
+            shared,
+            thread: Some(thread),
+        }
+    }
+
+    fn state(&self) -> std::sync::MutexGuard<'_, SaverState> {
+        self.shared
+            .0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    pub fn save(&self, dir: &Path, settings: Settings) {
+        self.state().next = Some((dir.to_path_buf(), settings));
+        self.shared.1.notify_all();
+    }
+
+    /// Waits until everything handed over is written.
+    pub fn flush(&self) {
+        let (state, changed) = &*self.shared;
+        let mut guard = state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        while guard.next.is_some() || guard.writing {
+            guard = changed
+                .wait(guard)
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+        }
+    }
+
+    /// Why the last save failed, once.
+    pub fn take_error(&self) -> Option<String> {
+        self.state().error.take()
+    }
+}
+
+impl Drop for Saver {
+    /// What is waiting is still written.
+    fn drop(&mut self) {
+        self.state().closed = true;
+        self.shared.1.notify_all();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_saver_writes_the_newest_copy() {
+        let dir = tempfile::tempdir().unwrap();
+        let saver = Saver::new();
+        let mut settings = Settings::default();
+        for context in 1..=5 {
+            settings.diff.context = context;
+            saver.save(dir.path(), settings.clone());
+        }
+        saver.flush();
+        assert_eq!(Settings::load(dir.path()).diff.context, 5);
+        assert_eq!(saver.take_error(), None);
+        settings.diff.context = 7;
+        saver.save(dir.path(), settings);
+        drop(saver);
+        assert_eq!(
+            Settings::load(dir.path()).diff.context,
+            7,
+            "written before it goes"
+        );
+    }
 
     #[test]
     fn saves_and_loads_and_tolerates_damage() {

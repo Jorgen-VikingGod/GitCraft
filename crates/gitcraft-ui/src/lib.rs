@@ -36,6 +36,7 @@ pub fn run() -> eframe::Result {
     let desktop = appearance::Desktop::start();
     let options = eframe::NativeOptions {
         viewport: window::viewport(&frame, settings::old_window_size(&dir)),
+        renderer: renderer(std::env::var("GITCRAFT_RENDERER").ok().as_deref()),
         ..eframe::NativeOptions::default()
     };
     eframe::run_native(
@@ -43,4 +44,15 @@ pub fn run() -> eframe::Result {
         options,
         Box::new(move |cc| Ok(Box::new(gui::Shell::new(cc, repo, frame, desktop)))),
     )
+}
+
+/// wgpu on Windows, OpenGL elsewhere; `GITCRAFT_RENDERER=glow` asks for OpenGL on Windows too,
+/// for a machine whose Direct3D or wgpu misbehaves.
+fn renderer(asked: Option<&str>) -> eframe::Renderer {
+    #[cfg(windows)]
+    if asked != Some("glow") {
+        return eframe::Renderer::Wgpu;
+    }
+    let _ = asked;
+    eframe::Renderer::Glow
 }

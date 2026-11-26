@@ -94,6 +94,19 @@ struct Restore {
     store: Store,
     no_position: bool,
     changed: Option<Instant>,
+    /// What the window looked like last frame; most frames it hasn't moved.
+    seen: Option<Seen>,
+}
+
+#[derive(PartialEq)]
+struct Seen {
+    inner: Option<egui::Rect>,
+    outer: Option<egui::Rect>,
+    content: egui::Vec2,
+    flags: [Option<bool>; 3],
+    scale: Option<f32>,
+    zoom: f32,
+    monitor: Option<egui::Vec2>,
 }
 
 fn restore() -> &'static Mutex<Restore> {
@@ -111,6 +124,7 @@ fn restore() -> &'static Mutex<Restore> {
             store,
             no_position: Backend::from_env() == Backend::Wayland,
             changed: None,
+            seen: None,
         })
     })
 }
@@ -144,9 +158,30 @@ fn restored(viewport: egui::ViewportBuilder, legacy: Option<[f32; 2]>) -> egui::
 /// Once per frame: note the window's size and place, and write them a moment after they stop
 /// changing.
 pub fn track(ctx: &egui::Context) {
-    let info = ctx.input(|input| input.viewport().clone());
     let zoom = ctx.zoom_factor();
+    let content = ctx.content_rect().size();
+    let seen = ctx.input(|input| {
+        let info = input.viewport();
+        Seen {
+            inner: info.inner_rect,
+            outer: info.outer_rect,
+            content,
+            flags: [info.minimized, info.maximized, info.fullscreen],
+            scale: info.native_pixels_per_point,
+            zoom,
+            monitor: info.monitor_size,
+        }
+    });
     let mut restore = lock();
+    if restore.seen.as_ref() == Some(&seen) {
+        save_when_due(&mut restore);
+        if restore.changed.is_some() {
+            ctx.request_repaint_after(SAVE_AFTER);
+        }
+        return;
+    }
+    restore.seen = Some(seen);
+    let info = ctx.input(|input| input.viewport().clone());
     if info.minimized == Some(true) {
         return save_when_due(&mut restore);
     }

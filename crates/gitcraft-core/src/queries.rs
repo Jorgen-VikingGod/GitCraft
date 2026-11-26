@@ -1,33 +1,93 @@
 //! Read-only git queries.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex as StdMutex};
 
 use crate::graph::Layout;
 use crate::model::*;
 use crate::parsers::{
     self, DETAIL_FORMAT, LOG_FORMAT, REF_FORMAT, REFLOG_FORMAT, RS, STASH_FORMAT,
 };
-use crate::runner::{Options, git, git_unchecked, run, run_unchecked};
+use crate::runner::{GitError, Options, git, git_unchecked, run, run_unchecked};
 use crate::{Error, Result, check_ref, paths};
 
+/// Where a repository's folders are. They don't change while it is open, and every refresh
+/// needs them, so they are asked of git once.
+#[derive(Debug, Clone)]
+struct Dirs {
+    /// `None` in a bare repository.
+    toplevel: Option<String>,
+    git_dir: PathBuf,
+    common_dir: PathBuf,
+    /// `path/.git` existed when this was asked.
+    own_git: bool,
+}
+
+static DIRS: LazyLock<StdMutex<HashMap<String, Dirs>>> = LazyLock::new(Default::default);
+
+impl Dirs {
+    /// Still right for `path`: the git directory exists, and no repository was made in (or
+    /// removed from) `path` itself since.
+    fn still_valid(&self, path: &str) -> bool {
+        self.git_dir.is_dir() && Path::new(path).join(".git").exists() == self.own_git
+    }
+}
+
+async fn dirs(path: &str) -> Result<Dirs> {
+    let cached = DIRS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(path)
+        .cloned();
+    if let Some(dirs) = cached.filter(|dirs| dirs.still_valid(path)) {
+        return Ok(dirs);
+    }
+    let own_git = Path::new(path).join(".git").exists();
+    // --show-toplevel last: in a bare repository it fails after printing the others.
+    let args = [
+        "rev-parse",
+        "--path-format=absolute",
+        "--absolute-git-dir",
+        "--git-common-dir",
+        "--show-toplevel",
+    ];
+    let result = git_unchecked(path, &args).await?;
+    let out = result.out();
+    let mut lines = out.lines().map(str::trim);
+    let (Some(git_dir), Some(common_dir)) = (lines.next(), lines.next()) else {
+        return Err(GitError::new(&args, result.code, &result.err, &out).into());
+    };
+    let dirs = Dirs {
+        toplevel: (result.code == 0)
+            .then(|| lines.next().map(paths::resolve_str))
+            .flatten(),
+        git_dir: PathBuf::from(git_dir),
+        common_dir: PathBuf::from(common_dir),
+        own_git,
+    };
+    DIRS.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(path.to_owned(), dirs.clone());
+    Ok(dirs)
+}
+
 pub async fn toplevel(path: &str) -> Result<String> {
+    if let Some(top) = dirs(path).await.ok().and_then(|dirs| dirs.toplevel) {
+        return Ok(top);
+    }
+    // Not in a work tree: git's own explanation.
     let result = git(path, &["rev-parse", "--show-toplevel"]).await?;
     Ok(paths::resolve_str(result.out().trim()))
 }
 
 pub async fn git_dir(repo: &str) -> Result<PathBuf> {
-    let result = git(repo, &["rev-parse", "--absolute-git-dir"]).await?;
-    Ok(PathBuf::from(result.out().trim()))
+    Ok(dirs(repo).await?.git_dir)
 }
 
 /// The directory shared by all linked worktrees of this repository.
 pub async fn common_dir(repo: &str) -> Result<PathBuf> {
-    let result = git(
-        repo,
-        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    )
-    .await?;
-    Ok(PathBuf::from(result.out().trim()))
+    Ok(dirs(repo).await?.common_dir)
 }
 
 /// How much each of the given commits changed, in one run of git.
@@ -518,33 +578,37 @@ pub async fn log_filtered(
         args.extend(HIDDEN_REFS);
         args.push("--all");
     }
-    if reference.is_none() && !has_head(repo).await? {
-        let refs = git(
-            repo,
-            &[
-                "for-each-ref",
-                "--count=1",
-                "--format=%(refname)",
-                "refs/heads/",
-                "refs/remotes/",
-                "refs/tags/",
-            ],
-        )
-        .await?;
-        if refs.out().trim().is_empty() {
-            return Ok(LogPage {
-                commits: Vec::new(),
-                has_more: false,
-            });
-        }
-    }
     args.push("--");
     if !path.is_empty() {
         paths::inside(repo, path)
             .ok_or_else(|| Error::Validation(format!("Not inside the repository: {path}")))?;
         args.push(path);
     }
-    let result = git(repo, &args).await?;
+    let result = git_unchecked(repo, &args).await?;
+    if result.code != 0 {
+        // A repository without any commits yet has an empty history rather than an error.
+        if reference.is_none() && !has_head(repo).await? {
+            let refs = git(
+                repo,
+                &[
+                    "for-each-ref",
+                    "--count=1",
+                    "--format=%(refname)",
+                    "refs/heads/",
+                    "refs/remotes/",
+                    "refs/tags/",
+                ],
+            )
+            .await?;
+            if refs.out().trim().is_empty() {
+                return Ok(LogPage {
+                    commits: Vec::new(),
+                    has_more: false,
+                });
+            }
+        }
+        return Err(GitError::new(&args, result.code, &result.err, &result.out()).into());
+    }
     let mut commits = parsers::parse_log(&result.out());
     let has_more = commits.len() > limit;
     commits.truncate(limit);
@@ -561,6 +625,9 @@ pub async fn log_filtered(
 /// Puts each stash right above the commit it was made on, newest first, with that commit
 /// as its only parent. Stashes on commits beyond the loaded page are left out.
 async fn place_stashes(repo: &str, commits: &mut Vec<Commit>) -> Result<()> {
+    if !may_have_stashes(&dirs(repo).await?) {
+        return Ok(());
+    }
     let listed = git_unchecked(repo, &["stash", "list", LOG_FORMAT]).await?;
     if listed.code != 0 {
         return Ok(());
@@ -888,8 +955,73 @@ pub async fn working_diff(
     diff_one(repo, &args).await
 }
 
+/// Runs git only when `wanted`; every git started costs, most of all on Windows.
+async fn git_if(
+    wanted: bool,
+    repo: &str,
+    args: &[&str],
+) -> std::result::Result<Option<crate::runner::GitResult>, GitError> {
+    if wanted {
+        git_unchecked(repo, args).await.map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
+/// Whether the repository has stashes, without starting git. Unknown (so `true`) with the
+/// reftable backend, which keeps no reflog files.
+fn may_have_stashes(dirs: &Dirs) -> bool {
+    dirs.common_dir.join("reftable").is_dir()
+        || std::fs::metadata(dirs.common_dir.join("logs").join("refs").join("stash"))
+            .is_ok_and(|file| file.len() > 0)
+}
+
+/// `git config --list -z` read into (lower-cased key, value) pairs, all scopes.
+fn config_entries(out: &str) -> Vec<(String, String)> {
+    out.split('\0')
+        .filter(|entry| !entry.is_empty())
+        .map(|entry| {
+            let (key, value) = entry.split_once('\n').unwrap_or((entry, ""));
+            (key.to_lowercase(), value.to_owned())
+        })
+        .collect()
+}
+
+/// The repository's only working tree when it has no linked ones, as `git worktree list`
+/// would describe it.
+fn main_worktree(top: &str, git_dir: &Path, data: &Refs) -> Worktree {
+    // An unborn branch has no ref yet; HEAD still names it.
+    let unborn = || {
+        let head = std::fs::read_to_string(git_dir.join("HEAD")).ok()?;
+        let name = head.trim().strip_prefix("ref: refs/heads/")?;
+        (name != ".invalid").then(|| name.to_owned())
+    };
+    let branch = data
+        .local
+        .iter()
+        .find(|branch| branch.current)
+        .map(|branch| branch.name.clone())
+        .or_else(|| data.head.is_none().then(unborn).flatten());
+    Worktree {
+        path: top.to_owned(),
+        sha: data.head.clone().unwrap_or_else(|| "0".repeat(40)),
+        detached: branch.is_none(),
+        branch,
+        main: true,
+        current: true,
+        ..Worktree::default()
+    }
+}
+
 pub async fn refs(repo: &str) -> Result<Refs> {
-    let (remotes_out, refs_out, stash_out, sub_out, tree_out, top) = tokio::join!(
+    let dirs = dirs(repo).await?;
+    let top = dirs.toplevel.clone();
+    let stashes = may_have_stashes(&dirs);
+    let modules = top
+        .as_ref()
+        .is_some_and(|top| Path::new(top).join(".gitmodules").exists());
+    let linked = top.is_none() || dirs.common_dir.join("worktrees").is_dir();
+    let (remotes_out, refs_out, stash_out, sub_out, tree_out, info, config, lfs_found, lfs_files) = tokio::join!(
         git(repo, &["remote", "-v"]),
         git(
             repo,
@@ -901,76 +1033,141 @@ pub async fn refs(repo: &str) -> Result<Refs> {
                 "refs/tags"
             ]
         ),
-        git_unchecked(repo, &["stash", "list", STASH_FORMAT]),
-        git_unchecked(repo, &["submodule", "status"]),
-        git_unchecked(repo, &["worktree", "list", "--porcelain"]),
-        toplevel(repo),
+        git_if(stashes, repo, &["stash", "list", STASH_FORMAT]),
+        git_if(modules, repo, &["submodule", "status"]),
+        git_if(linked, repo, &["worktree", "list", "--porcelain"]),
+        // HEAD last: on an unborn branch it fails quietly after printing the others.
+        git_unchecked(
+            repo,
+            &[
+                "rev-parse",
+                "--is-shallow-repository",
+                "--git-path",
+                "hooks/pre-push",
+                "--verify",
+                "-q",
+                "HEAD",
+            ],
+        ),
+        git_unchecked(repo, &["config", "--list", "-z"]),
+        lfs_installed(repo),
+        git_if(LFS_FOUND.get() != Some(&false), repo, &LFS_ATTRIBUTE_FILES),
     );
-    let (remotes_out, refs_out, stash_out, sub_out, tree_out) =
-        (remotes_out?, refs_out?, stash_out?, sub_out?, tree_out?);
+    let (remotes_out, refs_out) = (remotes_out?, refs_out?);
     let remotes = parsers::parse_remotes(&remotes_out.out());
     let names: Vec<String> = remotes.iter().map(|remote| remote.name.clone()).collect();
     let mut data = parsers::parse_refs(&refs_out.out(), &names);
     data.remotes = remotes;
-    data.stashes = parsers::parse_stashes(&stash_out.out());
-    data.submodules = parsers::parse_submodules(&sub_out.out());
-    data.worktrees = parsers::parse_worktrees(&tree_out.out());
-    if let Ok(top) = top {
+    if let Some(out) = stash_out? {
+        data.stashes = parsers::parse_stashes(&out.out());
+    }
+    if let Some(out) = sub_out? {
+        data.submodules = parsers::parse_submodules(&out.out());
+    }
+    let info = info?;
+    let info_out = info.out();
+    let mut info_lines = info_out.lines().map(str::trim);
+    data.shallow = info_lines.next() == Some("true");
+    let hook = info_lines.next().unwrap_or_default().to_owned();
+    data.head = info_lines
+        .next()
+        .filter(|sha| info.code == 0 && !sha.is_empty())
+        .map(str::to_owned);
+    match (tree_out?, &top) {
+        (Some(out), _) => data.worktrees = parsers::parse_worktrees(&out.out()),
+        (None, Some(top)) => data.worktrees = vec![main_worktree(top, &dirs.git_dir, &data)],
+        (None, None) => {}
+    }
+    if let Some(top) = &top {
         for tree in &mut data.worktrees {
-            tree.current = tree.path == top;
+            tree.current = tree.path == *top;
         }
     }
-    let head = git_unchecked(repo, &["rev-parse", "HEAD"]).await?;
-    data.head = (head.code == 0).then(|| head.out().trim().to_owned());
+    let config = config_entries(&config?.out());
+    let value = |key: &str| {
+        config
+            .iter()
+            .rev()
+            .find(|(name, _)| name == key)
+            .map(|(_, value)| value.as_str())
+    };
     // Newer git marks a partial clone with remote.<name>.promisor, older with an extension.
-    let (shallow, partial, promisor) = tokio::join!(
-        git_unchecked(repo, &["rev-parse", "--is-shallow-repository"]),
-        git_unchecked(repo, &["config", "--get", "extensions.partialClone"]),
-        git_unchecked(repo, &["config", "--get-regexp", r"^remote\..*\.promisor$"]),
-    );
-    data.shallow = shallow?.out().trim() == "true";
-    data.partial =
-        partial?.code == 0 || promisor?.out().lines().any(|line| line.ends_with(" true"));
-    data.lfs = lfs(repo).await?;
+    data.partial = value("extensions.partialclone").is_some()
+        || config.iter().any(|(key, value)| {
+            key.starts_with("remote.") && key.ends_with(".promisor") && value == "true"
+        });
+    let lfs_files = lfs_files?;
+    if lfs_found? {
+        let files = match lfs_files {
+            Some(files) => files,
+            None => git_unchecked(repo, &LFS_ATTRIBUTE_FILES).await?,
+        };
+        let filter = !value("filter.lfs.process")
+            .unwrap_or_default()
+            .trim()
+            .is_empty();
+        data.lfs = Some(lfs_state(repo, top.as_deref(), &hook, filter, &files.out()));
+    }
     Ok(data)
 }
+
+static LFS_FOUND: tokio::sync::OnceCell<bool> = tokio::sync::OnceCell::const_new();
+
+/// Whether git-lfs is installed, asked once per run.
+async fn lfs_installed(repo: &str) -> Result<bool> {
+    LFS_FOUND
+        .get_or_try_init(|| async { Ok(git_unchecked(repo, &["lfs", "version"]).await?.code == 0) })
+        .await
+        .copied()
+}
+
+/// The `.gitattributes` files, committed or not, that may name LFS patterns.
+const LFS_ATTRIBUTE_FILES: [&str; 7] = [
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--",
+    ":(glob)**/.gitattributes",
+];
 
 /// Git LFS in this repository: whether it is set up here and the patterns it tracks; `None`
 /// when git-lfs isn't installed. Only reads: `git lfs track` would install LFS's hooks.
 pub async fn lfs(repo: &str) -> Result<Option<Lfs>> {
-    let (version, filter, hook, files) = tokio::join!(
-        git_unchecked(repo, &["lfs", "version"]),
-        git_unchecked(repo, &["config", "--get", "filter.lfs.process"]),
-        git_unchecked(repo, &["rev-parse", "--git-path", "hooks/pre-push"]),
-        git_unchecked(
-            repo,
-            &[
-                "ls-files",
-                "-z",
-                "--cached",
-                "--others",
-                "--exclude-standard",
-                "--",
-                ":(glob)**/.gitattributes",
-            ],
-        ),
-    );
-    if version?.code != 0 {
+    if !lfs_installed(repo).await? {
         return Ok(None);
     }
+    let (filter, hook, files, top) = tokio::join!(
+        git_unchecked(repo, &["config", "--get", "filter.lfs.process"]),
+        git_unchecked(repo, &["rev-parse", "--git-path", "hooks/pre-push"]),
+        git_unchecked(repo, &LFS_ATTRIBUTE_FILES),
+        toplevel(repo),
+    );
+    let filter = !filter?.out().trim().is_empty();
+    let top = top?;
+    Ok(Some(lfs_state(
+        repo,
+        Some(&top),
+        hook?.out().trim(),
+        filter,
+        &files?.out(),
+    )))
+}
+
+/// What [`lfs`] reports, given the pre-push hook's path, whether the filter is configured and
+/// the listed `.gitattributes` files.
+fn lfs_state(repo: &str, top: Option<&str>, hook: &str, filter: bool, files: &str) -> Lfs {
     // The pre-push hook is what sends the files to the LFS server; without it a push leaves
     // them behind.
-    let hook = hook?.out().trim().to_owned();
-    let hook_path = Path::new(repo).join(&hook);
-    let hooked = std::fs::read_to_string(if Path::new(&hook).is_absolute() {
-        Path::new(&hook)
+    let hook_path = Path::new(repo).join(hook);
+    let hooked = std::fs::read_to_string(if Path::new(hook).is_absolute() {
+        Path::new(hook)
     } else {
         &hook_path
     })
     .is_ok_and(|text| text.contains("git lfs") || text.contains("git-lfs"));
-    let top = toplevel(repo).await?;
-    let mut sources: Vec<String> = files?
-        .out()
+    let mut sources: Vec<String> = files
         .split('\0')
         .filter(|path| !path.is_empty())
         .map(str::to_owned)
@@ -981,14 +1178,15 @@ pub async fn lfs(repo: &str) -> Result<Option<Lfs>> {
     sources.sort_by_key(|path| path.contains('/'));
     let mut patterns = Vec::new();
     for source in sources {
-        if let Ok(text) = std::fs::read_to_string(Path::new(&top).join(&source)) {
+        let Some(top) = top else { break };
+        if let Ok(text) = std::fs::read_to_string(Path::new(top).join(&source)) {
             patterns.extend(parsers::parse_lfs_attributes(&source, &text));
         }
     }
-    Ok(Some(Lfs {
-        installed: hooked && !filter?.out().trim().is_empty(),
+    Lfs {
+        installed: hooked && filter,
         patterns,
-    }))
+    }
 }
 
 /// The files locked on the repository's LFS server, yours marked. Asks the server, so it is
@@ -1199,7 +1397,7 @@ pub async fn blame_with(
 /// window, and those set up in git's config. `cwd` may be any folder.
 pub async fn external_tools(cwd: &str, merge: bool) -> Result<Vec<ExternalTool>> {
     let command = if merge { "mergetool" } else { "difftool" };
-    let result = git_unchecked(cwd, &[command, "--tool-help"]).await?;
+    let result = run_unchecked(cwd, &[command, "--tool-help"], Options::slow()).await?;
     Ok(parsers::parse_tool_help(&result.out()))
 }
 

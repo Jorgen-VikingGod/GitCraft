@@ -101,6 +101,40 @@ pub fn scroll(id: impl std::hash::Hash + std::fmt::Debug) -> ScrollArea {
         .auto_shrink([false, false])
 }
 
+/// `count` rows of `height` in `area`, of which only those in view are laid out, so a list of
+/// thousands costs no more than a screenful. `reveal` is scrolled into view even when it isn't.
+pub fn rows(
+    ui: &mut Ui,
+    area: ScrollArea,
+    height: f32,
+    count: usize,
+    reveal: Option<usize>,
+    mut row: impl FnMut(&mut Ui, usize),
+) -> egui::scroll_area::ScrollAreaOutput<()> {
+    area.show_viewport(ui, |ui, viewport| {
+        ui.spacing_mut().item_spacing = Vec2::ZERO;
+        let (top, across) = (ui.max_rect().top(), ui.max_rect().x_range());
+        let span = |from: usize, to: usize| {
+            Rect::from_x_y_ranges(
+                across,
+                top + from as f32 * height..=top + to as f32 * height,
+            )
+        };
+        if let Some(index) = reveal.filter(|index| *index < count) {
+            ui.scroll_to_rect(span(index, index + 1), None);
+        }
+        ui.set_height(height * count as f32);
+        let first = ((viewport.min.y / height).floor().max(0.0) as usize).min(count);
+        let last = ((viewport.max.y / height).ceil().max(0.0) as usize + 1).min(count);
+        ui.scope_builder(UiBuilder::new().max_rect(span(first, last)), |ui| {
+            ui.skip_ahead_auto_ids(first);
+            for index in first..last {
+                row(ui, index);
+            }
+        });
+    })
+}
+
 // -------------------------------------------------------------------- text
 
 pub fn text(ui: &mut Ui, content: impl Into<String>, size: f32, color: Color32) {
@@ -555,6 +589,8 @@ pub struct FileRow {
     pub action: bool,
 }
 
+pub const FILE_ROW: f32 = 26.0;
+
 /// A row in a file list: status letter, folder, name. Clicks are up to the caller.
 /// `action` is the icon of a button that appears when the row is hovered or selected.
 pub fn file_row(
@@ -566,7 +602,7 @@ pub fn file_row(
 ) -> FileRow {
     let look = cx.look();
     let c = &look.c;
-    let (rect, row) = ui.allocate_exact_size(vec2(ui.available_width(), 26.0), Sense::click());
+    let (rect, row) = ui.allocate_exact_size(vec2(ui.available_width(), FILE_ROW), Sense::click());
     let body = rect.shrink2(vec2(4.0, ROW_INSET));
     let hovered = ui.rect_contains_pointer(rect);
     // Moving the selection with the keyboard must bring the row into view.

@@ -116,10 +116,16 @@ impl Shell {
         let (outbox, ctx) = (self.outbox.clone(), self.ctx.clone());
         self.runtime.spawn(async move {
             while let Some(message) = stream.next().await {
+                // git prints progress many times a second; a line shown 30 times a second is enough.
+                let progress = matches!(message, Message::Progress(..));
                 if outbox.send(message).is_err() {
                     break;
                 }
-                ctx.request_repaint();
+                if progress {
+                    ctx.request_repaint_after(Duration::from_millis(33));
+                } else {
+                    ctx.request_repaint();
+                }
             }
         });
     }

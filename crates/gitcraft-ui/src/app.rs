@@ -19,7 +19,7 @@ use crate::command::Command;
 use crate::form::{FieldKind, Form};
 use crate::highlight::{self, Highlights};
 use crate::i18n::{tr, trf};
-use crate::logic::{self, Choice, plural, short_sha};
+use crate::logic::{self, Choice, Scope, plural, short_sha};
 use crate::menu::{Menu, MenuItem};
 use crate::settings::Settings;
 use crate::task::{Handle, Task};
@@ -308,6 +308,14 @@ pub struct RepoTab {
     /// Copies of the history settings, so the list can be reloaded from the tab alone.
     pub date_order: bool,
     pub show_stashes: bool,
+    /// The refresh running in the background, and the one waiting for it.
+    pub refreshes: logic::Refreshes,
+    /// Counts the history loads started; a load that finishes after a newer one started is
+    /// dropped.
+    pub log_generation: u64,
+    /// What the last history load started from (the refs' fingerprint and the query); a
+    /// refresh that finds both the same leaves the history as it is.
+    pub log_basis: Option<(u64, LogQuery)>,
 }
 
 impl RepoTab {
@@ -365,6 +373,27 @@ impl RepoTab {
             conflict_preview: None,
             co_authors: String::new(),
             picked_commits: Vec::new(),
+            refreshes: logic::Refreshes::default(),
+            log_generation: 0,
+            log_basis: None,
+        }
+    }
+
+    /// Reads the history again, as the tab now asks for it.
+    fn reload_log(&mut self) -> Task<Message> {
+        self.log_generation += 1;
+        let query = self.log_query();
+        self.log_basis = Some((logic::history_fingerprint(&self.refs), query.clone()));
+        load_log(self.path.clone(), query, self.log_generation)
+    }
+
+    /// After the refs were read again: the history too, unless nothing it depends on changed.
+    fn reload_log_if_changed(&mut self) -> Task<Message> {
+        let basis = (logic::history_fingerprint(&self.refs), self.log_query());
+        if self.log_basis.as_ref() == Some(&basis) {
+            Task::none()
+        } else {
+            self.reload_log()
         }
     }
 
@@ -421,22 +450,25 @@ impl RepoTab {
             .map_or(&self.commits, |search| &search.results)
     }
 
-    pub fn files_in(&self, area: Area) -> Vec<FileChange> {
+    pub fn files_in(&self, area: Area) -> std::borrow::Cow<'_, [FileChange]> {
+        use std::borrow::Cow;
         let Some(status) = &self.status else {
-            return Vec::new();
+            return Cow::Borrowed(&[]);
         };
         match area {
-            Area::Unstaged => status.unstaged.clone(),
-            Area::Staged => status.staged.clone(),
-            Area::Conflicts => status
-                .conflicts
-                .iter()
-                .map(|file| FileChange {
-                    path: file.path.clone(),
-                    status: "U".into(),
-                    orig_path: None,
-                })
-                .collect(),
+            Area::Unstaged => Cow::Borrowed(&status.unstaged),
+            Area::Staged => Cow::Borrowed(&status.staged),
+            Area::Conflicts => Cow::Owned(
+                status
+                    .conflicts
+                    .iter()
+                    .map(|file| FileChange {
+                        path: file.path.clone(),
+                        status: "U".into(),
+                        orig_path: None,
+                    })
+                    .collect(),
+            ),
         }
     }
 
@@ -910,6 +942,10 @@ pub struct App {
     next_id: u64,
     pub(crate) config_dir: PathBuf,
     pub(crate) store: RepoStore,
+    /// Writes `settings` in the background.
+    saver: crate::settings::Saver,
+    /// What was last handed to the saver, so an unchanged copy isn't written again.
+    saved: Option<Settings>,
 }
 
 #[derive(Debug, Clone)]
@@ -941,7 +977,10 @@ pub enum Message {
     BisectLoaded(String, Answer<Option<Bisect>>),
     Undo,
     Redo,
-    LogLoaded(String, Answer<(Vec<Commit>, bool)>),
+    /// (repository, which load of its history this is, the commits and whether there are more).
+    LogLoaded(String, u64, Answer<(Vec<Commit>, bool)>),
+    /// A background refresh of the repository has delivered everything it read.
+    RefreshDone(String, Scope),
     LoadMore,
     SetBranchFilter(bool),
     Select(String),
@@ -1134,6 +1173,8 @@ pub enum Message {
     SetGitProgram(String),
     GitProgramInput(String),
     GitProgramChecked(String, Result<(u32, u32), String>),
+    /// The git program found at start-up, checked.
+    GitChecked(Result<(u32, u32), String>),
     /// Settings › Git: everywhere (false) or for this repository (true).
     GitConfigScope(bool),
     GitConfigLoaded(bool, Answer<std::collections::BTreeMap<String, String>>),
@@ -1200,9 +1241,14 @@ impl App {
         // What the desktop is set to, not what is shown: with "Light" chosen on a dark desktop,
         // "Follow system" must still turn dark later.
         app.system_dark = system_dark;
-        if let Err(problem) = gitcraft_core::runner::check_git() {
-            app.toast(ToastKind::Error, problem, None);
-        }
+        let check = Task::perform(
+            async {
+                tokio::task::spawn_blocking(gitcraft_core::runner::check_git)
+                    .await
+                    .unwrap_or_else(|error| Err(error.to_string()))
+            },
+            Message::GitChecked,
+        );
         // A `gitcraft://clone` link on the command line opens the clone dialog, not a path.
         let (repo, link) = match repo {
             Some(link) if link.starts_with("gitcraft://") => (None, Some(link)),
@@ -1221,7 +1267,7 @@ impl App {
             .collect();
         let task = app.restore_next();
         let link = link.map_or_else(Task::none, |link| Task::done(Message::Instance(link)));
-        (app, Task::batch([task, tools, link]))
+        (app, Task::batch([check, task, tools, link]))
     }
 
     /// Start-up is still opening the saved tabs: the saved session is left as it is until then.
@@ -1294,7 +1340,14 @@ impl App {
             next_id: 1,
             config_dir: store.dir(),
             store,
+            saver: crate::settings::Saver::new(),
+            saved: None,
         }
+    }
+
+    /// Waits until the settings handed to the background writer are on disk.
+    pub fn flush_settings(&self) {
+        self.saver.flush();
     }
 
     pub fn title(&self) -> String {
@@ -1372,16 +1425,20 @@ impl App {
         }
         self.settings.layout.collapsed = self.collapsed.iter().cloned().collect();
         self.settings.layout.collapsed.sort();
-        if let Err(error) = self.settings.save(&self.config_dir) {
+        if self.saved.as_ref() != Some(&self.settings) {
+            self.saved = Some(self.settings.clone());
+            self.saver.save(&self.config_dir, self.settings.clone());
+        }
+    }
+
+    pub fn update(&mut self, message: Message) -> Task<Message> {
+        if let Some(error) = self.saver.take_error() {
             self.toast(
                 ToastKind::Error,
                 trf("Could not save settings: {error}", &[("error", &error)]),
                 None,
             );
         }
-    }
-
-    pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::OpenDialog => {
                 self.effects.push(Effect::Ask(Pick::OpenRepository));
@@ -1481,10 +1538,30 @@ impl App {
                 }
                 Task::none()
             }
-            Message::Refresh => match self.current() {
-                Some(tab) => load_all(tab.path.clone(), tab.log_query()),
+            Message::Refresh => match self.current_mut() {
+                Some(tab) => {
+                    // Asked for by the user: the history is read again whatever the refs say.
+                    tab.log_basis = None;
+                    let path = tab.path.clone();
+                    self.refresh(&path, Scope::Full)
+                }
                 None => Task::none(),
             },
+            Message::RefreshDone(path, scope) => {
+                let Some(tab) = self.tab_mut(&path) else {
+                    return Task::none();
+                };
+                let log = if scope == Scope::Full {
+                    tab.reload_log_if_changed()
+                } else {
+                    Task::none()
+                };
+                let next = tab
+                    .refreshes
+                    .finished()
+                    .map_or_else(Task::none, |scope| refresh_task(path, scope));
+                Task::batch([log, next])
+            }
             Message::SetView(view) => {
                 let Some(tab) = self.current_mut() else {
                     return Task::none();
@@ -1554,14 +1631,28 @@ impl App {
                                     }
                                 }
                             }
+                            // The first history load ran alongside this first look at the refs.
+                            let first = tab.log_generation == 1 && tab.refs == Refs::default();
                             tab.refs = refs;
+                            if first && let Some((print, _)) = &mut tab.log_basis {
+                                *print = logic::history_fingerprint(&tab.refs);
+                            }
                         }
                     }
                     Err(error) => self.toast(ToastKind::Error, error, None),
                 }
                 Task::none()
             }
-            Message::LogLoaded(path, result) => self.log_loaded(&path, result),
+            Message::LogLoaded(path, generation, result) => {
+                if self
+                    .tab_mut(&path)
+                    .is_some_and(|tab| tab.log_generation != generation)
+                {
+                    // A newer load is under way and brings what is asked for now.
+                    return Task::none();
+                }
+                self.log_loaded(&path, result)
+            }
             Message::LoadMore => {
                 let step = self.settings.history.log_limit;
                 let Some(tab) = self.current_mut() else {
@@ -1569,7 +1660,7 @@ impl App {
                 };
                 tab.log_limit += step;
                 tab.loading = true;
-                load_log(tab.path.clone(), tab.log_query())
+                tab.reload_log()
             }
             Message::SetBranchFilter(all) => {
                 let Some(tab) = self.current_mut() else {
@@ -1578,7 +1669,7 @@ impl App {
                 tab.all_branches = all;
                 tab.loading = true;
                 scroll_to(tab, 0.0);
-                load_log(tab.path.clone(), tab.log_query())
+                tab.reload_log()
             }
             Message::Select(sha) => {
                 let (command, shift) = (self.modifiers.command, self.modifiers.shift);
@@ -1640,7 +1731,7 @@ impl App {
                 }
                 let (path, view) = (tab.path.clone(), tab.ref_view.clone());
                 tab.loading = true;
-                let reload = load_log(path.clone(), tab.log_query());
+                let reload = tab.reload_log();
                 if view.is_empty() {
                     self.settings.graph.views.remove(&path);
                 } else {
@@ -1688,7 +1779,7 @@ impl App {
                 tab.search = None;
                 tab.loading = true;
                 scroll_to(tab, 0.0);
-                load_log(tab.path.clone(), tab.log_query())
+                tab.reload_log()
             }
             Message::OpenReplay(shas) => self.open_replay(shas),
             Message::ShowCommit(sha) => {
@@ -2808,7 +2899,7 @@ impl App {
                 }
                 // A merge tool may have resolved the file.
                 if merge && self.tabs.iter().any(|tab| tab.path == repo) {
-                    load_status(repo)
+                    self.refresh(&repo, Scope::Status)
                 } else {
                     Task::none()
                 }
@@ -2920,8 +3011,7 @@ impl App {
                 tab.last_fetch = Instant::now();
                 // A failed background fetch (offline, say) waits for the next round quietly.
                 if result == Ok(true) {
-                    let query = tab.log_query();
-                    return Task::batch([load_refs(path.clone()), load_log(path, query)]);
+                    return self.refresh(&path, Scope::Full);
                 }
                 Task::none()
             }
@@ -2986,7 +3076,7 @@ impl App {
                 for tab in &mut self.tabs {
                     tab.date_order = date_order;
                     tab.show_stashes = stashes;
-                    reloads.push(load_log(tab.path.clone(), tab.log_query()));
+                    reloads.push(tab.reload_log());
                 }
                 Task::batch(reloads)
             }
@@ -3033,6 +3123,12 @@ impl App {
                     Task::none()
                 }
             },
+            Message::GitChecked(checked) => {
+                if let Err(problem) = checked {
+                    self.toast(ToastKind::Error, problem, None);
+                }
+                Task::none()
+            }
             Message::SetConflictCheck(value) => {
                 self.settings.history.conflict_check = value;
                 self.save_settings();
@@ -3115,20 +3211,10 @@ impl App {
                 }
                 Task::none()
             }
-            Message::Watched(path, WatchEvent::Changed { git, worktree: _ }) => {
-                let found = self
-                    .tabs
-                    .iter()
-                    .find(|tab| tab.path == path)
-                    .map(RepoTab::log_query);
-                let Some(query) = found else {
-                    return Task::none();
-                };
-                if git {
-                    load_all(path, query)
-                } else {
-                    load_status(path)
-                }
+            Message::Watched(path, WatchEvent::Changed { git, .. }) => {
+                // Staging or editing files changes only the status; refs, HEAD or config more.
+                let scope = if git { Scope::Full } else { Scope::Status };
+                self.refresh(&path, scope)
             }
             Message::Watched(path, WatchEvent::Error(error)) => {
                 self.toast(
@@ -3161,6 +3247,7 @@ impl App {
             }
             Message::CloseRequested => {
                 self.save_settings();
+                self.saver.flush();
                 Task::none()
             }
             Message::Tick => {
@@ -3178,6 +3265,7 @@ impl App {
             }
             Message::Quit => {
                 self.save_settings();
+                self.saver.flush();
                 self.effects.push(Effect::Quit);
                 Task::none()
             }
@@ -3226,23 +3314,9 @@ impl App {
                 |(repo, result)| Message::TemplateLoaded(repo, result),
             )
         };
-        let query = LogQuery {
-            limit,
-            all: true,
-            filter: LogFilter::default(),
-            options: LogOptions {
-                view: self
-                    .settings
-                    .graph
-                    .views
-                    .get(&path)
-                    .cloned()
-                    .unwrap_or_default(),
-                date_order: self.settings.history.date_order,
-                stashes: self.settings.history.show_stashes,
-            },
-        };
-        let mut tasks = vec![load_all(path, query), template];
+        // The history loads alongside the first refresh rather than after it, for a quick start.
+        let log = self.tabs[self.active].reload_log();
+        let mut tasks = vec![self.refresh(&path, Scope::Full), log, template];
         if self.settings.history.fetch_on_open {
             tasks.push(Task::done(Message::Run(Command::Fetch {
                 remote: None,
@@ -3313,6 +3387,13 @@ impl App {
 
     // ------------------------------------------------------------ loading
 
+    /// Reads the repository open in a tab again, now or once the refresh running for it is done.
+    fn refresh(&mut self, path: &str, scope: Scope) -> Task<Message> {
+        self.tab_mut(path)
+            .and_then(|tab| tab.refreshes.request(scope))
+            .map_or_else(Task::none, |scope| refresh_task(path.to_owned(), scope))
+    }
+
     fn status_loaded(&mut self, path: &str, result: Answer<Status>) -> Task<Message> {
         match result {
             Ok(status) => {
@@ -3345,7 +3426,7 @@ impl App {
                         tab.ref_view.hidden.retain(|name| *name != full);
                         let view = tab.ref_view.clone();
                         tab.loading = true;
-                        let reload = load_log(path.to_owned(), tab.log_query());
+                        let reload = tab.reload_log();
                         if view.is_empty() {
                             self.settings.graph.views.remove(path);
                         } else {
@@ -3387,6 +3468,8 @@ impl App {
             Err(error) => {
                 if let Some(tab) = self.tab_mut(path) {
                     tab.loading = false;
+                    // Tried again by the next refresh.
+                    tab.log_basis = None;
                 }
                 self.toast(ToastKind::Error, error, None);
                 return Task::none();
@@ -3681,8 +3764,9 @@ impl App {
                 let staged = *area == Area::Staged;
                 let file = tab
                     .files_in(*area)
-                    .into_iter()
-                    .find(|file| file.path == *path);
+                    .iter()
+                    .find(|file| file.path == *path)
+                    .cloned();
                 file.map(|file| DiffRequest::Working {
                     path: file.path,
                     staged,
@@ -4294,21 +4378,16 @@ impl App {
             }
             _ => {}
         }
-        let found = self
-            .tabs
-            .iter()
-            .find(|tab| tab.path == repo)
-            .map(RepoTab::log_query);
-        let Some(query) = found else {
+        if !self.tabs.iter().any(|tab| tab.path == repo) {
             return Task::none();
-        };
+        }
         // The checkout waiting for this commit goes straight to git: what is left uncommitted
         // was left on purpose, so it isn't asked about again.
         let then = then.map_or_else(Task::none, |checkout| self.run_in(repo.clone(), checkout));
         let reload = if command.status_only() {
-            load_status(repo)
+            self.refresh(&repo, Scope::Status)
         } else {
-            load_all(repo, query)
+            self.refresh(&repo, Scope::Full)
         };
         let list = if refresh_list {
             self.open_discards()
@@ -4966,8 +5045,8 @@ impl App {
                 let (area, path) = tab.focus.clone()?;
                 let paths = tab
                     .files_in(area)
-                    .into_iter()
-                    .map(|file| file.path)
+                    .iter()
+                    .map(|file| file.path.clone())
                     .collect();
                 (
                     paths,
@@ -5145,8 +5224,8 @@ fn pick_all_in(tab: &mut RepoTab) -> bool {
     };
     let paths: Vec<String> = tab
         .files_in(area)
-        .into_iter()
-        .map(|file| file.path)
+        .iter()
+        .map(|file| file.path.clone())
         .collect();
     let Some(first) = paths.first().cloned() else {
         return false;
@@ -5165,8 +5244,8 @@ fn pick_all_in(tab: &mut RepoTab) -> bool {
 fn pick_file_in(tab: &mut RepoTab, area: Area, path: String, modifiers: Modifiers) {
     let list: Vec<String> = tab
         .files_in(area)
-        .into_iter()
-        .map(|file| file.path)
+        .iter()
+        .map(|file| file.path.clone())
         .collect();
     let same_area = tab.picked.0 == area;
     let paths = if modifiers.command && same_area {
@@ -5365,7 +5444,7 @@ pub struct LogQuery {
     pub options: LogOptions,
 }
 
-fn load_log(path: String, query: LogQuery) -> Task<Message> {
+fn load_log(path: String, query: LogQuery, generation: u64) -> Task<Message> {
     Task::perform(
         async move {
             let LogQuery {
@@ -5379,16 +5458,25 @@ fn load_log(path: String, query: LogQuery) -> Task<Message> {
                     .map(|page| (page.commits, page.has_more));
             (path, result)
         },
-        |(path, result)| Message::LogLoaded(path, result),
+        move |(path, result)| Message::LogLoaded(path, generation, result),
     )
 }
 
-fn load_all(path: String, query: LogQuery) -> Task<Message> {
-    Task::batch([
-        load_status(path.clone()),
-        load_refs(path.clone()),
-        load_log(path, query),
-    ])
+/// Reads the status again (and with [`Scope::Full`] the refs), then reports the refresh done,
+/// which decides about the history.
+fn refresh_task(path: String, scope: Scope) -> Task<Message> {
+    let parts = match scope {
+        Scope::Status => load_status(path.clone()),
+        Scope::Full => Task::batch([load_status(path.clone()), load_refs(path.clone())]),
+    };
+    let done = Message::RefreshDone(path, scope);
+    match parts.into_stream() {
+        Some(parts) => Task::stream(futures::StreamExt::chain(
+            parts,
+            futures::stream::once(async move { done }),
+        )),
+        None => Task::done(done),
+    }
 }
 
 /// Reports changes in a repository until the future is dropped. A failure to start

@@ -14,6 +14,7 @@ use crate::logic::{build_tree, short_sha};
 
 const INDENT: f32 = 14.0;
 const BASE_INDENT: f32 = 8.0;
+const ROW: f32 = 24.0;
 
 fn nav(
     ui: &mut Ui,
@@ -166,9 +167,20 @@ fn none(ui: &mut Ui, cx: &Cx, note: &str) {
     ui.add_space(4.0);
 }
 
+/// Takes the room of a row that is out of view and says so; such rows aren't drawn, so that
+/// thousands of branches or tags cost no more than those on screen.
+fn skipped(ui: &mut Ui) -> bool {
+    let rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), ROW));
+    if ui.is_rect_visible(rect) {
+        return false;
+    }
+    ui.allocate_space(rect.size());
+    true
+}
+
 /// A row of the sidebar tree: the rectangle, with a hover or selection fill drawn.
 fn tree_row(ui: &mut Ui, cx: &Cx, selected: bool, related: bool) -> (Rect, Response) {
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 24.0), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), ROW), Sense::click());
     let body = rect.shrink2(vec2(4.0, super::widgets::ROW_INSET));
     if selected {
         ui.painter().rect_filled(body, 5.0, cx.c().selection);
@@ -395,7 +407,7 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let area = ui.max_rect();
     fill(ui, area, c.sidebar);
     let filter = tab.filter.to_lowercase();
-    let matches = |name: &str| filter.is_empty() || name.to_lowercase().contains(&filter);
+    let matches = |name: &str| crate::logic::contains_folded(name, &filter);
     let in_history = tab.view == View::History;
     // For a ref: is it the one that was picked, and does it point at the selected commit too?
     let marks = |key: &str, sha: &str| {
@@ -502,6 +514,9 @@ fn branches(
     }
     let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
     for entry in build_tree("b", &names, collapsed) {
+        if skipped(ui) {
+            continue;
+        }
         let Some(index) = entry.item else {
             folder(
                 ui,
@@ -599,6 +614,9 @@ fn remotes(
             .map(|branch| branch.branch.as_str())
             .collect();
         for entry in build_tree(&key, &names, collapsed) {
+            if skipped(ui) {
+                continue;
+            }
             let Some(index) = entry.item else {
                 folder(
                     ui,
@@ -674,6 +692,9 @@ fn tags_and_more(
                 none(ui, cx, "No tags");
             }
             for tag in tags {
+                if skipped(ui) {
+                    continue;
+                }
                 let item = simple(
                     tag.name.clone(),
                     "tag",
@@ -708,6 +729,9 @@ fn tags_and_more(
                 none(ui, cx, "No stashes");
             }
             for stash in &tab.refs.stashes {
+                if skipped(ui) {
+                    continue;
+                }
                 let selected = tab.view == View::Stash
                     && tab
                         .stash
