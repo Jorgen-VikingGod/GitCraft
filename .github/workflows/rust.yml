@@ -1,10 +1,10 @@
-# Checks GitCraft on Linux, macOS and Windows: format, lints and tests.
-# The installers are built by release.yml, when a release is published.
+# Checks GitCraft on Linux, macOS and Windows: format, lints and tests, for every pull
+# request (main only changes through them), or by hand from the Actions tab.
+# Releases are checked by release.yml, which runs the tests again before it builds the
+# installers.
 name: Rust
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 

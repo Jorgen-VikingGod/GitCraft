@@ -301,7 +301,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 ```
 
 [`.github/workflows/rust.yml`](.github/workflows/rust.yml) runs the format check, clippy and the tests on
-Linux, macOS and Windows.
+Linux, macOS and Windows for every pull request; a release runs the tests again before its installers
+are built.
 
 The screenshots above are of Aurora, a made-up repository that
 [`docs/screenshots/make-demo-repo.py`](docs/screenshots/make-demo-repo.py) builds: about 160 commits by
