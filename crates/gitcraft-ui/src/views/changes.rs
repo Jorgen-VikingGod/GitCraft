@@ -4,8 +4,8 @@ use egui::{Align, Layout, Margin, Ui, vec2};
 use gitcraft_core::model::{FileChange, Operation};
 
 use super::widgets::{
-    GRIP, accent, area_edit, bar, btn, check, danger, file_row, fill, heading, line_edit, muted,
-    placeholder, region, scroll, split_x, split_y, splitter, text, warning,
+    FILE_ROW, GRIP, accent, area_edit, bar, btn, check, danger, file_row, fill, heading, line_edit,
+    muted, placeholder, region, rows, scroll, split_x, split_y, splitter, text, warning,
 };
 use super::{Cx, diff, icon};
 use crate::actions::{Action, MenuRequest};
@@ -47,9 +47,29 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, area: Area, files: &[FileChange], e
         }),
         Area::Conflicts => ("edit", Message::OpenConflict),
     };
-    let scrolled = scroll(("changes", &tab.path, area as u8)).show(ui, |ui| {
-        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-        for file in files {
+    // A row picked with the keyboard may be out of view, and then it isn't drawn to scroll itself.
+    // The focused row is the one moved to (picked keeps list order, so its last one may be the
+    // anchor of a selection grown upwards).
+    let last_picked = egui::Id::unique(("changes_picked", &tab.path, area as u8));
+    let newest = match &tab.focus {
+        Some((focused, path)) if *focused == area && picked.contains(path) => Some(path),
+        _ => picked.last(),
+    };
+    let before = ui.data(|data| data.get_temp::<Option<String>>(last_picked));
+    let reveal = if before.as_ref().map(Option::as_ref) == Some(newest) {
+        None
+    } else {
+        ui.data_mut(|data| data.insert_temp(last_picked, newest.cloned()));
+        newest.and_then(|path| files.iter().position(|file| &file.path == path))
+    };
+    let scrolled = rows(
+        ui,
+        scroll(("changes", &tab.path, area as u8)),
+        FILE_ROW,
+        files.len(),
+        reveal,
+        |ui, index| {
+            let file = &files[index];
             let path = file.path.clone();
             let row = file_row(ui, cx, file, picked.contains(&path), Some(symbol));
             if row.action {
@@ -65,8 +85,8 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, area: Area, files: &[FileChange], e
                     rev: None,
                 }));
             }
-        }
-    });
+        },
+    );
     super::widgets::scroll_shadows(ui, cx.look(), &scrolled);
 }
 

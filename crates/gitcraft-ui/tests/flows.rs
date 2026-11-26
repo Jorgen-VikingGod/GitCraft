@@ -10,6 +10,7 @@ use futures::StreamExt;
 use gitcraft_core::model::ToolTarget;
 use gitcraft_core::runner::set_editor_exe;
 use gitcraft_core::store::RepoStore;
+use gitcraft_core::watcher::WatchEvent;
 use gitcraft_ui::App;
 use gitcraft_ui::actions::{Action, MenuRequest, RefTarget, commit_menu_items};
 use gitcraft_ui::app::{Area, CommitOption, Message, Overlay, ToastKind, View};
@@ -299,6 +300,83 @@ async fn opening_loads_history_refs_and_selects_head() {
     ] {
         assert!(screen.has(expected), "{expected} is on screen");
     }
+}
+
+fn loaded_history(seen: &[Message]) -> bool {
+    seen.iter()
+        .any(|message| matches!(message, Message::LogLoaded(..)))
+}
+
+#[tokio::test]
+async fn staging_reloads_the_status_but_not_the_history() {
+    let f = fixture();
+    f.write("new.txt", "x\n");
+    let store = RepoStore::at(f.root.join("config/repos.json"));
+    let mut app = App::with_look(Look::preset(false), store);
+    let seen = drive(&mut app, Message::OpenPath(f.repo.clone())).await;
+    let loads = seen
+        .iter()
+        .filter(|message| matches!(message, Message::LogLoaded(..)))
+        .count();
+    assert_eq!(loads, 1, "opening reads the history once");
+    let path = app.current().unwrap().path.clone();
+    let seen = drive(
+        &mut app,
+        Message::Run(Command::Stage {
+            paths: vec!["new.txt".into()],
+        }),
+    )
+    .await;
+    assert!(
+        seen.iter()
+            .any(|message| matches!(message, Message::StatusLoaded(..)))
+    );
+    assert!(!loaded_history(&seen));
+    let staged = &app.current().unwrap().status.as_ref().unwrap().staged;
+    assert_eq!(staged[0].path, "new.txt");
+
+    // What the watcher reports after it: only the index changed.
+    let index = WatchEvent::Changed {
+        git: false,
+        index: true,
+        worktree: false,
+    };
+    let seen = drive(&mut app, Message::Watched(path.clone(), index)).await;
+    assert!(!loaded_history(&seen));
+
+    // Something in .git changed, but no branch moved: the refs are read, the history kept.
+    let git = WatchEvent::Changed {
+        git: true,
+        index: false,
+        worktree: false,
+    };
+    let seen = drive(&mut app, Message::Watched(path.clone(), git.clone())).await;
+    assert!(
+        seen.iter()
+            .any(|message| matches!(message, Message::RefsLoaded(..)))
+    );
+    assert!(!loaded_history(&seen));
+
+    // A commit is new history.
+    let seen = drive(
+        &mut app,
+        Message::Run(Command::Commit {
+            message: "add new".into(),
+            amend: false,
+            options: Default::default(),
+        }),
+    )
+    .await;
+    assert!(loaded_history(&seen));
+    assert_eq!(app.current().unwrap().commits[0].subject, "add new");
+
+    // So is one made outside GitCraft, which only the watcher sees.
+    f.commit("b.txt", "changed\n", "made in a terminal");
+    drive(&mut app, Message::Watched(path, git)).await;
+    assert_eq!(
+        app.current().unwrap().commits[0].subject,
+        "made in a terminal"
+    );
 }
 
 #[tokio::test]
@@ -1139,6 +1217,7 @@ async fn settings_persist_and_change_the_diff() {
             .any(|row| matches!(row, gitcraft_ui::app::DiffRow::Split(..)))
     );
 
+    app.flush_settings();
     let saved = gitcraft_ui::settings::Settings::load(&f.root.join("config"));
     assert_eq!(saved.diff.context, 1);
     assert!(saved.diff.split);
@@ -1658,6 +1737,7 @@ async fn an_external_diff_tool_is_found_chosen_and_opened() {
     drive(&mut app, Message::OpenSettings).await;
     assert!(app.found_tools.diff.iter().any(|tool| tool.name == "fake"));
     drive(&mut app, Message::SetDiffTool("fake".into())).await;
+    app.flush_settings();
     let saved = std::fs::read_to_string(f.root.join("config/config.toml")).unwrap_or_default();
     assert!(
         saved.contains("[tools]") && saved.contains("diff = \"fake\""),
@@ -2268,6 +2348,7 @@ async fn the_menu_bar_offers_the_app_and_its_choices_persist() {
     drive(&mut app, Message::SetLanguage("en".into())).await;
     drive(&mut app, Message::ToggleSystemTitleBar).await;
     assert!(toast_kinds(&app).contains(&ToastKind::Info));
+    app.flush_settings();
     let saved = gitcraft_ui::settings::Settings::load(&f.root.join("config"));
     assert_eq!(saved.general.language, "en");
     assert!(saved.appearance.system_title_bar);

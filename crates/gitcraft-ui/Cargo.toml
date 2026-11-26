@@ -45,6 +45,10 @@ serde_json = "1"
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 
+# Windows draws with wgpu (Direct3D 12) by default: OpenGL drivers there are often slow. See `lib.rs`.
+[target.'cfg(windows)'.dependencies]
+eframe = { version = "=0.37.0", default-features = false, features = ["wgpu"] }
+
 [dev-dependencies]
 dunce = "1"
 tempfile = "3"

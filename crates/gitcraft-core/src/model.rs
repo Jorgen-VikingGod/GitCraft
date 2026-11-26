@@ -254,6 +254,10 @@ pub struct Refs {
     /// A shallow clone: older history wasn't downloaded.
     #[serde(default)]
     pub shallow: bool,
+    /// Where a shallow clone's history stops: the commits in `.git/shallow`, whose parents
+    /// weren't downloaded. A deeper fetch moves it without moving any ref.
+    #[serde(default)]
+    pub shallow_boundary: Vec<String>,
     /// A partial clone: some files' contents are downloaded only when needed.
     #[serde(default)]
     pub partial: bool,

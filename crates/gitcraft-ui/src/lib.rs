@@ -36,6 +36,9 @@ pub fn run() -> eframe::Result {
     let desktop = appearance::Desktop::start();
     let options = eframe::NativeOptions {
         viewport: window::viewport(&frame, settings::old_window_size(&dir)),
+        renderer: renderer(std::env::var("GITCRAFT_RENDERER").ok().as_deref()),
+        #[cfg(windows)]
+        wgpu_options: direct3d(),
         ..eframe::NativeOptions::default()
     };
     eframe::run_native(
@@ -43,4 +46,32 @@ pub fn run() -> eframe::Result {
         options,
         Box::new(move |cc| Ok(Box::new(gui::Shell::new(cc, repo, frame, desktop)))),
     )
+}
+
+/// wgpu on Windows, OpenGL elsewhere; `GITCRAFT_RENDERER=glow` asks for OpenGL on Windows too,
+/// for a machine whose Direct3D or wgpu misbehaves.
+fn renderer(asked: Option<&str>) -> eframe::Renderer {
+    #[cfg(windows)]
+    if asked != Some("glow") {
+        return eframe::Renderer::Wgpu;
+    }
+    let _ = asked;
+    eframe::Renderer::Glow
+}
+
+/// wgpu would take Vulkan first, and Vulkan on Windows (Intel's drivers above all) can make the
+/// whole window flicker while it redraws quickly; Direct3D 12 is what Windows composes itself.
+/// `WGPU_BACKEND` still chooses another.
+#[cfg(windows)]
+fn direct3d() -> eframe::WgpuConfiguration {
+    use eframe::egui_wgpu::{WgpuSetup, WgpuSetupCreateNew};
+    use eframe::wgpu::Backends;
+    let mut setup = WgpuSetupCreateNew::without_display_handle();
+    if Backends::from_env().is_none() {
+        setup.instance_descriptor.backends = Backends::DX12 | Backends::GL;
+    }
+    eframe::WgpuConfiguration {
+        wgpu_setup: WgpuSetup::CreateNew(setup),
+        ..eframe::NativeOptions::default().wgpu_options
+    }
 }

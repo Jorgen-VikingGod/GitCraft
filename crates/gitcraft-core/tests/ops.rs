@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use gitcraft_core::model::*;
-use gitcraft_core::parsers::Selection;
-use gitcraft_core::runner::{Progress, set_editor_exe};
+use gitcraft_core::parsers::{self, Selection};
+use gitcraft_core::runner::{self, Progress, set_editor_exe};
 use gitcraft_core::watcher::{self, WatchEvent};
 use gitcraft_core::{Error, ops, queries, undo};
 
@@ -481,6 +481,55 @@ async fn branches_and_refs() {
     assert_eq!(refs.local.len(), 1);
     assert_eq!(refs.local[0].name, "main");
     assert!(refs.tags.is_empty());
+}
+
+#[tokio::test]
+async fn a_refresh_starts_few_git_processes() {
+    let f = Fixture::with_history();
+    // The first look learns where the repository's folders are and whether git-lfs is there.
+    queries::refs(&f.repo).await.unwrap();
+    let filter = LogFilter::default();
+    let options = LogOptions {
+        stashes: true,
+        ..LogOptions::default()
+    };
+    let (_, spawns) = runner::count_spawns(async {
+        let (status, refs, log) = tokio::join!(
+            queries::status(&f.repo),
+            queries::refs(&f.repo),
+            queries::log_filtered(&f.repo, 100, true, None, &filter, &options),
+        );
+        status.unwrap();
+        refs.unwrap();
+        log.unwrap();
+    })
+    .await;
+    // status, remote, for-each-ref, rev-parse, config and log, and ls-files with git-lfs.
+    assert!(spawns <= 7, "{spawns} git processes for one refresh");
+}
+
+#[tokio::test]
+async fn the_only_worktree_is_described_as_git_would() {
+    let as_git_says = |f: &Fixture| {
+        let mut trees = parsers::parse_worktrees(&f.git(&["worktree", "list", "--porcelain"]));
+        trees[0].current = true;
+        trees
+    };
+    let f = Fixture::empty();
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().worktrees,
+        as_git_says(&f)
+    );
+    f.commit("a.txt", "one\n", "first");
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().worktrees,
+        as_git_says(&f)
+    );
+    f.git(&["checkout", "-q", "--detach"]);
+    assert_eq!(
+        queries::refs(&f.repo).await.unwrap().worktrees,
+        as_git_says(&f)
+    );
 }
 
 #[tokio::test]
@@ -1606,6 +1655,7 @@ async fn watcher_reports_worktree_and_git_changes() {
         next_change(&mut events).await,
         Some(WatchEvent::Changed {
             git: false,
+            index: false,
             worktree: true
         })
     );
@@ -1620,6 +1670,51 @@ async fn watcher_reports_worktree_and_git_changes() {
 }
 
 #[tokio::test]
+async fn watcher_reports_staging_as_an_index_change_only() {
+    let f = Fixture::with_history();
+    f.write("staged.txt", "x\n");
+    let (_handle, mut events) = watching(&f.repo).await;
+    f.git(&["add", "staged.txt"]);
+    let event = next_change(&mut events).await;
+    assert!(
+        matches!(
+            event,
+            Some(WatchEvent::Changed {
+                git: false,
+                index: true,
+                ..
+            })
+        ),
+        "{event:?}"
+    );
+}
+
+#[tokio::test]
+async fn watcher_leaves_out_ignored_files() {
+    let f = Fixture::with_history();
+    f.write(".gitignore", "target/\n");
+    std::fs::create_dir(f.path.join("target")).unwrap();
+    let (_handle, mut events) = watching(&f.repo).await;
+    f.write("target/build.out", "x\n");
+    assert_eq!(
+        tokio::time::timeout(Duration::from_millis(1500), events.recv())
+            .await
+            .ok()
+            .flatten(),
+        None
+    );
+    f.write("kept.txt", "x\n");
+    assert_eq!(
+        next_change(&mut events).await,
+        Some(WatchEvent::Changed {
+            git: false,
+            index: false,
+            worktree: true
+        })
+    );
+}
+
+#[tokio::test]
 async fn watcher_reports_lock_files_in_the_worktree() {
     let f = Fixture::with_history();
     let (_handle, mut events) = watching(&f.repo).await;
@@ -1628,6 +1723,7 @@ async fn watcher_reports_lock_files_in_the_worktree() {
         next_change(&mut events).await,
         Some(WatchEvent::Changed {
             git: false,
+            index: false,
             worktree: true
         })
     );
@@ -2851,9 +2947,17 @@ async fn a_shallow_clone_gets_more_history() {
     let repo = clone.to_str().unwrap();
     let refs = queries::refs(repo).await.unwrap();
     assert!(refs.shallow && !refs.partial);
+    assert_eq!(
+        refs.shallow_boundary,
+        [refs.head.clone().unwrap()],
+        "the history stops at the one commit fetched"
+    );
     assert_eq!(raw_git(&clone, &["rev-list", "--count", "HEAD"]), b"1\n");
     ops::fetch_more(repo, "deepen", None).await.unwrap();
     assert_eq!(raw_git(&clone, &["rev-list", "--count", "HEAD"]), b"3\n");
+    let deeper = queries::refs(repo).await.unwrap();
+    assert_eq!(deeper.head, refs.head, "no ref moved");
+    assert_ne!(deeper.shallow_boundary, refs.shallow_boundary);
     let other = f.root.join("shallow-too");
     raw_git(
         &f.root,

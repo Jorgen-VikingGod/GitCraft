@@ -397,7 +397,7 @@ fn commit_row(
 ) {
     let look = cx.look();
     let c = &look.c;
-    let (main, secondary) = if selected {
+    let (main, secondary) = if is_head {
         (c.selection_text, c.selection_text)
     } else {
         (c.text, c.text_muted)
@@ -407,10 +407,18 @@ fn commit_row(
         ui.scope_id().with(("commit", &commit.sha)),
         Sense::click(),
     );
-    if selected {
-        fill(ui, rect, c.selection);
+    // Only the commit checked out is in the accent colour; the selected one is grey.
+    let marked = if is_head {
+        Some(c.selection)
+    } else if selected {
+        Some(c.hover_strong)
     } else if compared {
-        fill(ui, rect, c.accent_soft);
+        Some(c.accent_soft)
+    } else {
+        None
+    };
+    if let Some(marked) = marked {
+        fill(ui, rect, marked);
     } else if ui.rect_contains_pointer(rect) {
         fill(ui, rect, c.hover);
     }
@@ -420,7 +428,7 @@ fn commit_row(
         GraphCell {
             row: graph,
             lanes: c.lanes,
-            background: if selected { c.selection } else { c.bg },
+            background: marked.unwrap_or(c.bg),
             merge: commit.parents.len() > 1,
             head: is_head,
         }

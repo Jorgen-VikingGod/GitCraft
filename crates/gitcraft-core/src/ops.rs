@@ -2095,7 +2095,7 @@ pub async fn open_diff_tool(
     args.push("--");
     args.extend(orig.filter(|orig| *orig != path));
     args.push(path);
-    Ok(ok(&git(repo, &args).await?))
+    Ok(ok(&run(repo, &args, Options::slow()).await?))
 }
 
 /// The id of the empty tree in this repository's hash.
@@ -2125,7 +2125,7 @@ pub async fn open_merge_tool(repo: &str, tool: &str, path: &str) -> Result<OpRes
         "--",
         path,
     ];
-    Ok(ok(&git(repo, &args).await?))
+    Ok(ok(&run(repo, &args, Options::slow()).await?))
 }
 
 // ----------------------------------------------------------- misc tools

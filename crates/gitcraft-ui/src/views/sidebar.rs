@@ -14,6 +14,7 @@ use crate::logic::{build_tree, short_sha};
 
 const INDENT: f32 = 14.0;
 const BASE_INDENT: f32 = 8.0;
+const ROW: f32 = 24.0;
 
 fn nav(
     ui: &mut Ui,
@@ -166,17 +167,41 @@ fn none(ui: &mut Ui, cx: &Cx, note: &str) {
     ui.add_space(4.0);
 }
 
-/// A row of the sidebar tree: the rectangle, with a hover or selection fill drawn.
-fn tree_row(ui: &mut Ui, cx: &Cx, selected: bool, related: bool) -> (Rect, Response) {
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 24.0), Sense::click());
+/// Takes the room of a row that is out of view and says so; such rows aren't drawn, so that
+/// thousands of branches or tags cost no more than those on screen.
+fn skipped(ui: &mut Ui) -> bool {
+    let rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), ROW));
+    if ui.is_rect_visible(rect) {
+        return false;
+    }
+    ui.allocate_space(rect.size());
+    true
+}
+
+/// How a row of the sidebar tree is marked. Only the branch checked out is in the accent colour;
+/// whatever is picked or pointed at is grey.
+#[derive(Clone, Copy, PartialEq)]
+enum Mark {
+    None,
+    CheckedOut,
+    Picked,
+    /// Another name for the selected commit: marked, but not as the one picked.
+    Related,
+}
+
+/// A row of the sidebar tree: the rectangle, with its mark or the hover drawn.
+fn tree_row(ui: &mut Ui, cx: &Cx, mark: Mark) -> (Rect, Response) {
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), ROW), Sense::click());
     let body = rect.shrink2(vec2(4.0, super::widgets::ROW_INSET));
-    if selected {
-        ui.painter().rect_filled(body, 5.0, cx.c().selection);
-    } else if related {
-        // Another name for the selected commit: marked, but not as the selection.
-        let c = cx.c();
-        ui.painter()
-            .rect_filled(body, 5.0, crate::theme::mix(c.panel, c.text, 0.13));
+    let c = cx.c();
+    let fill = match mark {
+        Mark::CheckedOut => Some(c.selection),
+        Mark::Picked => Some(c.hover_strong),
+        Mark::Related => Some(crate::theme::mix(c.panel, c.hover_strong, 0.5)),
+        Mark::None => None,
+    };
+    if let Some(fill) = fill {
+        ui.painter().rect_filled(body, 5.0, fill);
     } else if response.hovered() {
         hover_fill(ui, cx.look(), body, 5.0);
     }
@@ -194,7 +219,7 @@ fn folder(
 ) {
     let look = cx.look();
     let c = &look.c;
-    let (body, response) = tree_row(ui, cx, false, false);
+    let (body, response) = tree_row(ui, cx, Mark::None);
     let chevron = if cx.app.collapsed.contains(key) {
         "chevron-right"
     } else {
@@ -239,6 +264,8 @@ struct Item {
     /// Points at the selected commit too, but isn't the one that was picked.
     related: bool,
     current: bool,
+    /// The branch checked out: the one row in the accent colour.
+    checked_out: bool,
     /// Small notes at the right end: text and colour.
     badges: Vec<(String, Color32)>,
     /// A branch's full ref name: it gets the graph's hide and solo toggles.
@@ -330,13 +357,22 @@ fn graph_toggles(ui: &mut Ui, cx: &Cx, body: Rect, full: &str, right: f32) -> f3
 fn leaf(ui: &mut Ui, cx: &Cx, item: &Item) -> Response {
     let look = cx.look();
     let c = &look.c;
-    let (body, response) = tree_row(ui, cx, item.selected, item.related);
-    let text_color = if item.selected {
+    let mark = if item.checked_out {
+        Mark::CheckedOut
+    } else if item.selected {
+        Mark::Picked
+    } else if item.related {
+        Mark::Related
+    } else {
+        Mark::None
+    };
+    let (body, response) = tree_row(ui, cx, mark);
+    let text_color = if item.checked_out {
         c.selection_text
     } else {
         c.text
     };
-    let symbol_color = if item.selected {
+    let symbol_color = if item.checked_out {
         c.selection_text
     } else if item.current {
         c.accent
@@ -395,7 +431,7 @@ pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {
     let area = ui.max_rect();
     fill(ui, area, c.sidebar);
     let filter = tab.filter.to_lowercase();
-    let matches = |name: &str| filter.is_empty() || name.to_lowercase().contains(&filter);
+    let matches = |name: &str| crate::logic::contains_folded(name, &filter);
     let in_history = tab.view == View::History;
     // For a ref: is it the one that was picked, and does it point at the selected commit too?
     let marks = |key: &str, sha: &str| {
@@ -502,6 +538,9 @@ fn branches(
     }
     let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
     for entry in build_tree("b", &names, collapsed) {
+        if skipped(ui) {
+            continue;
+        }
         let Some(index) = entry.item else {
             folder(
                 ui,
@@ -532,6 +571,7 @@ fn branches(
             selected: marks(&format!("b:{}", branch.name), &branch.sha).0,
             related: marks(&format!("b:{}", branch.name), &branch.sha).1,
             current: branch.current,
+            checked_out: branch.current,
             badges,
             graph_ref: Some(format!("refs/heads/{}", branch.name)),
         };
@@ -599,6 +639,9 @@ fn remotes(
             .map(|branch| branch.branch.as_str())
             .collect();
         for entry in build_tree(&key, &names, collapsed) {
+            if skipped(ui) {
+                continue;
+            }
             let Some(index) = entry.item else {
                 folder(
                     ui,
@@ -619,6 +662,7 @@ fn remotes(
                 selected: marks(&format!("r:{}", branch.name), &branch.sha).0,
                 related: marks(&format!("r:{}", branch.name), &branch.sha).1,
                 current: false,
+                checked_out: false,
                 badges: Vec::new(),
                 graph_ref: Some(format!("refs/remotes/{}", branch.name)),
             };
@@ -656,6 +700,7 @@ fn tags_and_more(
         selected,
         related,
         current: false,
+        checked_out: false,
         badges,
         graph_ref: None,
     };
@@ -674,6 +719,9 @@ fn tags_and_more(
                 none(ui, cx, "No tags");
             }
             for tag in tags {
+                if skipped(ui) {
+                    continue;
+                }
                 let item = simple(
                     tag.name.clone(),
                     "tag",
@@ -708,6 +756,9 @@ fn tags_and_more(
                 none(ui, cx, "No stashes");
             }
             for stash in &tab.refs.stashes {
+                if skipped(ui) {
+                    continue;
+                }
                 let selected = tab.view == View::Stash
                     && tab
                         .stash

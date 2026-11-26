@@ -28,6 +28,7 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-core/src/watcher.rs` | File-system change notifications for one repository |
 | `crates/gitcraft-core/src/store.rs`, `repos.rs`, `paths.rs` | Recent repositories and `config_dir()`; opening repositories; path handling |
 | `crates/gitcraft-core/tests/ops.rs` | Operations against real git in throwaway repositories |
+| `crates/gitcraft-core/examples/refresh_bench.rs` | Times a refresh (status, refs and log) and counts the git processes it starts |
 | `crates/gitcraft-ui/src/app.rs` | `App`, `Message`, and `App::update`, where all state changes happen |
 | `crates/gitcraft-ui/src/gui.rs`, `task.rs` | The eframe window: runs `Task`s on tokio, turns egui input into `Message`s, draws each frame; `Task` is the toolkit-free "work for the shell" type |
 | `crates/gitcraft-ui/src/command.rs` | `Command`: every git operation the UI can start, as data (label, success text, how to run it) |
@@ -155,19 +156,36 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   loaded, then quit (handy for looking at the UI without a screenshot tool). The mouse is ignored meanwhile,
   so nothing is hovered in the picture. The README's screenshots are of the made-up repository
   `docs/screenshots/make-demo-repo.py` builds (`target/screenshots/aurora`), never of a real one.
+- Take the README's screenshots with `python3 docs/screenshots/take-screenshots.py` (on a screen scaled to
+  150 %, so they come out 1920 x 1200): it rebuilds Aurora for each picture and starts the app with the
+  settings, theme and `GITCRAFT_SHOT_OPEN` the picture needs. Rerun it when the UI changes before a
+  release. A new README picture, or a change to what one shows, goes into its `SHOTS` list, so the next
+  run takes it the same way.
 - craft-window decides before the window opens who draws the title bar (`window::decide`); the app draws
   it in `views/frame.rs`. `GITCRAFT_TITLEBAR=app|system` (or `CRAFT_TITLEBAR`) overrides the setting, and
   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 - The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
 - `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`,
   `discards`, `clone`, `lfs`, `about`, `branch-menu`, or `settings:git` and the other settings pages) opens that
-  before the picture is taken. Set `language = "de"` under `[general]` in the test folder's `config.toml`
+  before the picture is taken. With `rebase`, `GITCRAFT_SHOT_REBASE_BASE=<sha>` rebases onto that commit and
+  `GITCRAFT_SHOT_REBASE_ACTIONS=pick,reword,squash,…` sets each step's action. Set `language = "de"` under `[general]` in the test folder's `config.toml`
   to look at a translated window.
 - Tests run side by side in one process, and the interface language is global: don't switch it to another
   language in a test (look up with `I18N.t(lang, …)` instead, as `i18n.rs` does).
 - Set `GITCRAFT_CONFIG_DIR=<dir>` when launching the app in tests. Otherwise it touches the user's real
   settings and recent repositories, and it may hand over to a running GitCraft through
   `instance.port` and exit immediately.
+- Settings are written on a thread of their own (`settings::Saver`). A test that reads `config.toml`
+  right after a change calls `app.flush_settings()` first; closing the window waits for the write.
+- Starting a process is slow on Windows, so a refresh asks git as little as it can: the repository's
+  folders are cached (`queries::dirs`), `refs()` skips queries that can't find anything, and at most
+  `MAX_JOBS` quick git calls run at once (`GITCRAFT_GIT_JOBS=<n>` changes it). Calls with progress or
+  marked `Options::slow()` (external tools, `--tool-help`) don't count. `a_refresh_starts_few_git_processes`
+  guards the number of processes. `GITCRAFT_TRACE=1` (or a file path) logs every git call with its time.
+- On Windows git runs the real `mingw64\bin\git.exe` with the environment the launcher would set up
+  (`runner::resolve`), and the window draws with wgpu; `GITCRAFT_RENDERER=glow` asks for OpenGL instead.
+- The watcher reports what changed (`git`, `index`, `worktree`) and leaves out ignored files. Only a `git`
+  change reads the refs again, and the history is reloaded only when the refs fingerprint changed.
 - Packaged builds rewrite the environment for git in `environment.rs`: AppImage library variables are
   removed, and `PATH` comes from the login shell. A bug that only shows up in an installer may be here.
 - `cargo packager` builds the release binary through `before-packaging-command` in

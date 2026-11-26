@@ -2494,8 +2494,9 @@ fn file_menu_items(
     // The file as listed, for a rename's old name and whether it is new.
     let file_in = |area: Area| {
         tab.files_in(area)
-            .into_iter()
+            .iter()
             .find(|file| file.path == path)
+            .cloned()
     };
     if let Some(area) = area {
         let paths = targets(tab, area, path);

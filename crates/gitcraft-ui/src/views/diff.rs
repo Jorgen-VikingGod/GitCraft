@@ -138,13 +138,23 @@ fn code(
     {
         for (color, range) in runs {
             if let Some(piece) = line.text.get(range.clone()) {
-                job.append(&piece.replace('\t', "    "), 0.0, format(*color));
+                job.append(&expand_tabs(piece), 0.0, format(*color));
             }
         }
     } else {
-        job.append(&line.text.replace('\t', "    "), 0.0, format(look.c.text));
+        job.append(&expand_tabs(&line.text), 0.0, format(look.c.text));
     }
     ui.painter().layout_job(job)
+}
+
+/// The text with its tabs as spaces; most lines have none and aren't copied. The diff keeps
+/// its tabs, as staging lines needs the text as git gave it.
+fn expand_tabs(text: &str) -> std::borrow::Cow<'_, str> {
+    if text.contains('\t') {
+        std::borrow::Cow::Owned(text.replace('\t', &" ".repeat(TAB_WIDTH)))
+    } else {
+        std::borrow::Cow::Borrowed(text)
+    }
 }
 
 fn number(painter: &egui::Painter, look: &Look, right: f32, top: f32, value: Option<u32>) {
