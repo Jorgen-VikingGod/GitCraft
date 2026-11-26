@@ -310,7 +310,7 @@ pub struct RepoTab {
     pub show_stashes: bool,
     /// The refresh running in the background, and the one waiting for it.
     pub refreshes: logic::Refreshes,
-    /// Counts the history loads started; a load that finishes after a newer one started is
+    /// The history load started last; a load that finishes after a newer one started is
     /// dropped.
     pub log_generation: u64,
     /// What the last history load started from (the refs' fingerprint and the query); a
@@ -381,7 +381,10 @@ impl RepoTab {
 
     /// Reads the history again, as the tab now asks for it.
     fn reload_log(&mut self) -> Task<Message> {
-        self.log_generation += 1;
+        // Unique across tabs: a load for a closed tab never lands in one opened again on the
+        // same repository.
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        self.log_generation = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let query = self.log_query();
         self.log_basis = Some((logic::history_fingerprint(&self.refs), query.clone()));
         load_log(self.path.clone(), query, self.log_generation)
@@ -980,7 +983,8 @@ pub enum Message {
     /// (repository, which load of its history this is, the commits and whether there are more).
     LogLoaded(String, u64, Answer<(Vec<Commit>, bool)>),
     /// A background refresh of the repository has delivered everything it read.
-    RefreshDone(String, Scope),
+    /// A refresh finished: (repository, its id, how much it read).
+    RefreshDone(String, u64, Scope),
     LoadMore,
     SetBranchFilter(bool),
     Select(String),
@@ -1433,6 +1437,8 @@ impl App {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         if let Some(error) = self.saver.take_error() {
+            // Not saved after all: the next save writes them again, even unchanged.
+            self.saved = None;
             self.toast(
                 ToastKind::Error,
                 trf("Could not save settings: {error}", &[("error", &error)]),
@@ -1547,10 +1553,14 @@ impl App {
                 }
                 None => Task::none(),
             },
-            Message::RefreshDone(path, scope) => {
+            Message::RefreshDone(path, id, scope) => {
                 let Some(tab) = self.tab_mut(&path) else {
                     return Task::none();
                 };
+                // A refresh given up on, or one of a tab closed since, decides nothing.
+                if !tab.refreshes.is_current(id) {
+                    return Task::none();
+                }
                 let log = if scope == Scope::Full {
                     tab.reload_log_if_changed()
                 } else {
@@ -1558,8 +1568,8 @@ impl App {
                 };
                 let next = tab
                     .refreshes
-                    .finished()
-                    .map_or_else(Task::none, |scope| refresh_task(path, scope));
+                    .finished(id)
+                    .map_or_else(Task::none, |ticket| refresh_task(path, ticket));
                 Task::batch([log, next])
             }
             Message::SetView(view) => {
@@ -1631,12 +1641,7 @@ impl App {
                                     }
                                 }
                             }
-                            // The first history load ran alongside this first look at the refs.
-                            let first = tab.log_generation == 1 && tab.refs == Refs::default();
                             tab.refs = refs;
-                            if first && let Some((print, _)) = &mut tab.log_basis {
-                                *print = logic::history_fingerprint(&tab.refs);
-                            }
                         }
                     }
                     Err(error) => self.toast(ToastKind::Error, error, None),
@@ -3314,9 +3319,9 @@ impl App {
                 |(repo, result)| Message::TemplateLoaded(repo, result),
             )
         };
-        // The history loads alongside the first refresh rather than after it, for a quick start.
-        let log = self.tabs[self.active].reload_log();
-        let mut tasks = vec![self.refresh(&path, Scope::Full), log, template];
+        // The history loads once this first refresh has read the refs (RefreshDone), so what it
+        // was read from is known and a later refresh can tell whether it is still current.
+        let mut tasks = vec![self.refresh(&path, Scope::Full), template];
         if self.settings.history.fetch_on_open {
             tasks.push(Task::done(Message::Run(Command::Fetch {
                 remote: None,
@@ -3391,7 +3396,7 @@ impl App {
     fn refresh(&mut self, path: &str, scope: Scope) -> Task<Message> {
         self.tab_mut(path)
             .and_then(|tab| tab.refreshes.request(scope))
-            .map_or_else(Task::none, |scope| refresh_task(path.to_owned(), scope))
+            .map_or_else(Task::none, |ticket| refresh_task(path.to_owned(), ticket))
     }
 
     fn status_loaded(&mut self, path: &str, result: Answer<Status>) -> Task<Message> {
@@ -5464,12 +5469,12 @@ fn load_log(path: String, query: LogQuery, generation: u64) -> Task<Message> {
 
 /// Reads the status again (and with [`Scope::Full`] the refs), then reports the refresh done,
 /// which decides about the history.
-fn refresh_task(path: String, scope: Scope) -> Task<Message> {
+fn refresh_task(path: String, (scope, id): logic::Ticket) -> Task<Message> {
     let parts = match scope {
         Scope::Status => load_status(path.clone()),
         Scope::Full => Task::batch([load_status(path.clone()), load_refs(path.clone())]),
     };
-    let done = Message::RefreshDone(path, scope);
+    let done = Message::RefreshDone(path, id, scope);
     match parts.into_stream() {
         Some(parts) => Task::stream(futures::StreamExt::chain(
             parts,

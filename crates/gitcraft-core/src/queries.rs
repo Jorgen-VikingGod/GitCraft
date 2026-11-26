@@ -22,15 +22,26 @@ struct Dirs {
     common_dir: PathBuf,
     /// `path/.git` existed when this was asked.
     own_git: bool,
+    /// What `path/.git` said when it was a file (a linked worktree or a submodule), so a
+    /// gitfile pointed somewhere else is noticed.
+    gitfile: Option<Vec<u8>>,
+}
+
+/// The contents of `path/.git` when it is a file.
+fn read_gitfile(path: &str) -> Option<Vec<u8>> {
+    let file = Path::new(path).join(".git");
+    file.is_file().then(|| std::fs::read(file).ok()).flatten()
 }
 
 static DIRS: LazyLock<StdMutex<HashMap<String, Dirs>>> = LazyLock::new(Default::default);
 
 impl Dirs {
-    /// Still right for `path`: the git directory exists, and no repository was made in (or
-    /// removed from) `path` itself since.
+    /// Still right for `path`: the git directory exists, no repository was made in (or
+    /// removed from) `path` itself since, and its gitfile still points where it did.
     fn still_valid(&self, path: &str) -> bool {
-        self.git_dir.is_dir() && Path::new(path).join(".git").exists() == self.own_git
+        self.git_dir.is_dir()
+            && Path::new(path).join(".git").exists() == self.own_git
+            && read_gitfile(path) == self.gitfile
     }
 }
 
@@ -44,6 +55,7 @@ async fn dirs(path: &str) -> Result<Dirs> {
         return Ok(dirs);
     }
     let own_git = Path::new(path).join(".git").exists();
+    let gitfile = read_gitfile(path);
     // --show-toplevel last: in a bare repository it fails after printing the others.
     let args = [
         "rev-parse",
@@ -65,6 +77,7 @@ async fn dirs(path: &str) -> Result<Dirs> {
         git_dir: PathBuf::from(git_dir),
         common_dir: PathBuf::from(common_dir),
         own_git,
+        gitfile,
     };
     DIRS.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -987,6 +1000,16 @@ fn config_entries(out: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Whether git reads a config value as true: `true`, `yes`, `on` in any case, or a number
+/// other than 0.
+fn config_true(value: &str) -> bool {
+    let value = value.trim();
+    ["true", "yes", "on"]
+        .iter()
+        .any(|word| value.eq_ignore_ascii_case(word))
+        || value.parse::<i64>().is_ok_and(|number| number != 0)
+}
+
 /// The repository's only working tree when it has no linked ones, as `git worktree list`
 /// would describe it.
 fn main_worktree(top: &str, git_dir: &Path, data: &Refs) -> Worktree {
@@ -1017,9 +1040,12 @@ pub async fn refs(repo: &str) -> Result<Refs> {
     let dirs = dirs(repo).await?;
     let top = dirs.toplevel.clone();
     let stashes = may_have_stashes(&dirs);
-    let modules = top
-        .as_ref()
-        .is_some_and(|top| Path::new(top).join(".gitmodules").exists());
+    // A `.gitmodules` deleted but not yet committed still describes the submodules, and
+    // checked-out submodules keep their repositories under `modules`.
+    let modules = dirs.common_dir.join("modules").is_dir()
+        || top
+            .as_ref()
+            .is_some_and(|top| Path::new(top).join(".gitmodules").exists());
     let linked = top.is_none() || dirs.common_dir.join("worktrees").is_dir();
     let (remotes_out, refs_out, stash_out, sub_out, tree_out, info, config, lfs_found, lfs_files) = tokio::join!(
         git(repo, &["remote", "-v"]),
@@ -1094,7 +1120,7 @@ pub async fn refs(repo: &str) -> Result<Refs> {
     // Newer git marks a partial clone with remote.<name>.promisor, older with an extension.
     data.partial = value("extensions.partialclone").is_some()
         || config.iter().any(|(key, value)| {
-            key.starts_with("remote.") && key.ends_with(".promisor") && value == "true"
+            key.starts_with("remote.") && key.ends_with(".promisor") && config_true(value)
         });
     let lfs_files = lfs_files?;
     if lfs_found? {
@@ -1599,4 +1625,19 @@ pub async fn compare(repo: &str, base: &str, target: &str) -> Result<Comparison>
         base_only: numbers.next().unwrap_or(0),
         target_only: numbers.next().unwrap_or(0),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_values_are_true_as_git_reads_them() {
+        for value in ["true", "TRUE", "Yes", "on", "1", "-2"] {
+            assert!(config_true(value), "{value}");
+        }
+        for value in ["false", "no", "off", "0", "", "maybe"] {
+            assert!(!config_true(value), "{value}");
+        }
+    }
 }

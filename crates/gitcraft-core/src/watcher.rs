@@ -1,6 +1,6 @@
 //! File-system change notifications for one repository.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -70,29 +70,68 @@ fn git_inner_kind<'a>(
     Some(Kind::Git)
 }
 
+/// Lists the files git tracks although an ignore rule matches them, relative to the work tree.
+type ListTracked = Box<dyn FnMut() -> Option<HashSet<PathBuf>> + Send>;
+
 /// The work tree's ignore rules: each folder's `.gitignore`, read when first needed, then
 /// `.git/info/exclude` and the user's `core.excludesFile`.
 struct Ignores {
     root: PathBuf,
+    common_dir: PathBuf,
     folders: HashMap<PathBuf, Option<Gitignore>>,
     global: Gitignore,
+    /// Ignored files that git tracks anyway, whose changes still count. Asked of git when an
+    /// ignored path first changes after the index or the rules did (`None`).
+    tracked: Option<HashSet<PathBuf>>,
+    list_tracked: ListTracked,
+}
+
+fn global_rules(root: &Path, common_dir: &Path) -> Gitignore {
+    let mut global = GitignoreBuilder::new(root);
+    global
+        .case_insensitive(cfg!(any(windows, target_os = "macos")))
+        .ok();
+    let _ = global.add(common_dir.join("info").join("exclude"));
+    if let Some(excludes) = ignore::gitignore::gitconfig_excludes_path() {
+        let _ = global.add(excludes);
+    }
+    global.build().unwrap_or_else(|_| Gitignore::empty())
 }
 
 impl Ignores {
-    fn new(root: &Path, common_dir: &Path) -> Self {
-        let mut global = GitignoreBuilder::new(root);
-        global
-            .case_insensitive(cfg!(any(windows, target_os = "macos")))
-            .ok();
-        let _ = global.add(common_dir.join("info").join("exclude"));
-        if let Some(excludes) = ignore::gitignore::gitconfig_excludes_path() {
-            let _ = global.add(excludes);
-        }
+    fn new(root: &Path, common_dir: &Path, list_tracked: ListTracked) -> Self {
         Self {
             root: root.to_path_buf(),
+            common_dir: common_dir.to_path_buf(),
             folders: HashMap::new(),
-            global: global.build().unwrap_or_else(|_| Gitignore::empty()),
+            global: global_rules(root, common_dir),
+            tracked: None,
+            list_tracked,
         }
+    }
+
+    /// `info/exclude` changed: read the rules outside the work tree again.
+    fn reload_global(&mut self) {
+        self.global = global_rules(&self.root, &self.common_dir);
+        self.tracked = None;
+    }
+
+    /// The index changed: which ignored files are tracked may have too.
+    fn index_changed(&mut self) {
+        self.tracked = None;
+    }
+
+    /// Whether git tracks `path` (inside the work tree) although it is ignored.
+    fn tracked(&mut self, path: &Path) -> bool {
+        let Ok(relative) = path.strip_prefix(&self.root) else {
+            return false;
+        };
+        if self.tracked.is_none() {
+            self.tracked = Some((self.list_tracked)().unwrap_or_default());
+        }
+        self.tracked
+            .as_ref()
+            .is_some_and(|tracked| tracked.contains(relative))
     }
 
     fn folder(&mut self, dir: &Path) -> Option<&Gitignore> {
@@ -119,6 +158,7 @@ impl Ignores {
             && let Some(dir) = path.parent()
         {
             self.folders.remove(dir);
+            self.tracked = None;
         }
     }
 
@@ -161,16 +201,24 @@ impl Ignores {
 }
 
 fn classify(repo: &Path, git_dirs: &[PathBuf], ignores: &mut Ignores, path: &Path) -> Option<Kind> {
+    let inside_git = |inner: &Path, ignores: &mut Ignores| {
+        if inner == Path::new("info").join("exclude") {
+            ignores.reload_global();
+        }
+        let kind = git_inner_kind(inner.iter(), path);
+        if kind == Some(Kind::Index) {
+            ignores.index_changed();
+        }
+        kind
+    };
     for git_dir in git_dirs {
         if let Ok(inner) = path.strip_prefix(git_dir) {
-            return git_inner_kind(inner.iter(), path);
+            return inside_git(inner, ignores);
         }
     }
     let relative = path.strip_prefix(repo).ok()?;
-    let mut parts = relative.iter();
-    if parts.clone().next().is_some_and(|part| part == ".git") {
-        parts.next();
-        return git_inner_kind(parts, path);
+    if let Ok(inner) = relative.strip_prefix(".git") {
+        return inside_git(inner, ignores);
     }
     if relative
         .iter()
@@ -179,7 +227,7 @@ fn classify(repo: &Path, git_dirs: &[PathBuf], ignores: &mut Ignores, path: &Pat
         return None;
     }
     ignores.forget(path);
-    if ignores.ignored(path) {
+    if ignores.ignored(path) && !ignores.tracked(path) {
         return None;
     }
     Some(Kind::Worktree)
@@ -191,7 +239,14 @@ pub async fn watch(repo: &str, on_event: impl Fn(WatchEvent) + Send + 'static) -
     let root = paths::resolve(repo);
     let mut git_dirs = vec![paths::resolve(queries::git_dir(repo).await?)];
     let common = paths::resolve(queries::common_dir(repo).await?);
-    let ignores = Ignores::new(&root, &common);
+    let list_tracked: ListTracked = match tokio::runtime::Handle::try_current() {
+        Ok(runtime) => {
+            let repo = repo.to_owned();
+            Box::new(move || runtime.block_on(tracked_ignored(&repo)))
+        }
+        Err(_) => Box::new(|| None),
+    };
+    let ignores = Ignores::new(&root, &common, list_tracked);
     if !git_dirs.contains(&common) {
         git_dirs.push(common);
     }
@@ -215,6 +270,26 @@ pub async fn watch(repo: &str, on_event: impl Fn(WatchEvent) + Send + 'static) -
     }
     std::thread::spawn(move || batch_events(&receiver, &root, &git_dirs, ignores, &on_event));
     Ok(Watcher { _watcher: watcher })
+}
+
+/// The files git tracks although an ignore rule matches them.
+async fn tracked_ignored(repo: &str) -> Option<HashSet<PathBuf>> {
+    let args = [
+        "ls-files",
+        "-z",
+        "--cached",
+        "--ignored",
+        "--exclude-standard",
+    ];
+    let result = crate::runner::git_unchecked(repo, &args).await.ok()?;
+    (result.code == 0).then(|| {
+        result
+            .out()
+            .split('\0')
+            .filter(|path| !path.is_empty())
+            .map(PathBuf::from)
+            .collect()
+    })
 }
 
 fn batch_events(
@@ -278,7 +353,7 @@ mod tests {
     use super::*;
 
     fn kind(path: &str) -> Option<&'static str> {
-        let mut ignores = Ignores::new(Path::new("/r"), Path::new("/r/.git"));
+        let mut ignores = Ignores::new(Path::new("/r"), Path::new("/r/.git"), Box::new(|| None));
         classify(
             Path::new("/r"),
             &[PathBuf::from("/r/.git"), PathBuf::from("/x/main/.git")],
@@ -335,7 +410,13 @@ mod tests {
         std::fs::write(root.join(".gitignore"), "target/\n*.log\n").unwrap();
         std::fs::write(root.join("logs/keep/.gitignore"), "!wanted.log\n").unwrap();
         std::fs::write(git_dir.join("info/exclude"), "scratch.txt\n").unwrap();
-        let mut ignores = Ignores::new(root, &git_dir);
+        let tracked = std::sync::Arc::new(std::sync::Mutex::new(HashSet::new()));
+        let listed = tracked.clone();
+        let mut ignores = Ignores::new(
+            root,
+            &git_dir,
+            Box::new(move || Some(listed.lock().unwrap().clone())),
+        );
         let mut kind = |path: &str| {
             classify(
                 root,
@@ -351,6 +432,16 @@ mod tests {
         assert_eq!(kind("logs/keep/wanted.log"), Some(Kind::Worktree));
         assert_eq!(kind("src/main.rs"), Some(Kind::Worktree));
         assert_eq!(kind(".gitignore"), Some(Kind::Worktree));
+
+        // A tracked file still counts once the index says so, although a rule matches it.
+        tracked.lock().unwrap().insert(PathBuf::from("build.log"));
+        assert_eq!(kind(".git/index"), Some(Kind::Index));
+        assert_eq!(kind("build.log"), Some(Kind::Worktree));
+
+        // A changed info/exclude is read again.
+        std::fs::write(git_dir.join("info/exclude"), "").unwrap();
+        assert_eq!(kind(".git/info/exclude"), Some(Kind::Git));
+        assert_eq!(kind("scratch.txt"), Some(Kind::Worktree));
 
         // A changed .gitignore is read again.
         std::fs::write(root.join(".gitignore"), "*.log\n").unwrap();

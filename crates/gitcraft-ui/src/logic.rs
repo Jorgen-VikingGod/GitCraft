@@ -1013,11 +1013,14 @@ pub enum Scope {
     Full,
 }
 
+/// A refresh to start: how much it reads, and the id its completion reports back with.
+pub type Ticket = (Scope, u64);
+
 /// One refresh at a time per repository: asked for while one runs, a refresh waits, and all
 /// asked for meanwhile become one, as wide as the widest of them.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Refreshes {
-    running: Option<(Scope, std::time::Instant)>,
+    running: Option<(Scope, std::time::Instant, u64)>,
     waiting: Option<Scope>,
 }
 
@@ -1026,25 +1029,41 @@ impl Refreshes {
     /// reported back, and no longer holds the next ones up.
     const LOST: std::time::Duration = std::time::Duration::from_secs(60);
 
-    /// A refresh is wanted: the scope to start right away, or `None` when it waits.
-    pub fn request(&mut self, scope: Scope) -> Option<Scope> {
+    /// Ids are unique across tabs, so a refresh of a closed tab can't finish one of a tab
+    /// opened again on the same repository.
+    fn start(&mut self, scope: Scope) -> Ticket {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.running = Some((scope, std::time::Instant::now(), id));
+        (scope, id)
+    }
+
+    /// A refresh is wanted: the one to start right away, or `None` when it waits.
+    pub fn request(&mut self, scope: Scope) -> Option<Ticket> {
         if self
             .running
-            .is_some_and(|(_, since)| since.elapsed() < Self::LOST)
+            .is_some_and(|(_, since, _)| since.elapsed() < Self::LOST)
         {
             self.waiting = self.waiting.max(Some(scope));
             None
         } else {
-            self.running = Some((scope, std::time::Instant::now()));
-            Some(scope)
+            Some(self.start(scope))
         }
     }
 
-    /// The running refresh is done: the one that waited, to start now.
-    pub fn finished(&mut self) -> Option<Scope> {
-        let next = self.waiting.take();
-        self.running = next.map(|scope| (scope, std::time::Instant::now()));
-        next
+    /// Whether `id` is the refresh running now, not one that was given up on.
+    pub fn is_current(&self, id: u64) -> bool {
+        self.running.is_some_and(|(_, _, running)| running == id)
+    }
+
+    /// Refresh `id` is done: the one that waited, to start now. A refresh that was given up
+    /// on changes nothing.
+    pub fn finished(&mut self, id: u64) -> Option<Ticket> {
+        if !self.is_current(id) {
+            return None;
+        }
+        self.running = None;
+        self.waiting.take().map(|scope| self.start(scope))
     }
 }
 
@@ -1087,18 +1106,23 @@ mod tests {
     #[test]
     fn refreshes_asked_for_meanwhile_become_one() {
         let mut refreshes = Refreshes::default();
-        assert_eq!(refreshes.request(Scope::Status), Some(Scope::Status));
+        let (scope, first) = refreshes.request(Scope::Status).unwrap();
+        assert_eq!(scope, Scope::Status);
         assert_eq!(refreshes.request(Scope::Status), None);
         assert_eq!(refreshes.request(Scope::Full), None);
         assert_eq!(refreshes.request(Scope::Status), None);
+        let (scope, second) = refreshes.finished(first).unwrap();
+        assert_eq!(scope, Scope::Full, "the widest one waited");
         assert_eq!(
-            refreshes.finished(),
-            Some(Scope::Full),
-            "the widest one waited"
+            refreshes.finished(first),
+            None,
+            "a second report of the same refresh"
         );
-        assert_eq!(refreshes.finished(), None);
-        assert_eq!(refreshes.request(Scope::Full), Some(Scope::Full));
-        assert_eq!(refreshes.finished(), None);
+        assert!(refreshes.is_current(second));
+        assert_eq!(refreshes.finished(second), None);
+        let (_, third) = refreshes.request(Scope::Full).unwrap();
+        assert_eq!(refreshes.finished(third), None);
+        assert!(!refreshes.is_current(third));
     }
 
     #[test]

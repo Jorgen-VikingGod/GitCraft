@@ -48,8 +48,13 @@ fn list(ui: &mut Ui, cx: &Cx, tab: &RepoTab, area: Area, files: &[FileChange], e
         Area::Conflicts => ("edit", Message::OpenConflict),
     };
     // A row picked with the keyboard may be out of view, and then it isn't drawn to scroll itself.
+    // The focused row is the one moved to (picked keeps list order, so its last one may be the
+    // anchor of a selection grown upwards).
     let last_picked = egui::Id::unique(("changes_picked", &tab.path, area as u8));
-    let newest = picked.last();
+    let newest = match &tab.focus {
+        Some((focused, path)) if *focused == area && picked.contains(path) => Some(path),
+        _ => picked.last(),
+    };
     let before = ui.data(|data| data.get_temp::<Option<String>>(last_picked));
     let reveal = if before.as_ref().map(Option::as_ref) == Some(newest) {
         None

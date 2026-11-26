@@ -196,6 +196,11 @@ fn resolve(program: &Path) -> Program {
 /// The `git.exe` that Git for Windows' launcher (`cmd\git.exe` or `bin\git.exe`) would start.
 #[cfg(any(windows, test))]
 fn behind_launcher(launcher: &Path) -> Option<Program> {
+    // Only git's own launcher: another program in that folder is started as it is.
+    let file = launcher.file_name()?.to_str()?;
+    if !file.eq_ignore_ascii_case("git.exe") {
+        return None;
+    }
     let folder = launcher.parent()?;
     let name = folder.file_name()?.to_str()?.to_ascii_lowercase();
     if name != "cmd" && name != "bin" {
@@ -632,6 +637,11 @@ mod tests {
         assert!(path.starts_with(&*real.parent().unwrap().to_string_lossy()));
         assert_eq!(behind_launcher(&real), None, "already the real one");
         assert_eq!(behind_launcher(&make(&["other", "git.exe"])), None);
+        assert_eq!(
+            behind_launcher(&make(&["cmd", "git-custom.exe"])),
+            None,
+            "a program of the user's own"
+        );
     }
 
     #[test]
