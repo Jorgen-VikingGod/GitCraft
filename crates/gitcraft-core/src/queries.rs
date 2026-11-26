@@ -1094,6 +1094,15 @@ pub async fn refs(repo: &str) -> Result<Refs> {
     let info_out = info.out();
     let mut info_lines = info_out.lines().map(str::trim);
     data.shallow = info_lines.next() == Some("true");
+    if data.shallow {
+        // Read straight from the file: git keeps one commit per line there.
+        data.shallow_boundary = std::fs::read_to_string(dirs.common_dir.join("shallow"))
+            .unwrap_or_default()
+            .split_whitespace()
+            .map(str::to_owned)
+            .collect();
+        data.shallow_boundary.sort();
+    }
     let hook = info_lines.next().unwrap_or_default().to_owned();
     data.head = info_lines
         .next()

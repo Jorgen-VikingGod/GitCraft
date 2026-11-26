@@ -121,13 +121,17 @@ impl Ignores {
         self.tracked = None;
     }
 
-    /// Whether git tracks `path` (inside the work tree) although it is ignored.
+    /// Whether git tracks `path` (inside the work tree) although it is ignored. When git can't
+    /// say, it counts as tracked, so the change isn't missed, and git is asked again next time.
     fn tracked(&mut self, path: &Path) -> bool {
         let Ok(relative) = path.strip_prefix(&self.root) else {
             return false;
         };
         if self.tracked.is_none() {
-            self.tracked = Some((self.list_tracked)().unwrap_or_default());
+            match (self.list_tracked)() {
+                Some(listed) => self.tracked = Some(listed),
+                None => return true,
+            }
         }
         self.tracked
             .as_ref()
@@ -244,7 +248,8 @@ pub async fn watch(repo: &str, on_event: impl Fn(WatchEvent) + Send + 'static) -
             let repo = repo.to_owned();
             Box::new(move || runtime.block_on(tracked_ignored(&repo)))
         }
-        Err(_) => Box::new(|| None),
+        // Not in a runtime (never so in the app): nothing ignored is tracked.
+        Err(_) => Box::new(|| Some(HashSet::new())),
     };
     let ignores = Ignores::new(&root, &common, list_tracked);
     if !git_dirs.contains(&common) {
@@ -353,7 +358,11 @@ mod tests {
     use super::*;
 
     fn kind(path: &str) -> Option<&'static str> {
-        let mut ignores = Ignores::new(Path::new("/r"), Path::new("/r/.git"), Box::new(|| None));
+        let mut ignores = Ignores::new(
+            Path::new("/r"),
+            Path::new("/r/.git"),
+            Box::new(|| Some(HashSet::new())),
+        );
         classify(
             Path::new("/r"),
             &[PathBuf::from("/r/.git"), PathBuf::from("/x/main/.git")],
@@ -442,6 +451,15 @@ mod tests {
         std::fs::write(git_dir.join("info/exclude"), "").unwrap();
         assert_eq!(kind(".git/info/exclude"), Some(Kind::Git));
         assert_eq!(kind("scratch.txt"), Some(Kind::Worktree));
+
+        // When git can't list the tracked files, an ignored file's change still counts.
+        let mut unsure = Ignores::new(root, &git_dir, Box::new(|| None));
+        let path = root.join("target/debug/app.exe");
+        assert_eq!(
+            classify(root, std::slice::from_ref(&git_dir), &mut unsure, &path),
+            Some(Kind::Worktree)
+        );
+        assert!(unsure.tracked.is_none(), "asked again next time");
 
         // A changed .gitignore is read again.
         std::fs::write(root.join(".gitignore"), "*.log\n").unwrap();

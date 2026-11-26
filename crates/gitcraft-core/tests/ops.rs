@@ -2947,9 +2947,17 @@ async fn a_shallow_clone_gets_more_history() {
     let repo = clone.to_str().unwrap();
     let refs = queries::refs(repo).await.unwrap();
     assert!(refs.shallow && !refs.partial);
+    assert_eq!(
+        refs.shallow_boundary,
+        [refs.head.clone().unwrap()],
+        "the history stops at the one commit fetched"
+    );
     assert_eq!(raw_git(&clone, &["rev-list", "--count", "HEAD"]), b"1\n");
     ops::fetch_more(repo, "deepen", None).await.unwrap();
     assert_eq!(raw_git(&clone, &["rev-list", "--count", "HEAD"]), b"3\n");
+    let deeper = queries::refs(repo).await.unwrap();
+    assert_eq!(deeper.head, refs.head, "no ref moved");
+    assert_ne!(deeper.shallow_boundary, refs.shallow_boundary);
     let other = f.root.join("shallow-too");
     raw_git(
         &f.root,

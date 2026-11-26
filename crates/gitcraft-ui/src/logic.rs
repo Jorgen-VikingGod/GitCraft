@@ -1073,6 +1073,8 @@ pub fn history_fingerprint(refs: &gitcraft_core::model::Refs) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     refs.head.hash(&mut hasher);
+    // A deeper fetch of a shallow clone adds older commits without moving any ref.
+    refs.shallow_boundary.hash(&mut hasher);
     for branch in &refs.local {
         (&branch.name, &branch.sha, branch.current).hash(&mut hasher);
     }
@@ -1165,6 +1167,20 @@ mod tests {
             before,
             history_fingerprint(&ahead),
             "counts don't change the history"
+        );
+        let shallow = |boundary: &[&str]| Refs {
+            shallow: true,
+            shallow_boundary: boundary.iter().map(|sha| (*sha).to_owned()).collect(),
+            ..refs("a", true)
+        };
+        assert_eq!(
+            history_fingerprint(&shallow(&["c"])),
+            history_fingerprint(&shallow(&["c"]))
+        );
+        assert_ne!(
+            history_fingerprint(&shallow(&["c"])),
+            history_fingerprint(&shallow(&["d"])),
+            "fetched deeper"
         );
     }
 
