@@ -389,9 +389,6 @@ Bug reports, ideas and pull requests are welcome in the
 
 [AGENTS.md](AGENTS.md) describes the code's conventions in detail.
 
-## Author
-
-Jürgen Könnemann
 
 ## License
 
