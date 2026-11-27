@@ -220,6 +220,16 @@ pub struct Look {
     pub char_width: f32,
 }
 
+/// The fills of a control, from [`Look::fills`].
+#[derive(Debug, Clone, Copy)]
+pub struct Fills {
+    pub idle: Color32,
+    pub hover: Color32,
+    pub press: Color32,
+    pub hover_edge: Color32,
+    pub press_edge: Color32,
+}
+
 pub const CODE_SIZE: f32 = 12.5;
 /// The gap between the entries of a dropdown list or a context menu.
 pub const DROPDOWN_GAP: f32 = 2.0;
@@ -267,6 +277,28 @@ impl Look {
         }
     }
 
+    /// The fills of buttons, fields and menu rows in the neutral, hovered and pressed states.
+    pub fn fills(&self) -> Fills {
+        let rgb = Color32::from_rgb;
+        if self.dark {
+            Fills {
+                idle: rgb(48, 54, 66),
+                hover: rgb(46, 51, 62),
+                press: rgb(56, 62, 75),
+                hover_edge: rgb(78, 86, 102),
+                press_edge: rgb(110, 120, 140),
+            }
+        } else {
+            Fills {
+                idle: rgb(222, 226, 234),
+                hover: rgb(212, 217, 228),
+                press: rgb(198, 205, 219),
+                hover_edge: rgb(150, 160, 180),
+                press_edge: rgb(110, 122, 148),
+            }
+        }
+    }
+
     /// Styles egui's own widgets (buttons, text fields, menus, scroll bars) from the palette,
     /// so that they look the same in every part of the window, and as in the other Craft apps.
     pub fn apply(&self, ctx: &egui::Context) {
@@ -282,24 +314,13 @@ impl Look {
         } else {
             egui::Visuals::light()
         };
-        // Fills for buttons and fields in the neutral, hovered and pressed states.
-        let (idle, hover, press, hover_edge, press_edge) = if self.dark {
-            (
-                Color32::from_rgb(48, 54, 66),
-                Color32::from_rgb(46, 51, 62),
-                Color32::from_rgb(56, 62, 75),
-                Color32::from_rgb(78, 86, 102),
-                Color32::from_rgb(110, 120, 140),
-            )
-        } else {
-            (
-                Color32::from_rgb(222, 226, 234),
-                Color32::from_rgb(212, 217, 228),
-                Color32::from_rgb(198, 205, 219),
-                Color32::from_rgb(150, 160, 180),
-                Color32::from_rgb(110, 122, 148),
-            )
-        };
+        let Fills {
+            idle,
+            hover,
+            press,
+            hover_edge,
+            press_edge,
+        } = self.fills();
         let strong = if self.dark {
             Color32::WHITE
         } else {

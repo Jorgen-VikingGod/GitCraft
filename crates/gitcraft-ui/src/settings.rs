@@ -455,7 +455,8 @@ fn parse_old(bytes: &[u8]) -> Result<Settings, String> {
 fn open(dir: &Path) -> SettingsStore<Settings> {
     let legacy = vec![LegacyFile {
         path: dir.join("settings.json"),
-        parse: parse_old,
+        // Every value of the old file was read or kept its default: nothing to report.
+        parse: |bytes| parse_old(bytes).map(|settings| (settings, Vec::new())),
     }];
     let (store, report) =
         SettingsStore::open_with(OpenOptions::new(Location::Dir(dir.to_path_buf())).legacy(legacy));

@@ -8,11 +8,11 @@ use crate::app::ROW_HEIGHT;
 
 pub const LANE_WIDTH: f32 = 14.0;
 const PAD: f32 = 10.0;
-const MAX_LANES: u32 = 24;
 
-/// The same for every row, so that the text after it lines up.
+/// The width all `lanes` take, the same for every row. The column shows at most
+/// what the tab's graph width and the description's room allow, and scrolls sideways for the rest.
 pub fn width_for(lanes: u32) -> f32 {
-    PAD * 2.0 + (lanes.clamp(1, MAX_LANES) - 1) as f32 * LANE_WIDTH + 4.0
+    PAD * 2.0 + (lanes.max(1) - 1) as f32 * LANE_WIDTH + 4.0
 }
 
 pub struct GraphCell<'a> {
@@ -23,13 +23,18 @@ pub struct GraphCell<'a> {
     pub head: bool,
 }
 
+/// The colour of lane colour `index`: a commit's dot and its lines.
+pub fn lane_color(lanes: &[Color32; 8], index: u8) -> Color32 {
+    lanes[index as usize % lanes.len()]
+}
+
 impl GraphCell<'_> {
     /// Paints the cell with its top left corner at `origin`.
     pub fn paint(&self, painter: &Painter, origin: Pos2) {
         let at = |x: f32, y: f32| Pos2::new(origin.x + x, origin.y + y);
         let x = |lane: u32| PAD + lane as f32 * LANE_WIDTH;
         let (h, mid) = (ROW_HEIGHT, ROW_HEIGHT / 2.0);
-        let color = |index: u8| self.lanes[index as usize % self.lanes.len()];
+        let color = |index: u8| lane_color(&self.lanes, index);
         let painter = painter.with_clip_rect(
             Rect::from_min_size(origin, egui::vec2(f32::INFINITY, h))
                 .intersect(painter.clip_rect()),

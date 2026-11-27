@@ -18,140 +18,40 @@ use crate::command::Command;
 use crate::i18n::tr;
 use crate::i18n::trf;
 use crate::logic::{plural, short_sha};
-use crate::menu::{Mark, MenuItem};
 
 /// The title bar, when the app draws it (see `frame.rs`).
 pub fn menu_bar(ui: &mut Ui, cx: &Cx) {
     super::frame::title_bar(ui, cx);
 }
 
-/// A menu bar entry as craft-menu takes it. The command id is the entry's place in
-/// [`crate::app::App::bar_menus`], `bar.<menu>.<entry>[.<sub-entry>]`, so that the message can
-/// be found again when it is chosen.
-fn bar_node(item: &MenuItem, path: &str) -> Option<craft_menu::Node> {
-    use craft_menu::{CommandRef, Item, Node};
-    match item {
-        MenuItem::Separator => Some(Node::Separator),
-        MenuItem::Header(_) => None,
-        MenuItem::Entry {
-            label,
-            message,
-            shortcut,
-            mark,
-            ..
-        } => {
-            let mut entry = Item::new(CommandRef::new(path), tr(label)).enabled(message.is_some());
-            if let Some(chord) = shortcut {
-                entry = entry.shortcut(*chord);
-            }
-            entry = match mark {
-                Mark::None => entry,
-                Mark::Check(on) => entry.check(*on),
-                Mark::Radio(on) => entry.radio(*on),
-            };
-            if matches!(message, Some(crate::app::Message::Quit)) {
-                entry = entry.role(craft_menu::ItemRole::Quit);
-            }
-            // On a Mac it moves to the app's own menu.
-            if matches!(message, Some(crate::app::Message::OpenAbout)) {
-                entry = entry.role(craft_menu::ItemRole::About);
-            }
-            Some(entry.into())
-        }
-        MenuItem::Sub { label, children } => {
-            let nodes = children
-                .iter()
-                .enumerate()
-                .filter_map(|(index, child)| bar_node(child, &format!("{path}.{index}")))
-                .collect();
-            Some(Node::submenu(tr(label), nodes))
-        }
-    }
-}
-
-/// The message of the entry at `path` (see [`bar_node`]).
-fn bar_message(menus: &[(&str, Vec<MenuItem>)], path: &str) -> Option<crate::app::Message> {
-    let mut steps = path
-        .strip_prefix("bar.")?
-        .split('.')
-        .map(str::parse::<usize>);
-    let mut items = &menus.get(steps.next()?.ok()?)?.1;
-    loop {
-        match items.get(steps.next()?.ok()?)? {
-            MenuItem::Entry { message, .. } => return message.clone(),
-            MenuItem::Sub { children, .. } => items = children,
-            _ => return None,
-        }
-    }
-}
-
-/// The menu bar (craft-menu): drawn like a desktop app's menus, with the shortcuts in their own
-/// column. A press on a title opens its menu, moving onto another title opens that one, and the
-/// arrow keys, Alt and F10 work as in other programs.
+/// The menu bar (craft-menu), as `craft.rs` laid it out: a desktop app's menus, with the
+/// shortcuts in their own column. A press on a title opens its menu, moving onto another title
+/// opens that one, and the arrow keys, Alt and F10 work as in other programs. A choice reaches the
+/// app as a fired command. The bar gets the room its titles took last frame, so the tabs follow
+/// right after it.
 fn menus(ui: &mut Ui, cx: &Cx) {
-    use craft_menu::{LayoutOptions, Menu, MenuBar, MenuBarUi, MenuRole, Target};
-    let menus = cx.app.bar_menus();
-    // One for each of File, Edit, Repository, View and Help, in that order: About goes last in
-    // the menu with the Help role.
-    let roles = [
-        Some(MenuRole::File),
-        None,
-        None,
-        Some(MenuRole::View),
-        Some(MenuRole::Help),
-    ];
-    let bar = MenuBar {
-        menus: menus
-            .iter()
-            .enumerate()
-            .map(|(index, (title, items))| {
-                let nodes = items
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(entry, item)| bar_node(item, &format!("bar.{index}.{entry}")))
-                    .collect();
-                let menu = Menu::new(tr(title), nodes);
-                match roles.get(index).copied().flatten() {
-                    Some(role) => menu.role(role),
-                    None => menu,
-                }
-            })
-            .collect(),
-        documents: Vec::new(),
-    };
-    // The menus stay in the window on every system, laid out as on Windows and Linux.
-    let target = if cfg!(windows) {
-        Target::Windows
-    } else {
-        Target::Linux
-    };
-    let label = |english: &'static str| tr(english).to_owned();
-    let options = LayoutOptions {
-        label: &label,
-        ..LayoutOptions::new("GitCraft")
-    };
-    let bar = craft_menu::desktop_layout(&bar, target, &options).bar;
-    let gate = craft_menu::Gate {
-        modal: cx.app.form.is_some(),
-        recording_shortcut: cx.app.recording.is_some(),
-        text_editing: ui.ctx().egui_wants_keyboard_input(),
-    };
-    // egui's built-in fonts have no ✓ or ●, craft-menu's default marks.
-    let style = craft_menu::BarStyle {
-        check_mark: "•".into(),
-        radio_mark: "•".into(),
-        ..craft_menu::BarStyle::from_style(ui.style())
-    };
-    let chosen = MenuBarUi::new(&bar)
-        .style(style)
-        .gate(gate)
-        .label(&label)
-        .shrink_to_fit(f32::INFINITY)
-        .show(ui);
-    for command in chosen {
-        if let Some(message) = bar_message(&menus, &command.id) {
-            cx.send(crate::app::Message::FromMenu(Box::new(message)));
-        }
+    let id = Id::NULL.with("menu_bar_width");
+    let width = ui
+        .ctx()
+        .data(|data| data.get_temp::<f32>(id))
+        .unwrap_or(300.0);
+    let keyboard = cx.app.form.is_none() && cx.app.recording.is_none();
+    let height = ui.available_height();
+    let shown = ui
+        .allocate_ui_with_layout(
+            vec2(width, height),
+            Layout::left_to_right(Align::Center),
+            |ui| {
+                craft_menu::MenuBarUi::new(&cx.app.bar)
+                    .keyboard(keyboard)
+                    .show(ui)
+            },
+        )
+        .inner;
+    let titles = shown.titles.width();
+    if titles.is_finite() && titles > 0.0 && (titles - width).abs() > 0.5 {
+        ui.ctx().data_mut(|data| data.insert_temp(id, titles));
+        ui.ctx().request_repaint();
     }
 }
 
