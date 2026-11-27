@@ -4284,12 +4284,15 @@ impl App {
             Some((work as Work, lines)),
             move |state| async move {
                 let (mut work, mut lines) = state?;
+                // Lines first: a quick command can end with lines still waiting, which would
+                // be lost once the result is out.
                 tokio::select! {
-                    (repo, command, result) = &mut work => {
-                        Some((Message::Done(repo, id, command, answer(result)), None))
-                    }
+                    biased;
                     Some(line) = lines.recv() => {
                         Some((Message::Progress(id, line), Some((work, lines))))
+                    }
+                    (repo, command, result) = &mut work => {
+                        Some((Message::Done(repo, id, command, answer(result)), None))
                     }
                 }
             },
