@@ -62,6 +62,9 @@ Craft apps.
 
 - **Commit graph** of all branches (or only the current one), virtual-scrolled, with lanes and labels for
   branches, tags and remotes.
+- **The graph's column** keeps the lanes out of the messages: many lanes scroll sideways (Shift + wheel or
+  the scroll bar), and its edge in the header drags. Each message starts with a block in its lane's
+  colour, and a message or name cut off shows in full under the pointer.
 - **Commit details** with the signature's state for signed commits, and **diffs** per file: unified or
   side by side, syntax highlighted; long lines scroll sideways, and each side of a side-by-side diff has
   its own scroll bar.
