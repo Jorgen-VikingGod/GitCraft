@@ -1090,6 +1090,28 @@ pub fn history_fingerprint(refs: &gitcraft_core::model::Refs) -> u64 {
     hasher.finish()
 }
 
+/// The width the graph column may be dragged to: at least a few lanes. The description's room
+/// (`graph_room`) limits it on the other side.
+pub fn graph_column(width: f32) -> f32 {
+    width.max(40.0)
+}
+
+/// The room the description keeps beside the graph: its header, the "All branches" and
+/// "Current branch" switch, and a little of the text.
+pub const DESCRIPTION_ROOM: f32 = 380.0;
+
+/// The widest the graph column can be when the graph and the description share `space`: the
+/// description keeps `DESCRIPTION_ROOM`, and in a narrow window the graph keeps a lane or two.
+pub fn graph_room(space: f32) -> f32 {
+    (space - DESCRIPTION_ROOM).max(40.0)
+}
+
+/// The graph's sideways scroll, kept between its start and the point where its last lane
+/// reaches the column's right edge. `content` is the width of all lanes, `shown` the column's.
+pub fn graph_offset(offset: f32, content: f32, shown: f32) -> f32 {
+    offset.clamp(0.0, (content - shown).max(0.0))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1744,5 +1766,18 @@ mod tests {
         let patterns: Vec<_> = options.iter().map(|o| o.1.as_str()).collect();
         assert_eq!(patterns, ["/src/a.log", "*.log", "/src/"]);
         assert_eq!(ignore_patterns(".env").len(), 1);
+    }
+
+    #[test]
+    fn the_graph_scrolls_only_as_far_as_its_lanes_go() {
+        assert_eq!(graph_offset(50.0, 600.0, 300.0), 50.0);
+        assert_eq!(graph_offset(-5.0, 600.0, 300.0), 0.0);
+        assert_eq!(graph_offset(900.0, 600.0, 300.0), 300.0);
+        // Everything fits: no scrolling at all.
+        assert_eq!(graph_offset(80.0, 200.0, 300.0), 0.0);
+        assert_eq!(graph_column(5.0), 40.0);
+        // The description keeps its room; a narrow window still shows a little graph.
+        assert_eq!(graph_room(1000.0), 1000.0 - DESCRIPTION_ROOM);
+        assert_eq!(graph_room(100.0), 40.0);
     }
 }

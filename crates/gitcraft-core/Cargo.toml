@@ -9,7 +9,7 @@ authors.workspace = true
 
 [dependencies]
 # Shared Craft libraries (MIT OR Apache-2.0), pinned to the same commit of https://github.com/storytold/craft-libs 
-craft-atomic = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f" }
+craft-atomic = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
 dirs = "6"
 dunce = "1"
 # Only for reading .gitignore rules in the watcher; git itself is always the CLI.

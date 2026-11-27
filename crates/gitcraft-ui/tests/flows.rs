@@ -135,6 +135,9 @@ async fn drive(app: &mut App, message: Message) -> Vec<Message> {
 struct Screen {
     ctx: egui::Context,
     size: Vec2,
+    /// The time of the next frame: each frame is a twentieth of a second after the one before,
+    /// so what waits for the pointer to rest (a submenu) gets its time.
+    clock: std::cell::Cell<f64>,
 }
 
 /// One drawn frame.
@@ -175,13 +178,21 @@ impl Screen {
     fn sized(size: Vec2) -> Self {
         let ctx = egui::Context::default();
         egui_extras::install_image_loaders(&ctx);
-        Self { ctx, size }
+        gitcraft_ui::install_runtime(&ctx);
+        Self {
+            ctx,
+            size,
+            clock: std::cell::Cell::new(0.0),
+        }
     }
 
     fn frame(&self, app: &App, events: Vec<Event>) -> Frame {
         app.look.apply(&self.ctx);
+        let time = self.clock.get();
+        self.clock.set(time + 0.05);
         let input = egui::RawInput {
             screen_rect: Some(Rect::from_min_size(Pos2::ZERO, self.size)),
+            time: Some(time),
             events,
             ..egui::RawInput::default()
         };
@@ -202,6 +213,14 @@ impl Screen {
     /// Draws twice, as widgets only react to the pointer once they have been laid out.
     fn show(&self, app: &App) -> Frame {
         self.frame(app, Vec::new());
+        self.frame(app, Vec::new())
+    }
+
+    /// Draws for half a second with nothing happening, as when the pointer rests on something.
+    fn rest(&self, app: &App) -> Frame {
+        for _ in 0..10 {
+            self.frame(app, Vec::new());
+        }
         self.frame(app, Vec::new())
     }
 
@@ -1541,7 +1560,7 @@ async fn f11_and_the_view_menu_toggle_full_screen_without_a_title_bar() {
     assert_eq!(*mark, gitcraft_ui::menu::Mark::Check(false));
 
     // Once the window is full screen (the shell reads that from it), the app draws no title bar.
-    app.frame = gitcraft_ui::window::decide(false);
+    app.frame = gitcraft_ui::window::decide(false).frame;
     let title = "demo-repo - GitCraft";
     let shown = Screen::new().show(&app);
     let with_bar = shown.texts.iter().any(|(text, _)| text == title);
@@ -1860,10 +1879,10 @@ async fn menus_open_submenus_under_the_pointer_and_run_entries() {
 
     let at = shown.find("Reset main to here").unwrap().center();
     screen.frame(&app, vec![Event::PointerMoved(at)]);
-    let shown = screen.show(&app);
+    let shown = screen.rest(&app);
     assert!(
         shown.has("Hard: discard all changes"),
-        "hovering a submenu opens it"
+        "resting on a submenu row opens it"
     );
 
     let child = shown.find("Hard: discard all changes").unwrap().center();
@@ -4148,4 +4167,139 @@ async fn shortcuts_are_recorded_reset_cleared_and_kept_for_the_next_start() {
         app
     });
     assert!(shown.has("Not assigned"), "Commit has no key now");
+}
+
+#[tokio::test]
+async fn a_wide_graph_stays_in_its_column_and_scrolls_sideways() {
+    let f = empty_fixture();
+    f.commit("a.txt", "base\n", "base");
+    for i in 0..30 {
+        f.git(&["switch", "-q", "-c", &format!("b{i}"), "main"]);
+        f.commit(&format!("f{i}.txt"), "x\n", &format!("work {i}"));
+    }
+    f.git(&["switch", "-q", "main"]);
+    let mut app = opened(&f, false).await;
+    assert!(app.current().unwrap().graph_lanes >= 30);
+
+    let screen = Screen::new();
+    let shown = screen.show(&app);
+    let header = shown.find(&"Description".to_uppercase()).unwrap();
+    let subject = shown.find("work ").unwrap();
+    assert!(
+        subject.left() >= header.left() - 1.0,
+        "the description starts where the graph column ends"
+    );
+    // 30 lanes are wider than the room: the graph takes all of it, up to the description's.
+    let author = shown.find(&"Author".to_uppercase()).unwrap();
+    let room = author.left() - header.left();
+    let wanted = gitcraft_ui::logic::DESCRIPTION_ROOM;
+    assert!(
+        (wanted - 30.0..wanted + 10.0).contains(&room),
+        "the graph is as wide as it can be: {room}"
+    );
+
+    // Shift and the wheel over the graph scroll its lanes sideways.
+    let over = Pos2::new(header.left() - 40.0, subject.center().y);
+    screen.frame(&app, vec![Event::PointerMoved(over)]);
+    let wheel = Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Point,
+        delta: vec2(0.0, -120.0),
+        phase: egui::TouchPhase::Move,
+        source: egui::MouseWheelSource::Unknown,
+        modifiers: Modifiers::SHIFT,
+    };
+    let mut messages = screen.frame(&app, vec![wheel]).messages;
+    for _ in 0..10 {
+        messages.extend(screen.frame(&app, Vec::new()).messages);
+    }
+    let scrolled = messages
+        .into_iter()
+        .filter(|message| matches!(message, Message::GraphScroll(_)))
+        .collect::<Vec<_>>();
+    assert!(!scrolled.is_empty(), "the wheel scrolls the graph");
+    for message in scrolled {
+        drive(&mut app, message).await;
+    }
+    assert!(app.current().unwrap().graph_scroll > 0.0);
+
+    // A dragged width is the tab's, while it stays in front.
+    drive(
+        &mut app,
+        Message::ColumnWidth(gitcraft_ui::app::Column::Graph, 120.0, true),
+    )
+    .await;
+    assert_eq!(app.current().unwrap().graph_width, Some(120.0));
+    let shown = screen.show(&app);
+    let narrower = shown.find(&"Description".to_uppercase()).unwrap();
+    assert!(
+        narrower.left() < header.left() - 50.0,
+        "the column got narrower"
+    );
+
+    // Set far wider than the window, the graph still leaves the description its room, before
+    // the author column.
+    drive(
+        &mut app,
+        Message::ColumnWidth(gitcraft_ui::app::Column::Graph, 5000.0, true),
+    )
+    .await;
+    let shown = screen.show(&app);
+    let description = shown.find(&"Description".to_uppercase()).unwrap();
+    let author = shown.find(&"Author".to_uppercase()).unwrap();
+    assert!(
+        author.left() - description.left() >= gitcraft_ui::logic::DESCRIPTION_ROOM - 20.0,
+        "the description keeps its room: {description:?} {author:?}"
+    );
+    assert!(shown.has("Current branch"));
+
+    // Coming back to the tab, the graph is as wide as it can be again.
+    drive(
+        &mut app,
+        Message::ColumnWidth(gitcraft_ui::app::Column::Graph, 120.0, true),
+    )
+    .await;
+    drive(&mut app, Message::Activate(0)).await;
+    assert_eq!(app.current().unwrap().graph_width, None);
+    let shown = screen.show(&app);
+    let again = shown.find(&"Description".to_uppercase()).unwrap();
+    assert!((again.left() - header.left()).abs() < 1.0);
+}
+
+#[tokio::test]
+async fn a_cut_off_message_or_branch_name_shows_in_full_under_the_pointer() {
+    let f = empty_fixture();
+    let long = "Explain in one very long subject line everything this commit does, far more than \
+                the description column can show";
+    f.commit("a.txt", "one\n", "short");
+    f.commit("a.txt", "two\n", long);
+    let branch = "a-branch-whose-name-is-much-wider-than-the-sidebar-is";
+    f.git(&["branch", branch]);
+    let app = opened(&f, false).await;
+
+    let screen = Screen::new();
+    // A tooltip draws the text once more than the window shows it without the pointer on it.
+    let count = |shown: &Frame, text: &str| shown.texts.iter().filter(|(t, _)| t == text).count();
+    // `place` says which copy to point at: the smallest wins.
+    // The pointer goes just inside the text's start: a cut-off text runs on past what shows.
+    let extra = |text: &str, place: fn(&Rect) -> f32| {
+        screen.frame(&app, vec![Event::PointerGone]);
+        let before = screen.rest(&app);
+        let at = before
+            .texts
+            .iter()
+            .filter(|(t, _)| t == text)
+            .map(|(_, rect)| *rect)
+            .min_by(|a, b| place(a).total_cmp(&place(b)))
+            .unwrap()
+            .left_center()
+            + vec2(10.0, 0.0);
+        screen.frame(&app, vec![Event::PointerMoved(at)]);
+        count(&screen.rest(&app), text) - count(&before, text)
+    };
+    // The history row is above the commit's details; the sidebar is left of the history.
+    let row = |rect: &Rect| rect.top();
+    let sidebar = |rect: &Rect| rect.left();
+    assert_eq!(extra(long, row), 1, "the message shows in full");
+    assert_eq!(extra(branch, sidebar), 1, "the branch name shows in full");
+    assert_eq!(extra("short", row), 0, "a message that fits has no tooltip");
 }

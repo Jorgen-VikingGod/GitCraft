@@ -773,16 +773,29 @@ pub fn card(look: &Look) -> egui::Frame {
         .corner_radius(8)
 }
 
-/// Text drawn twice, a hair apart, to look heavier than the one weight there is.
-pub fn paint_strong(painter: &Painter, at: Pos2, content: &str, font: FontId, color: Color32) {
+/// Text drawn twice, a hair apart, to look heavier than the one weight there is. Returns its
+/// width, as `paint_text` does.
+pub fn paint_strong(
+    painter: &Painter,
+    at: Pos2,
+    content: &str,
+    font: FontId,
+    color: Color32,
+) -> f32 {
+    // The second copy goes one whole pixel over: egui puts text on whole pixels, so a smaller
+    // step lands on the same pixel at some places and the text would not look bold there.
+    let pixel = 1.0 / painter.pixels_per_point();
     painter.text(at, Align2::LEFT_CENTER, content, font.clone(), color);
-    painter.text(
-        at + vec2(0.6, 0.0),
-        Align2::LEFT_CENTER,
-        content,
-        font,
-        color,
-    );
+    pixel
+        + painter
+            .text(
+                at + vec2(pixel, 0.0),
+                Align2::LEFT_CENTER,
+                content,
+                font,
+                color,
+            )
+            .width()
 }
 
 /// How far a list row's hover or selection fill stays inside the row, above and below, so that

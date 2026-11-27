@@ -6,12 +6,14 @@ Author: Jürgen Könnemann. License: MIT.
 ## Architecture
 
 ```
-gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──►  system `git` CLI (tokio subprocess, no shell)
+gitcraft-ui (egui 0.37, craft-ui) ──function calls──►  gitcraft-core  ──►  system `git` CLI (tokio subprocess, no shell)
 ```
 
 - GitCraft is one native binary, `gitcraft`. There is no server, web UI or sidecar.
 - The core never uses libgit2 or gitoxide. It runs `git` and parses machine-readable output.
 - During rebases git starts the `gitcraft` binary itself as its editor (`--gitcraft-editor`).
+- The window runs the craft-ui runtime (craft-libs), as the other Craft apps do: it owns keyboard focus,
+  Escape, F10, quitting and the interface scale, and draws the menu bar. GitCraft's own views stay egui.
 
 ## Layout
 
@@ -30,6 +32,9 @@ gitcraft-ui (egui 0.37) ──function calls──►  gitcraft-core  ──► 
 | `crates/gitcraft-core/tests/ops.rs` | Operations against real git in throwaway repositories |
 | `crates/gitcraft-core/examples/refresh_bench.rs` | Times a refresh (status, refs and log) and counts the git processes it starts |
 | `crates/gitcraft-ui/src/app.rs` | `App`, `Message`, and `App::update`, where all state changes happen |
+| `crates/gitcraft-ui/src/craft.rs` | The craft-ui runtime on the window: `install()`, the `FrameInput` of each frame (scale, light or dark, accent), the menu bar as commands and back to `Message`s |
+| `crates/gitcraft-ui/src/control.rs` | The control server for scripts and tests (craft-automation), off unless `GITCRAFT_CONTROL_PORT` is set; GitCraft's methods |
+| `docs/automation/control.py` | A Python client for the control server: start GitCraft, authenticate, send requests or a steps file |
 | `crates/gitcraft-ui/src/gui.rs`, `task.rs` | The eframe window: runs `Task`s on tokio, turns egui input into `Message`s, draws each frame; `Task` is the toolkit-free "work for the shell" type |
 | `crates/gitcraft-ui/src/command.rs` | `Command`: every git operation the UI can start, as data (label, success text, how to run it) |
 | `crates/gitcraft-ui/src/actions.rs` | `Action`: user-facing commands with their dialogs, and all context menus (`commit_menu_items()`) |
@@ -100,8 +105,12 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 - A new git operation is a `Command` variant with its label, success text and `run()` arm. Start it with
   `Message::Run`, which handles the busy state, toasts, progress and refresh.
 - If it needs a dialog, add an `Action` in `actions.rs`. Forms are in `form.rs`; a confirmation is a form
-  without fields. Menus are `MenuItem` lists with one level of submenus.
-- The menu bar is `App::bar_menus()`, drawn by craft-menu in `views/shell.rs`. Give an entry its key with
+  without fields. Menus are `MenuItem` lists with one level of submenus. Context menus are drawn with
+  craft-ui's menus (`views/popups.rs`), the same rows as the menu bar; a danger entry is a red-tinted row.
+- The menu bar is `App::bar_menus()`. Before each frame `craft.rs` lays it out (`App::bar`) and makes each
+  entry a command of the runtime (`bar.<menu>.<entry>`, no key binding of its own); `views/shell.rs` draws it
+  with craft-menu, and a choice comes back as a fired command that `craft.rs` turns into the entry's
+  `Message`. GitCraft's own keys stay in `App::key`: the rows show the entry's key as text. Give an entry its key with
   `.key(self.shortcut("id"))` and a tick or dot with `.marked(Mark::…)`. Keys belong to the commands
   of `logic::SHORTCUTS` (id, label, default chords); `App::shortcut_message` says what each runs, and
   the user's own keys are `settings.shortcuts` (edited in Settings › Keyboard shortcuts).
@@ -138,9 +147,13 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
 - `unsafe_code` is denied in the workspace, and clippy warnings fail CI.
 - Add dependencies to the crate's `Cargo.toml` and commit `Cargo.lock`. `eframe`, `egui` and `egui_extras`
   are pinned to exact versions.
-- Shared libraries come from `storytold/craft-libs` (`craft-*` crates: atomic, dialogs, i18n, keymap, menu,
-  platform, quit, settings, window), all pinned to **one** commit, the same as HybridSliceCraft's. If you
-  move one pin, move them all to the same commit.
+- Shared libraries come from `storytold/craft-libs` (`craft-*` crates: atomic, automation, behavior, dialogs,
+  host, i18n, keymap, menu, platform, quit, settings, theme, ui, window), all pinned to **one** commit. If you
+  move one pin, move them all to the same commit, and keep the craft-libs commit of the other Craft apps in
+  step where you can (HybridSliceCraft still pins an older one, from before craft-ui).
+- craft-libs builds on storytold's egui and winit forks. The root `Cargo.toml` patches every egui crate
+  and winit to them (`[patch.crates-io]`); the revisions must be the ones in the root `Cargo.toml` of
+  craft-libs at the pinned commit, or two egui versions end up in one build. Move them with the pin.
 - Files that belong to the user (settings, the recent list, a file in the working tree) are saved with
   craft-atomic (`store::write_private`, `craft_atomic::atomic_write`), so a failed save leaves the old file.
 
@@ -165,11 +178,26 @@ cd crates/gitcraft-ui && cargo packager --release --formats deb,appimage   # int
   it in `views/frame.rs`. `GITCRAFT_TITLEBAR=app|system` (or `CRAFT_TITLEBAR`) overrides the setting, and
   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 - The window's size and place are saved in `window.json` a moment after they stop changing, and on exit.
+  `window.rs` does that itself rather than the craft-ui runtime, which records a window only while egui
+  knows where it is, so it would never save one on Wayland.
+- The craft-ui runtime takes some keys before egui sees them (craft-libs `docs/craft-framework.md` 2.2):
+  Escape reaches the app as the window's `Intent::Cancel` (`gui.rs` turns it into `Message::Key`) unless one
+  of GitCraft's own fields has the focus; Tab moves the focus; F10 and Alt go to the menu bar; Ctrl/⌘ + Q
+  quits through the close path (`embed::logic`, which sends `Message::CloseRequested`). The zoom is the
+  runtime's interface scale (`RootEnv::scale`), so set it through the settings, never with `set_zoom_factor`.
+- The control server: `GITCRAFT_CONTROL_PORT=0` (a free port; the address is printed on stderr),
+  `GITCRAFT_CONTROL_TOKEN=<64 hex>` or `GITCRAFT_CONTROL_TOKEN_FILE`, and `GITCRAFT_CONTROL_DIR` for the
+  pictures `ui.screenshot {path}` saves (paths can't leave it). Besides craft-automation's input, find and
+  screenshot methods it answers `app.state`, `app.open`, `ui.open` (what `GITCRAFT_SHOT_OPEN` opens),
+  `ui.set`, `ui.resize`, `ui.menu.list`, `ui.menu.invoke`, `rebase.actions` and `app.quit`. A new thing a
+  script needs to open or read goes there. Launch it with `GITCRAFT_CONFIG_DIR` set, as tests do.
 - `GITCRAFT_SHOT_OPEN=settings` (and `menu`, `pull`, `changes`, `split`, `rebase`, `delete`, `checkout`,
   `discards`, `clone`, `lfs`, `about`, `branch-menu`, or `settings:git` and the other settings pages) opens that
   before the picture is taken. With `rebase`, `GITCRAFT_SHOT_REBASE_BASE=<sha>` rebases onto that commit and
   `GITCRAFT_SHOT_REBASE_ACTIONS=pick,reword,squash,…` sets each step's action. Set `language = "de"` under `[general]` in the test folder's `config.toml`
   to look at a translated window.
+- The test `Screen` in `flows.rs` installs the craft-ui runtime (`gitcraft_ui::install_runtime`) and moves its
+  clock on with each frame: a submenu opens only once the pointer rests on its row (`Screen::rest`).
 - Tests run side by side in one process, and the interface language is global: don't switch it to another
   language in a test (look up with `I18N.t(lang, …)` instead, as `i18n.rs` does).
 - Set `GITCRAFT_CONFIG_DIR=<dir>` when launching the app in tests. Otherwise it touches the user's real

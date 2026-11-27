@@ -22,7 +22,7 @@ fn slot(family: CaptionFamily) -> f32 {
     match family {
         CaptionFamily::Windows => 46.0,
         CaptionFamily::Breeze => 30.0,
-        CaptionFamily::Adwaita | CaptionFamily::Generic => 34.0,
+        _ => 34.0,
     }
 }
 
@@ -69,7 +69,7 @@ fn window_button(ui: &mut Ui, cx: &Cx, bar: Rect, x: f32, family: CaptionFamily,
                 }
             }
         }
-        CaptionFamily::Adwaita | CaptionFamily::Generic => {
+        _ => {
             let fill = match (close, hovered) {
                 (true, true) => c.danger,
                 (_, true) => c.hover_strong,
@@ -108,7 +108,7 @@ fn window_button(ui: &mut Ui, cx: &Cx, bar: Rect, x: f32, family: CaptionFamily,
                 StrokeKind::Middle,
             );
         }
-        Button::Close => {
+        _ => {
             painter.line_segment([centre + vec2(-s, -s), centre + vec2(s, s)], stroke);
             painter.line_segment([centre + vec2(-s, s), centre + vec2(s, -s)], stroke);
         }
@@ -117,13 +117,13 @@ fn window_button(ui: &mut Ui, cx: &Cx, bar: Rect, x: f32, family: CaptionFamily,
         Button::Minimize => "Minimize",
         Button::Maximize if is_max => "Restore",
         Button::Maximize => "Maximize",
-        Button::Close => "Close",
+        _ => "Close",
     };
     if response.on_hover_text(crate::i18n::tr(tip)).clicked() {
         cx.send(match kind {
             Button::Minimize => Message::Window(WindowAction::Minimize),
             Button::Maximize => Message::Window(WindowAction::ToggleMaximize),
-            Button::Close => Message::Quit,
+            _ => Message::Quit,
         });
     }
 }
@@ -159,7 +159,7 @@ pub fn title_bar(ui: &mut Ui, cx: &Cx) {
         Stroke::new(1.0, c.border),
     );
     // Before the buttons, so they sit on top and take their own clicks.
-    craft_window::title_bar::empty_area(ui, rect);
+    drag_area(ui, cx, rect);
     ui.painter().text(
         rect.center(),
         Align2::CENTER_CENTER,
@@ -183,6 +183,21 @@ pub fn title_bar(ui: &mut Ui, cx: &Cx) {
             let x = rect.right() - pad - (n - i as f32) * w;
             window_button(ui, cx, rect, x, captions.family, *kind);
         }
+    }
+}
+
+/// The empty part of the title bar: dragging it moves the window, and a double click maximizes
+/// or restores it, as the desktop's own title bars do.
+fn drag_area(ui: &mut Ui, cx: &Cx, rect: Rect) {
+    let response = ui.interact(
+        rect,
+        Id::NULL.with("title_bar_drag"),
+        Sense::click_and_drag(),
+    );
+    if response.double_clicked() {
+        cx.send(Message::Window(WindowAction::ToggleMaximize));
+    } else if response.drag_started() {
+        cx.send(Message::Window(WindowAction::Drag));
     }
 }
 

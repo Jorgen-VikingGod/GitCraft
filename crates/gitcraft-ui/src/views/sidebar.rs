@@ -405,14 +405,14 @@ fn leaf(ui: &mut Ui, cx: &Cx, item: &Item) -> Response {
     let clip = ui.painter().with_clip_rect(
         Rect::from_min_max(body.min, Pos2::new(right, body.max.y)).intersect(ui.clip_rect()),
     );
-    if item.current {
+    let width = if item.current {
         paint_strong(
             &clip,
             Pos2::new(x + 20.0, mid),
             &item.label,
             look.ui(13.0),
             text_color,
-        );
+        )
     } else {
         paint_text(
             &clip,
@@ -420,9 +420,14 @@ fn leaf(ui: &mut Ui, cx: &Cx, item: &Item) -> Response {
             &item.label,
             look.ui(13.0),
             text_color,
-        );
+        )
+    };
+    // A name cut off at the row's end shows in full under the pointer.
+    if x + 20.0 + width > right + 0.5 {
+        response.on_hover_text_at_pointer(&item.label)
+    } else {
+        response
     }
-    response
 }
 
 pub fn view(ui: &mut Ui, cx: &Cx, tab: &RepoTab) {

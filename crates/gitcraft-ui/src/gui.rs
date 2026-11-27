@@ -33,6 +33,10 @@ pub struct Shell {
     shot: Option<Shot>,
     /// When to see next whether a repository is due for its background fetch.
     next_fetch_check: std::time::Instant,
+    /// What the craft-ui runtime is told before each frame (`craft.rs`).
+    runtime_input: crate::craft::Runtime,
+    /// The control server, when `GITCRAFT_CONTROL_PORT` asks for one (craft-automation).
+    control: Option<crate::control::Control>,
 }
 
 struct Shot {
@@ -47,25 +51,22 @@ struct Shot {
 /// `GITCRAFT_SHOT_REBASE_ACTIONS=pick,reword,squash,…`: unknown names are left as pick.
 fn shot_rebase_plan() -> Option<Vec<&'static str>> {
     let list = std::env::var("GITCRAFT_SHOT_REBASE_ACTIONS").ok()?;
-    let actions = ["pick", "reword", "edit", "squash", "fixup", "drop"];
-    Some(
-        list.split(',')
-            .map(|name| {
-                let name = name.trim();
-                actions
-                    .into_iter()
-                    .find(|each| *each == name)
-                    .unwrap_or("pick")
-            })
-            .collect(),
-    )
+    Some(list.split(',').map(rebase_action).collect())
+}
+
+/// A rebase step's action by name; an unknown name is pick.
+fn rebase_action(name: &str) -> &'static str {
+    let name = name.trim();
+    ["pick", "reword", "edit", "squash", "fixup", "drop"]
+        .into_iter()
+        .find(|each| *each == name)
+        .unwrap_or("pick")
 }
 
 #[derive(Default, PartialEq)]
 struct Shown {
     title: String,
     dark: Option<bool>,
-    zoom: f32,
     system_dark: Option<bool>,
     measured: bool,
 }
@@ -78,9 +79,8 @@ impl Shell {
         desktop: Desktop,
     ) -> Self {
         egui_extras::install_image_loaders(&cc.egui_ctx);
-        // The app owns zoom (Ctrl +, Ctrl -), through its settings.
-        cc.egui_ctx
-            .options_mut(|options| options.zoom_with_keyboard = false);
+        // The app owns zoom (Ctrl +, Ctrl -), through its settings; the craft-ui runtime applies
+        // it as the interface scale.
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(4)
             .enable_all()
@@ -91,8 +91,9 @@ impl Shell {
         let (mut app, task) = App::boot(repo, system_dark);
         app.frame = frame;
         let ctx = cc.egui_ctx.clone();
-        let dialogs =
-            craft_dialogs::Dialogs::new(std::sync::Arc::new(move || ctx.request_repaint()));
+        let dialogs = craft_dialogs::Dialogs::new(craft_dialogs::Wake::new(move || {
+            ctx.request_repaint();
+        }));
         let shell = Self {
             app,
             runtime,
@@ -107,6 +108,8 @@ impl Shell {
                 ..Shown::default()
             },
             next_fetch_check: std::time::Instant::now(),
+            runtime_input: crate::craft::Runtime::default(),
+            control: crate::control::Control::start(&cc.egui_ctx),
             shot: std::env::var_os("GITCRAFT_SHOT").map(|file| Shot {
                 file: file.into(),
                 frames: 0,
@@ -274,60 +277,9 @@ impl Shell {
         if shot.frames == 20
             && let Some(what) = std::env::var_os("GITCRAFT_SHOT_OPEN")
         {
-            let message = match what.to_str() {
-                Some("menu") => {
-                    self.app.cursor = egui::Pos2::new(420.0, 110.0);
-                    Message::OpenMenu(crate::actions::MenuRequest::Repository)
-                }
-                // The menu of the current branch on its commit, as from a right-click on its label.
-                Some("branch-menu") => {
-                    let Some(tab) = self.app.current() else {
-                        return;
-                    };
-                    let (Some(sha), Some(branch)) = (tab.refs.head.clone(), tab.current_branch())
-                    else {
-                        return;
-                    };
-                    let focus = Some(crate::actions::RefTarget::Local(branch.to_owned()));
-                    self.app.cursor = egui::Pos2::new(420.0, 110.0);
-                    Message::OpenMenu(crate::actions::MenuRequest::Commit { sha, focus })
-                }
-                Some("pull") => Message::Action(crate::actions::Action::Pull),
-                Some("changes") => Message::SetView(crate::app::View::Changes),
-                Some("split") => Message::SetSplit(true),
-                Some("settings") => Message::OpenSettings,
-                // settings:git and so on open that page.
-                Some(page) if page.starts_with("settings:") => {
-                    let wanted = &page["settings:".len()..];
-                    if let Some(found) = crate::app::SettingsPage::ALL
-                        .into_iter()
-                        .find(|each| format!("{each:?}").eq_ignore_ascii_case(wanted))
-                    {
-                        self.handle(Message::SettingsPage(found));
-                    }
-                    Message::OpenSettings
-                }
-                Some("discards") => Message::OpenDiscards,
-                Some("lfs") => Message::OpenLfsLocks,
-                Some("about") => Message::OpenAbout,
-                Some("clone") => Message::Action(crate::actions::Action::Clone),
-                // GITCRAFT_SHOT_REBASE_BASE=<sha> rebases onto that commit instead of the root.
-                Some("rebase") => Message::OpenRebase(
-                    std::env::var("GITCRAFT_SHOT_REBASE_BASE")
-                        .ok()
-                        .filter(|sha| !sha.is_empty()),
-                ),
-                Some("delete") => Message::Action(crate::actions::Action::DeleteBranch(
-                    "rust-migration".to_owned(),
-                )),
-                // With uncommitted changes, this asks what to do with them first.
-                Some("checkout") => Message::Run(crate::command::Command::Checkout {
-                    reference: "main".to_owned(),
-                    kind: "local",
-                }),
-                _ => return,
-            };
-            self.handle(message);
+            if let Some(message) = what.to_str().and_then(|what| self.open_message(what)) {
+                self.handle(message);
+            }
             return;
         }
         // Once the rebase editor has its commits, give them the planned actions and highlight
@@ -371,6 +323,90 @@ impl Shell {
         }
     }
 
+    /// Runs what scripts asked for through the control server.
+    fn run_control(&mut self, ctx: &egui::Context) {
+        let Some(control) = &mut self.control else {
+            return;
+        };
+        for wish in control.run(ctx, &self.app) {
+            match wish {
+                crate::control::Wish::Send(messages) => {
+                    for message in messages {
+                        self.handle(message);
+                    }
+                }
+                crate::control::Wish::Open(what) => {
+                    if let Some(message) = self.open_message(&what) {
+                        self.handle(message);
+                    }
+                }
+                crate::control::Wish::RebaseActions(actions) => {
+                    for (index, action) in actions.iter().enumerate() {
+                        self.handle(Message::RebaseSetAction(index, rebase_action(action)));
+                    }
+                    self.handle(Message::RebaseFocus(0));
+                }
+            }
+        }
+    }
+
+    /// What `GITCRAFT_SHOT_OPEN` (and the control server's `ui.open`) opens:
+    /// menu|pull|changes|split|settings|rebase|delete|checkout|discards|clone|lfs|about|branch-menu|settings:<page>.
+    fn open_message(&mut self, what: &str) -> Option<Message> {
+        Some(match what {
+            "menu" => {
+                self.app.cursor = egui::Pos2::new(420.0, 110.0);
+                Message::OpenMenu(crate::actions::MenuRequest::Repository)
+            }
+            // The menu of the current branch on its commit, as from a right-click on its label.
+            "branch-menu" => {
+                let tab = self.app.current()?;
+                let (sha, branch) = (tab.refs.head.clone()?, tab.current_branch()?);
+                let focus = Some(crate::actions::RefTarget::Local(branch.to_owned()));
+                self.app.cursor = egui::Pos2::new(420.0, 110.0);
+                Message::OpenMenu(crate::actions::MenuRequest::Commit { sha, focus })
+            }
+            "pull" => Message::Action(crate::actions::Action::Pull),
+            "changes" => Message::SetView(crate::app::View::Changes),
+            "split" => Message::SetSplit(true),
+            "settings" => Message::OpenSettings,
+            // settings:git and so on open that page.
+            page if page.starts_with("settings:") => {
+                let wanted = &page["settings:".len()..];
+                if let Some(found) = crate::app::SettingsPage::ALL
+                    .into_iter()
+                    .find(|each| format!("{each:?}").eq_ignore_ascii_case(wanted))
+                {
+                    self.handle(Message::SettingsPage(found));
+                }
+                Message::OpenSettings
+            }
+            "discards" => Message::OpenDiscards,
+            "lfs" => Message::OpenLfsLocks,
+            "about" => Message::OpenAbout,
+            "clone" => Message::Action(crate::actions::Action::Clone),
+            // GITCRAFT_SHOT_REBASE_BASE=<sha> rebases onto that commit instead of the root.
+            "rebase" => Message::OpenRebase(
+                std::env::var("GITCRAFT_SHOT_REBASE_BASE")
+                    .ok()
+                    .filter(|sha| !sha.is_empty()),
+            ),
+            // rebase:<sha> rebases onto that commit.
+            plan if plan.starts_with("rebase:") => {
+                Message::OpenRebase(Some(plan["rebase:".len()..].to_owned()))
+            }
+            "delete" => Message::Action(crate::actions::Action::DeleteBranch(
+                "rust-migration".to_owned(),
+            )),
+            // With uncommitted changes, this asks what to do with them first.
+            "checkout" => Message::Run(crate::command::Command::Checkout {
+                reference: "main".to_owned(),
+                kind: "local",
+            }),
+            _ => return None,
+        })
+    }
+
     /// Applies what changed in the app's look, title and zoom to the window.
     fn sync_window(&mut self, ctx: &egui::Context) {
         if !self.shown.measured {
@@ -387,10 +423,6 @@ impl Shell {
             ctx.send_viewport_cmd(ViewportCommand::Title(title.clone()));
             self.shown.title = title;
         }
-        if (self.shown.zoom - self.app.settings.appearance.zoom).abs() > f32::EPSILON {
-            ctx.set_zoom_factor(self.app.settings.appearance.zoom);
-            self.shown.zoom = self.app.settings.appearance.zoom;
-        }
     }
 }
 
@@ -400,10 +432,13 @@ impl eframe::App for Shell {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Here rather than in `ui`, which a minimized window may not run: the settings are
         // saved before the window goes.
-        if ctx.input(|input| input.viewport().close_requested()) {
+        // The runtime's close path (craft-ui): the settings are saved first, then the platform's
+        // own quit takes the window where it has one (craft-quit).
+        self.run_control(ctx);
+        craft_ui::shell::embed::logic(ctx, || {
             self.handle(Message::CloseRequested);
-        }
-        craft_quit::on_close_request(ctx);
+            craft_ui::shell::embed::CloseDecision::Close
+        });
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
@@ -412,7 +447,17 @@ impl eframe::App for Shell {
 
     /// While taking a picture (`GITCRAFT_SHOT`), the mouse is left out: wherever it happens to
     /// rest, it would otherwise light up a row or open a submenu in the picture.
-    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // What the runtime gathered last frame (the menu entries chosen), and what it needs for
+        // this one.
+        let mut chosen = Vec::new();
+        craft_ui::shell::embed::before_input(ctx, |output| {
+            chosen = crate::craft::Runtime::fired(&self.app, &output);
+            self.runtime_input.frame_input(&mut self.app)
+        });
+        for message in chosen {
+            self.handle(message);
+        }
         if self.shot.is_some() {
             raw_input.events.retain(|event| {
                 !matches!(
@@ -427,6 +472,7 @@ impl eframe::App for Shell {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        craft_ui::shell::embed::before_ui(ui.ctx(), frame);
         let ctx = ui.ctx().clone();
         while let Ok(message) = self.inbox.try_recv() {
             self.handle(message);
@@ -455,8 +501,21 @@ impl eframe::App for Shell {
             }
             ctx.request_repaint_after(self.next_fetch_check.saturating_duration_since(now));
         }
+        // An Escape that no field or menu took reaches the window as a cancel (craft-ui).
+        let modifiers = self.app.modifiers;
+        let mut cancelled = false;
+        craft_ui::runtime::keys::with_window_intents(&ctx, false, |intents| {
+            cancelled = intents.take(craft_ui::runtime::keys::Intent::Cancel);
+            cancelled
+        });
+        if cancelled {
+            self.handle(Message::Key(egui::Key::Escape, modifiers));
+        }
         if busy {
             ctx.request_repaint();
+        }
+        if let Some(control) = &mut self.control {
+            control.after_ui(&ctx);
         }
         // Last, so a dialog asked for anywhere this frame shows now, over this window.
         self.dialogs.show_pending(Some(&*frame));

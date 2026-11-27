@@ -1,9 +1,6 @@
 //! Things drawn above the page: forms, context menus and toasts.
 
-use egui::{
-    Align, Align2, Area, Context, Id, Layout, Margin, Order, Popup, PopupCloseBehavior, Rect,
-    RichText, Sense, Ui, vec2,
-};
+use egui::{Align, Align2, Area, Context, Id, Layout, Margin, Order, Rect, Sense, Ui, vec2};
 
 use super::Cx;
 use super::widgets::{
@@ -11,9 +8,12 @@ use super::widgets::{
 };
 use crate::app::{Message, Toast, ToastKind};
 use crate::form::{FieldKind, Form};
-use crate::menu::{Menu, MenuItem};
-
-const MENU_MIN_WIDTH: f32 = 210.0;
+use crate::i18n::tr;
+use crate::menu::{Mark, Menu, MenuItem};
+use craft_ui::contract::overlay::Anchor;
+use craft_ui::contract::{Bind, Props as _, Show as _, ShowContainer as _};
+use craft_ui::display::Divider;
+use craft_ui::menu::{Menu as CraftMenu, MenuItem as Row};
 
 pub fn form(ctx: &Context, cx: &Cx, form: &Form) {
     let look = cx.look();
@@ -157,68 +157,91 @@ fn form_field(ui: &mut Ui, cx: &Cx, index: usize, field: &crate::form::Field) {
     }
 }
 
-/// One level of a menu, drawn with egui's own menu buttons: they highlight under the
-/// pointer, open submenus on hover and follow the keyboard.
-fn entries(ui: &mut Ui, cx: &Cx, items: &[MenuItem]) {
-    let c = cx.c();
-    ui.set_min_width(MENU_MIN_WIDTH);
-    ui.spacing_mut().item_spacing.y = crate::theme::DROPDOWN_GAP;
+/// One level of a context menu as rows of craft-ui's menus, the ones the menu bar shows: the
+/// same rows, highlight, marks and submenus. Returns the message of the entry chosen at any depth.
+fn rows(ui: &mut Ui, cx: &Cx, items: &[MenuItem]) -> Option<Message> {
+    let mut chosen = None;
     for item in items {
         match item {
             MenuItem::Separator => {
-                ui.separator();
+                Divider::horizontal().show(ui);
             }
             MenuItem::Header(label) => {
-                ui.add_space(4.0);
-                ui.label(
-                    RichText::new(label.to_uppercase())
-                        .size(11.0)
-                        .color(c.text_muted),
-                );
+                Row::heading(label.to_uppercase()).show(ui);
             }
             MenuItem::Entry {
                 label,
                 message,
                 danger,
-                ..
+                shortcut,
+                mark,
             } => {
-                let mut text = RichText::new(label.as_str()).size(13.0);
+                let mut row = Row::new(label.clone()).enabled(message.is_some());
                 if *danger {
-                    text = text.color(c.danger);
+                    let [r, g, b, a] = cx.c().danger.to_srgba_unmultiplied();
+                    row = row.tint(craft_theme::Rgba([r, g, b, a]));
                 }
-                let response = ui.add_enabled(message.is_some(), egui::Button::new(text));
-                if response.clicked()
-                    && let Some(message) = message
-                {
-                    cx.send(Message::FromMenu(Box::new(message.clone())));
-                    ui.close();
+                if let Some(chord) = shortcut {
+                    row = row.shortcut(chord.display(craft_keymap::Platform::current()));
+                }
+                row = match mark {
+                    Mark::None | Mark::Radio(false) => row,
+                    Mark::Check(on) => row.check(*on),
+                    Mark::Radio(true) => row.radio_mark(true),
+                };
+                if row.show(ui).ran {
+                    chosen = message.clone();
                 }
             }
             MenuItem::Sub { label, children } => {
-                ui.menu_button(RichText::new(label.as_str()).size(13.0), |ui| {
-                    entries(ui, cx, children);
+                let enabled = children.iter().any(enabled);
+                CraftMenu::submenu_row_enabled(ui, label.clone(), enabled, |ui, _| {
+                    if let Some(message) = rows(ui, cx, children) {
+                        chosen = Some(message);
+                    }
                 });
             }
         }
     }
+    chosen
 }
 
+/// Whether `item` is, or holds at any depth, an entry that can run.
+fn enabled(item: &MenuItem) -> bool {
+    match item {
+        MenuItem::Entry { message, .. } => message.is_some(),
+        MenuItem::Sub { children, .. } => children.iter().any(enabled),
+        MenuItem::Header(_) | MenuItem::Separator => false,
+    }
+}
+
+/// A context menu, where it was asked for: craft-ui's menu, as the menu bar's menus are.
 pub fn menu(ui: &mut Ui, cx: &Cx, menu: &Menu) {
-    // egui anchors a popup to a widget; this one is a dot where the menu was asked for.
+    // The menu hangs from a dot where it was asked for. The place is part of the id, so a menu
+    // opened somewhere else starts afresh.
+    let id = Id::unique(("context_menu", menu.at.x.to_bits(), menu.at.y.to_bits()));
     let anchor = ui.interact(
         Rect::from_min_size(menu.at, vec2(1.0, 1.0)),
-        Id::unique("context_menu_anchor"),
+        id,
         Sense::hover(),
     );
+    let label = menu
+        .items
+        .iter()
+        .find_map(|item| match item {
+            MenuItem::Header(label) => Some(label.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| tr("Menu").to_owned());
     let mut open = true;
-    Popup::menu(&anchor)
-        .at_position(menu.at)
-        .frame(floating(cx.look(), 8).inner_margin(Margin::same(4)))
-        .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
-        .open_bool(&mut open)
-        .show(|ui| entries(ui, cx, &menu.items));
-    if !open {
-        cx.send(Message::CloseMenu);
+    let shown = CraftMenu::context(label, &anchor)
+        .anchor(Anchor::Point(menu.at))
+        .open(Bind::bound(&mut open))
+        .show(ui, |ui, _| rows(ui, cx, &menu.items));
+    match shown.inner.flatten() {
+        Some(message) => cx.send(Message::FromMenu(Box::new(message))),
+        None if !open || shown.output.closed.is_some() => cx.send(Message::CloseMenu),
+        None => {}
     }
 }
 

@@ -42,6 +42,12 @@ One native program written in Rust, driving the <code>git</code> you already hav
 </tr>
 </table>
 
+<p align="center">
+GitCraft is one of the Craft apps: it is built on <a href="https://github.com/storytold/craft-libs">craft-libs</a>,
+the shared libraries of the ArtCraft community, so its window, menus and keys work like those of the other
+Craft apps.
+</p>
+
 ## Features
 
 | | |
@@ -270,6 +276,8 @@ in `config.toml` and shown in the menus.
 | Ctrl/⌘ + + / − / 0 | Zoom |
 | F5 or Ctrl/⌘ + R | Refresh repository |
 | F11 | Full screen |
+| Ctrl/⌘ + Q | Quit |
+| F10 or Alt | Go to the menu bar (Alt + a letter opens that menu) |
 | ↑ ↓ PgUp PgDn | Move through commits, or through the files of the list you clicked last |
 
 In the interactive rebase editor, ↑ ↓ moves the highlight, Alt + ↑ ↓ moves the commit, and
@@ -311,11 +319,43 @@ window when started with `GITCRAFT_SHOT=<file.png>` (and `GITCRAFT_SHOT_OPEN=` f
 AGENTS.md); [`docs/screenshots/take-screenshots.py`](docs/screenshots/take-screenshots.py) takes all of
 the pictures above that way.
 
+GitCraft can be driven from scripts and tests: started with `GITCRAFT_CONTROL_PORT=0` (and
+`GITCRAFT_CONTROL_TOKEN`), it runs craft-automation's control server on `127.0.0.1`, which clicks, types,
+opens dialogs, chooses menu entries, reads what the window shows and saves pictures of it.
+[`docs/automation/control.py`](docs/automation/control.py) is a small client; the methods are listed in
+[`crates/gitcraft-ui/src/control.rs`](crates/gitcraft-ui/src/control.rs).
+
+<details>
+<summary><b>Built on craft-libs</b></summary>
+
+GitCraft shares its foundations with the other Craft apps of the ArtCraft community through
+[craft-libs](https://github.com/storytold/craft-libs), so that they look and behave alike and fixes reach
+all of them:
+
+| Library | What GitCraft uses it for |
+| --- | --- |
+| `craft-ui` | The interface runtime on the window: keyboard focus, Escape, F10, quitting, the interface scale and the Craft apps' interface face |
+| `craft-menu` | The menu bar, with its keys, submenus, ticks and dots |
+| `craft-theme` | Light or dark, and GitCraft's blue as the accent of the shared components |
+| `craft-window` | Who draws the title bar on each desktop, the window buttons in the desktop's order, and `window.json` |
+| `craft-automation` | The control server for scripts and tests |
+| `craft-dialogs` | File and folder dialogs that never block the window |
+| `craft-keymap` | Keyboard shortcuts and how they are written on each system |
+| `craft-quit` | Quitting the way each system expects |
+| `craft-settings`, `craft-atomic` | `config.toml`, and saving files so that a failed save keeps the old one |
+| `craft-i18n` | The interface languages |
+| `craft-platform` | The desktop's light or dark setting |
+
+The libraries are built on storytold's fork of egui, which GitCraft takes too (`[patch.crates-io]` in the
+root `Cargo.toml`).
+
+</details>
+
 <details>
 <summary><b>Architecture</b></summary>
 
 ```
-gitcraft-ui (egui) ──function calls──►  gitcraft-core  ──►  git CLI (async subprocess, no shell)
+gitcraft-ui (egui, craft-ui) ──function calls──►  gitcraft-core  ──►  git CLI (async subprocess, no shell)
 ```
 
 | Path | Purpose |
@@ -364,7 +404,10 @@ is updated after each release; [docs/distribution.md](docs/distribution.md) expl
 <summary><b>Security</b></summary>
 
 GitCraft talks to git directly and has no web server or API. It opens a single port on `127.0.0.1`, so that
-a second start can pass a repository path to the running window; that port accepts nothing else. Git runs
+a second start can pass a repository path to the running window; that port accepts nothing else. The
+control server for scripts and tests is off unless `GITCRAFT_CONTROL_PORT` is set; it listens on
+`127.0.0.1` only, every connection must give its token first, and the pictures it saves go into one
+folder (`GITCRAFT_CONTROL_DIR`). Git runs
 without a shell, never prompts, and paths and names that git would read as options are refused. Passwords
 in remote URLs are masked in what GitCraft shows.
 

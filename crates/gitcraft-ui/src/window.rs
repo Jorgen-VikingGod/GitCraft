@@ -10,32 +10,37 @@
 //!   `GITCRAFT_SYSTEM_FRAME=1` still asks for the system's frame.
 //! - Where the window opens: the size, position and maximized state of the last run, kept in
 //!   `window.json` in the config folder. Wayland doesn't tell windows where they are, so there
-//!   only the size and maximized state come back.
+//!   only the size and maximized state come back. GitCraft keeps this itself rather than leaving
+//!   it to the craft-ui runtime, which records a window only while it knows where the window is,
+//!   so it would never save one on Wayland.
 
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 
-use craft_window::policy::{Backend, Frame, TitleBarPref};
-use craft_window::restore::{Defaults, MAIN, MonitorKey, Placement, Store, place};
+use craft_behavior::monitor::MonitorKey;
+use craft_behavior::placement::{Defaults, Placement, place};
+use craft_window::policy::{Backend, Decision, Frame, TitleBarPref};
+use craft_window::restore::{MAIN, Store};
 use craft_window::{Button, Layout, Prefix};
 
 pub const SIZE: [f32; 2] = [1280.0, 800.0];
 pub const MIN: [f32; 2] = [640.0, 400.0];
 
-/// Decide the frame once, before the window is created.
-pub fn decide(system_title_bar: bool) -> Frame {
+/// Decide the frame once, before the window is created. The craft-ui runtime is told too, so
+/// it knows who draws the title bar.
+pub fn decide(system_title_bar: bool) -> Decision {
     let legacy = std::env::var_os("GITCRAFT_SYSTEM_FRAME").is_some();
     let pref = if system_title_bar || legacy {
         TitleBarPref::System
     } else {
         TitleBarPref::Integrated
     };
-    let mut frame =
-        craft_window::policy::decide_for(Prefix::new("GITCRAFT"), Backend::from_env(), pref).frame;
-    if let Frame::Integrated(captions) = &mut frame {
+    let mut decision =
+        craft_window::policy::decide_for(Prefix::new("GITCRAFT"), Backend::from_env(), pref);
+    if let Frame::Integrated(captions) = &mut decision.frame {
         captions.layout = all_buttons(&captions.layout);
     }
-    frame
+    decision
 }
 
 /// The desktop's button order, with minimize and maximize added where the desktop leaves them

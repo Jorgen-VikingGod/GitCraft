@@ -4,6 +4,8 @@ pub mod actions;
 pub mod app;
 mod appearance;
 pub mod command;
+mod control;
+mod craft;
 pub mod environment;
 pub mod form;
 mod gui;
@@ -32,7 +34,8 @@ pub fn run() -> eframe::Result {
     gitcraft_core::runner::set_git_program(Some(std::path::PathBuf::from(
         &saved.general.git_program,
     )));
-    let frame = window::decide(saved.appearance.system_title_bar);
+    let decision = window::decide(saved.appearance.system_title_bar);
+    let frame = decision.frame.clone();
     let desktop = appearance::Desktop::start();
     let options = eframe::NativeOptions {
         viewport: window::viewport(&frame, settings::old_window_size(&dir)),
@@ -44,8 +47,18 @@ pub fn run() -> eframe::Result {
     eframe::run_native(
         "GitCraft",
         options,
-        Box::new(move |cc| Ok(Box::new(gui::Shell::new(cc, repo, frame, desktop)))),
+        Box::new(move |cc| {
+            craft::install(&cc.egui_ctx, decision);
+            Ok(Box::new(gui::Shell::new(cc, repo, frame, desktop)))
+        }),
     )
+}
+
+/// Installs the craft-ui runtime on a context that has no window, as the tests draw the UI: the
+/// menus and other craft-ui parts work there as in the window.
+#[doc(hidden)]
+pub fn install_runtime(ctx: &egui::Context) {
+    craft::install(ctx, window::decide(true));
 }
 
 /// wgpu on Windows, OpenGL elsewhere; `GITCRAFT_RENDERER=glow` asks for OpenGL on Windows too,

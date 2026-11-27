@@ -250,6 +250,11 @@ pub struct RepoTab {
     pub all_branches: bool,
     /// The most lanes any commit needs; the graph column is this wide for every row.
     pub graph_lanes: u32,
+    /// How far the graph is scrolled sideways, when it has more lanes than its column shows.
+    pub graph_scroll: f32,
+    /// The width the graph column was dragged to in this tab. `None` is as wide as its lanes
+    /// need, up to where the description keeps its room; switching to the tab goes back to that.
+    pub graph_width: Option<f32>,
     pub selected: Option<String>,
     /// The branch or tag picked in the sidebar ("b:name", "r:origin/name", "t:name"), which
     /// is the one marked as selected there; other names for the commit are only related.
@@ -335,6 +340,8 @@ impl RepoTab {
             loading: true,
             all_branches: true,
             graph_lanes: 1,
+            graph_scroll: 0.0,
+            graph_width: None,
             selected: None,
             selected_ref: None,
             detail: None,
@@ -914,6 +921,8 @@ pub struct App {
     pub modifiers: Modifiers,
     /// Who draws the title bar and window edges (craft-window decides, before the window opens).
     pub frame: craft_window::policy::Frame,
+    /// The menu bar as craft-menu lays it out, brought up to date before each frame (`craft.rs`).
+    pub bar: craft_ui::contract::Tracked<craft_menu::MenuBar>,
     pub maximized: bool,
     pub fullscreen: bool,
     /// The desktop is set to dark; decides the look while the theme setting is "system".
@@ -1197,6 +1206,8 @@ pub enum Message {
     /// A new width for a resizable column; `done` once the drag ends, to save it.
     ColumnWidth(Column, f32, bool),
     ColumnsReset,
+    /// Scrolls the graph of the current repository sideways, to this offset.
+    GraphScroll(f32),
     StatsLoaded(String, Answer<Vec<(String, CommitStats)>>),
     SetShowStashes(bool),
     /// The files a merge with this target would conflict in (see `queries::conflict_check`).
@@ -1328,6 +1339,7 @@ impl App {
             cursor: Pos2::ZERO,
             modifiers: Modifiers::NONE,
             frame: craft_window::policy::Frame::Native,
+            bar: craft_ui::contract::Tracked::default(),
             system_dark,
             maximized: false,
             fullscreen: false,
@@ -1515,6 +1527,8 @@ impl App {
                     return Task::none();
                 }
                 self.active = index;
+                // The graph shows as much as it can again in the tab now in front.
+                self.tabs[index].graph_width = None;
                 self.save_settings();
                 Task::none()
             }
@@ -3027,6 +3041,7 @@ impl App {
                     Column::Date => &mut columns.date,
                     Column::Sha => &mut columns.sha,
                     Column::Changes => &mut columns.changes,
+                    Column::Graph => return Task::none(),
                 };
                 *flag = !*flag;
                 let changes = columns.changes;
@@ -3037,10 +3052,16 @@ impl App {
                 Task::none()
             }
             Message::ColumnWidth(column, width, done) => {
-                let width = width.clamp(60.0, 480.0);
                 match column {
-                    Column::Author => self.settings.columns.author_width = width,
-                    Column::Date => self.settings.columns.date_width = width,
+                    Column::Author => self.settings.columns.author_width = width.clamp(60.0, 480.0),
+                    Column::Date => self.settings.columns.date_width = width.clamp(60.0, 480.0),
+                    // The graph's width is the tab's, for as long as it stays in front.
+                    Column::Graph => {
+                        if let Some(tab) = self.current_mut() {
+                            tab.graph_width = Some(logic::graph_column(width));
+                        }
+                        return Task::none();
+                    }
                     Column::Sha | Column::Changes => {}
                 }
                 if done {
@@ -3048,8 +3069,17 @@ impl App {
                 }
                 Task::none()
             }
+            Message::GraphScroll(offset) => {
+                if let Some(tab) = self.current_mut() {
+                    tab.graph_scroll = offset.max(0.0);
+                }
+                Task::none()
+            }
             Message::ColumnsReset => {
                 self.settings.columns = crate::settings::Columns::default();
+                if let Some(tab) = self.current_mut() {
+                    tab.graph_width = None;
+                }
                 self.save_settings();
                 Task::none()
             }
@@ -5359,6 +5389,8 @@ pub enum Column {
     Date,
     Sha,
     Changes,
+    /// The commit graph, before the description.
+    Graph,
 }
 
 /// A change to which branches the graph shows (full ref names).

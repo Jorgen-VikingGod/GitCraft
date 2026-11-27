@@ -13,15 +13,20 @@ path = "src/main.rs"
 
 [dependencies]
 # Shared Craft libraries (MIT OR Apache-2.0), pinned to the same commit of https://github.com/storytold/craft-libs 
-craft-atomic = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f" }
-craft-dialogs = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f" }
-craft-i18n = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f" }
-craft-keymap = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f", features = ["egui"] }
-craft-menu = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f" }
-craft-platform = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f", features = ["appearance", "egui"] }
-craft-quit = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f", features = ["egui"] }
-craft-settings = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f" }
-craft-window = { git = "https://github.com/storytold/craft-libs", rev = "48c57b5fafa170eb9c77c1d9fef0be0f09876f1f", features = ["egui", "restore"] }
+craft-atomic = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-automation = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9", features = ["ui"] }
+craft-behavior = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-dialogs = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-host = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-i18n = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-keymap = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9", features = ["egui"] }
+craft-menu = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-platform = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9", features = ["appearance"] }
+craft-quit = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9", features = ["ui"] }
+craft-settings = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-theme = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-ui = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9" }
+craft-window = { git = "https://github.com/storytold/craft-libs", rev = "e9da0dfb37ab5e35c4c6f35949b36f09b8dcfcf9", features = ["ui"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 gitcraft-core = { path = "../gitcraft-core" }
 eframe = { version = "=0.37.0", default-features = false, features = [
