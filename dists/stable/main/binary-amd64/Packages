@@ -1,0 +1,85 @@
+Package: git-craft
+Architecture: amd64
+Version: 0.4.0
+Priority: optional
+Maintainer: Jürgen Könnemann
+Installed-Size: 21089
+Depends: git, libxkbcommon0, libwayland-client0, libgl1
+Filename: pool/main/gitcraft_0.4.0_amd64.deb
+Size: 9350220
+MD5sum: 1044bd5163f19f0662441a81e2859e24
+SHA1: 26bbf8339d04924efc937476c136824dbc1e4a79
+SHA256: 9241c45cf8631eb7f89f280c690ae73fbbcd1f0753e025f4fa0fc54150b644d4
+SHA512: cb1971993026d353a86853a43502af26c9a06e455e772bed4044fa6cf02d01aa987e1da8ff4cf610498edeb294fef8fcd9629fa982598a6e98c88de7509b7f51
+Homepage: https://github.com/Jorgen-VikingGod/GitCraft
+Description: Open-source, cross-platform Git GUI
+ (none)
+
+Package: git-craft
+Architecture: amd64
+Version: 0.4.1
+Priority: optional
+Maintainer: Jürgen Könnemann
+Installed-Size: 21089
+Depends: git, libxkbcommon0, libwayland-client0, libgl1
+Filename: pool/main/gitcraft_0.4.1_amd64.deb
+Size: 9349218
+MD5sum: a05651c1662e10ae6d280552085b46d1
+SHA1: 7d383f7abd73f56221c165d859c8015161b59092
+SHA256: c24463abe9b9d0ebedb82abb2b3a4a7ade7b48e3c77ab82ed9c2ae9abacd4313
+SHA512: 1e975340c2f620b547b71f7c0cddca422579580f9d9f77c7305e0faf92fe2c6ccc983441b47fcd216f8075b573d410f694ef55f2470b5a370df85f66b9d20f46
+Homepage: https://github.com/Jorgen-VikingGod/GitCraft
+Description: Open-source, cross-platform Git GUI
+ (none)
+
+Package: git-craft
+Architecture: amd64
+Version: 0.5.0
+Priority: optional
+Maintainer: Jürgen Könnemann
+Installed-Size: 22419
+Depends: git, libxkbcommon0, libwayland-client0, libgl1
+Filename: pool/main/gitcraft_0.5.0_amd64.deb
+Size: 9919020
+MD5sum: 42cf4366a4df44294e688e1c468d38ec
+SHA1: 618b947e9c466e80fafee78cbb85e4e0c05c403e
+SHA256: 6f84c42aff6cba02f70a597d7dee3e71ab841d71f31dcdd3a618f4978a50852c
+SHA512: 4b5b8e8651a169c250e7619a5b757672beef3a00145f56ef5ac1549f1701bc8a8d976f88934d8dde84cfed3dd846546e55e4addc33f2bdad838971b7200e1a90
+Homepage: https://github.com/Jorgen-VikingGod/GitCraft
+Description: Open-source, cross-platform Git GUI
+ (none)
+
+Package: git-craft
+Architecture: amd64
+Version: 0.6.0
+Priority: optional
+Maintainer: Jürgen Könnemann
+Installed-Size: 22743
+Depends: git, libxkbcommon0, libwayland-client0, libgl1
+Filename: pool/main/gitcraft_0.6.0_amd64.deb
+Size: 10040330
+MD5sum: c530b7cd7037277fc57b0fdcfbd0381e
+SHA1: 59231bd3dffc5998c39975314d269b4a7841cb38
+SHA256: 1f598342ed1dee800055acbd1d5e8cd0a4395510b50a9d06f70d61b594d99e74
+SHA512: 74b6e5af8b7fcf167fedbe237830c2341d3aab294ff406ae7cf0d12c39e09913fb0d59927cc922bd7fcfca92ebeb40a51fa6564f6555ff1a3d1617c9bc168e82
+Homepage: https://github.com/Jorgen-VikingGod/GitCraft
+Description: Open-source, cross-platform Git GUI
+ (none)
+
+Package: git-craft
+Architecture: amd64
+Version: 0.7.0
+Priority: optional
+Maintainer: Jürgen Könnemann
+Installed-Size: 34778
+Depends: git, libxkbcommon0, libwayland-client0, libgl1
+Filename: pool/main/gitcraft_0.7.0_amd64.deb
+Size: 15411470
+MD5sum: f4fd3632a921847fbe35a1abf7703da7
+SHA1: c266a4e78e0701511da68515958ab4490360ee7f
+SHA256: 225b9cd611beb3e3230dc73e7a7287320fc90e72bbd59dfe2d3c8672724242fb
+SHA512: 304e7821798cf4d1229169568c2aed300356abe9d5289458b7317b668ea9255beb54f7db7c9c6774d3381eaea20d7c12a1c89efbe069416639ddc69cb0a48c6d
+Homepage: https://github.com/Jorgen-VikingGod/GitCraft
+Description: Open-source, cross-platform Git GUI
+ (none)
+

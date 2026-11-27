@@ -1,0 +1,42 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: amd64
+Codename: stable
+Components: main
+Date: Fri, 27 Nov 2026 15:10:23 +0000
+Label: GitCraft
+Origin: GitCraft
+Suite: stable
+MD5Sum:
+ a3d1caf47105a4e2569a27588d17cd0f              140 Release
+ 3105485a585f6d6604dd5c1ecd51eeb0             3262 main/binary-amd64/Packages
+ e55b39ed12cbd51700efcc9097deef6f             1260 main/binary-amd64/Packages.gz
+SHA1:
+ 70d416ad526b86565d933bcc3f0bcf6c361ecdea              140 Release
+ c5494188f5449f8427940266f8c7b8229fb55f10             3262 main/binary-amd64/Packages
+ 3249ac867c0c44053fe15ab6d49d067c929db373             1260 main/binary-amd64/Packages.gz
+SHA256:
+ 38f2f76756b9d72df567d6f7dcbd93a40e163af5150b3a83556f7b52e266a6b7              140 Release
+ ba444a7c9aea6549f4818bd5ffd3c74a3511aeb6a213cdd28f61aa3dc0eb250d             3262 main/binary-amd64/Packages
+ 5e26e9083a9344a0bb701d2c12e7deb2f56b8e5dc1ba7b5f2a4a7bf068a35936             1260 main/binary-amd64/Packages.gz
+SHA512:
+ e48c3afe801e9f18ca3c2cacb548b86190eca325c9b2f23fba9f259417b367b3f8d055f15808cdd8124bb3c0511424906b8dafc136907f99f7665d643b32f406              140 Release
+ fecd38a5af1c475abd5abed9c87130f82b3a1c3ade633a733db7e1230d98315d74146d3dc9a1358929870a16684031d4f60ee2841b71da0d82453596ce41b50a             3262 main/binary-amd64/Packages
+ 06fc714f7a5f82d44254bb479668257430487766ff53d46124db9a9a9726265d763ecca505681973846b82ba3d7f003dbcc23082570dc317066007adc0042878             1260 main/binary-amd64/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEa0Mp+lRXlRgEK6OQ5MbaGCZ+uMgFAmsJnV8ACgkQ5MbaGCZ+
+uMjqYhAAgL4agVr2onhFzC2HYBs046itZ49IQKKm2PjzCMSkveJvpx1NB60zBF4e
+MQW+LkWHWV1xXn0XTgnSVp6JCEWOsTPYRVjLZIU2nDRsEzevNtZfES+I3X3I5X7S
+qunml55uNopZyLH2oQyei7k4nGEn6BsEYO0IbufqC1b/9JJzefzOiKsV7ELh6yDG
+6AHjwI7o01nrcdxl4BOSy5Fr1pe2YWnL5gtIDeDWACeM+vxVWUCc1BbcBUB/Of4r
+grSRS33Q8lHCmVucIzyh9vBr1ma6holqN2p+zhAi8FyKnbe2BR3yDtvLS8x4ft1d
+sUGPi7jpX2Q5UnoYmPE8eyP36C/3OJjHfqoUCk6Lmq6ZceIroOgoeAEi1n8IIQkJ
+IdYZpLoGL/pF4UMalSgpiNL7hcjFX5FStw6BEFe5tplrDD8Cc3dBfTHTzKe3MncH
+9JQ5JWfu1uwwcMODAVuI5w2ADFkqftiKUBBZhJZIWE2an6cCnnAPXsXT6Ra4pLMd
+6zk1w/pnTrRAUBgoCPguYg2DjSVWdgYW7nQzS9Ny7VS3QEM8+W6NymarYD55HrqA
+9RcGvjLpa8yy9sjqcywu6JxszOsYpc2mV0ffFjkXhNZas26HoFxaz/ynqhTmBwin
+uFx7SUg9HDcp+XfbtUrHfPLgmyzviexSepDiFsKcnv2R0ClR2ck=
+=5eQ/
+-----END PGP SIGNATURE-----
